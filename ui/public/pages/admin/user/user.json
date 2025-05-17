@@ -1,0 +1,397 @@
+{
+  "type": "page",
+  "title": "用户管理",
+  "body": [
+    {
+      "type": "crud",
+      "id": "detailCRUD",
+      "name": "detailCRUD",
+      "autoFillHeight": true,
+      "autoGenerateFilter": {
+        "columnsNum": 4,
+        "showBtnToolbar": false
+      },
+      "headerToolbar": [
+        {
+          "type": "button",
+          "icon": "fas fa-plus text-primary",
+          "actionType": "drawer",
+          "label": "新建用户",
+          "drawer": {
+            "closeOnEsc": true,
+            "closeOnOutside": true,
+            "title": "新建用户  (ESC 关闭)",
+            "body": {
+              "type": "form",
+              "api": "post:/admin/user/save",
+              "body": [
+                {
+                  "type": "input-text",
+                  "name": "username",
+                  "label": "用户名",
+                  "required": true,
+                  "placeholder": "请输入用户名",
+                  "validateOnChange": true,
+                  "validations": {
+                    "minLength": 3,
+                    "maxLength": 20
+                  },
+                  "validationErrors": {
+                    "minLength": "用户名至少 3 个字符",
+                    "maxLength": "用户名最多 20 个字符"
+                  }
+                },
+                {
+                  "label": "用户组",
+                  "type": "checkboxes",
+                  "name": "group_names",
+                  "inline": true,
+                  "multiple": true,
+                  "source": "/admin/user_group/option_list"
+                }
+              ],
+              "submitText": "保存",
+              "resetText": "重置",
+              "messages": {
+                "saveSuccess": "保存成功",
+                "saveFailed": "保存失败"
+              },
+              "onEvent": {
+                "submitSucc": {
+                  "actions": [
+                    {
+                      "actionType": "reload",
+                      "componentId": "detailCRUD"
+                    },
+                    {
+                      "actionType": "closeDrawer"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "columns-toggler",
+          "align": "right",
+          "draggable": true,
+          "icon": "fas fa-cog",
+          "overlay": true,
+          "footerBtnSize": "sm"
+        },
+        {
+          "type": "tpl",
+          "tpl": "共${count}条",
+          "align": "right",
+          "visibleOn": "${count}"
+        },
+        {
+          "type": "columns-toggler",
+          "align": "left"
+        },
+        "reload",
+        "bulkActions"
+      ],
+      "loadDataOnce": false,
+      "syncLocation": false,
+      "initFetch": true,
+      "perPage": 10,
+      "bulkActions": [
+        {
+          "label": "批量删除",
+          "actionType": "ajax",
+          "confirmText": "确定要批量删除?",
+          "api": "/admin/user/delete/${ids}"
+        }
+      ],
+      "footerToolbar": [
+        {
+          "type": "pagination",
+          "align": "right"
+        },
+        {
+          "type": "statistics",
+          "align": "right"
+        },
+        {
+          "type": "switch-per-page",
+          "align": "right"
+        }
+      ],
+      "api": "get:/admin/user/list",
+      "columns": [
+        {
+          "type": "operation",
+          "label": "操作",
+          "width": 120,
+          "buttons": [
+            {
+              "type": "button",
+              "icon": "fas fa-edit text-primary",
+              "actionType": "drawer",
+              "tooltip": "编辑用户",
+              "drawer": {
+                "closeOnEsc": true,
+                "closeOnOutside": true,
+                "title": "编辑用户  (ESC 关闭)",
+                "body": {
+                  "type": "form",
+                  "api": "post:/admin/user/save",
+                  "body": [
+                    {
+                      "type": "hidden",
+                      "name": "id"
+                    },
+                    {
+                      "type": "input-text",
+                      "name": "username",
+                      "label": "用户名",
+                      "required": true,
+                      "placeholder": "请输入用户名",
+                      "validateOnChange": true,
+                      "validations": {
+                        "minLength": 3,
+                        "maxLength": 20
+                      },
+                      "validationErrors": {
+                        "minLength": "用户名至少 3 个字符",
+                        "maxLength": "用户名最多 20 个字符"
+                      }
+                    },
+                    {
+                      "label": "用户组",
+                      "type": "checkboxes",
+                      "name": "group_names",
+                      "inline": true,
+                      "multiple": true,
+                      "source": "/admin/user_group/option_list"
+                    }
+                  ],
+                  "submitText": "保存",
+                  "resetText": "重置",
+                  "messages": {
+                    "saveSuccess": "保存成功",
+                    "saveFailed": "保存失败"
+                  },
+                  "onEvent": {
+                    "submitSucc": {
+                      "actions": [
+                        {
+                          "actionType": "reload",
+                          "componentId": "detailCRUD"
+                        },
+                        {
+                          "actionType": "closeDrawer"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "button",
+              "icon": "fas fa-key text-primary",
+              "actionType": "drawer",
+              "tooltip": "修改密码",
+              "drawer": {
+                "closeOnEsc": true,
+                "closeOnOutside": true,
+                "title": "修改密码  (ESC 关闭)",
+                "body": {
+                  "type": "form",
+                  "body": [
+                    {
+                      "type": "passwordEditor",
+                      "api": "/admin/user/update_psw/${id}"
+                    }
+                  ],
+                  "submitText": "保存",
+                  "resetText": "重置",
+                  "messages": {
+                    "saveSuccess": "密码设置成功",
+                    "saveFailed": "密码设置失败"
+                  },
+                  "onEvent": {
+                    "submitSucc": {
+                      "actions": [
+                        {
+                          "actionType": "reload",
+                          "componentId": "detailCRUD"
+                        },
+                        {
+                          "actionType": "closeDrawer"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "actions": []
+              }
+            },
+            {
+              "type": "button",
+              "tooltip": "集群授权",
+              "icon": "fas fa-user-shield  text-primary",
+              "actionType": "drawer",
+              "drawer": {
+                "closeOnEsc": true,
+                "closeOnOutside": true,
+                "title": "$username 已获得授权列表  (ESC 关闭)",
+                "size": "lg",
+                "body": [
+                  {
+                    "type": "alert",
+                    "level": "success",
+                    "body": "<div class='alert alert-info'><p><strong>普通用户需要授权，不授权看不到任何集群。授权规则如下：</strong></p><p><strong>集群管理员：</strong>可以管理和操作所有集群资源，包括创建、修改、删除等操作。</p><p><strong>集群只读：</strong>仅可查看集群资源信息，无法进行修改操作。</p><p><strong>Exec权限：</strong>具有进入容器内，执行命令的权限</p><p><strong>限制命名空间：</strong>置空表示不限制，可访问该集群下所有的命名空间。如果填写了，那么用户就只能访问指定的命名空间了。</p><p><strong>授权类型：</strong>可以为用户、用户组分别授权，当为用户组时，对组内所有用户生效操作。</p></div>"
+                  },
+                  {
+                    "type": "crud",
+                    "api": "get:/admin/cluster_permissions/user/$username/list",
+                    "autoFillHeight": true,
+                    "autoGenerateFilter": {
+                      "columnsNum": 4,
+                      "showBtnToolbar": false
+                    },
+                    "headerToolbar": [
+                      {
+                        "type": "columns-toggler",
+                        "align": "right",
+                        "draggable": true,
+                        "icon": "fas fa-cog",
+                        "overlay": true,
+                        "footerBtnSize": "sm"
+                      },
+                      {
+                        "type": "tpl",
+                        "tpl": "共${count}条",
+                        "align": "right",
+                        "visibleOn": "${count}"
+                      },
+                      {
+                        "type": "columns-toggler",
+                        "align": "left"
+                      },
+                      "reload",
+                      "bulkActions"
+                    ],
+                    "loadDataOnce": false,
+                    "syncLocation": false,
+                    "initFetch": true,
+                    "perPage": 10,
+                    "bulkActions": [
+                      {
+                        "label": "批量删除",
+                        "actionType": "ajax",
+                        "confirmText": "确定要批量删除?",
+                        "api": "post:/admin/cluster_permissions/${ids}"
+                      }
+                    ],
+                    "columns": [
+                      {
+                        "name": "username",
+                        "label": "用户名"
+                      },
+                      {
+                        "name": "cluster",
+                        "label": "集群"
+                      },
+                      {
+                        "name": "role",
+                        "label": "角色",
+                        "type": "mapping",
+                        "map": {
+                          "cluster_admin": "集群管理员",
+                          "cluster_readonly": "集群只读",
+                          "cluster_pod_exec": "Exec权限"
+                        }
+                      },
+                      {
+                        "name": "namespaces",
+                        "label": "限制命名空间",
+                        "type": "tpl",
+                        "tpl": "${namespaces | split:',')}",
+                        "placeholder": "-"
+                      },
+                      {
+                        "name": "authorization_type",
+                        "label": "授权类型",
+                        "type": "mapping",
+                        "map": {
+                          "user": "<span class='label label-success'>用户</span>",
+                          "user_group": "<span class='label label-warning'>用户组</span>",
+                          "*": "<span class='label label-success'>用户</span>"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "toggled": true
+        },
+        {
+          "name": "username",
+          "label": "用户名",
+          "type": "text",
+          "width": "180px",
+          "sortable": true,
+          "searchable": {
+            "type": "input-text",
+            "name": "username",
+            "clearable": true,
+            "label": "用户名",
+            "placeholder": "输入用户名"
+          }
+        },
+        {
+          "label": "用户组",
+          "type": "text",
+          "name": "group_names"
+        },
+        {
+          "name": "two_fa_enabled",
+          "label": "2FA状态",
+          "type": "container",
+          "body": [
+            {
+              "type": "tpl",
+              "tpl": "${two_fa_enabled ? `<span class=\"text-success\"><i class=\"fas fa-shield-alt\"></i> ${two_fa_type || 'TOTP'} ${two_fa_app_name}</span>` : `<span class=\"text-muted\"><i class=\"fas fa-shield-alt\"></i> 未启用</span>`}"
+            },
+            {
+              "type": "button",
+              "actionType": "ajax",
+              "label": "关闭",
+              "level": "link",
+              "confirmText": "确定要关闭2FA验证吗？关闭后将不再需要验证码登录。",
+              "api": "post:/admin/user/2fa/disable/${id}",
+              "visibleOn": "two_fa_enabled===true",
+              "onEvent": {
+                "success": {
+                  "actions": [
+                    {
+                      "actionType": "reload",
+                      "componentId": "detailCRUD"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "label": "来源",
+          "type": "text",
+          "name": "source"
+        },
+        {
+          "name": "created_at",
+          "label": "创建时间",
+          "type": "datetime"
+        }
+      ]
+    }
+  ]
+}

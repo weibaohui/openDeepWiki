@@ -1,0 +1,44 @@
+{
+  "name": "openDeepWiki",
+  "scripts": {
+    "dev": "vite --mode development",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.6.1",
+    "@ant-design/x": "^1.2.0",
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "amis": "^6.12.0",
+    "amis-core": "^6.12.0",
+    "amis-formula": "^6.12.0",
+    "amis-ui": "^6.12.0",
+    "antd": "^5.25.1",
+    "axios": "^1.9.0",
+    "copy-to-clipboard": "^3.3.3",
+    "crypto-js": "^4.2.0",
+    "dayjs": "^1.11.13",
+    "jwt-decode": "^4.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-draggable": "^4.4.6",
+    "react-router-dom": "^6.30.0",
+    "zustand": "^5.0.4"
+  },
+  "devDependencies": {
+    "@types/file-saver": "^2.0.7",
+    "@types/fs-extra": "^11.0.4",
+    "@types/js-yaml": "^4.0.9",
+    "@types/react": "^18.3.21",
+    "@types/react-dom": "^18.3.7",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "fs-extra": "^11.3.0",
+    "sass": "^1.89.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}

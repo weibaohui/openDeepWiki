@@ -1,0 +1,35 @@
+FROM golang:1.24-alpine  AS golang-builder
+ARG VERSION
+ARG GIT_COMMIT
+ARG MODEL
+ARG API_KEY
+ARG API_URL
+ARG GIT_TAG
+ARG GIT_REPOSITORY
+ARG BUILD_DATE
+ENV GOPROXY="https://goproxy.io"
+
+WORKDIR /app
+
+ADD . .
+
+RUN apk add upx
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go build -ldflags "-s -w  -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT  -X main.GitTag=$GIT_TAG  -X main.GitRepo=$GIT_REPOSITORY  -X main.BuildDate=$BUILD_DATE  -o openDeepWiki . && apk add upx && upx -9 openDeepWiki
+
+### build final image
+FROM alpine:3.21
+
+WORKDIR /app
+
+ENV TZ=Asia/Shanghai
+
+COPY --from=golang-builder /app/openDeepWiki .
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk upgrade && apk add --no-cache curl bash inotify-tools  alpine-conf busybox-extras sqlite tzdata \
+    && apk del alpine-conf && rm -rf /var/cache/* && chmod +x openDeepWiki
+#openDeepWiki Server
+EXPOSE 3721
+
+ENTRYPOINT ["/app/openDeepWiki"]

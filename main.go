@@ -1,0 +1,224 @@
+package main
+
+import (
+	"embed"
+	"fmt"
+	"io/fs"
+	"net/http"
+	"os"
+
+	"github.com/fatih/color"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/gzip"
+	"github.com/gin-gonic/gin"
+	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/config"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/mcp"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/user"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/chat"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/login"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/param"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/sso"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/user/mcpkey"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/user/profile"
+	"github.com/weibaohui/openDeepWiki/pkg/flag"
+	"github.com/weibaohui/openDeepWiki/pkg/middleware"
+	_ "github.com/weibaohui/openDeepWiki/pkg/models" // 注册模型
+	"github.com/weibaohui/openDeepWiki/pkg/service"
+	"k8s.io/klog/v2"
+)
+
+//go:embed ui/dist/*
+var embeddedFiles embed.FS
+var Version string
+var GitCommit string
+var GitTag string
+var GitRepo string
+var BuildDate string
+
+// Init 完成服务的初始化，包括加载配置、设置版本信息、初始化 AI 服务、注册集群及其回调，并启动资源监控。
+func Init() {
+	// 初始化配置
+	cfg := flag.Init()
+	// 从数据库中更新配置
+	err := service.ConfigService().UpdateFlagFromDBConfig()
+	if err != nil {
+		klog.Errorf("加载数据库内配置信息失败 error: %v", err)
+	}
+	cfg.Version = Version
+	cfg.GitCommit = GitCommit
+	cfg.GitTag = GitTag
+	cfg.GitRepo = GitRepo
+	cfg.BuildDate = BuildDate
+	cfg.ShowConfigInfo()
+
+	// 打印版本和 Git commit 信息
+	klog.V(2).Infof("版本: %s\n", Version)
+	klog.V(2).Infof("Git Commit: %s\n", GitCommit)
+	if !cfg.Debug {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	go service.McpService().Init()
+
+}
+
+func main() {
+	Init()
+
+	r := gin.Default()
+
+	cfg := flag.Init()
+	if !cfg.Debug {
+		// debug 模式可以崩溃
+		r.Use(middleware.CustomRecovery())
+	}
+	r.Use(cors.Default())
+	r.Use(gzip.Gzip(gzip.BestCompression))
+	r.Use(middleware.SetCacheHeaders())
+	r.Use(middleware.AuthMiddleware())
+
+	r.MaxMultipartMemory = 100 << 20 // 100 MiB
+
+	// 挂载子目录
+	pagesFS, _ := fs.Sub(embeddedFiles, "ui/dist/pages")
+	r.StaticFS("/public/pages", http.FS(pagesFS))
+	assetsFS, _ := fs.Sub(embeddedFiles, "ui/dist/assets")
+	r.StaticFS("/assets", http.FS(assetsFS))
+	
+	r.GET("/favicon.ico", func(c *gin.Context) {
+		favicon, _ := embeddedFiles.ReadFile("ui/dist/favicon.ico")
+		c.Data(http.StatusOK, "image/x-icon", favicon)
+	})
+
+	// 直接返回 index.html
+	r.GET("/", func(c *gin.Context) {
+		index, err := embeddedFiles.ReadFile("ui/dist/index.html") // 这里路径必须匹配
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Internal Server Error")
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", index)
+	})
+
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	auth := r.Group("/auth")
+	{
+		auth.POST("/login", login.LoginByPassword)
+		auth.GET("/sso/config", sso.GetSSOConfig)
+		auth.GET("/oidc/:name/sso", sso.GetAuthCodeURL)
+		auth.GET("/oidc/:name/callback", sso.HandleCallback)
+	}
+
+	// 公共参数
+	params := r.Group("/params", middleware.AuthMiddleware())
+	{
+		// 获取当前登录用户的角色，登录即可
+		params.GET("/user/role", param.UserRole)
+		// 获取某个配置项
+		params.GET("/config/:key", param.Config)
+		// 获取当前软件版本信息
+		params.GET("/version", param.Version)
+
+	}
+	ai := r.Group("/ai", middleware.AuthMiddleware())
+	{
+
+		// chatgpt
+		ai.GET("/chat/any_selection", chat.AnySelection)
+		ai.GET("/chat/ws_chatgpt", chat.GPTShell)
+		ai.GET("/chat/ws_chatgpt/history", chat.History)
+		ai.GET("/chat/ws_chatgpt/history/reset", chat.Reset)
+
+	}
+
+	mgm := r.Group("/mgm", middleware.AuthMiddleware())
+	{
+
+		// user profile 用户自助操作
+		mgm.GET("/user/profile", profile.Profile)
+		mgm.POST("/user/profile/update_psw", profile.UpdatePsw)
+		// user profile 2FA 用户自助操作
+		mgm.POST("/user/profile/2fa/generate", profile.Generate2FASecret)
+		mgm.POST("/user/profile/2fa/disable", profile.Disable2FA)
+		mgm.POST("/user/profile/2fa/enable", profile.Enable2FA)
+
+		// MCP密钥管理
+		mgm.GET("/user/profile/mcpkeys/list", mcpkey.List)
+		mgm.POST("/user/profile/mcpkeys/create", mcpkey.Create)
+		mgm.POST("/user/profile/mcpkeys/delete/:id", mcpkey.Delete)
+
+	}
+
+	admin := r.Group("/admin", middleware.PlatformAuthMiddleware())
+	{
+
+		admin.GET("/config/sso/list", config.SSOConfigList)
+		admin.POST("/config/sso/save", config.SSOConfigSave)
+		admin.POST("/config/sso/delete/:ids", config.SSOConfigDelete)
+		admin.POST("/config/sso/save/id/:id/status/:enabled", config.SSOConfigQuickSave)
+		// user 平台管理员可操作，管理用户
+		admin.GET("/user/list", user.List)
+		admin.POST("/user/save", user.Save)
+		admin.POST("/user/delete/:ids", user.Delete)
+		admin.POST("/user/update_psw/:id", user.UpdatePsw)
+		admin.GET("/user/option_list", user.UserOptionList)
+		// 2FA 平台管理员可操作，管理用户
+		admin.POST("/user/2fa/disable/:id", user.Disable2FA)
+		// user_group
+		admin.GET("/user_group/list", user.ListUserGroup)
+		admin.POST("/user_group/save", user.SaveUserGroup)
+		admin.POST("/user_group/delete/:ids", user.DeleteUserGroup)
+		admin.GET("/user_group/option_list", user.GroupOptionList)
+
+		// 平参数配置
+		admin.GET("/config/all", config.GetConfig)
+		admin.POST("/config/update", config.UpdateConfig)
+
+		// mcp
+		admin.GET("/mcp/list", mcp.ServerList)
+		admin.GET("/mcp/server/:name/tools/list", mcp.ToolsList)
+		admin.POST("/mcp/connect/:name", mcp.Connect)
+		admin.POST("/mcp/delete", mcp.Delete)
+		admin.POST("/mcp/save", mcp.AddOrUpdate)
+		admin.POST("/mcp/save/id/:id/status/:status", mcp.QuickSave)
+		admin.POST("/mcp/tool/save/id/:id/status/:status", mcp.ToolQuickSave)
+		admin.GET("/mcp/log/list", mcp.MCPLogList)
+
+	}
+
+	showBootInfo(Version, flag.Init().Port)
+	err := r.Run(fmt.Sprintf(":%d", flag.Init().Port))
+	if err != nil {
+		klog.Fatalf("Error %v", err)
+	}
+}
+
+func showBootInfo(version string, port int) {
+
+	// 获取本机所有 IP 地址
+	ips, err := utils.GetLocalIPs()
+	if err != nil {
+		klog.Fatalf("获取本机 IP 失败: %v", err)
+		os.Exit(1)
+	}
+	// 打印 Vite 风格的启动信息
+	color.Green("%s  启动成功", version)
+	fmt.Printf("%s  ", color.GreenString("➜"))
+	fmt.Printf("%s    ", color.New(color.Bold).Sprint("Local:"))
+	fmt.Printf("%s\n", color.MagentaString("http://localhost:%d/", port))
+
+	for _, ip := range ips {
+		fmt.Printf("%s  ", color.GreenString("➜"))
+		fmt.Printf("%s  ", color.New(color.Bold).Sprint("Network:"))
+		fmt.Printf("%s\n", color.MagentaString("http://%s:%d/", ip, port))
+	}
+
+}
