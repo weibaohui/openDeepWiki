@@ -1,7 +1,7 @@
-import {useNavigate} from "react-router-dom";
-import type {MenuProps} from 'antd';
-import {useEffect, useState} from 'react';
-import {fetcher} from '../Amis/fetcher';
+import { useNavigate } from "react-router-dom";
+import type { MenuProps } from 'antd';
+import { useEffect, useState } from 'react';
+import { fetcher } from '../Amis/fetcher';
 
 // 定义用户角色接口
 interface UserRoleResponse {
@@ -88,6 +88,12 @@ const items: () => MenuItem[] = () => {
                         icon: <i className="fa-solid fa-right-to-bracket"></i>,
                         key: "sso_config",
                         onClick: () => onMenuClick('/admin/config/sso_config')
+                    },
+                    {
+                        label: "代码仓库",
+                        icon: <i className="fa-solid fa-code-branch"></i>,
+                        key: "repo_management",
+                        onClick: () => onMenuClick('/admin/repo/repo')
                     }
                 ],
             },

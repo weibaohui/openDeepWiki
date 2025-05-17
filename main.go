@@ -14,6 +14,7 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/config"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/mcp"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/repo"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/user"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/chat"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/login"
@@ -79,12 +80,54 @@ func main() {
 
 	r.MaxMultipartMemory = 100 << 20 // 100 MiB
 
+	// Admin routes
+	adminGroup := r.Group("/admin")
+	adminGroup.Use(middleware.RequireAdmin())
+	{
+		// user 平台管理员可操作，管理用户
+		adminGroup.GET("/user/list", user.List)
+		adminGroup.POST("/user/save", user.Save)
+		adminGroup.POST("/user/delete/:ids", user.Delete)
+		adminGroup.POST("/user/update_psw/:id", user.UpdatePsw)
+		adminGroup.GET("/user/option_list", user.UserOptionList)
+		// 2FA 平台管理员可操作，管理用户
+		adminGroup.POST("/user/2fa/disable/:id", user.Disable2FA)
+		// user_group
+		adminGroup.GET("/user_group/list", user.ListUserGroup)
+		adminGroup.POST("/user_group/save", user.SaveUserGroup)
+		adminGroup.POST("/user_group/delete/:ids", user.DeleteUserGroup)
+		adminGroup.GET("/user_group/option_list", user.GroupOptionList)
+
+		// 平参数配置
+		adminGroup.GET("/config/all", config.GetConfig)
+		adminGroup.POST("/config/update", config.UpdateConfig)
+
+		// mcp
+		adminGroup.GET("/mcp/list", mcp.ServerList)
+		adminGroup.GET("/mcp/server/:name/tools/list", mcp.ToolsList)
+		adminGroup.POST("/mcp/connect/:name", mcp.Connect)
+		adminGroup.POST("/mcp/delete", mcp.Delete)
+		adminGroup.POST("/mcp/save", mcp.AddOrUpdate)
+		adminGroup.POST("/mcp/save/id/:id/status/:status", mcp.QuickSave)
+		adminGroup.POST("/mcp/tool/save/id/:id/status/:status", mcp.ToolQuickSave)
+		adminGroup.GET("/mcp/log/list", mcp.MCPLogList)
+
+		// sso
+		adminGroup.GET("/config/sso/list", config.SSOConfigList)
+		adminGroup.POST("/config/sso/save", config.SSOConfigSave)
+		adminGroup.POST("/config/sso/delete/:ids", config.SSOConfigDelete)
+		adminGroup.POST("/config/sso/save/id/:id/status/:enabled", config.SSOConfigQuickSave)
+
+		// repo
+		repo.RegisterRoutes(adminGroup)
+	}
+
 	// 挂载子目录
 	pagesFS, _ := fs.Sub(embeddedFiles, "ui/dist/pages")
 	r.StaticFS("/public/pages", http.FS(pagesFS))
 	assetsFS, _ := fs.Sub(embeddedFiles, "ui/dist/assets")
 	r.StaticFS("/assets", http.FS(assetsFS))
-	
+
 	r.GET("/favicon.ico", func(c *gin.Context) {
 		favicon, _ := embeddedFiles.ReadFile("ui/dist/favicon.ico")
 		c.Data(http.StatusOK, "image/x-icon", favicon)
@@ -154,43 +197,6 @@ func main() {
 		mgm.GET("/user/profile/mcpkeys/list", mcpkey.List)
 		mgm.POST("/user/profile/mcpkeys/create", mcpkey.Create)
 		mgm.POST("/user/profile/mcpkeys/delete/:id", mcpkey.Delete)
-
-	}
-
-	admin := r.Group("/admin", middleware.PlatformAuthMiddleware())
-	{
-
-		admin.GET("/config/sso/list", config.SSOConfigList)
-		admin.POST("/config/sso/save", config.SSOConfigSave)
-		admin.POST("/config/sso/delete/:ids", config.SSOConfigDelete)
-		admin.POST("/config/sso/save/id/:id/status/:enabled", config.SSOConfigQuickSave)
-		// user 平台管理员可操作，管理用户
-		admin.GET("/user/list", user.List)
-		admin.POST("/user/save", user.Save)
-		admin.POST("/user/delete/:ids", user.Delete)
-		admin.POST("/user/update_psw/:id", user.UpdatePsw)
-		admin.GET("/user/option_list", user.UserOptionList)
-		// 2FA 平台管理员可操作，管理用户
-		admin.POST("/user/2fa/disable/:id", user.Disable2FA)
-		// user_group
-		admin.GET("/user_group/list", user.ListUserGroup)
-		admin.POST("/user_group/save", user.SaveUserGroup)
-		admin.POST("/user_group/delete/:ids", user.DeleteUserGroup)
-		admin.GET("/user_group/option_list", user.GroupOptionList)
-
-		// 平参数配置
-		admin.GET("/config/all", config.GetConfig)
-		admin.POST("/config/update", config.UpdateConfig)
-
-		// mcp
-		admin.GET("/mcp/list", mcp.ServerList)
-		admin.GET("/mcp/server/:name/tools/list", mcp.ToolsList)
-		admin.POST("/mcp/connect/:name", mcp.Connect)
-		admin.POST("/mcp/delete", mcp.Delete)
-		admin.POST("/mcp/save", mcp.AddOrUpdate)
-		admin.POST("/mcp/save/id/:id/status/:status", mcp.QuickSave)
-		admin.POST("/mcp/tool/save/id/:id/status/:status", mcp.ToolQuickSave)
-		admin.GET("/mcp/log/list", mcp.MCPLogList)
 
 	}
 

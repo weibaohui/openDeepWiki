@@ -49,6 +49,9 @@ func AutoMigrate() error {
 	if err := dao.DB().AutoMigrate(&McpKey{}); err != nil {
 		errs = append(errs, err)
 	}
+	if err := dao.DB().AutoMigrate(&Repo{}); err != nil {
+		errs = append(errs, err)
+	}
 	// 打印所有非nil的错误
 	for _, err := range errs {
 		if err != nil {

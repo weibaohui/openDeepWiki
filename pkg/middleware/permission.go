@@ -37,3 +37,22 @@ func RolePlatformOnly(handler interface{}) gin.HandlerFunc {
 		handlerValue.Call([]reflect.Value{reflect.ValueOf(c)})
 	}
 }
+
+// RequireAdmin 检查用户是否为管理员的中间件
+func RequireAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		_, role := amis.GetLoginUser(c)
+		if role == "" {
+			role = "guest"
+		}
+
+		roles := strings.Split(role, ",")
+		if !slices.Contains(roles, constants.RolePlatformAdmin) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "需要管理员权限"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
