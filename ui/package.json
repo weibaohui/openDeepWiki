@@ -1,5 +1,5 @@
 {
-  "name": "openDeepWiki",
+  "name": "open-deep-wiki",
   "scripts": {
     "dev": "vite --mode development",
     "build": "tsc && vite build",
