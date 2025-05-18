@@ -12,7 +12,7 @@ ADD . .
 
 RUN apk add upx
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go build -ldflags "-s -w  -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT  -X main.GitTag=$GIT_TAG  -X main.GitRepo=$GIT_REPOSITORY  -X main.BuildDate=$BUILD_DATE  -o openDeepWiki .  && upx -9 openDeepWiki
+    go build -ldflags "-s -w  -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT  -X main.GitTag=$GIT_TAG  -X main.GitRepo=$GIT_REPOSITORY  -X main.BuildDate=$BUILD_DATE " -o openDeepWiki .  && upx -9 openDeepWiki
 
 FROM alpine:3.21
 
