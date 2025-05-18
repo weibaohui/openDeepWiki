@@ -1,9 +1,6 @@
 FROM golang:alpine AS builder
 ARG VERSION
 ARG GIT_COMMIT
-ARG MODEL
-ARG API_KEY
-ARG API_URL
 WORKDIR /app
 COPY go.mod go.sum /app/
 RUN go mod download

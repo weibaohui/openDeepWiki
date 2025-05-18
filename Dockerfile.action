@@ -1,9 +1,6 @@
 FROM golang:1.24-alpine  AS golang-builder
 ARG VERSION
 ARG GIT_COMMIT
-ARG MODEL
-ARG API_KEY
-ARG API_URL
 ARG GIT_TAG
 ARG GIT_REPOSITORY
 ARG BUILD_DATE
@@ -15,9 +12,8 @@ ADD . .
 
 RUN apk add upx
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go build -ldflags "-s -w  -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT  -X main.GitTag=$GIT_TAG  -X main.GitRepo=$GIT_REPOSITORY  -X main.BuildDate=$BUILD_DATE  -o openDeepWiki . && apk add upx && upx -9 openDeepWiki
+    go build -ldflags "-s -w  -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT  -X main.GitTag=$GIT_TAG  -X main.GitRepo=$GIT_REPOSITORY  -X main.BuildDate=$BUILD_DATE  -o openDeepWiki .  && upx -9 openDeepWiki
 
-### build final image
 FROM alpine:3.21
 
 WORKDIR /app
