@@ -1,7 +1,7 @@
 package service
 
 var localChatService = &chatService{
-	MaxIterations: 10,
+	MaxIterations: 10000,
 }
 var localUserService = &userService{}
 var localOperationLogService = NewOperationLogService()
