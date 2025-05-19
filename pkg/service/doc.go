@@ -12,6 +12,7 @@ type docService struct {
 	repo *models.Repo
 }
 
+// NewDocService 创建并返回一个基于给定仓库的 docService 实例。
 func NewDocService(repo *models.Repo) *docService {
 	return &docService{
 		repo: repo,
