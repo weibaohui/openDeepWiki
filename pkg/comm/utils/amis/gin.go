@@ -25,11 +25,11 @@ func GetLoginUser(c *gin.Context) (string, string) {
 	role := c.GetString(constants.JwtUserRole)
 
 	roles := strings.Split(role, ",")
-	role = constants.RoleGuest
+	role = constants.RoleUser
 
 	// 检查是否平台管理员
-	if slice.Contain(roles, constants.RolePlatformAdmin) {
-		role = constants.RolePlatformAdmin
+	if slice.Contain(roles, constants.RoleAdmin) {
+		role = constants.RoleAdmin
 	}
 	return user, role
 }
@@ -41,11 +41,11 @@ func GetLoginUserWithClusterRoles(c *gin.Context) (string, string) {
 	role := c.GetString(constants.JwtUserRole)
 
 	roles := strings.Split(role, ",")
-	role = constants.RoleGuest
+	role = constants.RoleUser
 
 	// 检查是否平台管理员
-	if slice.Contain(roles, constants.RolePlatformAdmin) {
-		role = constants.RolePlatformAdmin
+	if slice.Contain(roles, constants.RoleAdmin) {
+		role = constants.RoleAdmin
 	}
 
 	return user, role
@@ -56,7 +56,7 @@ func GetLoginUserWithClusterRoles(c *gin.Context) (string, string) {
 func IsCurrentUserPlatformAdmin(c *gin.Context) bool {
 	role := c.GetString(constants.JwtUserRole)
 	roles := strings.Split(role, ",")
-	return slice.Contain(roles, constants.RolePlatformAdmin)
+	return slice.Contain(roles, constants.RoleAdmin)
 }
 
 func GetContextWithUser(c *gin.Context) context.Context {

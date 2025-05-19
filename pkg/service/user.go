@@ -132,7 +132,7 @@ func (u *userService) CheckAndCreateUser(username, source string) error {
 func (u *userService) GetPlatformRolesByName(username string) string {
 	cfg := flag.Init()
 	if cfg.EnableTempAdmin && username == cfg.AdminUserName {
-		return constants.RolePlatformAdmin
+		return constants.RoleAdmin
 	}
 	if names, err := u.GetGroupNames(username); err == nil {
 		if rolesByGroupNames, err := u.GetRolesByGroupNames(names); err == nil {
