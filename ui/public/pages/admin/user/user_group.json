@@ -44,11 +44,11 @@
                   "options": [
                     {
                       "label": "普通用户",
-                      "value": "guest"
+                      "value": "user"
                     },
                     {
                       "label": "平台管理员",
-                      "value": "platform_admin"
+                      "value": "admin"
                     }
                   ],
                   "placeholder": "请选择角色"
@@ -58,17 +58,8 @@
                   "name": "description",
                   "label": "描述",
                   "placeholder": "请输入用户组描述"
-                },
-                {
-                  "type": "alert",
-                  "level": "success",
-                  "body": "<div class='alert alert-info'><p><strong>普通用户：</strong>无集群权限，除非在集群中进行显式授权。</p><p><strong>平台管理员：</strong>可以管理平台配置、用户权限等系统级设置。</p></div>"
-                },
-                {
-                  "type": "alert",
-                  "level": "success",
-                  "body": "<div class='alert alert-info'><p><strong>普通用户需要授权，不授权看不到任何集群。授权规则如下：</strong></p><p><strong>集群管理员：</strong>可以管理和操作所有集群资源，包括创建、修改、删除等操作。</p><p><strong>集群只读：</strong>仅可查看集群资源信息，无法进行修改操作。</p><p><strong>Exec权限：</strong>具有进入容器内，执行命令的权限</p></div>"
                 }
+
               ],
               "submitText": "保存",
               "onEvent": {
@@ -124,11 +115,11 @@
                       "options": [
                         {
                           "label": "普通用户",
-                          "value": "guest"
+                          "value": "user"
                         },
                         {
-                          "label": "平台管理员",
-                          "value": "platform_admin"
+                          "label": "管理员",
+                          "value": "admin"
                         }
                       ],
                       "placeholder": "请选择角色"
@@ -137,17 +128,8 @@
                       "type": "textarea",
                       "name": "description",
                       "label": "描述"
-                    },
-                    {
-                      "type": "alert",
-                      "level": "success",
-                      "body": "<div class='alert alert-info'><p><strong>普通用户：</strong>无集群权限，除非在集群中进行显式授权。</p><p><strong>平台管理员：</strong>可以管理平台配置、用户权限等系统级设置。</p></div>"
-                    },
-                    {
-                      "type": "alert",
-                      "level": "success",
-                      "body": "<div class='alert alert-info'><p><strong>普通用户需要授权，不授权看不到任何集群。授权规则如下：</strong></p><p><strong>集群管理员：</strong>可以管理和操作所有集群资源，包括创建、修改、删除等操作。</p><p><strong>集群只读：</strong>仅可查看集群资源信息，无法进行修改操作。</p><p><strong>Exec权限：</strong>具有进入容器内，执行命令的权限</p></div>"
                     }
+
                   ]
                 }
               }
@@ -175,8 +157,8 @@
           "label": "角色",
           "type": "mapping",
           "map": {
-            "guest": "普通用户",
-            "platform_admin": "平台管理员"
+            "user": "普通用户",
+            "admin": "管理员"
           },
           "searchable": {
             "type": "select",
@@ -186,16 +168,13 @@
             "placeholder": "请选择角色",
             "options": [
               {
-                "label": "集群管理员",
-                "value": "cluster_admin"
+                "label": "普通用户",
+                "value": "user"
               },
+
               {
-                "label": "集群只读",
-                "value": "cluster_readonly"
-              },
-              {
-                "label": "平台管理员",
-                "value": "platform_admin"
+                "label": "管理员",
+                "value": "admin"
               }
             ]
           }

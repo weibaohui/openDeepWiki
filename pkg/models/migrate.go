@@ -105,16 +105,16 @@ func AddInnerAdminUser() error {
 	if count == 0 {
 		config := &User{
 			Username:   "admin",
-			Salt:       "grfi92rq",
-			Password:   "8RGCXWw6IzgKDPyeFKt6Kw==",
-			GroupNames: "平台管理员组",
+			Salt:       "oi09q0ng",
+			Password:   "gw0rZUYbEqZ4U8S5Jse3Lw==",
+			GroupNames: "管理员组",
 			CreatedBy:  "system",
 		}
 		if err := dao.DB().Create(config).Error; err != nil {
-			klog.Errorf("添加默认平台管理员账户失败: %v", err)
+			klog.Errorf("添加默认管理员账户失败: %v", err)
 			return err
 		}
-		klog.V(4).Info("成功添加默认平台管理员账户")
+		klog.V(4).Info("成功添加默认管理员账户")
 	} else {
 		klog.V(4).Info("默认平台管理员admin账户已存在")
 	}
@@ -126,24 +126,24 @@ func AddInnerAdminUser() error {
 func AddInnerAdminUserGroup() error {
 	// 检查是否存在名为 平台管理员组 的内置管理员账户组的记录
 	var count int64
-	if err := dao.DB().Model(&UserGroup{}).Where("group_name = ?", "平台管理员组").Count(&count).Error; err != nil {
-		klog.Errorf("已存在内置 平台管理员组 角色: %v", err)
+	if err := dao.DB().Model(&UserGroup{}).Where("group_name = ?", "管理员组").Count(&count).Error; err != nil {
+		klog.Errorf("已存在内置 管理员组 角色: %v", err)
 		return err
 	}
 	// 如果不存在，添加默认的内部MCP服务器配置
 	if count == 0 {
 		config := &UserGroup{
-			GroupName: "平台管理员组",
-			Role:      "platform_admin",
+			GroupName: "管理员组",
+			Role:      "admin",
 			CreatedBy: "system",
 		}
 		if err := dao.DB().Create(config).Error; err != nil {
-			klog.Errorf("添加默认平台管理员组失败: %v", err)
+			klog.Errorf("添加默认管理员组失败: %v", err)
 			return err
 		}
-		klog.V(4).Info("成功添加默认平台管理员组")
+		klog.V(4).Info("成功添加默认管理员组")
 	} else {
-		klog.V(4).Info("默认平台管理员组已存在")
+		klog.V(4).Info("默认管理员组已存在")
 	}
 
 	return nil
