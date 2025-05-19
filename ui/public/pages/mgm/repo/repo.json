@@ -4,15 +4,15 @@
     "body": [
         {
             "type": "crud",
-            "api": "/admin/repo/list",
-            "quickSaveItemApi": "/admin/repo/save/id/${id}",
+            "api": "/mgm/repo/list",
+            "quickSaveItemApi": "/mgm/repo/save/id/${id}",
             "bulkActions": [
                 {
                     "label": "批量删除",
                     "actionType": "ajax",
                     "confirmText": "确定要批量删除?",
                     "api": {
-                        "url": "/admin/repo/delete",
+                        "url": "/mgm/repo/delete/${ids}",
                         "method": "post",
                         "data": {
                             "ids": "${selectedItems | pick:id }"
@@ -32,7 +32,7 @@
                         "title": "新增仓库",
                         "body": {
                             "type": "form",
-                            "api": "/admin/repo/save",
+                            "api": "/mgm/repo/save",
                             "body": [
                                 {
                                     "type": "input-text",
@@ -100,7 +100,7 @@
                                 "title": "编辑仓库",
                                 "body": {
                                     "type": "form",
-                                    "api": "/admin/repo/save",
+                                    "api": "/mgm/repo/save",
                                     "body": [
                                         {
                                             "type": "hidden",
