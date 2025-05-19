@@ -93,7 +93,8 @@ func (g *gitService) GetRepoPath(repo *models.Repo) (string, error) {
 // cleanGitURL 将 Git URL 转换为标准的目录格式
 // 例如：
 // https://github.com/user/repo.git -> github.com/user/repo
-// git@github.com:user/repo.git -> github.com/user/repo
+// cleanGitURL 将 Git 仓库的 URL 标准化为目录路径格式。
+// 支持去除协议前缀、转换 SSH 风格地址为路径格式，并移除 .git 后缀。
 func cleanGitURL(url string) string {
 	// 移除协议前缀 (https://, git://)
 	for _, prefix := range []string{"https://", "http://", "git://"} {
@@ -121,7 +122,11 @@ func cleanGitURL(url string) string {
 	return url
 }
 
-// isDirEmpty 检查目录是否为空
+// isDirEmpty 判断指定目录是否为空。
+// 如果目录不存在，返回 true 和 nil，表示目录视为“空”。
+// 如果目录存在且无任何文件或子目录，返回 true。
+// 如果目录中存在至少一个文件或子目录，返回 false。
+// 发生其他错误时，返回 false 和相应的错误信息。
 func isDirEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {

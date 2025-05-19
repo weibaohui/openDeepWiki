@@ -59,6 +59,7 @@ func IsCurrentUserPlatformAdmin(c *gin.Context) bool {
 	return slice.Contain(roles, constants.RoleAdmin)
 }
 
+// GetContextWithUser 从 Gin 的请求上下文派生一个新的 context.Context，并将当前登录用户的用户名和角色信息写入该上下文。
 func GetContextWithUser(c *gin.Context) context.Context {
 	user, role := GetLoginUserWithClusterRoles(c)
 	ctx := context.WithValue(c.Request.Context(), constants.JwtUserName, user)
@@ -66,6 +67,7 @@ func GetContextWithUser(c *gin.Context) context.Context {
 
 	return ctx
 }
+// GetNewContextWithUser 创建一个新的背景 context，并将当前登录用户的用户名和角色信息写入 context 中。
 func GetNewContextWithUser(c *gin.Context) context.Context {
 	user, role := GetLoginUserWithClusterRoles(c)
 	ctx := context.WithValue(context.Background(), constants.JwtUserName, user)
