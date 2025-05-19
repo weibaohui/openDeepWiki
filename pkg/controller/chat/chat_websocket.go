@@ -29,7 +29,9 @@ var WebsocketMessageType = map[int]string{
 // - 后端将 AI 回复和工具执行结果实时推送给前端；
 // - 自动处理连接异常、心跳超时和资源释放。
 //
+// GPTShell 将 HTTP 连接升级为 WebSocket，提供集成 ChatGPT 和工具集的交互式聊天终端。
 // 若 AI 服务未启用或参数绑定失败，将返回相应错误信息。
+// 支持双向消息流、连接保活、并发安全写入和用户上下文处理，确保与前端的实时通信和会话体验。
 func GPTShell(c *gin.Context) {
 
 	if !service.AIService().IsEnabled() {
@@ -164,8 +166,8 @@ func GPTShell(c *gin.Context) {
 			klog.V(6).Infof("received %s (type: %v) message of size %v byte(s) from web ui with key sequence: %v  [%s]", dataType, messageType, dataLength, dataBuffer, string(dataBuffer))
 
 			klog.V(6).Infof("prompt: %s", string(data))
-
-			err = service.ChatService().RunOneRound(c, string(data), &outBuffer)
+			ctx := amis.GetContextWithUser(c)
+			err = service.ChatService().RunOneRound(ctx, string(data), &outBuffer)
 
 			if err != nil {
 				klog.V(6).Infof("failed to write %v bytes to tty: %s", len(dataBuffer), err)

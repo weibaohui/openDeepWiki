@@ -69,6 +69,28 @@
             ],
             "columns": [
                 {
+                    "type": "operation",
+                    "label": "操作",
+                    "buttons": [
+                        {
+                            "type": "button",
+                            "label": "init",
+                            "level": "link",
+                            "className": "text-danger",
+                            "actionType": "ajax",
+                            "api": "post:/doc/repo/init"
+                        },
+                        {
+                            "type": "button",
+                            "label": "readme",
+                            "level": "link",
+                            "className": "text-danger",
+                            "actionType": "ajax",
+                            "api": "post:/doc/repo/readme"
+                        }
+                    ]
+                },
+                {
                     "name": "name",
                     "label": "仓库名称"
                 },

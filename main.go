@@ -16,6 +16,7 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/mcp"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/user"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/chat"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/doc"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/login"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/param"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/repo"
@@ -63,6 +64,9 @@ func Init() {
 
 }
 
+// main 启动并配置 Web 服务，注册所有路由和中间件，加载嵌入式静态资源，并监听配置端口。
+// 包括管理后台、认证、AI 聊天、文档、用户自助、仓库管理等 API 分组，以及健康检查和静态页面服务。
+// 启动时输出本地和网络访问地址，若启动失败则记录致命错误。
 func main() {
 	Init()
 
@@ -177,6 +181,13 @@ func main() {
 		ai.GET("/chat/ws_chatgpt", chat.GPTShell)
 		ai.GET("/chat/ws_chatgpt/history", chat.History)
 		ai.GET("/chat/ws_chatgpt/history/reset", chat.Reset)
+
+	}
+	dc := r.Group("/doc", middleware.RequireLogin())
+	{
+
+		dc.POST("/repo/readme", doc.Readme)
+		dc.POST("/repo/init", doc.Init)
 
 	}
 
