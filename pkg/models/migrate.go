@@ -1,7 +1,10 @@
 package models
 
 import (
+	"fmt"
+
 	"github.com/weibaohui/openDeepWiki/internal/dao"
+	"github.com/weibaohui/openDeepWiki/pkg/flag"
 	"k8s.io/klog/v2"
 )
 
@@ -16,6 +19,8 @@ func init() {
 	_ = InitConfigTable()
 	_ = AddInnerAdminUserGroup()
 	_ = AddInnerAdminUser()
+	_ = AddInnerMCPServer()
+
 }
 func AutoMigrate() error {
 
@@ -144,6 +149,38 @@ func AddInnerAdminUserGroup() error {
 		klog.V(4).Info("成功添加默认管理员组")
 	} else {
 		klog.V(4).Info("默认管理员组已存在")
+	}
+
+	return nil
+}
+
+// AddInnerMCPServer 检查并初始化名为 "k8m" 的内部 MCP 服务器配置，不存在则创建，已存在则更新其 URL。
+func AddInnerMCPServer() error {
+	// 检查是否存在名为k8m的记录
+	var count int64
+	if err := dao.DB().Model(&MCPServerConfig{}).Where("name = ?", "openDeepWiki").Count(&count).Error; err != nil {
+		klog.Errorf("查询MCP服务器配置失败: %v", err)
+		return err
+	}
+	cfg := flag.Init()
+	// 如果不存在，添加默认的内部MCP服务器配置
+	if count == 0 {
+		config := &MCPServerConfig{
+			Name:      "openDeepWiki",
+			URL:       fmt.Sprintf("http://localhost:%d/mcp/sse", cfg.Port),
+			Enabled:   true,
+			CreatedBy: "system",
+		}
+		if err := dao.DB().Create(config).Error; err != nil {
+			klog.Errorf("添加内部MCP服务器配置失败: %v", err)
+			return err
+		}
+		klog.V(4).Info("成功添加内部MCP服务器配置")
+	} else {
+		klog.V(4).Info("内部MCP服务器配置已存在")
+		dao.DB().Model(&MCPServerConfig{}).Select("url").
+			Where("name =?", "openDeepWiki").
+			Update("url", fmt.Sprintf("http://localhost:%d/mcp/sse", cfg.Port))
 	}
 
 	return nil
