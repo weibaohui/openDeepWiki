@@ -76,7 +76,7 @@ func main() {
 	r.Use(cors.Default())
 	r.Use(gzip.Gzip(gzip.BestCompression))
 	r.Use(middleware.SetCacheHeaders())
-	r.Use(middleware.AuthMiddleware())
+	r.Use(middleware.RequireLogin())
 
 	r.MaxMultipartMemory = 100 << 20 // 100 MiB
 
@@ -161,7 +161,7 @@ func main() {
 	}
 
 	// 公共参数
-	params := r.Group("/params", middleware.AuthMiddleware())
+	params := r.Group("/params", middleware.RequireLogin())
 	{
 		// 获取当前登录用户的角色，登录即可
 		params.GET("/user/role", param.UserRole)
@@ -171,7 +171,7 @@ func main() {
 		params.GET("/version", param.Version)
 
 	}
-	ai := r.Group("/ai", middleware.AuthMiddleware())
+	ai := r.Group("/ai", middleware.RequireLogin())
 	{
 
 		// chatgpt
@@ -182,7 +182,7 @@ func main() {
 
 	}
 
-	mgm := r.Group("/mgm", middleware.AuthMiddleware())
+	mgm := r.Group("/mgm", middleware.RequireLogin())
 	{
 
 		// user profile 用户自助操作

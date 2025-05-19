@@ -8,5 +8,5 @@ import (
 
 // GetContextWithAdmin 返回一个包含平台管理员角色信息的新上下文对象。
 func GetContextWithAdmin() context.Context {
-	return context.WithValue(context.Background(), constants.RolePlatformAdmin, constants.RolePlatformAdmin)
+	return context.WithValue(context.Background(), constants.RoleAdmin, constants.RoleAdmin)
 }

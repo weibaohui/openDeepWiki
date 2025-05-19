@@ -11,8 +11,8 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/flag"
 )
 
-// AuthMiddleware 登录校验
-func AuthMiddleware() gin.HandlerFunc {
+// RequireLogin 登录校验
+func RequireLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 获取请求路径
 		path := c.Request.URL.Path
@@ -58,7 +58,7 @@ func PlatformAuthMiddleware() gin.HandlerFunc {
 
 		// 权限检查
 		roles := strings.Split(role, ",")
-		if !slices.Contains(roles, constants.RolePlatformAdmin) {
+		if !slices.Contains(roles, constants.RoleAdmin) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "平台管理员权限校验失败"})
 			c.Abort()
 			return
