@@ -18,21 +18,16 @@ var once sync.Once
 
 type Config struct {
 	Port                 int     // gin 监听端口
-	KubeConfig           string  // KUBECONFIG文件路径
 	ApiKey               string  // OPENAI_API_KEY
 	ApiURL               string  // OPENAI_API_URL
 	ApiModel             string  // OPENAI_MODEL
 	Debug                bool    // 调试模式，同步修改所有的debug模式
 	LogV                 int     // klog的日志级别klog.V(this)
-	InCluster            bool    // 是否集群内模式
 	LoginType            string  // password,oauth,token,.. 登录方式，默认为password
 	EnableTempAdmin      bool    // 是否启用临时管理员账户配置
 	AdminUserName        string  // 管理员用户名，启用临时管理员账户配置后生效
 	AdminPassword        string  // 管理员密码，启用临时管理员账户配置后生效
 	JwtTokenSecret       string  // JWT token secret
-	NodeShellImage       string  // nodeShell 镜像
-	KubectlShellImage    string  // kubectlShell 镜像
-	ImagePullTimeout     int     // 镜像拉取超时时间（秒）
 	SqlitePath           string  // sqlite 数据库路径
 	AnySelect            bool    // 是否开启任意选择，默认开启
 	PrintConfig          bool    // 是否打印配置信息
@@ -41,7 +36,6 @@ type Config struct {
 	GitTag               string  // git tag, 由编译时自动注入
 	GitRepo              string  // git仓库地址, 由编译时自动注入
 	BuildDate            string  // 编译时间, 由编译时自动注入
-	ConnectCluster       bool    // 启动程序后，是否自动连接发现的集群，默认关闭
 	ProductName          string  // 产品名称
 	ResourceCacheTimeout int     // 资源缓存时间（秒）
 	Temperature          float32 // 模型温度

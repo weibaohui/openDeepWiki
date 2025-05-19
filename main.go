@@ -24,6 +24,7 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/controller/user/mcpkey"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/user/profile"
 	"github.com/weibaohui/openDeepWiki/pkg/flag"
+	"github.com/weibaohui/openDeepWiki/pkg/mcpservers"
 	"github.com/weibaohui/openDeepWiki/pkg/middleware"
 	_ "github.com/weibaohui/openDeepWiki/pkg/models" // 注册模型
 	"github.com/weibaohui/openDeepWiki/pkg/service"
@@ -83,6 +84,12 @@ func main() {
 	r.Use(middleware.RequireLogin())
 
 	r.MaxMultipartMemory = 100 << 20 // 100 MiB
+
+	// MCP SSE SERVER
+	sseServer := mcpservers.NewMCPSSEServer()
+	r.GET("/mcp/sse", mcpservers.Adapt(sseServer.SSEHandler))
+	r.POST("/mcp/sse", mcpservers.Adapt(sseServer.SSEHandler))
+	r.POST("/mcp/message", mcpservers.Adapt(sseServer.MessageHandler))
 
 	// Admin routes
 	adminGroup := r.Group("/admin")
