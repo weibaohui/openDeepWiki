@@ -10,7 +10,6 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	{
 		repo.GET("/list", ListRepoHandler)            // 获取仓库列表
 		repo.POST("/save", CreateOrUpdateRepoHandler) // 创建或更新仓库
-		repo.POST("/delete", DeleteRepoHandler)       // 删除仓库
-		repo.GET("/:id", GetRepoHandler)              // 获取单个仓库
+		repo.POST("/delete/:ids", DeleteRepoHandler)  // 删除仓库
 	}
 }

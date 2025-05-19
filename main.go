@@ -14,11 +14,11 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/config"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/mcp"
-	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/repo"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/user"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/chat"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/login"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/param"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/repo"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/sso"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/user/mcpkey"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/user/profile"
@@ -118,8 +118,6 @@ func main() {
 		adminGroup.POST("/config/sso/delete/:ids", config.SSOConfigDelete)
 		adminGroup.POST("/config/sso/save/id/:id/status/:enabled", config.SSOConfigQuickSave)
 
-		// repo
-		repo.RegisterRoutes(adminGroup)
 	}
 
 	// 挂载子目录
@@ -198,6 +196,8 @@ func main() {
 		mgm.POST("/user/profile/mcpkeys/create", mcpkey.Create)
 		mgm.POST("/user/profile/mcpkeys/delete/:id", mcpkey.Delete)
 
+		// 代码仓库管理
+		repo.RegisterRoutes(mgm)
 	}
 
 	showBootInfo(Version, flag.Init().Port)
