@@ -12,18 +12,10 @@ type docService struct {
 	repo *models.Repo
 }
 
-var localReadmeService = &docReadmeService{
-	parent: localDocService,
-}
-
 func NewDocService(repo *models.Repo) *docService {
 	return &docService{
 		repo: repo,
 	}
-}
-
-func (d *docService) ReadmeService() *docReadmeService {
-	return localReadmeService
 }
 
 // handleAIChat 处理AI聊天的核心逻辑，包括消息处理和响应读取
@@ -52,7 +44,7 @@ func (d *docService) chat(ctx context.Context, message string) (io.Reader, error
 
 	return pr, nil
 }
-
+ 
 func (d *docService) writeFile(ctx context.Context, s string) error {
 	klog.Infof("收到待写入文件内容:%s", s)
 	return nil

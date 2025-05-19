@@ -34,3 +34,7 @@ func McpService() *mcpService {
 
 	return localMcpService
 }
+
+func GitService() *gitService {
+	return localGitService
+}

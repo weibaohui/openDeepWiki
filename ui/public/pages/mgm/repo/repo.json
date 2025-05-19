@@ -74,11 +74,19 @@
                     "buttons": [
                         {
                             "type": "button",
+                            "label": "init",
+                            "level": "link",
+                            "className": "text-danger",
+                            "actionType": "ajax",
+                            "api": "post:/doc/repo/init"
+                        },
+                        {
+                            "type": "button",
                             "label": "readme",
                             "level": "link",
                             "className": "text-danger",
                             "actionType": "ajax",
-                            "api": "post:/ai/chat/hello"
+                            "api": "post:/doc/repo/readme"
                         }
                     ]
                 },

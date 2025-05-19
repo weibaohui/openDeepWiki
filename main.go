@@ -16,6 +16,7 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/mcp"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/user"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/chat"
+	"github.com/weibaohui/openDeepWiki/pkg/controller/doc"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/login"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/param"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/repo"
@@ -178,7 +179,12 @@ func main() {
 		ai.GET("/chat/ws_chatgpt/history", chat.History)
 		ai.GET("/chat/ws_chatgpt/history/reset", chat.Reset)
 
-		ai.POST("/chat/hello", chat.AIChat)
+	}
+	dc := r.Group("/doc", middleware.RequireLogin())
+	{
+
+		dc.POST("/repo/readme", doc.Readme)
+		dc.POST("/repo/init", doc.Init)
 
 	}
 
