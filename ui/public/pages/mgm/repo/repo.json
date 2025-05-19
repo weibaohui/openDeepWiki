@@ -69,6 +69,20 @@
             ],
             "columns": [
                 {
+                    "type": "operation",
+                    "label": "操作",
+                    "buttons": [
+                        {
+                            "type": "button",
+                            "label": "readme",
+                            "level": "link",
+                            "className": "text-danger",
+                            "actionType": "ajax",
+                            "api": "post:/ai/chat/hello"
+                        }
+                    ]
+                },
+                {
                     "name": "name",
                     "label": "仓库名称"
                 },

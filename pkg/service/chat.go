@@ -43,9 +43,7 @@ func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.C
 	return stream, nil
 
 }
-func (c *chatService) RunOneRound(gc *gin.Context, chat string, writer io.Writer) error {
-
-	ctxInst := amis.GetContextWithUser(gc)
+func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer io.Writer) error {
 
 	client, err := AIService().DefaultClient()
 

@@ -164,8 +164,8 @@ func GPTShell(c *gin.Context) {
 			klog.V(6).Infof("received %s (type: %v) message of size %v byte(s) from web ui with key sequence: %v  [%s]", dataType, messageType, dataLength, dataBuffer, string(dataBuffer))
 
 			klog.V(6).Infof("prompt: %s", string(data))
-
-			err = service.ChatService().RunOneRound(c, string(data), &outBuffer)
+			ctx := amis.GetContextWithUser(c)
+			err = service.ChatService().RunOneRound(ctx, string(data), &outBuffer)
 
 			if err != nil {
 				klog.V(6).Infof("failed to write %v bytes to tty: %s", len(dataBuffer), err)

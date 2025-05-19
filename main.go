@@ -178,6 +178,8 @@ func main() {
 		ai.GET("/chat/ws_chatgpt/history", chat.History)
 		ai.GET("/chat/ws_chatgpt/history/reset", chat.Reset)
 
+		ai.POST("/chat/hello", chat.AIChat)
+
 	}
 
 	mgm := r.Group("/mgm", middleware.RequireLogin())

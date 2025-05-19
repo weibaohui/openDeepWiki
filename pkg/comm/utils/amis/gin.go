@@ -66,3 +66,10 @@ func GetContextWithUser(c *gin.Context) context.Context {
 
 	return ctx
 }
+func GetNewContextWithUser(c *gin.Context) context.Context {
+	user, role := GetLoginUserWithClusterRoles(c)
+	ctx := context.WithValue(context.Background(), constants.JwtUserName, user)
+	ctx = context.WithValue(ctx, constants.JwtUserRole, role)
+
+	return ctx
+}
