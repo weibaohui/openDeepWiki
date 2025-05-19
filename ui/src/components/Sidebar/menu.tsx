@@ -44,8 +44,13 @@ const items: () => MenuItem[] = () => {
         navigate(path)
     }
     return [
-
-        ...(userRole === 'platform_admin' ? [
+        {
+            label: "代码仓库",
+            icon: <i className="fa-solid fa-code-branch"></i>,
+            key: "repo_management",
+            onClick: () => onMenuClick('/mgm/repo/repo')
+        },
+        ...(userRole === 'admin' ? [
             {
                 label: "平台设置",
                 icon: <i className="fa-solid fa-wrench"></i>,
@@ -88,13 +93,8 @@ const items: () => MenuItem[] = () => {
                         icon: <i className="fa-solid fa-right-to-bracket"></i>,
                         key: "sso_config",
                         onClick: () => onMenuClick('/admin/config/sso_config')
-                    },
-                    {
-                        label: "代码仓库",
-                        icon: <i className="fa-solid fa-code-branch"></i>,
-                        key: "repo_management",
-                        onClick: () => onMenuClick('/admin/repo/repo')
                     }
+
                 ],
             },
         ] : []),
