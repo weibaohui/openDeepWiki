@@ -19,15 +19,6 @@ func NewDocService(repo *models.Repo) *docService {
 	}
 }
 
-// handleAIChat 处理AI聊天的核心逻辑，包括消息处理和响应读取
-//
-// 参数:
-// - c: gin上下文
-// - message: 用户输入的消息
-// - responseCh: 用于实时返回AI响应的channel
-// 返回:
-// - chan struct{}: 用于从外部终止处理过程的channel
-// - error: 处理过程中的错误
 func (d *docService) chat(ctx context.Context, message string) (io.Reader, error) {
 	// 创建一个带有读写功能的管道
 	pr, pw := io.Pipe()
@@ -45,7 +36,7 @@ func (d *docService) chat(ctx context.Context, message string) (io.Reader, error
 
 	return pr, nil
 }
- 
+
 func (d *docService) writeFile(ctx context.Context, s string) error {
 	klog.Infof("收到待写入文件内容:%s", s)
 	return nil
