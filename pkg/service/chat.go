@@ -52,6 +52,8 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 		klog.V(6).Infof("获取AI服务错误 : %v\n", err)
 		return fmt.Errorf("获取AI服务错误 : %v", err)
 	}
+	_ = client.ClearHistory(ctxInst)
+
 	tools := McpService().GetAllEnabledTools()
 	klog.V(6).Infof("GPTShell 对话携带tools %d", len(tools))
 
@@ -68,7 +70,7 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 	maxIterations := cfg.MaxIterations
 
 	for currentIteration < maxIterations {
-		klog.Infof("Starting iteration %d", currentIteration)
+		klog.Infof("Starting iteration %d/%d", currentIteration, cfg.MaxIterations)
 		if len(currChatContent) == 0 {
 			klog.V(6).Infof("No content to send to LLM")
 			return nil
@@ -155,6 +157,8 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 		klog.Infof("Max iterations %d reached", maxIterations)
 		return fmt.Errorf("max iterations %d reached", maxIterations)
 	}
+	_ = client.ClearHistory(ctxInst)
+
 	return nil
 }
 func (c *chatService) Chat(ctx *gin.Context, chat string) string {

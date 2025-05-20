@@ -87,6 +87,23 @@
                             "className": "text-danger",
                             "actionType": "ajax",
                             "api": "post:/doc/repo/readme"
+                        },
+                        {
+                            "type": "button",
+                            "label": "日志",
+                            "actionType": "drawer",
+                            "drawer": {
+                                "size": "xl",
+                                "closeOnEsc": true,
+                                "closeOnOutside": true,
+                                "title": "查看运行日志",
+                                "body": [
+                                    {
+                                        "type": "sseLogDisplay",
+                                        "url": "/doc/repo/logs"
+                                    }
+                                ]
+                            }
                         }
                     ]
                 },

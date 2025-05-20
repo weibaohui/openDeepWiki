@@ -7,6 +7,7 @@ import WebSocketViewerComponent from "@/components/Amis/custom/WebSocketViewer.t
 import WebSocketChatGPT from "@/components/Amis/custom/WebSocketChatGPT.tsx";
 import GlobalTextSelector from '@/layout/TextSelectionPopover';
 import PasswordEditorWithForm from "@/components/Amis/custom/PasswordEditorWithForm/PasswordEditorWithForm.tsx";
+import SSELogDisplayComponent from "@/components/Amis/custom/LogView/SSELogDisplay.tsx";
 // @ts-ignore
 registerRenderer({type: 'webSocketMarkdownViewer', component: WebSocketMarkdownViewerComponent})
 // @ts-ignore
@@ -16,6 +17,8 @@ registerRenderer({type: 'chatgpt', component: WebSocketChatGPT})
 
 //@ts-ignore
 registerRenderer({type: 'passwordEditor', component: PasswordEditorWithForm})
+//@ts-ignore
+registerRenderer({type: 'sseLogDisplay', component: SSELogDisplayComponent})
 
 interface Props {
     schema: Schema

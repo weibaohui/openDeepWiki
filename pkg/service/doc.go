@@ -1,9 +1,15 @@
 package service
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"time"
 
+	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
 	"k8s.io/klog/v2"
 )
@@ -38,23 +44,130 @@ func (d *docService) chat(ctx context.Context, message string) (io.Reader, error
 }
 
 func (d *docService) writeFile(ctx context.Context, s string) error {
-	klog.Infof("收到待写入文件内容:%s", s)
+	if d.repo == nil {
+		return fmt.Errorf("repository not initialized")
+	}
+
+	// 生成文件名（使用时间戳确保唯一性）
+	filename := fmt.Sprintf("chat_%s.log", time.Now().Format("20060102_150405"))
+
+	// 获取运行时文件路径
+	filePath, err := utils.GetRuntimeFilePath(d.repo.Name, filename)
+	if err != nil {
+		return fmt.Errorf("failed to get runtime file path: %v", err)
+	}
+
+	// 创建文件
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %v", err)
+	}
+	defer f.Close()
+
+	// 写入内容
+	if _, err := f.WriteString(s + "\n"); err != nil {
+		return fmt.Errorf("failed to write to file: %v", err)
+	}
+
+	klog.Infof("成功写入文件 %s", filePath)
 	return nil
 }
 
-func (d *docService) readAll(ctx context.Context, reader io.Reader) (string, error) {
+// GetLatestLogs 获取最新的日志内容
+func (d *docService) GetLatestLogs(ctx context.Context) (string, error) {
+	if d.repo == nil {
+		return "", fmt.Errorf("repository not initialized")
+	}
+
+	runtimeDir, err := utils.EnsureRuntimeDir(d.repo.Name)
+	if err != nil {
+		return "", err
+	}
+
+	// 读取目录下最新的日志文件
+	files, err := os.ReadDir(runtimeDir)
+	if err != nil {
+		return "", err
+	}
+
+	if len(files) == 0 {
+		return "", nil
+	}
+
+	// 获取最新的日志文件
+	var latestFile os.DirEntry
+	var latestTime time.Time
+
+	for _, file := range files {
+		if filepath.Ext(file.Name()) != ".log" {
+			continue
+		}
+
+		fileInfo, err := file.Info()
+		if err != nil {
+			continue
+		}
+
+		if latestFile == nil || fileInfo.ModTime().After(latestTime) {
+			latestFile = file
+			latestTime = fileInfo.ModTime()
+		}
+	}
+
+	if latestFile == nil {
+		return "", nil
+	}
+
+	// 读取文件内容
+	content, err := os.ReadFile(filepath.Join(runtimeDir, latestFile.Name()))
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
+}
+
+// readAndWrite 从reader读取数据并同时写入文件
+func (d *docService) readAndWrite(ctx context.Context, reader io.Reader) (string, error) {
+	if d.repo == nil {
+		return "", fmt.Errorf("repository not initialized")
+	}
+
+	// 生成文件名（使用时间戳确保唯一性）
+	filename := fmt.Sprintf("chat_%s.log", time.Now().Format("20060102_150405"))
+
+	// 获取运行时文件路径
+	filePath, err := utils.GetRuntimeFilePath(d.repo.Name, filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to get runtime file path: %v", err)
+	}
+
+	// 创建文件
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %v", err)
+	}
+	defer f.Close()
 
 	var all string
 	// 创建一个缓冲区用于临时存储读取的数据
 	buf := make([]byte, 1024)
 
-	// 启动一个goroutine来持续读取输出
+	// 持续读取输出并写入文件
 	for {
 		n, err := reader.Read(buf)
 		if n > 0 {
-			all += string(buf[:n])
+			content := string(buf[:n])
+			all += content
+
+			// 写入文件
+			if _, err := f.WriteString(content); err != nil {
+				klog.Errorf("写入文件失败: %v", err)
+				break
+			}
+
 			// 输出到控制台
-			klog.V(6).Infof("AI响应: %s", string(buf[:n]))
+			klog.V(6).Infof("AI响应: %s", content)
 		}
 		if err == io.EOF {
 			break
@@ -64,5 +177,107 @@ func (d *docService) readAll(ctx context.Context, reader io.Reader) (string, err
 			break
 		}
 	}
+
+	klog.Infof("成功写入文件 %s", filePath)
 	return all, nil
+}
+
+// TailFile 持续读取文件新增内容，并将每一行通过 channel 返回
+func (d *docService) TailFile(ctx context.Context, filename string) (<-chan string, error) {
+	if d.repo == nil {
+		return nil, fmt.Errorf("repository not initialized")
+	}
+
+	filePath, err := utils.GetRuntimeFilePath(d.repo.Name, filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get runtime file path: %v", err)
+	}
+
+	updates := make(chan string)
+
+	go func() {
+		defer close(updates)
+		file, err := os.Open(filePath)
+		if err != nil {
+			klog.Errorf("打开文件失败: %v", err)
+			return
+		}
+		defer file.Close()
+		reader := bufio.NewReader(file)
+		var cache string // 用于缓存未遇到换行符的数据
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				line, err := reader.ReadString('\n')
+				if err != nil {
+					if err == io.EOF {
+						if line != "" {
+							cache += line
+						}
+						time.Sleep(1000 * time.Millisecond)
+						continue
+					}
+					klog.Errorf("读取文件失败: %v", err)
+					return
+				}
+				cache += line
+				if len(cache) > 0 && cache[len(cache)-1] == '\n' {
+					updates <- cache
+					cache = ""
+				}
+			}
+		}
+	}()
+
+	return updates, nil
+}
+
+// GetLatestLogFile 获取最新的日志文件名
+func (d *docService) GetLatestLogFile(ctx context.Context) (string, error) {
+	if d.repo == nil {
+		return "", fmt.Errorf("repository not initialized")
+	}
+
+	runtimeDir, err := utils.EnsureRuntimeDir(d.repo.Name)
+	if err != nil {
+		return "", err
+	}
+
+	// 读取目录下的所有文件
+	files, err := os.ReadDir(runtimeDir)
+	if err != nil {
+		return "", err
+	}
+
+	if len(files) == 0 {
+		return "", nil
+	}
+
+	// 获取最新的日志文件
+	var latestFile os.DirEntry
+	var latestTime time.Time
+
+	for _, file := range files {
+		if filepath.Ext(file.Name()) != ".log" {
+			continue
+		}
+
+		fileInfo, err := file.Info()
+		if err != nil {
+			continue
+		}
+
+		if latestFile == nil || fileInfo.ModTime().After(latestTime) {
+			latestFile = file
+			latestTime = fileInfo.ModTime()
+		}
+	}
+
+	if latestFile == nil {
+		return "", nil
+	}
+
+	return latestFile.Name(), nil
 }
