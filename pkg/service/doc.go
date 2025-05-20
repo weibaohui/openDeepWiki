@@ -25,7 +25,7 @@ func NewDocService(repo *models.Repo) *docService {
 	}
 }
 
-func (d *docService) chat(ctx context.Context, message string) (io.Reader, error) {
+func (s *docService) chat(ctx context.Context, message string) (io.Reader, error) {
 	// 创建一个带有读写功能的管道
 	pr, pw := io.Pipe()
 
@@ -43,43 +43,13 @@ func (d *docService) chat(ctx context.Context, message string) (io.Reader, error
 	return pr, nil
 }
 
-func (d *docService) writeFile(ctx context.Context, s string) error {
-	if d.repo == nil {
-		return fmt.Errorf("repository not initialized")
-	}
-
-	// 生成文件名（使用时间戳确保唯一性）
-	filename := fmt.Sprintf("chat_%s.log", time.Now().Format("20060102_150405"))
-
-	// 获取运行时文件路径
-	filePath, err := utils.GetRuntimeFilePath(d.repo.Name, filename)
-	if err != nil {
-		return fmt.Errorf("failed to get runtime file path: %v", err)
-	}
-
-	// 创建文件
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %v", err)
-	}
-	defer f.Close()
-
-	// 写入内容
-	if _, err := f.WriteString(s + "\n"); err != nil {
-		return fmt.Errorf("failed to write to file: %v", err)
-	}
-
-	klog.Infof("成功写入文件 %s", filePath)
-	return nil
-}
-
 // GetLatestLogs 获取最新的日志内容
-func (d *docService) GetLatestLogs(ctx context.Context) (string, error) {
-	if d.repo == nil {
+func (s *docService) GetLatestLogs(ctx context.Context) (string, error) {
+	if s.repo == nil {
 		return "", fmt.Errorf("repository not initialized")
 	}
 
-	runtimeDir, err := utils.EnsureRuntimeDir(d.repo.Name)
+	runtimeDir, err := utils.EnsureRuntimeDir(s.repo.Name)
 	if err != nil {
 		return "", err
 	}
@@ -128,8 +98,8 @@ func (d *docService) GetLatestLogs(ctx context.Context) (string, error) {
 }
 
 // readAndWrite 从reader读取数据并同时写入文件
-func (d *docService) readAndWrite(ctx context.Context, reader io.Reader) (string, error) {
-	if d.repo == nil {
+func (s *docService) readAndWrite(ctx context.Context, reader io.Reader) (string, error) {
+	if s.repo == nil {
 		return "", fmt.Errorf("repository not initialized")
 	}
 
@@ -137,7 +107,7 @@ func (d *docService) readAndWrite(ctx context.Context, reader io.Reader) (string
 	filename := fmt.Sprintf("chat_%s.log", time.Now().Format("20060102_150405"))
 
 	// 获取运行时文件路径
-	filePath, err := utils.GetRuntimeFilePath(d.repo.Name, filename)
+	filePath, err := utils.GetRuntimeFilePath(s.repo.Name, filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -183,12 +153,12 @@ func (d *docService) readAndWrite(ctx context.Context, reader io.Reader) (string
 }
 
 // TailFile 持续读取文件新增内容，并将每一行通过 channel 返回
-func (d *docService) TailFile(ctx context.Context, filename string) (<-chan string, error) {
-	if d.repo == nil {
+func (s *docService) TailFile(ctx context.Context, filename string) (<-chan string, error) {
+	if s.repo == nil {
 		return nil, fmt.Errorf("repository not initialized")
 	}
 
-	filePath, err := utils.GetRuntimeFilePath(d.repo.Name, filename)
+	filePath, err := utils.GetRuntimeFilePath(s.repo.Name, filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -235,12 +205,12 @@ func (d *docService) TailFile(ctx context.Context, filename string) (<-chan stri
 }
 
 // GetLatestLogFile 获取最新的日志文件名
-func (d *docService) GetLatestLogFile(ctx context.Context) (string, error) {
-	if d.repo == nil {
+func (s *docService) GetLatestLogFile(ctx context.Context) (string, error) {
+	if s.repo == nil {
 		return "", fmt.Errorf("repository not initialized")
 	}
 
-	runtimeDir, err := utils.EnsureRuntimeDir(d.repo.Name)
+	runtimeDir, err := utils.EnsureRuntimeDir(s.repo.Name)
 	if err != nil {
 		return "", err
 	}

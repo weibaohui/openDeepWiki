@@ -1,13 +1,18 @@
 package doc
 
 import (
+	"net/http"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
+	"github.com/weibaohui/openDeepWiki/internal/dao"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils/amis"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
 	"github.com/weibaohui/openDeepWiki/pkg/service"
 )
 
 var testRepo = &models.Repo{
+	ID:          3,
 	Name:        "openDeepWiki",
 	Description: "",
 	RepoType:    "git",
@@ -33,19 +38,45 @@ func Init(c *gin.Context) {
 	amis.WriteJsonOK(c)
 }
 
-// Readme 生成指定 Git 仓库的 README 文档，并以 JSON 格式返回生成结果。
-func Readme(c *gin.Context) {
-
+func Analysis(c *gin.Context) {
 	ctx := amis.GetNewContextWithUser(c)
 
 	docService := service.NewDocService(testRepo)
 
-	err := docService.ReadmeService().Generate(ctx)
-
+	// 创建新的文档解读实例
+	analysis, err := docService.AnalysisService().Create(ctx)
 	if err != nil {
 		amis.WriteJsonError(c, err)
 		return
 	}
 
+	// 生成README文档
+	err = docService.ReadmeService().Generate(ctx)
+	if err != nil {
+		_ = docService.AnalysisService().UpdateStatus(ctx, analysis, "failed", "", err)
+		amis.WriteJsonError(c, err)
+		return
+	}
+
 	amis.WriteJsonOK(c)
+}
+
+// GetAnalysisHistory 获取代码仓库的分析历史
+func GetAnalysisHistory(c *gin.Context) {
+	repoID := c.Param("id")
+	if repoID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid repository ID"})
+		return
+	}
+	repoIDInt, err := strconv.Atoi(repoID)
+
+	analysis := &models.DocAnalysis{}
+	params := dao.BuildParams(c)
+	results, total, err := analysis.GetByRepoID(params, uint(repoIDInt))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	amis.WriteJsonListWithTotal(c, total, results)
 }

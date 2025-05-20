@@ -192,11 +192,11 @@ func main() {
 	}
 	dc := r.Group("/doc", middleware.RequireLogin())
 	{
-
-		dc.POST("/repo/readme", doc.Readme)
+		dc.POST("/repo/:id/analysis", doc.Analysis)
 		dc.POST("/repo/init", doc.Init)
 		dc.GET("/repo/logs", doc.GetLatestLogs)
-
+		dc.GET("/repo/:id/analysis/history", doc.GetAnalysisHistory)
+		dc.GET("/repo/analysis/:id/results", doc.GetAnalysisResults)
 	}
 
 	mgm := r.Group("/mgm", middleware.RequireLogin())

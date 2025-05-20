@@ -8,9 +8,9 @@ type docRepoService struct {
 	parent *docService
 }
 
-func (d *docService) RepoService() *docRepoService {
+func (s *docService) RepoService() *docRepoService {
 	return &docRepoService{
-		parent: d,
+		parent: s,
 	}
 }
 func (s *docRepoService) Clone(ctx context.Context) error {
