@@ -49,10 +49,9 @@ func (s *docReadmeService) Generate(ctx context.Context) error {
 		return err
 
 	}
-	all, err := s.parent.readAll(ctx, reader)
+	_, err = s.parent.readAndWrite(ctx, reader)
 	if err != nil {
 		return err
 	}
-
-	return s.parent.writeFile(ctx, all)
+	return nil
 }
