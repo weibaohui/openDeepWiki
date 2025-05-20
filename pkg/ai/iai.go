@@ -83,6 +83,7 @@ type Provider struct {
 	TopP           float32
 	TopK           int32
 	MaxHistory     int32
+	MaxIterations  int32
 	MaxTokens      int
 	OrganizationId string
 	CustomHeaders  []http.Header
