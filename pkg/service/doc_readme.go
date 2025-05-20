@@ -9,9 +9,9 @@ type docReadmeService struct {
 	parent *docService
 }
 
-func (d *docService) ReadmeService() *docReadmeService {
+func (s *docService) ReadmeService() *docReadmeService {
 	return &docReadmeService{
-		parent: d,
+		parent: s,
 	}
 }
 func (s *docReadmeService) prompt(ctx context.Context) string {

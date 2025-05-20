@@ -35,13 +35,27 @@ func Init(c *gin.Context) {
 
 // Readme 生成指定 Git 仓库的 README 文档，并以 JSON 格式返回生成结果。
 func Readme(c *gin.Context) {
-
 	ctx := amis.GetNewContextWithUser(c)
 
 	docService := service.NewDocService(testRepo)
 
-	err := docService.ReadmeService().Generate(ctx)
+	// 创建新的文档解读实例
+	analysis, err := docService.AnalysisService().Create(ctx)
+	if err != nil {
+		amis.WriteJsonError(c, err)
+		return
+	}
 
+	// 生成README文档
+	err = docService.ReadmeService().Generate(ctx)
+	if err != nil {
+		_ = docService.AnalysisService().UpdateStatus(ctx, analysis, "failed", "", err)
+		amis.WriteJsonError(c, err)
+		return
+	}
+
+	// 更新解读实例状态
+	err = docService.AnalysisService().UpdateStatus(ctx, analysis, "completed", "成功生成README文档", nil)
 	if err != nil {
 		amis.WriteJsonError(c, err)
 		return
