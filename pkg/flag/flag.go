@@ -44,6 +44,7 @@ type Config struct {
 	MaxIterations        int32   //  模型自动化对话的轮数限制
 }
 
+// 该方法会加载环境变量、初始化命令行参数，并确保配置只被初始化一次。
 func Init() *Config {
 	once.Do(func() {
 		config = &Config{}
