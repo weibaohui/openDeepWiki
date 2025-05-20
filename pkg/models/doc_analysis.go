@@ -8,19 +8,18 @@ import (
 	"gorm.io/gorm"
 )
 
-// DocAnalysis 表示对代码仓库的一次文档解读实例
+// DocAnalysis 表示对代码仓库的一次文档解读实例，具体生成的文档存储在 AnalysisResult 表中
 type DocAnalysis struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	RepoID     uint      `json:"repoId" gorm:"comment:关联的代码仓库ID"`
-	Status     string    `json:"status" gorm:"comment:解读状态(pending/running/completed/failed)"`
-	StartTime  time.Time `json:"startTime" gorm:"comment:开始时间"`
-	EndTime    time.Time `json:"endTime" gorm:"comment:完成时间"`
-	Result     string    `json:"result" gorm:"type:text;comment:解读结果概述"`
-	ReadmePath string    `json:"readmePath" gorm:"comment:生成的README文件路径"`
-	ErrorMsg   string    `json:"errorMsg" gorm:"type:text;comment:错误信息"`
-	CreatedBy  uint      `json:"created_by"` // 创建人ID
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	RepoID    uint      `json:"repoId" gorm:"comment:关联的代码仓库ID"`
+	Status    string    `json:"status" gorm:"comment:解读状态(pending/running/completed/failed)"`
+	StartTime time.Time `json:"startTime" gorm:"comment:开始时间"`
+	EndTime   time.Time `json:"endTime" gorm:"comment:完成时间"`
+	Result    string    `json:"result" gorm:"type:text;comment:解读结果概述"`
+	ErrorMsg  string    `json:"errorMsg" gorm:"type:text;comment:错误信息"`
+	CreatedBy uint      `json:"created_by"` // 创建人ID
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // List 获取文档解读实例列表
