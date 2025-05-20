@@ -41,7 +41,6 @@ func GetLatestLogs(c *gin.Context) {
 		amis.WriteJsonError(c, err)
 		return
 	}
-
 	// 持续发送文件更新
 	for {
 		select {

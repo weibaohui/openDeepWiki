@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -181,7 +182,7 @@ func (d *docService) readAndWrite(ctx context.Context, reader io.Reader) (string
 	return all, nil
 }
 
-// TailFile 持续读取文件新增内容
+// TailFile 持续读取文件新增内容，并将每一行通过 channel 返回
 func (d *docService) TailFile(ctx context.Context, filename string) (<-chan string, error) {
 	if d.repo == nil {
 		return nil, fmt.Errorf("repository not initialized")
@@ -192,66 +193,40 @@ func (d *docService) TailFile(ctx context.Context, filename string) (<-chan stri
 		return nil, fmt.Errorf("failed to get runtime file path: %v", err)
 	}
 
-	// 创建一个用于发送文件更新的通道
 	updates := make(chan string)
 
 	go func() {
 		defer close(updates)
-
-		var lastSize int64 = 0
+		file, err := os.Open(filePath)
+		if err != nil {
+			klog.Errorf("打开文件失败: %v", err)
+			return
+		}
+		defer file.Close()
+		reader := bufio.NewReader(file)
+		var cache string // 用于缓存未遇到换行符的数据
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				// 检查文件是否存在
-				stat, err := os.Stat(filePath)
+				line, err := reader.ReadString('\n')
 				if err != nil {
-					if !os.IsNotExist(err) {
-						klog.Errorf("检查文件状态失败: %v", err)
+					if err == io.EOF {
+						if line != "" {
+							cache += line
+						}
+						time.Sleep(1000 * time.Millisecond)
+						continue
 					}
-					time.Sleep(time.Second)
-					continue
+					klog.Errorf("读取文件失败: %v", err)
+					return
 				}
-
-				currentSize := stat.Size()
-				if currentSize > lastSize {
-					// 打开文件
-					file, err := os.Open(filePath)
-					if err != nil {
-						klog.Errorf("打开文件失败: %v", err)
-						time.Sleep(time.Second)
-						continue
-					}
-
-					// 从上次读取的位置开始
-					_, err = file.Seek(lastSize, 0)
-					if err != nil {
-						file.Close()
-						klog.Errorf("设置文件读取位置失败: %v", err)
-						time.Sleep(time.Second)
-						continue
-					}
-
-					// 读取新增内容
-					buffer := make([]byte, currentSize-lastSize)
-					n, err := file.Read(buffer)
-					file.Close()
-
-					if err != nil && err != io.EOF {
-						klog.Errorf("读取文件失败: %v", err)
-						time.Sleep(time.Second)
-						continue
-					}
-
-					if n > 0 {
-						updates <- string(buffer[:n])
-						lastSize = currentSize
-					}
+				cache += line
+				if len(cache) > 0 && cache[len(cache)-1] == '\n' {
+					updates <- cache
+					cache = ""
 				}
-
-				// 短暂休眠，避免过度消耗CPU
-				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}()
