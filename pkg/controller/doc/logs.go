@@ -10,7 +10,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// GetLatestLogs 获取最新的日志文件内容并通过HTTP流式传输
+// GetLatestLogs 以服务端推送事件（SSE）的方式，将最新日志文件的内容实时流式传输给客户端。
+// 若未找到日志文件或发生错误，则返回相应的错误信息并终止请求。
 func GetLatestLogs(c *gin.Context) {
 	ctx := c.Request.Context()
 
