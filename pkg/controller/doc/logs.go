@@ -38,7 +38,7 @@ func GetLatestLogs(c *gin.Context) {
 	// 开始监控文件变化
 	updates, err := docService.TailFile(ctx, filename)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		amis.WriteJsonError(c, err)
 		return
 	}
 
