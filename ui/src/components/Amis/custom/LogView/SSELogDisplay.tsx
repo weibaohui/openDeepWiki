@@ -1,6 +1,6 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {appendQueryParam,  replacePlaceholders} from "@/utils/utils.ts";
-import AnsiToHtml from 'ansi-to-html';
+import React, { useEffect, useRef, useState } from 'react';
+import { appendQueryParam, replacePlaceholders } from "@/utils/utils.ts";
+import { render as amisRender } from "amis";
 
 // 定义组件的 Props 接口
 interface SSEComponentProps {
@@ -75,24 +75,37 @@ const SSELogDisplayComponent = React.forwardRef((props: SSEComponentProps, _) =>
     }, [finalUrl]);
 
 
-    // 创建一个转换器实例
-    const converter = new AnsiToHtml();
+    // 创建一个转换器实
+    const markdownContent = lines.join("");
+
+    // 每次 lines 变化时自动滚动到底部（使用 scrollIntoView 方式增强兼容性）
+    const bottomRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        if (bottomRef.current) {
+            bottomRef.current.scrollIntoView({ behavior: 'auto' });
+        }
+    }, [lines]);
+
     return (
         <div style={{ padding: '4px', borderRadius: '4px', height: 'calc(100vh)', overflow: 'auto' }}>
-            <div ref={dom} style={{whiteSpace: 'pre-wrap', backgroundColor: 'black', color: 'white', padding: '10px'}}>
+            <div ref={dom} style={{ whiteSpace: 'pre-wrap', padding: '10px' }}>
                 {errorMessage && <div
-                    style={{color: errorMessage == "Connected" ? '#00FF00' : 'red'}}>{errorMessage} 共计：{lines.length}行</div>}
+                    style={{ color: errorMessage == "Connected" ? '#00FF00' : 'red' }}>{errorMessage} 共计：{lines.length}行</div>}
 
-                <pre style={{whiteSpace: 'pre-wrap'}}>
-                {lines.map((line, index) => (
-                    <div
-                        key={index}
-                        dangerouslySetInnerHTML={{
-                            __html: converter.toHtml(line)
-                        }}
-                    />
-                ))}
-            </pre>
+                <pre style={{ whiteSpace: 'pre-wrap' }}>
+                    {
+                        (amisRender({
+                            type: "markdown",
+                            value: markdownContent,
+                            options: {
+                                linkify: true,
+                                html: true,
+                                breaks: true
+                            },
+                        }))
+                    }
+                </pre>
+                <div ref={bottomRef}></div>
             </div>
         </div>
     );
