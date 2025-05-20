@@ -195,6 +195,7 @@ func main() {
 
 		dc.POST("/repo/readme", doc.Readme)
 		dc.POST("/repo/init", doc.Init)
+		dc.GET("/repo/logs", doc.GetLatestLogs)
 
 	}
 
