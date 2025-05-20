@@ -32,6 +32,9 @@ func (s *configService) GetConfig() (*models.Config, error) {
 	if config.MaxHistory == 0 {
 		config.MaxHistory = 10
 	}
+	if config.MaxIterations == 0 {
+		config.MaxIterations = 10
+	}
 
 	return &config, nil
 }
@@ -89,7 +92,9 @@ func (s *configService) UpdateFlagFromDBConfig() error {
 	if m.MaxHistory > 0 {
 		cfg.MaxHistory = m.MaxHistory
 	}
-
+	if m.MaxIterations > 0 {
+		cfg.MaxIterations = m.MaxIterations
+	}
 	// JwtTokenSecret 暂不启用，因为前端也要处理
 	// cfg.JwtTokenSecret = m.JwtTokenSecret
 	// LoginType 暂不启用，因为就一种password

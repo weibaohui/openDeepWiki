@@ -12,11 +12,11 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils/amis"
+	"github.com/weibaohui/openDeepWiki/pkg/flag"
 	"k8s.io/klog/v2"
 )
 
 type chatService struct {
-	MaxIterations int `json:"max_iterations"` // 最大对话论数
 }
 
 func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.ChatCompletionStream, error) {
@@ -45,6 +45,7 @@ func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.C
 }
 func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer io.Writer) error {
 
+	cfg := flag.Init()
 	client, err := AIService().DefaultClient()
 
 	if err != nil {
@@ -63,8 +64,8 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 	// Set the initial message to start the conversation
 	currChatContent = append(currChatContent, chat)
 
-	currentIteration := 0
-	maxIterations := c.MaxIterations
+	currentIteration := int32(0)
+	maxIterations := cfg.MaxIterations
 
 	for currentIteration < maxIterations {
 		klog.Infof("Starting iteration %d", currentIteration)

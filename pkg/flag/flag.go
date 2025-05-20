@@ -41,6 +41,7 @@ type Config struct {
 	Temperature          float32 // 模型温度
 	TopP                 float32 //  模型topP参数
 	MaxHistory           int32   //  模型对话上下文历史记录数
+	MaxIterations        int32   //  模型自动化对话的轮数限制
 }
 
 func Init() *Config {
@@ -123,6 +124,9 @@ func (c *Config) InitFlags() {
 	// 默认资源缓存时间为60秒
 	defaultResourceCacheTimeout := getEnvAsInt("RESOURCE_CACHE_TIMEOUT", 60)
 
+	// 默认自动化对话轮数限制为10轮
+	defaultMaxIterations := getEnvAsInt("MAX_ITERATIONS", 10)
+
 	pflag.BoolVarP(&c.Debug, "debug", "d", defaultDebug, "调试模式")
 	pflag.IntVarP(&c.Port, "port", "p", defaultPort, "监听端口,默认3721")
 	pflag.StringVarP(&c.ApiKey, "chatgpt-key", "k", defaultApiKey, "大模型的自定义API Key")
@@ -139,6 +143,7 @@ func (c *Config) InitFlags() {
 	pflag.BoolVar(&c.PrintConfig, "print-config", defaultPrintConfig, "是否打印配置信息，默认关闭")
 	pflag.StringVar(&c.ProductName, "product-name", defaultProductName, "产品名称，默认为OpenDeepWiki")
 	pflag.IntVar(&c.ResourceCacheTimeout, "resource-cache-timeout", defaultResourceCacheTimeout, "资源缓存时间（秒），默认60秒")
+	pflag.Int32Var(&c.MaxIterations, "max-iterations", int32(defaultMaxIterations), "模型自动化对话的轮数限制，默认10轮")
 	// 检查是否设置了 --v 参数
 	if vFlag := pflag.Lookup("v"); vFlag == nil || vFlag.Value.String() == "0" {
 		// 如果没有设置，手动将 --v 设置为 环境变量值

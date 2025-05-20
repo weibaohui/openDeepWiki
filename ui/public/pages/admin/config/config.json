@@ -64,6 +64,12 @@
                       "label": "上下文记忆",
                       "value": "10",
                       "desc": "适当的记忆量有助于提升回答精度"
+                    },{
+                      "name": "max_iterations",
+                      "type": "input-number",
+                      "label": "自动对话轮数",
+                      "value": "10",
+                      "desc": "适当提升有助于生成文档质量"
                     },
                     {
                       "name": "any_select",
