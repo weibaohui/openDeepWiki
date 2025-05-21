@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -135,4 +136,13 @@ var ansiEscapeRegex = regexp.MustCompile(`\x1B\[[0-9;]*[A-Za-z]`)
 
 func CleanANSISequences(input string) string {
 	return ansiEscapeRegex.ReplaceAllString(input, "")
+}
+
+// StringToUintID 将字符串转换为uint类型的ID
+func StringToUintID(s string) (uint, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid ID format: %w", err)
+	}
+	return uint(id), nil
 }
