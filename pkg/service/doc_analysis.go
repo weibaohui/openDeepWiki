@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/weibaohui/openDeepWiki/internal/dao"
+	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
+	"k8s.io/klog/v2"
 )
 
 type docAnalysisService struct {
@@ -26,9 +29,10 @@ func (s *docAnalysisService) Create(ctx context.Context) (*models.DocAnalysis, e
 		StartTime: time.Now(),
 	}
 
-	if err := dao.DB().Create(analysis).Error; err != nil {
+	if err := dao.DB().Save(analysis).Error; err != nil {
 		return nil, err
 	}
+	klog.V(6).Infof("Created new DocAnalysis instance: %v", analysis)
 
 	return analysis, nil
 }
@@ -61,4 +65,20 @@ func (s *docAnalysisService) GetLatest(ctx context.Context) (*models.DocAnalysis
 	var analysis models.DocAnalysis
 	err := dao.DB().Where("repo_id = ?", s.parent.repo.ID).Order("created_at desc").First(&analysis).Error
 	return &analysis, err
+}
+
+// GetByAnalysisID 根据ID获取文档解读实例
+func (s *docAnalysisService) GetByAnalysisID(analysisID string) (*models.DocAnalysis, error) {
+	idUint, err := utils.StringToUintID(analysisID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid analysis ID: %w", err)
+	}
+
+	var analysis models.DocAnalysis
+	err = dao.DB().Where("id = ?", idUint).First(&analysis).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &analysis, nil
 }
