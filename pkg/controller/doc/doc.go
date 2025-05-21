@@ -1,7 +1,7 @@
 package doc
 
 import (
-	"net/http"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -39,6 +39,11 @@ func Init(c *gin.Context) {
 }
 
 func Analysis(c *gin.Context) {
+	repoID := c.Param("repo_id")
+	if repoID == "" {
+		amis.WriteJsonError(c, fmt.Errorf("invalid repository ID"))
+		return
+	}
 	ctx := amis.GetNewContextWithUser(c)
 
 	docService := service.NewDocService(testRepo)
@@ -51,7 +56,7 @@ func Analysis(c *gin.Context) {
 	}
 
 	// 生成README文档
-	err = docService.ReadmeService().Generate(ctx)
+	err = docService.ReadmeService().Generate(ctx, analysis)
 	if err != nil {
 		_ = docService.AnalysisService().UpdateStatus(ctx, analysis, "failed", "", err)
 		amis.WriteJsonError(c, err)
@@ -63,18 +68,22 @@ func Analysis(c *gin.Context) {
 
 // GetAnalysisHistory 获取代码仓库的分析历史
 func GetAnalysisHistory(c *gin.Context) {
-	repoID := c.Param("id")
+	repoID := c.Param("repo_id")
 	if repoID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid repository ID"})
+		amis.WriteJsonError(c, fmt.Errorf("invalid repository ID"))
 		return
 	}
 	repoIDInt, err := strconv.Atoi(repoID)
+	if err != nil {
+		amis.WriteJsonError(c, fmt.Errorf("invalid repository ID"))
+		return
+	}
 
 	analysis := &models.DocAnalysis{}
 	params := dao.BuildParams(c)
 	results, total, err := analysis.GetByRepoID(params, uint(repoIDInt))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		amis.WriteJsonError(c, err)
 		return
 	}
 
