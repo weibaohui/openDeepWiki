@@ -194,9 +194,9 @@ func main() {
 	{
 		dc.POST("/repo/:repo_id/analysis", doc.Analysis)
 		dc.POST("/repo/init", doc.Init)
-		dc.GET("/repo/:repo_id/analysis/:analysis_id/logs", doc.GetLatestLogs)
+		dc.GET("/analysis/:analysis_id/logs", doc.GetLatestLogs)
 		dc.GET("/repo/:repo_id/analysis/history", doc.GetAnalysisHistory)
-		dc.GET("/repo/analysis/:analysis_id/results", doc.GetAnalysisResults)
+		dc.GET("/analysis/:analysis_id/results", doc.GetAnalysisResults)
 	}
 
 	mgm := r.Group("/mgm", middleware.RequireLogin())
