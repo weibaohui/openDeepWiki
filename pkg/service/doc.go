@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/weibaohui/openDeepWiki/internal/dao"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
 	"k8s.io/klog/v2"
@@ -23,6 +24,55 @@ func NewDocService(repo *models.Repo) *docService {
 	return &docService{
 		repo: repo,
 	}
+}
+
+// NewDocServiceWithRepoID 根据仓库ID创建并返回一个 docService 实例。
+// 如果找不到对应ID的仓库或发生其他错误，将返回错误。
+func NewDocServiceWithRepoID(repoID string) *docService {
+	// 将 repoID 转换为 uint 类型
+	repoIDInt := utils.ToUInt(repoID)
+	if repoIDInt == 0 {
+		klog.Errorf("解析仓库ID失败")
+		return nil
+	}
+
+	// 查询仓库信息
+	repo := &models.Repo{}
+	if err := dao.DB().First(repo, repoIDInt).Error; err != nil {
+		klog.Errorf("查询仓库信息失败: %v", err)
+		return nil
+	}
+
+	// 创建并返回 docService 实例
+	return NewDocService(repo)
+}
+
+// NewDocServiceWithAnalysisID 根据分析ID创建并返回一个 docService 实例。
+// 如果找不到对应ID的分析记录或发生其他错误，将返回 nil。
+func NewDocServiceWithAnalysisID(analysisID string) *docService {
+	// 将 analysisID 转换为 uint 类型
+	analysisIDInt := utils.ToUInt(analysisID)
+	if analysisIDInt == 0 {
+		klog.Errorf("解析分析ID失败")
+		return nil
+	}
+
+	// 查询分析记录
+	analysis := &models.DocAnalysis{}
+	if err := dao.DB().First(analysis, analysisIDInt).Error; err != nil {
+		klog.Errorf("查询分析记录失败: %v", err)
+		return nil
+	}
+
+	// 查询仓库信息
+	repo := &models.Repo{}
+	if err := dao.DB().First(repo, analysis.RepoID).Error; err != nil {
+		klog.Errorf("查询仓库信息失败: %v", err)
+		return nil
+	}
+
+	// 创建并返回 docService 实例
+	return NewDocService(repo)
 }
 
 func (s *docService) chat(ctx context.Context, message string) (io.Reader, error) {
@@ -171,7 +221,7 @@ func (s *docService) TailFile(ctx context.Context, analysis *models.DocAnalysis)
 		}
 		defer file.Close()
 		reader := bufio.NewReader(file)
-		var cache string // 用于缓存未遇到换行符的数据
+		cache := "" // 用于缓存未遇到换行符的数据
 		for {
 			select {
 			case <-ctx.Done():

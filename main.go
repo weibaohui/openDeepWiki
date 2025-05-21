@@ -193,7 +193,7 @@ func main() {
 	dc := r.Group("/doc", middleware.RequireLogin())
 	{
 		dc.POST("/repo/:repo_id/analysis", doc.Analysis)
-		dc.POST("/repo/init", doc.Init)
+		dc.POST("/repo/:repo_id/init", doc.Init)
 		dc.GET("/analysis/:analysis_id/logs", doc.GetLatestLogs)
 		dc.GET("/repo/:repo_id/analysis/history", doc.GetAnalysisHistory)
 		dc.GET("/analysis/:analysis_id/results", doc.GetAnalysisResults)

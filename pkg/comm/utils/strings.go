@@ -62,6 +62,15 @@ func ToUInt(s string) uint {
 	return uint(id)
 }
 
+// StringToUintID 将字符串转换为uint类型的ID
+func StringToUintID(s string) (uint, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid ID format: %w", err)
+	}
+	return uint(id), nil
+}
+
 // ToIntSlice 将逗号分隔的数字字符串转换为 []int 切片
 func ToIntSlice(ids string) []int {
 	// 分割字符串
@@ -136,13 +145,4 @@ var ansiEscapeRegex = regexp.MustCompile(`\x1B\[[0-9;]*[A-Za-z]`)
 
 func CleanANSISequences(input string) string {
 	return ansiEscapeRegex.ReplaceAllString(input, "")
-}
-
-// StringToUintID 将字符串转换为uint类型的ID
-func StringToUintID(s string) (uint, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid ID format: %w", err)
-	}
-	return uint(id), nil
 }

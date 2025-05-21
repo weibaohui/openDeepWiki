@@ -20,7 +20,7 @@ func GetLatestLogs(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 
-	docService := service.NewDocService(testRepo)
+	docService := service.NewDocServiceWithAnalysisID(analysisID)
 
 	// 设置响应头
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
