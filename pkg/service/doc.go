@@ -98,16 +98,13 @@ func (s *docService) GetLatestLogs(ctx context.Context) (string, error) {
 }
 
 // readAndWrite 从reader读取数据并同时写入文件
-func (s *docService) readAndWrite(ctx context.Context, reader io.Reader) (string, error) {
+func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysis *models.DocAnalysis) (string, error) {
 	if s.repo == nil {
 		return "", fmt.Errorf("repository not initialized")
 	}
 
-	// 生成文件名（使用时间戳确保唯一性）
-	filename := fmt.Sprintf("chat_%s.log", time.Now().Format("20060102_150405"))
-
 	// 获取运行时文件路径
-	filePath, err := utils.GetRuntimeFilePath(s.repo.Name, filename)
+	filePath, err := s.GetRuntimeFilePath(analysis)
 	if err != nil {
 		return "", fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -153,12 +150,12 @@ func (s *docService) readAndWrite(ctx context.Context, reader io.Reader) (string
 }
 
 // TailFile 持续读取文件新增内容，并将每一行通过 channel 返回
-func (s *docService) TailFile(ctx context.Context, filename string) (<-chan string, error) {
+func (s *docService) TailFile(ctx context.Context, analysis *models.DocAnalysis) (<-chan string, error) {
 	if s.repo == nil {
 		return nil, fmt.Errorf("repository not initialized")
 	}
 
-	filePath, err := utils.GetRuntimeFilePath(s.repo.Name, filename)
+	filePath, err := s.GetRuntimeFilePath(analysis)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -202,6 +199,29 @@ func (s *docService) TailFile(ctx context.Context, filename string) (<-chan stri
 	}()
 
 	return updates, nil
+}
+
+// GetRuntimeFilePath 获取运行时文件的完整路径
+// 格式：AnalysisID/Chat_2023-10-01_12-00-00.log
+func (s *docService) GetRuntimeFilePath(analysis *models.DocAnalysis) (string, error) {
+	if s.repo == nil {
+		return "", fmt.Errorf("repository not initialized")
+	}
+
+	runtimeDir, err := utils.EnsureRuntimeDir(s.repo.Name)
+	if err != nil {
+		return "", err
+	}
+
+	// 创建分析ID子目录
+	analysisDir := filepath.Join(runtimeDir, fmt.Sprintf("%d", analysis.ID))
+	if err := os.MkdirAll(analysisDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create analysis directory: %v", err)
+	}
+
+	// 基于分析任务的开始时间生成文件名
+	filename := fmt.Sprintf("chat_%s.log", analysis.StartTime.Format("20060102_150405"))
+	return filepath.Join(analysisDir, filename), nil
 }
 
 // GetLatestLogFile 获取最新的日志文件名
