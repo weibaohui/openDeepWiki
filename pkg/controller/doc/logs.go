@@ -13,21 +13,14 @@ import (
 // GetLatestLogs 以服务端推送事件（SSE）的方式，将最新日志文件的内容实时流式传输给客户端。
 // 若未找到日志文件或发生错误，则返回相应的错误信息并终止请求。
 func GetLatestLogs(c *gin.Context) {
+	analysisID := c.Param("analysis_id")
+	if analysisID == "" {
+		amis.WriteJsonError(c, fmt.Errorf("invalid analysis ID"))
+		return
+	}
 	ctx := c.Request.Context()
 
-	docService := service.NewDocService(testRepo)
-
-	// 获取最新的日志文件名
-	filename, err := docService.GetLatestLogFile(ctx)
-	if err != nil {
-		amis.WriteJsonError(c, err)
-		return
-	}
-
-	if filename == "" {
-		amis.WriteJsonError(c, fmt.Errorf("no log file found"))
-		return
-	}
+	docService := service.NewDocServiceWithAnalysisID(analysisID)
 
 	// 设置响应头
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
@@ -35,8 +28,13 @@ func GetLatestLogs(c *gin.Context) {
 	c.Writer.Header().Set("Connection", "keep-alive")
 	c.Writer.WriteHeader(http.StatusOK)
 
-	// 开始监控文件变化
-	updates, err := docService.TailFile(ctx, filename)
+	docAnalysis, err := docService.AnalysisService().GetByAnalysisID(analysisID)
+	if err != nil {
+		amis.WriteJsonError(c, err)
+		return
+	}
+
+	updates, err := docService.TailFile(ctx, docAnalysis)
 	if err != nil {
 		amis.WriteJsonError(c, err)
 		return

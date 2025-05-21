@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+
+	"github.com/weibaohui/openDeepWiki/pkg/models"
 )
 
 type docReadmeService struct {
@@ -43,13 +45,13 @@ func (s *docReadmeService) prompt(ctx context.Context) string {
 	repName := s.parent.RepoService().GetRepoName(ctx)
 	return fmt.Sprintf(prompt, path, repName)
 }
-func (s *docReadmeService) Generate(ctx context.Context) error {
+func (s *docReadmeService) Generate(ctx context.Context, analysis *models.DocAnalysis) error {
 	reader, err := s.parent.chat(ctx, s.prompt(ctx))
 	if err != nil {
 		return err
 
 	}
-	_, err = s.parent.readAndWrite(ctx, reader)
+	_, err = s.parent.readAndWrite(ctx, reader, analysis)
 	if err != nil {
 		return err
 	}

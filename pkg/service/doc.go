@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/weibaohui/openDeepWiki/internal/dao"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
 	"k8s.io/klog/v2"
@@ -23,6 +24,55 @@ func NewDocService(repo *models.Repo) *docService {
 	return &docService{
 		repo: repo,
 	}
+}
+
+// NewDocServiceWithRepoID 根据仓库ID创建并返回一个 docService 实例。
+// 如果找不到对应ID的仓库或发生其他错误，将返回错误。
+func NewDocServiceWithRepoID(repoID string) *docService {
+	// 将 repoID 转换为 uint 类型
+	repoIDInt := utils.ToUInt(repoID)
+	if repoIDInt == 0 {
+		klog.Errorf("解析仓库ID失败")
+		return nil
+	}
+
+	// 查询仓库信息
+	repo := &models.Repo{}
+	if err := dao.DB().First(repo, repoIDInt).Error; err != nil {
+		klog.Errorf("查询仓库信息失败: %v", err)
+		return nil
+	}
+
+	// 创建并返回 docService 实例
+	return NewDocService(repo)
+}
+
+// NewDocServiceWithAnalysisID 根据分析ID创建并返回一个 docService 实例。
+// 如果找不到对应ID的分析记录或发生其他错误，将返回 nil。
+func NewDocServiceWithAnalysisID(analysisID string) *docService {
+	// 将 analysisID 转换为 uint 类型
+	analysisIDInt := utils.ToUInt(analysisID)
+	if analysisIDInt == 0 {
+		klog.Errorf("解析分析ID失败")
+		return nil
+	}
+
+	// 查询分析记录
+	analysis := &models.DocAnalysis{}
+	if err := dao.DB().First(analysis, analysisIDInt).Error; err != nil {
+		klog.Errorf("查询分析记录失败: %v", err)
+		return nil
+	}
+
+	// 查询仓库信息
+	repo := &models.Repo{}
+	if err := dao.DB().First(repo, analysis.RepoID).Error; err != nil {
+		klog.Errorf("查询仓库信息失败: %v", err)
+		return nil
+	}
+
+	// 创建并返回 docService 实例
+	return NewDocService(repo)
 }
 
 func (s *docService) chat(ctx context.Context, message string) (io.Reader, error) {
@@ -98,16 +148,13 @@ func (s *docService) GetLatestLogs(ctx context.Context) (string, error) {
 }
 
 // readAndWrite 从reader读取数据并同时写入文件
-func (s *docService) readAndWrite(ctx context.Context, reader io.Reader) (string, error) {
+func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysis *models.DocAnalysis) (string, error) {
 	if s.repo == nil {
 		return "", fmt.Errorf("repository not initialized")
 	}
 
-	// 生成文件名（使用时间戳确保唯一性）
-	filename := fmt.Sprintf("chat_%s.log", time.Now().Format("20060102_150405"))
-
 	// 获取运行时文件路径
-	filePath, err := utils.GetRuntimeFilePath(s.repo.Name, filename)
+	filePath, err := s.GetRuntimeFilePath(analysis)
 	if err != nil {
 		return "", fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -153,12 +200,12 @@ func (s *docService) readAndWrite(ctx context.Context, reader io.Reader) (string
 }
 
 // TailFile 持续读取文件新增内容，并将每一行通过 channel 返回
-func (s *docService) TailFile(ctx context.Context, filename string) (<-chan string, error) {
+func (s *docService) TailFile(ctx context.Context, analysis *models.DocAnalysis) (<-chan string, error) {
 	if s.repo == nil {
 		return nil, fmt.Errorf("repository not initialized")
 	}
 
-	filePath, err := utils.GetRuntimeFilePath(s.repo.Name, filename)
+	filePath, err := s.GetRuntimeFilePath(analysis)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -174,7 +221,7 @@ func (s *docService) TailFile(ctx context.Context, filename string) (<-chan stri
 		}
 		defer file.Close()
 		reader := bufio.NewReader(file)
-		var cache string // 用于缓存未遇到换行符的数据
+		cache := "" // 用于缓存未遇到换行符的数据
 		for {
 			select {
 			case <-ctx.Done():
@@ -202,6 +249,29 @@ func (s *docService) TailFile(ctx context.Context, filename string) (<-chan stri
 	}()
 
 	return updates, nil
+}
+
+// GetRuntimeFilePath 获取运行时文件的完整路径
+// 格式：AnalysisID/Chat_2023-10-01_12-00-00.log
+func (s *docService) GetRuntimeFilePath(analysis *models.DocAnalysis) (string, error) {
+	if s.repo == nil {
+		return "", fmt.Errorf("repository not initialized")
+	}
+
+	runtimeDir, err := utils.EnsureRuntimeDir(s.repo.Name)
+	if err != nil {
+		return "", err
+	}
+
+	// 创建分析ID子目录
+	analysisDir := filepath.Join(runtimeDir, fmt.Sprintf("%d", analysis.ID))
+	if err := os.MkdirAll(analysisDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create analysis directory: %v", err)
+	}
+
+	// 基于分析任务的开始时间生成文件名
+	filename := fmt.Sprintf("chat_%s.log", analysis.StartTime.Format("20060102_150405"))
+	return filepath.Join(analysisDir, filename), nil
 }
 
 // GetLatestLogFile 获取最新的日志文件名

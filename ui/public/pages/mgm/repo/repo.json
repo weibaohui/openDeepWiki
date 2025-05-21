@@ -90,12 +90,38 @@
                                 "title": "查看解读历史",
                                 "body": [
                                     {
+                                        "headerToolbar": [
+                                            "reload"
+                                        ],
                                         "type": "crud",
                                         "api": {
                                             "method": "get",
                                             "url": "/doc/repo/${id}/analysis/history"
                                         },
                                         "columns": [
+                                            {
+                                                "type": "operation",
+                                                "label": "操作",
+                                                "buttons": [
+                                                    {
+                                                        "type": "button",
+                                                        "label": "日志",
+                                                        "actionType": "drawer",
+                                                        "drawer": {
+                                                            "size": "xl",
+                                                            "closeOnEsc": true,
+                                                            "closeOnOutside": true,
+                                                            "title": "查看运行日志",
+                                                            "body": [
+                                                                {
+                                                                    "type": "sseLogDisplay",
+                                                                    "url": "/doc/analysis/${id}/logs"
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            },
                                             {
                                                 "name": "id",
                                                 "label": "ID"
@@ -176,23 +202,6 @@
                                                 ]
                                             }
                                         ]
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "type": "button",
-                            "label": "日志",
-                            "actionType": "drawer",
-                            "drawer": {
-                                "size": "xl",
-                                "closeOnEsc": true,
-                                "closeOnOutside": true,
-                                "title": "查看运行日志",
-                                "body": [
-                                    {
-                                        "type": "sseLogDisplay",
-                                        "url": "/doc/repo/logs"
                                     }
                                 ]
                             }

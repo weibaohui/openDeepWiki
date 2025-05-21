@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -59,6 +60,15 @@ func ToUInt(s string) uint {
 		return 0
 	}
 	return uint(id)
+}
+
+// StringToUintID 将字符串转换为uint类型的ID
+func StringToUintID(s string) (uint, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid ID format: %w", err)
+	}
+	return uint(id), nil
 }
 
 // ToIntSlice 将逗号分隔的数字字符串转换为 []int 切片

@@ -12,7 +12,7 @@ import (
 // GetAnalysisResults 获取特定分析ID的所有结果文档
 func GetAnalysisResults(c *gin.Context) {
 
-	analysisID := c.Param("id")
+	analysisID := c.Param("analysis_id")
 	if analysisID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid analysis ID"})
 		return
