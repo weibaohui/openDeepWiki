@@ -19,9 +19,13 @@ func (s *docService) ReadmeService() *docReadmeService {
 func (s *docReadmeService) prompt(ctx context.Context) string {
 	prompt := `
 		你是一个文档生成助手，你需要根据以下信息生成一个README.md文件。
-		仓库存放路径在%s
+		仓库存放路径在%s.请注意使用相对路径。
 		仓库名称是%s。
 		请你根据存放路径，先读取仓库文件夹目录结构，再根据目录结构，读取仓库的中的必要文件，然后根据文件内容，生成一个README.md文件。
+		请你读取关键的代码目录结构下的文件，包括：
+		1. 代码文件
+		2. 配置文件
+		3. 脚本文件 抽取关键信息，作为编写readme文档的依据。
 		原仓库中的Readme文档，只能作为参考。	
 		请你生成README.md文件，包含以下信息：
 		1. 仓库名称
