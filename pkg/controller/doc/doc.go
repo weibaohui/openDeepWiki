@@ -45,14 +45,14 @@ func Analysis(c *gin.Context) {
 		amis.WriteJsonError(c, err)
 		return
 	}
-
-	// 生成README文档
-	err = docService.ReadmeService().Generate(ctx, analysis)
-	if err != nil {
-		_ = docService.AnalysisService().UpdateStatus(ctx, analysis, "failed", "", err)
-		amis.WriteJsonError(c, err)
-		return
-	}
+	go func() {
+		// 生成README文档
+		err = docService.ReadmeService().Generate(ctx, analysis)
+		if err != nil {
+			_ = docService.AnalysisService().UpdateStatus(ctx, analysis, "failed", "", err)
+			return
+		}
+	}()
 
 	amis.WriteJsonOK(c)
 }
