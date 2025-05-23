@@ -20,7 +20,6 @@ type chatService struct {
 }
 
 func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.ChatCompletionStream, error) {
-
 	klog.V(6).Infof("ChatCompletion chat: %v", chat)
 	client, err := AIService().DefaultClient()
 
@@ -33,8 +32,7 @@ func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.C
 
 	client.SetTools(tools)
 
-	stream, err := client.GetStreamCompletionWithTools(ctx, chat)
-
+	stream, err := client.GetStreamCompletionWithTools(ctx, "", chat)
 	if err != nil {
 		klog.V(6).Infof("ChatCompletion error: %v\n", err)
 		return nil, err
@@ -43,7 +41,7 @@ func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.C
 	return stream, nil
 
 }
-func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer io.Writer) error {
+func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Writer) error {
 
 	cfg := flag.Init()
 	client, err := AIService().DefaultClient()
@@ -52,18 +50,16 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 		klog.V(6).Infof("获取AI服务错误 : %v\n", err)
 		return fmt.Errorf("获取AI服务错误 : %v", err)
 	}
-	_ = client.ClearHistory(ctxInst)
+	_ = client.ClearHistory(ctx)
 
 	tools := McpService().GetAllEnabledTools()
 	klog.V(6).Infof("GPTShell 对话携带tools %d", len(tools))
 
 	client.SetTools(tools)
 
-	// currChatContent tracks chat content that needs to be sent
-	// to the LLM in each iteration of  the agentic loop below
+	// 准备对话内容，包含system message
 	var currChatContent []any
 
-	// Set the initial message to start the conversation
 	currChatContent = append(currChatContent, chat)
 
 	currentIteration := int32(0)
@@ -76,7 +72,7 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 			return nil
 		}
 		klog.V(6).Infof("Sending to LLM: %v", utils.ToJSON(currChatContent))
-		stream, err := client.GetStreamCompletionWithTools(ctxInst, currChatContent...)
+		stream, err := client.GetStreamCompletionWithTools(ctx, currChatContent...)
 		// Clear our "response" now that we sent the last response
 		if err != nil {
 			klog.V(6).Infof("ChatCompletion error: %v\n", err)
@@ -116,7 +112,7 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 
 						// 使用合并后的ToolCalls执行操作
 
-						results := McpService().Host().ExecTools(ctxInst, mergedCalls)
+						results := McpService().Host().ExecTools(ctx, mergedCalls)
 						for _, r := range results {
 							currChatContent = append(currChatContent, gin.H{
 								"type": "执行结果",
@@ -141,7 +137,7 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 		}
 		respAll := strings.Join(respBuffer, "")
 		if strings.TrimSpace(respAll) != "" {
-			client.SaveAIHistory(ctxInst, respAll)
+			client.SaveAIHistory(ctx, respAll)
 		}
 		respBuffer = []string{}
 		err = stream.Close()
@@ -157,7 +153,7 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 		klog.Infof("Max iterations %d reached", maxIterations)
 		return fmt.Errorf("max iterations %d reached", maxIterations)
 	}
-	_ = client.ClearHistory(ctxInst)
+	_ = client.ClearHistory(ctx)
 	klog.Infof("RunOneRound 一轮会话结束，进行%d次对话", currentIteration)
 
 	return nil

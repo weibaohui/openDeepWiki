@@ -29,5 +29,8 @@ func UpdateConfig(c *gin.Context) {
 		return
 	}
 	_ = service.ConfigService().UpdateFlagFromDBConfig()
+
+	// 重新加载AI客户端
+	_, _ = service.AIService().ReloadDefaultClient()
 	amis.WriteJsonOK(c)
 }

@@ -7,7 +7,7 @@ var localAiService = &aiService{}
 var localMcpService = &mcpService{}
 var localDocService = &docService{}
 
-// ChatService 返回本地的 chatService 单例实例。
+// ChatService 返回或创建一个新的chatService实例
 func ChatService() *chatService {
 	return localChatService
 }

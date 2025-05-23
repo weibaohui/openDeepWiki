@@ -138,7 +138,7 @@ Provide your final README.md content within <readme> tags. Include no explanatio
 	return fmt.Sprintf(prompt, path, repName)
 }
 func (s *docReadmeService) Generate(ctx context.Context, analysis *models.DocAnalysis) error {
-	reader, err := s.parent.chat(ctx, s.prompt(ctx))
+	reader, err := s.parent.chat(ctx, s.prompt(ctx), "")
 	if err != nil {
 		return err
 
