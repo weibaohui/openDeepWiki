@@ -182,9 +182,10 @@ func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysi
 				klog.Errorf("写入文件失败: %v", err)
 				break
 			}
+			klog.V(8).Infof("成功写入文件 %s %d 长度字符串", filePath, len(content))
 
 			// 输出到控制台
-			klog.V(6).Infof("AI响应: %s", content)
+			// klog.V(6).Infof("AI响应: %s", content)
 		}
 		if err == io.EOF {
 			break
@@ -195,7 +196,7 @@ func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysi
 		}
 	}
 
-	klog.Infof("成功写入文件 %s", filePath)
+	klog.Infof("会话结束，对话结果已写入文件 %s", filePath)
 	return all, nil
 }
 

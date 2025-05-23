@@ -34,6 +34,7 @@ func (c *OpenAIClient) SetTools(tools []openai.Tool) {
 }
 
 func (c *OpenAIClient) Configure(config IAIConfig) error {
+	klog.V(6).Infof("OpenAIClient Configure \n %s \n", utils.ToJSON(config))
 	token := config.GetPassword()
 	cfg := openai.DefaultConfig(token)
 	orgId := config.GetOrganizationId()

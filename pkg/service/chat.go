@@ -158,6 +158,7 @@ func (c *chatService) RunOneRound(ctxInst context.Context, chat string, writer i
 		return fmt.Errorf("max iterations %d reached", maxIterations)
 	}
 	_ = client.ClearHistory(ctxInst)
+	klog.Infof("RunOneRound 一轮会话结束，进行%d次对话", currentIteration)
 
 	return nil
 }

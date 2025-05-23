@@ -22,13 +22,12 @@ func GetLatestLogs(c *gin.Context) {
 
 	docService := service.NewDocServiceWithAnalysisID(analysisID)
 
-	// 设置响应头
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.WriteHeader(http.StatusOK)
-
 	docAnalysis, err := docService.AnalysisService().GetByAnalysisID(analysisID)
+	if err != nil {
+		amis.WriteJsonError(c, err)
+		return
+	}
+	_, err = docService.GetRuntimeFilePath(docAnalysis)
 	if err != nil {
 		amis.WriteJsonError(c, err)
 		return
@@ -39,6 +38,12 @@ func GetLatestLogs(c *gin.Context) {
 		amis.WriteJsonError(c, err)
 		return
 	}
+
+	// 设置响应头
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.WriteHeader(http.StatusOK)
 	// 持续发送文件更新
 	for {
 		select {
