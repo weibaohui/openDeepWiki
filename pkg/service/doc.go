@@ -11,6 +11,7 @@ import (
 
 	"github.com/weibaohui/openDeepWiki/internal/dao"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
+	"github.com/weibaohui/openDeepWiki/pkg/constants"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
 	"k8s.io/klog/v2"
 )
@@ -75,7 +76,9 @@ func NewDocServiceWithAnalysisID(analysisID string) *docService {
 	return NewDocService(repo)
 }
 
-func (s *docService) chat(ctx context.Context, message string) (io.Reader, error) {
+func (s *docService) chat(ctx context.Context, systemPrompt, message string) (io.Reader, error) {
+	ctx = context.WithValue(ctx, constants.SystemPrompt, systemPrompt)
+	ctx = context.WithValue(ctx, constants.RepoName, s.repo.Name)
 	// 创建一个带有读写功能的管道
 	pr, pw := io.Pipe()
 
@@ -182,9 +185,10 @@ func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysi
 				klog.Errorf("写入文件失败: %v", err)
 				break
 			}
+			klog.V(8).Infof("成功写入文件 %s %d 长度字符串", filePath, len(content))
 
 			// 输出到控制台
-			klog.V(6).Infof("AI响应: %s", content)
+			// klog.V(6).Infof("AI响应: %s", content)
 		}
 		if err == io.EOF {
 			break
@@ -195,7 +199,7 @@ func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysi
 		}
 	}
 
-	klog.Infof("成功写入文件 %s", filePath)
+	klog.Infof("会话结束，对话结果已写入文件 %s", filePath)
 	return all, nil
 }
 

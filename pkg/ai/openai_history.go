@@ -34,6 +34,7 @@ func (c *OpenAIClient) SetTools(tools []openai.Tool) {
 }
 
 func (c *OpenAIClient) Configure(config IAIConfig) error {
+	klog.V(6).Infof("OpenAIClient Configure \n %s \n", utils.ToJSON(config))
 	token := config.GetPassword()
 	cfg := openai.DefaultConfig(token)
 	orgId := config.GetOrganizationId()
@@ -123,14 +124,15 @@ func (c *OpenAIClient) GetStreamCompletion(ctx context.Context, contents ...any)
 }
 func (c *OpenAIClient) GetStreamCompletionWithTools(ctx context.Context, contents ...any) (*openai.ChatCompletionStream, error) {
 	c.fillChatHistory(ctx, contents)
+	history := c.GetHistory(ctx)
 	stream, err := c.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:    c.model,
-		Messages: c.GetHistory(ctx),
+		Messages: history,
 		Tools:    c.tools,
 		Stream:   true,
 	})
-	klog.V(6).Infof("GetStreamCompletionWithTools 携带 history length: %d", len(c.GetHistory(ctx)))
-	klog.V(8).Infof("GetStreamCompletionWithTools c.history: %v", utils.ToJSON(c.GetHistory(ctx)))
+	klog.V(6).Infof("GetStreamCompletionWithTools 携带 history length: %d", len(history))
+	klog.V(6).Infof("GetStreamCompletionWithTools c.history: %v", utils.ToJSON(history))
 	return stream, err
 }
 
@@ -161,33 +163,33 @@ func (t *OpenAIHeaderTransport) RoundTrip(req *http.Request) (*http.Response, er
 }
 
 func (c *OpenAIClient) SaveAIHistory(ctx context.Context, contents string) {
-	val := ctx.Value(constants.JwtUserName)
-	if username, ok := val.(string); ok {
-		c.memory.AppendUserHistory(username, openai.ChatCompletionMessage{
+	val := ctx.Value(constants.RepoName)
+	if repoName, ok := val.(string); ok {
+		c.memory.AppendRepoHistory(repoName, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleAssistant,
 			Content: contents,
 		})
 	} else {
-		klog.Warningf("SaveAIHistory content but user not found: %s", contents)
+		klog.Warningf("SaveAIHistory content but repo not found: %s", contents)
 	}
 }
 
 func (c *OpenAIClient) GetHistory(ctx context.Context) []openai.ChatCompletionMessage {
-	val := ctx.Value(constants.JwtUserName)
-	if username, ok := val.(string); ok {
-		return c.memory.GetUserHistory(username)
+	val := ctx.Value(constants.RepoName)
+	if repoName, ok := val.(string); ok {
+		return c.memory.GetRepoHistory(repoName)
 	}
 	return make([]openai.ChatCompletionMessage, 0)
-
 }
 
 func (c *OpenAIClient) ClearHistory(ctx context.Context) error {
-	val := ctx.Value(constants.JwtUserName)
-	if username, ok := val.(string); ok {
-		c.memory.ClearUserHistory(username)
+	val := ctx.Value(constants.RepoName)
+	if repoName, ok := val.(string); ok {
+		c.memory.ClearRepoHistory(repoName)
 	}
 	return nil
 }
+
 func (c *OpenAIClient) fillChatHistory(ctx context.Context, contents ...any) {
 
 	history := c.GetHistory(ctx)
@@ -238,24 +240,27 @@ func (c *OpenAIClient) fillChatHistory(ctx context.Context, contents ...any) {
 		keep := history[len(history)-int(c.maxHistory):]
 		history = keep
 	}
+	systemPrompt := ctx.Value(constants.SystemPrompt).(string)
+	if systemPrompt != "" {
+		system := slice.Filter(history, func(index int, item openai.ChatCompletionMessage) bool {
+			if item.Role == openai.ChatMessageRoleSystem {
+				return true
+			}
+			return false
+		})
 
-	system := slice.Filter(history, func(index int, item openai.ChatCompletionMessage) bool {
-		if item.Role == openai.ChatMessageRoleSystem {
-			return true
+		if len(system) == 0 {
+			// 创建系统消息
+			sysMsg := openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: systemPrompt,
+			}
+			// 将系统消息插入到历史记录最前面
+			history = append([]openai.ChatCompletionMessage{sysMsg}, history...)
 		}
-		return false
-	})
-
-	if len(system) == 0 {
-		// 创建系统消息
-		sysMsg := openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: sysPrompt,
-		}
-		// 将系统消息插入到历史记录最前面
-		history = append([]openai.ChatCompletionMessage{sysMsg}, history...)
 	}
-	username := ctx.Value(constants.JwtUserName).(string)
-	c.memory.SetUserHistory(username, history)
+
+	repoName := ctx.Value(constants.RepoName).(string)
+	c.memory.SetRepoHistory(repoName, history)
 
 }

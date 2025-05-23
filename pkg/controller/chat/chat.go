@@ -35,6 +35,7 @@ func handleRequest(c *gin.Context, promptFunc func(data interface{}) string) {
 
 	prompt := promptFunc(data)
 
+	// TODO: 从上下文中获取repo信息
 	stream, err := service.ChatService().GetChatStream(ctxInst, prompt)
 	if err != nil {
 		klog.V(2).Infof("Error Stream chat request:%v\n\n", err)

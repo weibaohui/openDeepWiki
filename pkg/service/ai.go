@@ -30,6 +30,14 @@ func (c *aiService) DefaultClient() (ai.IAI, error) {
 	return local, nil
 
 }
+func (c *aiService) ReloadDefaultClient() (ai.IAI, error) {
+	 
+	if client, err := c.openAIClient(); err == nil {
+		local = client
+	}
+	return local, nil
+
+}
 
 func (c *aiService) openAIClient() (ai.IAI, error) {
 	cfg := flag.Init()
