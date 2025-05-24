@@ -1,4 +1,4 @@
-# 本README文件由AI自动生成。
+# 本README文件由AI自动生成，大模型使用DeepSeek-V3。
 
 # openDeepWiki
 
