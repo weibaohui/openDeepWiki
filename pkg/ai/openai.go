@@ -90,6 +90,26 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, contents ...any) (stri
 	}
 	return resp.Choices[0].Message.Content, nil
 }
+func (c *OpenAIClient) GetCompletionNoHistory(ctx context.Context, contents ...any) (string, error) {
+	if len(contents) == 0 {
+		return "", errors.New("no content provided")
+	}
+	// Create a completion request
+	resp, err := c.client.CreateChatCompletion(ctx,
+		openai.ChatCompletionRequest{
+			Model: c.model,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: contents[0].(string),
+				},
+			},
+		})
+	if err != nil {
+		return "", err
+	}
+	return resp.Choices[0].Message.Content, nil
+}
 func (c *OpenAIClient) GetCompletionWithTools(ctx context.Context, contents ...any) ([]openai.ToolCall, string, error) {
 
 	// Create a completion request

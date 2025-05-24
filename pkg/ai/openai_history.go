@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"strings"
 
 	"github.com/duke-git/lancet/v2/slice"
 	"github.com/sashabaranov/go-openai"
@@ -84,14 +85,15 @@ func (c *OpenAIClient) fillChatHistory(ctx context.Context, contents ...any) {
 }
 
 func (c *OpenAIClient) SaveAIHistory(ctx context.Context, contents string) {
+	if contents == "" {
+		return
+	}
 	val := ctx.Value(constants.RepoName)
 	if repoName, ok := val.(string); ok {
 		c.memory.AppendRepoHistory(repoName, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleAssistant,
 			Content: contents,
 		})
-	} else {
-		klog.Warningf("SaveAIHistory content but repo not found: %s", contents)
 	}
 }
 
@@ -109,4 +111,69 @@ func (c *OpenAIClient) ClearHistory(ctx context.Context) error {
 		c.memory.ClearRepoHistory(repoName)
 	}
 	return nil
+}
+
+// SummarizeHistory 对历史记录进行归纳总结，排除系统提示词，通过 AI 归纳每条历史，提取关键信息，减少 token 占用。
+func (c *OpenAIClient) SummarizeHistory(ctx context.Context) error {
+	history := c.GetHistory(ctx)
+	if len(history) == 0 {
+		return nil
+	}
+	var summarized []openai.ChatCompletionMessage
+	for _, msg := range history {
+		if msg.Role == openai.ChatMessageRoleSystem {
+			summarized = append(summarized, msg)
+			continue
+		}
+		// 调用 AI 进行归纳总结
+		result, err := c.summarizeMessageWithAI(ctx, msg.Content)
+		if err != nil {
+			klog.Warningf("SummarizeHistory AI error: %v", err)
+			// 失败则保留原内容
+			summarized = append(summarized, msg)
+			continue
+		}
+		summarized = append(summarized, openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: result,
+		})
+	}
+	repoName := ctx.Value(constants.RepoName).(string)
+	c.memory.SetRepoHistory(repoName, summarized)
+	return nil
+}
+
+// CheckAndSummarizeHistory 检查历史条数或内容长度，超过阈值则自动归纳总结。
+func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context, maxCount int, maxTotalLen int) error {
+	history := c.GetHistory(ctx)
+	count := 0
+	totalLen := 0
+	for _, msg := range history {
+		if msg.Role == openai.ChatMessageRoleSystem {
+			continue
+		}
+		count++
+		totalLen += len(msg.Content)
+	}
+	if (maxCount > 0 && count > maxCount) || (maxTotalLen > 0 && totalLen > maxTotalLen) {
+		return c.SummarizeHistory(ctx)
+	}
+	return nil
+}
+
+// summarizeMessageWithAI 使用 AI 对单条消息内容进行归纳总结。
+func (c *OpenAIClient) summarizeMessageWithAI(ctx context.Context, content string) (string, error) {
+	if strings.Contains(content, "<已归纳>") {
+		return content, nil
+	}
+	klog.V(2).Infof("Summarizing message with AI: %v", content)
+	// 这里假设有一个 SummarizePrompt 作为归纳指令
+	prompt := "请对以下内容进行归纳总结，提取有用的关键信息，避免冗余。 ：" + content
+	resp, err := c.GetCompletionNoHistory(ctx, prompt)
+	if err != nil {
+		return content, err
+	}
+	resp = "<已归纳> " + resp
+	klog.V(2).Infof("Summarized message: %v", resp)
+	return resp, nil
 }

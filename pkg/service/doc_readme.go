@@ -18,17 +18,21 @@ func (s *docService) ReadmeService() *docReadmeService {
 }
 func (s *docReadmeService) prompt(ctx context.Context) string {
 	prompt := `
-		
+		/no_thinking
 		你是一名专业的代码分析专家，任务是为一个 GitHub 仓库创建 README.md 文档。你的目标是基于提供的目录结构分析仓库内容，并生成一份高质量的 README，突出项目的关键特性，风格应参考 GitHub 上的高级开源项目。
 
 		仓库名称是%s。
 		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
-		请你根据存放路径，先读取仓库文件夹目录结构，再根据目录结构，读取仓库的中的必要文件，然后根据文件内容，生成一个README.md文件。
+		请你根据存放路径，使用 [list_directory] 方法 先读取仓库文件夹根目录结构，再根据目录结构，按需读取仓库的中的必要文件，然后根据文件内容，生成一个README.md文件。
 
-		请遵循以下步骤生成README文档：
+		请遵循以下步骤生成 中文版 README.md 文档：
+	
+	
 1. 核心文件分析
 
 使用 READ_FILE 函数检查以下关键文件，请先拼接仓库存储的相对路径%s：
+	•	不要读取'.'dot点开头的文件或目录
+	•	不要读取 'node_modules' 、'.git' 等辅助目录
 	•	主项目文件（通常位于根目录）
 	•	配置文件（如 package.json、setup.py 等）
 	•	文档文件（位于根目录或 /docs 目录中）
@@ -85,8 +89,9 @@ f. 许可证（仅当存在 LICENSE 文件时）
 	•	使用 Markdown 格式优化可读性（如标题、代码块、列表等）
 	•	专注于创建一份专业、有吸引力的 README，突出项目优势
 	•	确保 README 结构清晰、内容准确
+	•	主体语言使用中文
 
-请将最终的 README.md 内容包含在 <readme> 标签中。不要在这些标签之外添加任何解释或注释。
+请将最终的 README.md 内容，调用 [write_file] 函数写入 README.md 文件。
 		`
 	path, _ := s.parent.RepoService().GetRepoPath(ctx)
 	repName := s.parent.RepoService().GetRepoName(ctx)

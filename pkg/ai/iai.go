@@ -23,6 +23,7 @@ import (
 type IAI interface {
 	Configure(config IAIConfig) error
 	GetCompletion(ctx context.Context, contents ...any) (string, error)
+	GetCompletionNoHistory(ctx context.Context, contents ...any) (string, error)
 	GetCompletionWithTools(ctx context.Context, contents ...any) ([]openai.ToolCall, string, error)
 	GetStreamCompletion(ctx context.Context, contents ...any) (*openai.ChatCompletionStream, error)
 	GetStreamCompletionWithTools(ctx context.Context, contents ...any) (*openai.ChatCompletionStream, error)
@@ -30,6 +31,8 @@ type IAI interface {
 	Close()
 	SetTools(tools []openai.Tool)
 	SaveAIHistory(ctx context.Context, content string)
+	SummarizeHistory(ctx context.Context) error
+	CheckAndSummarizeHistory(ctx context.Context, maxCount int, maxTotalLen int) error
 	GetHistory(ctx context.Context) []openai.ChatCompletionMessage
 	ClearHistory(ctx context.Context) error
 }
