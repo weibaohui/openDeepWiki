@@ -1,83 +1,59 @@
-# DeepWiki (Go Version)
+# 本README文件由AI自动生成。
 
-DeepWiki 是一个基于 Go 语言开发的复刻网站，旨在提供一个高效、简洁的 Wiki 平台。此项目灵感来源于原版 DeepWiki，使用 Go 语言重新实现，具有高性能和可扩展性。
+# openDeepWiki
 
-## 功能特性
-- **轻量级**：使用 Go 语言构建，性能优越，资源占用低。
-- **Markdown 支持**：支持使用 Markdown 语法编写和编辑内容。
-- **搜索功能**：快速搜索页面内容。
-- **用户管理**：支持用户注册、登录和权限管理。
-- **MCP 协议支持**：提供 MCP（Model Context Protocol）接口，供外部工具访问。
-- **Docker 支持**：可通过 Docker 一键部署。
-- **多数据库支持**：支持 SQLite（默认）和 MySQL。
+一个基于Go语言的Web应用程序，用于管理和扩展知识库，支持多种功能，包括用户管理、文档管理、AI聊天等。
 
-## 技术栈
-- **后端**：Go 1.20+
-- **数据库**：SQLite（默认，文件位于 `data/openDeepWiki.db`）或 MySQL
-- **前端**：Vite + React（`ui/` 目录，支持热更新）
-- **构建工具**：Makefile
-- **容器化**：Dockerfile
+## 项目描述
+openDeepWiki是一个功能丰富的Web应用，旨在为用户提供一个集中的平台，用于知识管理和协作。通过集成多种现代技术（如Gin框架、JWT认证、SQLite数据库等），该项目提供了高度可定制化的功能和良好的用户体验。
 
-## 快速开始
+## 特性
+- **用户管理**：支持用户登录、角色管理和权限控制。
+- **文档管理**：提供文档的创建、编辑和共享功能。
+- **AI聊天**：集成OpenAI的聊天功能，支持实时交互。
+- **SSO支持**：与第三方认证系统集成，简化登录流程。
+- **嵌入式静态资源**：支持前端资源的嵌入和快速加载。
+- **多租户支持**：允许多个用户或团队共享同一平台。
 
-### 环境要求
-- Go 1.20 或更高版本
-- SQLite 或 MySQL 数据库
-- Node.js 16+（如需开发/构建前端）
-- Git
-- Docker（可选）
+## 安装
+### 依赖
+- Go 1.24.0 或更高版本
+- SQLite3
 
 ### 安装步骤
-1. 克隆项目：
+1. 克隆仓库：
    ```bash
-   git clone https://github.com/your-repo/openDeepWiki.git
+   git clone https://github.com/weibaohui/openDeepWiki.git
    cd openDeepWiki
    ```
-
-2. 安装后端依赖：
+2. 安装依赖：
    ```bash
-   go mod tidy
+   go mod download
    ```
-
-3. 启动后端服务：
+3. 启动应用：
    ```bash
    go run main.go
-   # 或使用 Makefile
-   make run
    ```
 
-4. 启动前端（可选）：
-   ```bash
-   cd ui
-   pnpm install  # 或 npm install
-   pnpm dev      # 或 npm run dev
-   # 访问 http://localhost:3000
-   ```
- 
-## 目录结构
-```
-openDeepWiki/
-├── main.go          # 主程序入口
-├── README.md        # 项目说明文件
-├── go.mod           # Go 模块文件
-├── go.sum           # 依赖锁定文件
-├── Makefile         # 构建与运行脚本
-├── Dockerfile       # Docker 镜像构建文件
-├── bin/             # 可执行文件输出目录
-├── data/            # 数据文件（如 SQLite 数据库）
-├── internal/        # 内部模块
-│   ├── handlers/    # HTTP 处理程序
-│   ├── models/      # 数据模型
-│   └── utils/       # 工具函数
-├── pkg/             # 公共包与业务逻辑
-├── public/          # 静态文件
-├── templates/       # HTML 模板
-├── ui/              # 前端源码（Vite+React）
-└── .env.example     # 环境变量示例文件
+## 使用
+### 启动服务
+运行以下命令启动服务：
+```bash
+go run main.go
 ```
 
-## 贡献
-欢迎对本项目提出建议或贡献代码！请提交 Pull Request 或创建 Issue。
+### 访问前端
+服务启动后，访问以下地址即可使用前端界面：
+- `http://localhost:8080`（默认端口为8080）
+
+### API使用
+openDeepWiki提供了丰富的API，涵盖用户管理、文档操作和AI聊天等功能。详细API文档可参考代码中的路由定义。
+
+## 贡献指南
+欢迎贡献代码！请遵循以下步骤：
+1. Fork项目并克隆到本地。
+2. 创建新分支并提交更改。
+3. 提交Pull Request，并附上详细的说明。
 
 ## 许可证
-本项目基于 MIT 许可证开源。详情请参阅 [LICENSE](LICENSE) 文件。
+本项目采用[MIT许可证](LICENSE)。
