@@ -18,124 +18,79 @@ func (s *docService) ReadmeService() *docReadmeService {
 }
 func (s *docReadmeService) prompt(ctx context.Context) string {
 	prompt := `
-		你是一个文档生成助手，你需要根据以下信息生成一个README.md文件。
-		仓库存放路径在%s.请注意使用相对路径。
+		
+		你是一名专业的代码分析专家，任务是为一个 GitHub 仓库创建 README.md 文档。你的目标是基于提供的目录结构分析仓库内容，并生成一份高质量的 README，突出项目的关键特性，风格应参考 GitHub 上的高级开源项目。
+
 		仓库名称是%s。
+		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
 		请你根据存放路径，先读取仓库文件夹目录结构，再根据目录结构，读取仓库的中的必要文件，然后根据文件内容，生成一个README.md文件。
-		请你读取关键的代码目录结构下的文件，包括：
-		1. 代码文件
-		2. 配置文件
-		3. 脚本文件 抽取关键信息，作为编写readme文档的依据。
-		原仓库中的Readme文档，只能作为参考。	
-		请你生成README.md文件，包含以下信息：
-		1. 仓库名称
-		2. 仓库描述
-		3. 仓库的使用方法
-		4. 仓库的依赖
-		5. 仓库的安装方法
-		6. 仓库的配置方法
-		7. 仓库的使用示例
-		8. 仓库的注意事项
-		9. 仓库的贡献者
-		10. 仓库的许可证
-		11. 仓库的版本号
-		12. 仓库的更新日志
-		13. 仓库的问题反馈
-		14. 仓库的贡献指南
-		等相关信息。
-		请务必使用<finalResult></finalResult>包裹最终结果。
+
+		请遵循以下步骤生成README文档：
+1. 核心文件分析
+
+使用 READ_FILE 函数检查以下关键文件，请先拼接仓库存储的相对路径%s：
+	•	主项目文件（通常位于根目录）
+	•	配置文件（如 package.json、setup.py 等）
+	•	文档文件（位于根目录或 /docs 目录中）
+	•	示例文件或用法演示
+
+2. 分节信息提取
+针对 README 的每个部分，从指定文件中提取准确信息：
+a. 项目名称 / 描述
+	•	读取主文件与配置文件
+	•	查找项目描述（如在 package.json、setup.py、或主要实现文件中）
+b. 特性
+	•	阅读主要实现文件，识别项目的能力与功能
+	•	研究代码结构以提炼功能特性
+	•	查阅专门的功能文档（如有）
+c. 安装说明
+	•	阅读安装相关文件（如 package.json、requirements.txt、或安装指南）
+	•	提取依赖信息和安装步骤
+d. 使用说明
+	•	阅读示例文件、文档、或主实现文件
+	•	提取展示项目使用方式的代码示例
+e. 贡献说明
+	•	阅读 CONTRIBUTING.md 或类似的贡献指南文件
+f. 许可证
+	•	如果仓库中存在 LICENSE 文件，请读取该文件内容
+
+3. README 结构规范
+请按照以下结构组织 README.md：
+a. 项目名称与描述
+	•	简洁明了的项目名称
+	•	项目的目的与价值主张简介
+	•	如适用，包含徽章或状态指示器
+b. 特性
+	•	项目的关键能力以项目符号列出
+	•	对主要功能进行简要解释
+	•	项目的独特性与优势
+c. 安装
+	•	安装步骤详解
+	•	依赖项与环境要求
+	•	如适用，提供平台特定说明
+d. 使用
+	•	基本用法示例与代码片段
+	•	常见使用场景
+	•	如有，提供 API 概览
+e. 贡献指南
+	•	面向贡献者的指南
+	•	开发环境配置说明
+	•	Pull Request 提交流程
+f. 许可证（仅当存在 LICENSE 文件时）
+	•	简要说明许可证类型与影响
+
+重要准则：
+	•	所有 README 中的信息 必须通过读取实际文件内容（使用 READ_FILE ，相对路径）获取
+	•	不得对项目内容做任何未经验证的假设
+	•	使用 Markdown 格式优化可读性（如标题、代码块、列表等）
+	•	专注于创建一份专业、有吸引力的 README，突出项目优势
+	•	确保 README 结构清晰、内容准确
+
+请将最终的 README.md 内容包含在 <readme> 标签中。不要在这些标签之外添加任何解释或注释。
 		`
-	prompt = `
-		You are a professional code analysis expert tasked with creating a README.md document for a GitHub repository. Your goal is to analyze the content of the repository based on the provided catalogue structure and generate a high-quality README that highlights the project's key features and follows the style of advanced open-source projects on GitHub.
-
-仓库存放路径在%s.请注意使用相对路径。
-		仓库名称是%s。
-		请你根据存放路径，先读取仓库文件夹目录结构，
-
- 
-
-To collect information about the files in the repository, you can use the READ_FILE function. This function accepts the file path as a parameter and returns the content of the file. Use this function to read the contents of specific files mentioned in the directory.
-
-Follow these steps to generate the README:
-
-1. Essential File Analysis
-   - Examine key files by using the READ_FILE function on:
-     - Main project file (typically in root directory)
-     - Configuration files (package.json, setup.py, etc.)
-     - Documentation files (in root or /docs directory)
-     - Example files or usage demonstrations
-
-2. Section-by-Section Information Gathering
-   For each README section, READ specific files to extract accurate information:
-
-   a. Project Title/Description
-      - READ main files and configuration files
-      - Look for project descriptions in package.json, setup.py, or main implementation files
-
-   b. Features
-      - READ implementation files to identify capabilities and functionality
-      - Examine code structure to determine feature sets
-      - Look for feature documentation in specialized files
-
-   c. Installation
-      - READ setup files like package.json, requirements.txt, or installation guides
-      - Extract dependency information and setup requirements
-
-   d. Usage
-      - READ example files, documentation, or main implementation files
-      - Extract code examples showing how to use the project
-
-   e. Contributing
-      - READ CONTRIBUTING.md or similar contribution guidelines
-
-   f. License
-      - READ the LICENSE file if it exists in the repository
-
-3. README Structure
-   Structure your README.md with the following sections:
-
-   a. Project Title and Description
-      - Clear, concise project name
-      - Brief overview of purpose and value proposition
-      - Any badges or status indicators if applicable
-
-   b. Features
-      - Bulleted list of key capabilities
-      - Brief explanations of main functionality
-      - What makes this project unique or valuable
-
-   c. Installation
-      - Step-by-step instructions
-      - Dependencies and requirements
-      - Platform-specific notes if applicable
-
-   d. Usage
-      - Basic examples with code snippets
-      - Common use cases
-      - API overview if applicable
-
-   e. Contributing
-      - Guidelines for contributors
-      - Development setup
-      - Pull request process
-
-   f. License (ONLY if a LICENSE file exists)
-      - Brief description of the license type and implications
-
-Important Guidelines:
-- ALL information in the README MUST be obtained by READING actual file contents using the READ_FILE function
-- Do NOT make assumptions about the project without verifying through file contents
-- Use Markdown formatting to enhance readability (headings, code blocks, lists, etc.)
-- Focus on creating a professional, engaging README that highlights the project's strengths
-- Ensure the README is well-structured and provides clear, accurate information
-
-Provide your final README.md content within <readme> tags. Include no explanations or comments outside of these tags.
-	
-	每次执行Function时，我都会把执行结果放在对话历史的最后面，发送给你。请你根据对话历史，生成最终的README.md文件。
-	`
 	path, _ := s.parent.RepoService().GetRepoPath(ctx)
 	repName := s.parent.RepoService().GetRepoName(ctx)
-	return fmt.Sprintf(prompt, path, repName)
+	return fmt.Sprintf(prompt, repName, path, path)
 }
 func (s *docReadmeService) Generate(ctx context.Context, analysis *models.DocAnalysis) error {
 	reader, err := s.parent.chat(ctx, s.prompt(ctx), "")
