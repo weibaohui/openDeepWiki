@@ -66,11 +66,16 @@ func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Wr
 	maxIterations := cfg.MaxIterations
 
 	for currentIteration < maxIterations {
+
 		klog.Infof("Starting iteration %d/%d", currentIteration, cfg.MaxIterations)
 		if len(currChatContent) == 0 {
 			klog.V(6).Infof("No content to send to LLM")
 			return nil
 		}
+
+		// 归纳总结历史记录
+		_ = client.CheckAndSummarizeHistory(ctx, 5, 20000)
+
 		klog.V(6).Infof("Sending to LLM: %v", utils.ToJSON(currChatContent))
 		stream, err := client.GetStreamCompletionWithTools(ctx, currChatContent...)
 		// Clear our "response" now that we sent the last response
