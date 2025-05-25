@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-
-	"github.com/weibaohui/openDeepWiki/pkg/models"
 )
 
 type docReadmeService struct {
@@ -90,20 +88,25 @@ f. 许可证（仅当存在 LICENSE 文件时）
 	•	专注于创建一份专业、有吸引力的 README，突出项目优势
 	•	确保 README 结构清晰、内容准确
 	•	主体语言使用中文
+请将最终的 README.md 内容，调用 [write_file] 函数写入 %s 目录下的 README.md 文件。
+请在结束对话前，务必检查将最终的 README.md 内容，调用 [write_file] 函数写入 %s 目录下的 README.md 文件。		
+`
 
-请将最终的 README.md 内容，调用 [write_file] 函数写入 README.md 文件。
-		`
+	folder, _ := s.parent.GetRuntimeFolder()
 	path, _ := s.parent.RepoService().GetRepoPath(ctx)
 	repName := s.parent.RepoService().GetRepoName(ctx)
-	return fmt.Sprintf(prompt, repName, path, path)
+	return fmt.Sprintf(prompt, repName, path, path, folder)
 }
-func (s *docReadmeService) Generate(ctx context.Context, analysis *models.DocAnalysis) error {
+func (s *docReadmeService) Generate(ctx context.Context) error {
+	if err := s.parent.MustHaveAnalysisInstance(); err != nil {
+		return err
+	}
 	reader, err := s.parent.chat(ctx, s.prompt(ctx), "")
 	if err != nil {
 		return err
 
 	}
-	_, err = s.parent.readAndWrite(ctx, reader, analysis)
+	_, err = s.parent.readAndWrite(ctx, reader)
 	if err != nil {
 		return err
 	}

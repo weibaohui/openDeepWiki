@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/duke-git/lancet/v2/slice"
@@ -79,8 +80,8 @@ func (c *OpenAIClient) fillChatHistory(ctx context.Context, contents ...any) {
 		}
 	}
 
-	repoName := ctx.Value(constants.RepoName).(string)
-	c.memory.SetRepoHistory(repoName, history)
+	key := c.CacheKey(ctx)
+	c.memory.SetRepoHistory(key, history)
 
 }
 
@@ -88,28 +89,34 @@ func (c *OpenAIClient) SaveAIHistory(ctx context.Context, contents string) {
 	if contents == "" {
 		return
 	}
-	val := ctx.Value(constants.RepoName)
-	if repoName, ok := val.(string); ok {
-		c.memory.AppendRepoHistory(repoName, openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleAssistant,
-			Content: contents,
-		})
+	key := c.CacheKey(ctx)
+	c.memory.AppendRepoHistory(key, openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleAssistant,
+		Content: contents,
+	})
+}
+
+// CacheKey 缓存 key 生成规则：repoName-userName
+func (c *OpenAIClient) CacheKey(ctx context.Context) string {
+	repoNameVal := ""
+	if repoName, ok := ctx.Value(constants.RepoName).(string); ok {
+		repoNameVal = repoName
 	}
+	userNameVal := ""
+	if userName, ok := ctx.Value(constants.JwtUserName).(string); ok {
+		userNameVal = userName
+	}
+	return fmt.Sprintf("%s-%s", repoNameVal, userNameVal)
 }
 
 func (c *OpenAIClient) GetHistory(ctx context.Context) []openai.ChatCompletionMessage {
-	val := ctx.Value(constants.RepoName)
-	if repoName, ok := val.(string); ok {
-		return c.memory.GetRepoHistory(repoName)
-	}
-	return make([]openai.ChatCompletionMessage, 0)
+	key := c.CacheKey(ctx)
+	return c.memory.GetRepoHistory(key)
 }
 
 func (c *OpenAIClient) ClearHistory(ctx context.Context) error {
-	val := ctx.Value(constants.RepoName)
-	if repoName, ok := val.(string); ok {
-		c.memory.ClearRepoHistory(repoName)
-	}
+	key := c.CacheKey(ctx)
+	c.memory.ClearRepoHistory(key)
 	return nil
 }
 
@@ -125,6 +132,9 @@ func (c *OpenAIClient) SummarizeHistory(ctx context.Context) error {
 			summarized = append(summarized, msg)
 			continue
 		}
+		if msg.Content == "" {
+			continue
+		}
 		// 调用 AI 进行归纳总结
 		result, err := c.summarizeMessageWithAI(ctx, msg.Content)
 		if err != nil {
@@ -138,13 +148,14 @@ func (c *OpenAIClient) SummarizeHistory(ctx context.Context) error {
 			Content: result,
 		})
 	}
-	repoName := ctx.Value(constants.RepoName).(string)
-	c.memory.SetRepoHistory(repoName, summarized)
+	key := c.CacheKey(ctx)
+	c.memory.SetRepoHistory(key, summarized)
 	return nil
 }
 
 // CheckAndSummarizeHistory 检查历史条数或内容长度，超过阈值则自动归纳总结。
 func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context, maxCount int, maxTotalLen int) error {
+	// TODO 轮数、token数做成配置项
 	history := c.GetHistory(ctx)
 	count := 0
 	totalLen := 0
@@ -163,6 +174,9 @@ func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context, maxCount in
 
 // summarizeMessageWithAI 使用 AI 对单条消息内容进行归纳总结。
 func (c *OpenAIClient) summarizeMessageWithAI(ctx context.Context, content string) (string, error) {
+	if content == "" {
+		return content, nil
+	}
 	if strings.Contains(content, "<已归纳>") {
 		return content, nil
 	}

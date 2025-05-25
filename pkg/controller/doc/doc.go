@@ -45,9 +45,10 @@ func Analysis(c *gin.Context) {
 		amis.WriteJsonError(c, err)
 		return
 	}
+	docService.SetAnalysis(analysis)
 	go func() {
 		// 生成README文档
-		err = docService.ReadmeService().Generate(ctx, analysis)
+		err = docService.ReadmeService().Generate(ctx)
 		if err != nil {
 			_ = docService.AnalysisService().UpdateStatus(ctx, analysis, "failed", "", err)
 			return
