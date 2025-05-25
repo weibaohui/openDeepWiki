@@ -41,7 +41,7 @@ func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.C
 	return stream, nil
 
 }
-func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Writer) error {
+func (c *chatService) RunOneRound(ctx context.Context, chat string, finalCheckPrompt string, writer io.Writer) error {
 
 	cfg := flag.Init()
 	client, err := AIService().DefaultClient()
@@ -68,9 +68,14 @@ func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Wr
 	for currentIteration < maxIterations {
 
 		klog.Infof("Starting iteration %d/%d", currentIteration, cfg.MaxIterations)
-		if len(currChatContent) == 0 {
-			klog.V(6).Infof("No content to send to LLM")
-			return nil
+		if len(currChatContent) == 0 && currentIteration > 0 {
+			if finalCheckPrompt == "" {
+				klog.V(6).Infof("No content to send to LLM")
+				return nil
+			}
+			// 检查是否需要进行最终检查
+			klog.V(6).Infof("Final check prompt: %v", finalCheckPrompt)
+			currChatContent = append(currChatContent, finalCheckPrompt)
 		}
 
 		// 归纳总结历史记录
@@ -162,6 +167,7 @@ func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Wr
 		klog.Infof("Max iterations %d reached", maxIterations)
 		return fmt.Errorf("max iterations %d reached", maxIterations)
 	}
+
 	_ = client.ClearHistory(ctx)
 	klog.Infof("RunOneRound 一轮会话结束，进行%d次对话", currentIteration)
 

@@ -88,8 +88,10 @@ f. 许可证（仅当存在 LICENSE 文件时）
 	•	不得对项目内容做任何未经验证的假设
 	•	使用 Markdown 格式优化可读性（如标题、代码块、列表等）
 	•	专注于创建一份专业、有吸引力的 README，突出项目优势
+	•	如有 已归纳 的信息，可以合理使用。
 	•	确保 README 结构清晰、内容准确
 	•	主体语言使用中文
+
 请将最终的 README.md 内容，使用<readme></readme>进行包裹。调用 [write_file] 函数写入 %s 目录下的 README.md 文件。
 请在结束对话前，务必检查将最终的 README.md 内容，使用<readme></readme>进行包裹。调用 [write_file] 函数写入 %s 目录下的 README.md 文件。		
 `
@@ -99,11 +101,34 @@ f. 许可证（仅当存在 LICENSE 文件时）
 	repName := s.parent.RepoService().GetRepoName(ctx)
 	return fmt.Sprintf(prompt, repName, path, path, folder, folder)
 }
+
+func (s *docReadmeService) finalCheck(ctx context.Context) string {
+	prompt := `
+		/no_thinking
+		仓库信息:
+		仓库名称是%s。
+		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
+		Readme.md 存为路径[%s]/readme.md
+	
+		任务要求：
+		在对话结束前，请确认已经在目录[%s]下生成Readme.md.
+		请使用[READ_FILE]尝试读取确认改文件已经生成。
+
+		确认结果处理：
+		1. 如果没有生成，请利用历史对话信息重新生成。
+		2. 如果已经生成，就结束对话。
+		
+`
+
+	folder, _ := s.parent.GetRuntimeFolder()
+	repName := s.parent.RepoService().GetRepoName(ctx)
+	return fmt.Sprintf(prompt, repName, folder, folder, folder)
+}
 func (s *docReadmeService) Generate(ctx context.Context) error {
 	if err := s.parent.MustHaveAnalysisInstance(); err != nil {
 		return err
 	}
-	reader, err := s.parent.chat(ctx, s.prompt(ctx), "")
+	reader, err := s.parent.chat(ctx, s.prompt(ctx), "", s.finalCheck(ctx))
 	if err != nil {
 		return err
 

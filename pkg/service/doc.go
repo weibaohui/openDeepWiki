@@ -99,7 +99,7 @@ func (s *docService) MustHaveAnalysisInstance() error {
 
 	return nil
 }
-func (s *docService) chat(ctx context.Context, systemPrompt, message string) (io.Reader, error) {
+func (s *docService) chat(ctx context.Context, systemPrompt, initMessage string, finalCheckPrompt string) (io.Reader, error) {
 	ctx = context.WithValue(ctx, constants.SystemPrompt, systemPrompt)
 	ctx = context.WithValue(ctx, constants.RepoName, s.repo.Name)
 	// 创建一个带有读写功能的管道
@@ -109,7 +109,7 @@ func (s *docService) chat(ctx context.Context, systemPrompt, message string) (io
 	go func() {
 		defer pw.Close()
 		// 调用AI服务处理消息，将输出写入管道
-		err := ChatService().RunOneRound(ctx, message, pw)
+		err := ChatService().RunOneRound(ctx, initMessage, finalCheckPrompt, pw)
 		if err != nil {
 			klog.Errorf("AI处理消息失败: %v", err)
 			return
