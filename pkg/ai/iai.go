@@ -32,7 +32,7 @@ type IAI interface {
 	SetTools(tools []openai.Tool)
 	SaveAIHistory(ctx context.Context, content string)
 	SummarizeHistory(ctx context.Context) error
-	CheckAndSummarizeHistory(ctx context.Context, maxCount int, maxTotalLen int) error
+	CheckAndSummarizeHistory(ctx context.Context) error
 	GetHistory(ctx context.Context) []openai.ChatCompletionMessage
 	ClearHistory(ctx context.Context) error
 }

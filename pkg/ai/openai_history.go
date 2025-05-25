@@ -154,8 +154,11 @@ func (c *OpenAIClient) SummarizeHistory(ctx context.Context) error {
 }
 
 // CheckAndSummarizeHistory 检查历史条数或内容长度，超过阈值则自动归纳总结。
-func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context, maxCount int, maxTotalLen int) error {
-	// TODO 轮数、token数做成配置项
+func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context) error {
+	// TODO 暂定 阈值，后续可配置
+	// TODO 暂定Token 跟 长度 为约等，后续再更新为算法计算值。
+	maxCount := 5
+	maxTotalLen := c.maxTokens
 	history := c.GetHistory(ctx)
 	count := 0
 	totalLen := 0
@@ -166,7 +169,8 @@ func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context, maxCount in
 		count++
 		totalLen += len(msg.Content)
 	}
-	if (maxCount > 0 && count > maxCount) || (maxTotalLen > 0 && totalLen > maxTotalLen) {
+
+	if (count > maxCount) || (maxTotalLen > 0 && totalLen > maxTotalLen) {
 		return c.SummarizeHistory(ctx)
 	}
 	return nil
@@ -174,6 +178,7 @@ func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context, maxCount in
 
 // summarizeMessageWithAI 使用 AI 对单条消息内容进行归纳总结。
 func (c *OpenAIClient) summarizeMessageWithAI(ctx context.Context, content string) (string, error) {
+	content = strings.TrimSpace(content)
 	if content == "" {
 		return content, nil
 	}
