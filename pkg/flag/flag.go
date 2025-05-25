@@ -42,6 +42,7 @@ type Config struct {
 	TopP                 float32 //  模型topP参数
 	MaxHistory           int32   //  模型对话上下文历史记录数
 	MaxIterations        int32   //  模型自动化对话的轮数限制
+	MaxTokens            int
 }
 
 // 该方法会加载环境变量、初始化命令行参数，并确保配置只被初始化一次。

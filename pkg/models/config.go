@@ -21,4 +21,5 @@ type Config struct {
 	ResourceCacheTimeout int       `gorm:"default:60" json:"resource_cache_timeout,omitempty"` // 资源缓存时间（秒）
 	CreatedAt            time.Time `json:"created_at,omitempty"`                               // Automatically managed by GORM for creation time
 	UpdatedAt            time.Time `json:"updated_at,omitempty"`                               // Automatically managed by GORM for update time
+	MaxTokens            int       `json:"max_tokens"`
 }

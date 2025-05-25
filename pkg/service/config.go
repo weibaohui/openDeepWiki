@@ -35,6 +35,9 @@ func (s *configService) GetConfig() (*models.Config, error) {
 	if config.MaxIterations == 0 {
 		config.MaxIterations = 10
 	}
+	if config.MaxTokens == 0 {
+		config.MaxTokens = 4
+	}
 
 	return &config, nil
 }
@@ -95,6 +98,11 @@ func (s *configService) UpdateFlagFromDBConfig() error {
 	if m.MaxIterations > 0 {
 		cfg.MaxIterations = m.MaxIterations
 	}
+	if m.MaxTokens > 0 {
+		// 前端填写x K，所以要转换乘以1000
+		cfg.MaxTokens = m.MaxTokens * 1000
+	}
+
 	// JwtTokenSecret 暂不启用，因为前端也要处理
 	// cfg.JwtTokenSecret = m.JwtTokenSecret
 	// LoginType 暂不启用，因为就一种password
