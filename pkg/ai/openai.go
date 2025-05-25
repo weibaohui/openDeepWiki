@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/sashabaranov/go-openai"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
@@ -180,4 +181,16 @@ func (t *OpenAIHeaderTransport) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	return t.Origin.RoundTrip(clonedReq)
+}
+
+// SearchHistory 检索历史中是否包含指定内容，并返回匹配的消息内容（如有）。
+func (c *OpenAIClient) SearchHistory(ctx context.Context, keyword string) (string, bool) {
+	history := c.GetHistory(ctx)
+	for i := len(history) - 1; i >= 0; i-- {
+		msg := history[i]
+		if msg.Content != "" && keyword != "" && strings.Contains(msg.Content, keyword) {
+			return msg.Content, true
+		}
+	}
+	return "", false
 }

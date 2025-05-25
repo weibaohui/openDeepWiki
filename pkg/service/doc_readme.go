@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/klog/v2"
 )
@@ -116,7 +117,8 @@ func (s *docReadmeService) finalCheck(ctx context.Context) string {
 
 		确认结果处理：
 		1. 如果没有生成，请利用历史对话信息重新生成。
-		2. 如果已经生成，就结束对话。
+		2. 如果已经生成，并且历史对话信息中含有归纳信息，可以利用归纳信息，更新Readme.md文档
+		3. 如果已经生成，并且不需要更新，请输出 <确认结束> , 结束对话。
 		
 `
 
@@ -125,6 +127,12 @@ func (s *docReadmeService) finalCheck(ctx context.Context) string {
 	return fmt.Sprintf(prompt, repName, folder, folder, folder)
 }
 func (s *docReadmeService) Generate(ctx context.Context) error {
+	// 计时
+	start := time.Now()
+	defer func() {
+		klog.V(6).Infof("生成README.md文件耗时: %0.2f 秒", time.Since(start).Seconds())
+	}()
+
 	if err := s.parent.MustHaveAnalysisInstance(); err != nil {
 		return err
 	}

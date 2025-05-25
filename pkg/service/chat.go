@@ -74,8 +74,12 @@ func (c *chatService) RunOneRound(ctx context.Context, chat string, finalCheckPr
 				return nil
 			}
 			// 检查是否需要进行最终检查
-			klog.V(6).Infof("Final check prompt: %v", finalCheckPrompt)
-			currChatContent = append(currChatContent, finalCheckPrompt)
+			_, end := client.SearchHistory(ctx, "确认结束")
+			if !end {
+				klog.V(6).Infof("Final check prompt: %v", finalCheckPrompt)
+				currChatContent = append(currChatContent, finalCheckPrompt)
+			}
+
 		}
 
 		// 归纳总结历史记录
