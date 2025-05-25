@@ -74,7 +74,7 @@ func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Wr
 		}
 
 		// 归纳总结历史记录
-		_ = client.CheckAndSummarizeHistory(ctx, 5, 20000)
+		_ = client.CheckAndSummarizeHistory(ctx)
 
 		klog.V(6).Infof("Sending to LLM: %v", utils.ToJSON(currChatContent))
 		stream, err := client.GetStreamCompletionWithTools(ctx, currChatContent...)
@@ -91,6 +91,10 @@ func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Wr
 			response, recvErr := stream.Recv()
 			if recvErr != nil {
 				if recvErr == io.EOF {
+					break
+				}
+				if strings.Contains(fmt.Sprintf("%s", recvErr.Error()), "operation timed out") {
+					klog.V(6).Infof("stream Recv error:%v", recvErr)
 					break
 				}
 				klog.V(6).Infof("stream Recv error:%v", recvErr)

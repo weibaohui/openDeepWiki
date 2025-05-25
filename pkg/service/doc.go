@@ -17,14 +17,18 @@ import (
 )
 
 type docService struct {
-	repo *models.Repo
+	repo     *models.Repo
+	analysis *models.DocAnalysis
 }
 
 // NewDocService 创建并返回一个基于给定仓库的 docService 实例。
 func NewDocService(repo *models.Repo) *docService {
-	return &docService{
+
+	ds := &docService{
 		repo: repo,
 	}
+
+	return ds
 }
 
 // NewDocServiceWithRepoID 根据仓库ID创建并返回一个 docService 实例。
@@ -73,9 +77,28 @@ func NewDocServiceWithAnalysisID(analysisID string) *docService {
 	}
 
 	// 创建并返回 docService 实例
-	return NewDocService(repo)
+	service := NewDocService(repo)
+	service.SetAnalysis(analysis)
+	return service
 }
 
+func (s *docService) MustBeInitialized() error {
+	if s.analysis == nil {
+		return fmt.Errorf("analysis is nil")
+	}
+	if s.repo == nil {
+		return fmt.Errorf("repo is nil")
+	}
+	return nil
+}
+
+func (s *docService) MustHaveAnalysisInstance() error {
+	if s.analysis == nil {
+		return fmt.Errorf("analysis is nil")
+	}
+
+	return nil
+}
 func (s *docService) chat(ctx context.Context, systemPrompt, message string) (io.Reader, error) {
 	ctx = context.WithValue(ctx, constants.SystemPrompt, systemPrompt)
 	ctx = context.WithValue(ctx, constants.RepoName, s.repo.Name)
@@ -151,13 +174,13 @@ func (s *docService) GetLatestLogs(ctx context.Context) (string, error) {
 }
 
 // readAndWrite 从reader读取数据并同时写入文件
-func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysis *models.DocAnalysis) (string, error) {
+func (s *docService) readAndWrite(ctx context.Context, reader io.Reader) (string, error) {
 	if s.repo == nil {
 		return "", fmt.Errorf("repository not initialized")
 	}
 
 	// 获取运行时文件路径
-	filePath, err := s.GetRuntimeFilePath(analysis)
+	filePath, err := s.GetRuntimeFilePath()
 	if err != nil {
 		return "", fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -204,12 +227,12 @@ func (s *docService) readAndWrite(ctx context.Context, reader io.Reader, analysi
 }
 
 // TailFile 持续读取文件新增内容，并将每一行通过 channel 返回
-func (s *docService) TailFile(ctx context.Context, analysis *models.DocAnalysis) (<-chan string, error) {
+func (s *docService) TailFile(ctx context.Context) (<-chan string, error) {
 	if s.repo == nil {
 		return nil, fmt.Errorf("repository not initialized")
 	}
 
-	filePath, err := s.GetRuntimeFilePath(analysis)
+	filePath, err := s.GetRuntimeFilePath()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runtime file path: %v", err)
 	}
@@ -257,9 +280,10 @@ func (s *docService) TailFile(ctx context.Context, analysis *models.DocAnalysis)
 
 // GetRuntimeFilePath 获取运行时文件的完整路径
 // 格式：AnalysisID/Chat_2023-10-01_12-00-00.log
-func (s *docService) GetRuntimeFilePath(analysis *models.DocAnalysis) (string, error) {
-	if s.repo == nil {
-		return "", fmt.Errorf("repository not initialized")
+func (s *docService) GetRuntimeFilePath() (string, error) {
+
+	if err := s.MustBeInitialized(); err != nil {
+		return "", err
 	}
 
 	runtimeDir, err := utils.EnsureRuntimeDir(s.repo.Name)
@@ -268,14 +292,32 @@ func (s *docService) GetRuntimeFilePath(analysis *models.DocAnalysis) (string, e
 	}
 
 	// 创建分析ID子目录
-	analysisDir := filepath.Join(runtimeDir, fmt.Sprintf("%d", analysis.ID))
+	analysisDir := filepath.Join(runtimeDir, fmt.Sprintf("%d", s.analysis.ID))
 	if err := os.MkdirAll(analysisDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create analysis directory: %v", err)
 	}
 
 	// 基于分析任务的开始时间生成文件名
-	filename := fmt.Sprintf("chat_%s.log", analysis.StartTime.Format("20060102_150405"))
+	filename := fmt.Sprintf("chat_%s.log", s.analysis.StartTime.Format("20060102_150405"))
 	return filepath.Join(analysisDir, filename), nil
+}
+func (s *docService) GetRuntimeFolder() (string, error) {
+
+	if err := s.MustBeInitialized(); err != nil {
+		return "", err
+	}
+
+	runtimeDir, err := utils.EnsureRuntimeDir(s.repo.Name)
+	if err != nil {
+		return "", err
+	}
+
+	// 创建分析ID子目录
+	analysisDir := filepath.Join(runtimeDir, fmt.Sprintf("%d", s.analysis.ID))
+	if err := os.MkdirAll(analysisDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create analysis directory: %v", err)
+	}
+	return analysisDir, nil
 }
 
 // GetLatestLogFile 获取最新的日志文件名
@@ -324,4 +366,8 @@ func (s *docService) GetLatestLogFile(ctx context.Context) (string, error) {
 	}
 
 	return latestFile.Name(), nil
+}
+
+func (s *docService) SetAnalysis(analysis *models.DocAnalysis) {
+	s.analysis = analysis
 }

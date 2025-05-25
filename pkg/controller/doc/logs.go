@@ -22,18 +22,13 @@ func GetLatestLogs(c *gin.Context) {
 
 	docService := service.NewDocServiceWithAnalysisID(analysisID)
 
-	docAnalysis, err := docService.AnalysisService().GetByAnalysisID(analysisID)
-	if err != nil {
-		amis.WriteJsonError(c, err)
-		return
-	}
-	_, err = docService.GetRuntimeFilePath(docAnalysis)
+	_, err := docService.GetRuntimeFilePath()
 	if err != nil {
 		amis.WriteJsonError(c, err)
 		return
 	}
 
-	updates, err := docService.TailFile(ctx, docAnalysis)
+	updates, err := docService.TailFile(ctx)
 	if err != nil {
 		amis.WriteJsonError(c, err)
 		return

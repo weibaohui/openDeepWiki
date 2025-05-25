@@ -41,6 +41,14 @@
                       "desc": "大模型的自定义API Key（如需使用内置的API，请留空，并重启应用）"
                     },
                     {
+                      "name": "max_tokens",
+                      "type": "input-number",
+                      "label": "上下文长度",
+                      "value": "4",
+                      "suffix": "K",
+                      "desc": "上下文长度，一般为1k，2k，32k等"
+                    },
+                    {
                       "name": "temperature",
                       "type": "input-number",
                       "precision": 2,

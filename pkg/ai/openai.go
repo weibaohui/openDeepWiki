@@ -21,6 +21,7 @@ type OpenAIClient struct {
 	topP        float32
 	tools       []openai.Tool
 	maxHistory  int32
+	maxTokens   int
 	memory      *memoryService
 
 	// organizationId string
@@ -73,6 +74,7 @@ func (c *OpenAIClient) Configure(config IAIConfig) error {
 	c.topP = config.GetTopP()
 	c.maxHistory = config.GetMaxHistory()
 	c.memory = NewMemoryService()
+	c.maxTokens = config.GetMaxTokens()
 	return nil
 }
 
@@ -143,10 +145,11 @@ func (c *OpenAIClient) GetStreamCompletionWithTools(ctx context.Context, content
 	c.fillChatHistory(ctx, contents)
 	history := c.GetHistory(ctx)
 	stream, err := c.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-		Model:    c.model,
-		Messages: history,
-		Tools:    c.tools,
-		Stream:   true,
+		Model:     c.model,
+		Messages:  history,
+		Tools:     c.tools,
+		Stream:    true,
+		MaxTokens: c.maxTokens,
 	})
 	klog.V(6).Infof("GetStreamCompletionWithTools 携带 history length: %d", len(history))
 	klog.V(6).Infof("GetStreamCompletionWithTools c.history: %v", utils.ToJSON(history))
