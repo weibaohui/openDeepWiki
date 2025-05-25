@@ -178,6 +178,10 @@ func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context) error {
 
 // summarizeMessageWithAI 使用 AI 对单条消息内容进行归纳总结。
 func (c *OpenAIClient) summarizeMessageWithAI(ctx context.Context, content string) (string, error) {
+	content = strings.ReplaceAll(content, "\n", "")
+	content = strings.ReplaceAll(content, "\r", "")
+	content = strings.ReplaceAll(content, "\"", "")
+	content = strings.ReplaceAll(content, " ", "")
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return content, nil

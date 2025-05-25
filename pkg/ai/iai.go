@@ -35,6 +35,7 @@ type IAI interface {
 	CheckAndSummarizeHistory(ctx context.Context) error
 	GetHistory(ctx context.Context) []openai.ChatCompletionMessage
 	ClearHistory(ctx context.Context) error
+	SearchHistory(ctx context.Context, keyword string) (string, bool)
 }
 
 type nopCloser struct{}
