@@ -31,7 +31,7 @@ func (c *aiService) DefaultClient() (ai.IAI, error) {
 
 }
 func (c *aiService) ReloadDefaultClient() (ai.IAI, error) {
-	 
+
 	if client, err := c.openAIClient(); err == nil {
 		local = client
 	}
@@ -65,6 +65,12 @@ func (c *aiService) openAIClient() (ai.IAI, error) {
 	}
 	if cfg.MaxHistory > 0 {
 		aiProvider.MaxHistory = cfg.MaxHistory
+	}
+	if cfg.MaxIterations > 0 {
+		aiProvider.MaxIterations = cfg.MaxIterations
+	}
+	if cfg.MaxTokens > 0 {
+		aiProvider.MaxTokens = cfg.MaxTokens
 	}
 
 	if cfg.Debug {

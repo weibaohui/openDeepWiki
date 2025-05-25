@@ -74,6 +74,13 @@
                     "buttons": [
                         {
                             "type": "button",
+                            "label": "更新仓库",
+                            "actionType": "ajax",
+                            "api": "post:/doc/repo/${id}/init",
+                            "confirmText": "确定要更新仓库吗？"
+                        },
+                        {
+                            "type": "button",
                             "label": "AI解读",
                             "actionType": "ajax",
                             "api": "post:/doc/repo/${id}/analysis",
