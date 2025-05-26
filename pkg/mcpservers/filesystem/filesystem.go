@@ -60,31 +60,31 @@ func Register(s *server.MCPServer, allowedDirs []string) (*server.MCPServer, err
 		),
 	), h.handleCreateDirectory)
 
-	s.AddTool(mcp.NewTool(
-		"copy_file",
-		mcp.WithDescription("Copy files and directories."),
-		mcp.WithString("source",
-			mcp.Description("Source path of the file or directory"),
-			mcp.Required(),
-		),
-		mcp.WithString("destination",
-			mcp.Description("Destination path"),
-			mcp.Required(),
-		),
-	), h.handleCopyFile)
+	// s.AddTool(mcp.NewTool(
+	// 	"copy_file",
+	// 	mcp.WithDescription("Copy files and directories."),
+	// 	mcp.WithString("source",
+	// 		mcp.Description("Source path of the file or directory"),
+	// 		mcp.Required(),
+	// 	),
+	// 	mcp.WithString("destination",
+	// 		mcp.Description("Destination path"),
+	// 		mcp.Required(),
+	// 	),
+	// ), h.handleCopyFile)
 
-	s.AddTool(mcp.NewTool(
-		"move_file",
-		mcp.WithDescription("Move or rename files and directories."),
-		mcp.WithString("source",
-			mcp.Description("Source path of the file or directory"),
-			mcp.Required(),
-		),
-		mcp.WithString("destination",
-			mcp.Description("Destination path"),
-			mcp.Required(),
-		),
-	), h.handleMoveFile)
+	// s.AddTool(mcp.NewTool(
+	// 	"move_file",
+	// 	mcp.WithDescription("Move or rename files and directories."),
+	// 	mcp.WithString("source",
+	// 		mcp.Description("Source path of the file or directory"),
+	// 		mcp.Required(),
+	// 	),
+	// 	mcp.WithString("destination",
+	// 		mcp.Description("Destination path"),
+	// 		mcp.Required(),
+	// 	),
+	// ), h.handleMoveFile)
 
 	s.AddTool(mcp.NewTool(
 		"search_files",
@@ -99,28 +99,28 @@ func Register(s *server.MCPServer, allowedDirs []string) (*server.MCPServer, err
 		),
 	), h.handleSearchFiles)
 
-	s.AddTool(mcp.NewTool(
-		"get_file_info",
-		mcp.WithDescription("Retrieve detailed metadata about a file or directory."),
-		mcp.WithString("path",
-			mcp.Description("Path to the file or directory"),
-			mcp.Required(),
-		),
-	), h.handleGetFileInfo)
+	// s.AddTool(mcp.NewTool(
+	// 	"get_file_info",
+	// 	mcp.WithDescription("Retrieve detailed metadata about a file or directory."),
+	// 	mcp.WithString("path",
+	// 		mcp.Description("Path to the file or directory"),
+	// 		mcp.Required(),
+	// 	),
+	// ), h.handleGetFileInfo)
 
-	s.AddTool(mcp.NewTool(
-		"list_allowed_directories",
-		mcp.WithDescription("Returns the list of directories that this server is allowed to access."),
-	), h.handleListAllowedDirectories)
+	// s.AddTool(mcp.NewTool(
+	// 	"list_allowed_directories",
+	// 	mcp.WithDescription("Returns the list of directories that this server is allowed to access."),
+	// ), h.handleListAllowedDirectories)
 
-	s.AddTool(mcp.NewTool(
-		"read_multiple_files",
-		mcp.WithDescription("Read the contents of multiple files in a single operation."),
-		mcp.WithArray("paths",
-			mcp.Description("List of file paths to read"),
-			mcp.Required(),
-		),
-	), h.handleReadMultipleFiles)
+	// s.AddTool(mcp.NewTool(
+	// 	"read_multiple_files",
+	// 	mcp.WithDescription("Read the contents of multiple files in a single operation."),
+	// 	mcp.WithArray("paths",
+	// 		mcp.Description("List of file paths to read"),
+	// 		mcp.Required(),
+	// 	),
+	// ), h.handleReadMultipleFiles)
 
 	s.AddTool(mcp.NewTool(
 		"tree",
