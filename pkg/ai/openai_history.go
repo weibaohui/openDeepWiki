@@ -189,6 +189,9 @@ func (c *OpenAIClient) summarizeMessageWithAI(ctx context.Context, content strin
 	if strings.Contains(content, "<已归纳>") {
 		return content, nil
 	}
+	if strings.Contains(content, "结束") || strings.Contains(content, "终止") {
+		return content, nil
+	}
 	klog.V(2).Infof("Summarizing message with AI: %v", content)
 	// 这里假设有一个 SummarizePrompt 作为归纳指令
 	prompt := "请对以下内容进行归纳总结，提取有用的关键信息，避免冗余。 ：" + content
