@@ -204,5 +204,6 @@ func (s *chatDocService) StartWorkflow(ctx context.Context, info *RepoInfo) erro
 			"仓库描述": info.Description,
 		},
 	}
+	klog.V(6).Infof("工作流配置: %s", utils.ToJSON(initTask))
 	return s.ExecuteWorkflow(ctx, initTask, wf)
 }
