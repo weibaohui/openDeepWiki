@@ -11,51 +11,82 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Leader Agent 示例
-// 实际可根据 prompt/AI 结果动态生成
+// DocumentationLeader Agent
+// 负责文档整体流程、任务分解与协调
 
-type LeaderAgent struct {
+type DocumentationLeaderAgent struct {
 	Config chatdoc.RoleConfig
 }
 
-func (a *LeaderAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
+func (a *DocumentationLeaderAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
-func (a *LeaderAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
-	klog.Infof("LeaderAgent 处理任务: %s", utils.ToJSON(task))
+func (a *DocumentationLeaderAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+	klog.Infof("DocumentationLeaderAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
 	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
 	resp, err := ai.CallLLM(ctx, task.Content)
 	if err != nil {
-		klog.Errorf("LeaderAgent 处理任务失败: %v", err)
+		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
 		return chatdoc.Task{}, err
 	}
 	return chatdoc.Task{
-		Role:    "Writer",
-		Type:    "write",
+		Role:    "CodeAnalyster",
+		Type:    "analyze",
 		Content: resp,
 		Metadata: map[string]string{
-			"section": "第一部分",
+			"section": "任务分解",
 		},
 	}, nil
 }
 
-type WriterAgent struct {
+// CodeAnalyster Agent
+// 负责代码分析与技术说明
+
+type CodeAnalysterAgent struct {
 	Config chatdoc.RoleConfig
 }
 
-func (a *WriterAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
+func (a *CodeAnalysterAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
-func (a *WriterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
-	klog.Infof("WriterAgent 处理任务: %s", utils.ToJSON(task))
+func (a *CodeAnalysterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+	klog.Infof("CodeAnalysterAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
 	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
 	resp, err := ai.CallLLM(ctx, task.Content)
 	if err != nil {
-		klog.Errorf("WriterAgent 处理任务失败: %v", err)
+		klog.Errorf("CodeAnalysterAgent 处理任务失败: %v", err)
 		return chatdoc.Task{}, err
 	}
 	return chatdoc.Task{
-		Role:    "Reviewer",
+		Role:    "TechnicalWriter",
+		Type:    "write",
+		Content: resp,
+		Metadata: map[string]string{
+			"section": "技术说明",
+		},
+	}, nil
+}
+
+// TechnicalWriter Agent
+// 负责文档撰写
+
+type TechnicalWriterAgent struct {
+	Config chatdoc.RoleConfig
+}
+
+func (a *TechnicalWriterAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
+
+func (a *TechnicalWriterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+	klog.Infof("TechnicalWriterAgent 处理任务: %s", utils.ToJSON(task))
+	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
+	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
+	resp, err := ai.CallLLM(ctx, task.Content)
+	if err != nil {
+		klog.Errorf("TechnicalWriterAgent 处理任务失败: %v", err)
+		return chatdoc.Task{}, err
+	}
+	return chatdoc.Task{
+		Role:    "UserExperienceReviewer",
 		Type:    "review",
 		Content: resp,
 		Metadata: map[string]string{
@@ -64,23 +95,26 @@ func (a *WriterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
 	}, nil
 }
 
-type ReviewerAgent struct {
+// UserExperienceReviewer Agent
+// 负责用户体验评审
+
+type UserExperienceReviewerAgent struct {
 	Config chatdoc.RoleConfig
 }
 
-func (a *ReviewerAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
+func (a *UserExperienceReviewerAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
-func (a *ReviewerAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
-	klog.Infof("ReviewerAgent 处理任务: %s", utils.ToJSON(task))
+func (a *UserExperienceReviewerAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+	klog.Infof("UserExperienceReviewerAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
 	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
 	resp, err := ai.CallLLM(ctx, task.Content)
 	if err != nil {
-		klog.Errorf("ReviewerAgent 处理任务失败: %v", err)
+		klog.Errorf("UserExperienceReviewerAgent 处理任务失败: %v", err)
 		return chatdoc.Task{}, err
 	}
 	return chatdoc.Task{
-		Role:    "Leader",
+		Role:    "DocumentationLeader",
 		Type:    "feedback",
 		Content: resp,
 		Metadata: map[string]string{
@@ -91,7 +125,8 @@ func (a *ReviewerAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
 }
 
 func init() {
-	RegisterAgent("Leader", &LeaderAgent{})
-	RegisterAgent("Writer", &WriterAgent{})
-	RegisterAgent("Reviewer", &ReviewerAgent{})
+	RegisterAgent("DocumentationLeader", &DocumentationLeaderAgent{})
+	RegisterAgent("CodeAnalyster", &CodeAnalysterAgent{})
+	RegisterAgent("TechnicalWriter", &TechnicalWriterAgent{})
+	RegisterAgent("UserExperienceReviewer", &UserExperienceReviewerAgent{})
 }
