@@ -105,9 +105,12 @@ f. 许可证（仅当存在 LICENSE 文件时）
 func (s *docReadmeService) projectInfo(ctx context.Context) string {
 	prompt := `
 		/no_thinking
+		请为下面的代码仓库，编写技术文档。
 		仓库名称是%s。
 		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
   		输出的文件请 调用 [write_file] 函数写入 %s 目录下。
+
+		请使用中文书写文档。
  `
 
 	folder, _ := s.parent.GetRuntimeFolder()
@@ -165,17 +168,16 @@ func (s *docReadmeService) Generate(ctx context.Context) error {
 	// 计时
 	start := time.Now()
 	defer func() {
-		klog.V(6).Infof("生成README.md文件耗时: %0.2f 秒", time.Since(start).Seconds())
+		klog.V(6).Infof("本轮耗时: %0.2f 秒", time.Since(start).Seconds())
 	}()
 
 	if err := s.parent.MustHaveAnalysisInstance(); err != nil {
 		return err
 	}
 	info := s.projectInfo(ctx)
-	err := s.parent.ChatDocService().StartWorkflow(ctx, "请编写一个readme文档"+info)
+	err := s.parent.ChatDocService().StartWorkflow(ctx, info)
 	if err != nil {
 		return err
 	}
-	// klog.V(6).Infof("生成README.md文件成功: \n%s\n\n", all)
 	return nil
 }

@@ -69,6 +69,15 @@ func (s *chatDocService) executeStep(
 	stepTask.Inputs = step.Input
 	stepTask.Outputs = step.Output
 
+	// ----------- 新增：确保 Metadata 累积并传递 -----------
+	if stepTask.Metadata == nil {
+		stepTask.Metadata = make(map[string]string)
+	}
+	// 记录当前步骤信息到 Metadata
+	stepTask.Metadata["当前步骤"] = step.Step
+	stepTask.Metadata["当前角色"] = step.Actor
+	// ------------------------------------------------------
+
 	// 从之前步骤的输出中收集所需的输入
 	inputContent := stepTask.Content
 	for _, requiredInput := range step.Input {
@@ -88,6 +97,14 @@ func (s *chatDocService) executeStep(
 
 			// 递归执行子步骤
 			subTask := stepTask
+			// ----------- 新增：传递累积的 Metadata -----------
+			if subTask.Metadata == nil {
+				subTask.Metadata = make(map[string]string)
+			}
+			for k, v := range stepTask.Metadata {
+				subTask.Metadata[k] = v
+			}
+			// -----------------------------------------------
 			subTask, err := s.executeStep(ctx, substep, subTask, outputs, depth+1)
 			if err != nil {
 				return chatdoc.Task{}, fmt.Errorf("子步骤 '%s' 执行失败: %v", substep.Step, err)
@@ -110,6 +127,15 @@ func (s *chatDocService) executeStep(
 	if err != nil {
 		return chatdoc.Task{}, fmt.Errorf("步骤 '%s' 执行失败: %v", step.Step, err)
 	}
+
+	// ----------- 新增：累积 Metadata 到 nextTask -----------
+	if nextTask.Metadata == nil {
+		nextTask.Metadata = make(map[string]string)
+	}
+	for k, v := range stepTask.Metadata {
+		nextTask.Metadata[k] = v
+	}
+	// ------------------------------------------------------
 
 	// 保存步骤的输出供后续使用
 	for _, output := range step.Output {
@@ -170,8 +196,10 @@ func (s *chatDocService) StartWorkflow(ctx context.Context, initialContent strin
 	}
 
 	initTask := chatdoc.Task{
-		Content:  initialContent,
-		Metadata: map[string]string{},
+		Content: initialContent,
+		Metadata: map[string]string{
+			"用户需求": initialContent,
+		},
 	}
 	return s.ExecuteWorkflow(ctx, initTask, wf)
 }
