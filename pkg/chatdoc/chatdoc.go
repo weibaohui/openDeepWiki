@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"
@@ -44,26 +45,108 @@ func (s *chatDocService) LoadWorkflowConfig(path string) (*chatdoc.WorkflowConfi
 	return &wf, err
 }
 
-// ExecuteWorkflow 主流程调度骨架
+// executeStep 递归执行单个步骤及其所有子步骤
+func (s *chatDocService) executeStep(
+	ctx context.Context,
+	step chatdoc.WorkflowStep,
+	currentTask chatdoc.Task,
+	outputs map[string]string,
+	depth int,
+) (chatdoc.Task, error) {
+	prefix := strings.Repeat("  ", depth)
+	klog.Infof("%s执行步骤: %s", prefix, step.Step)
+
+	// 获取该步骤对应的 agent
+	agent, ok := RegisteredAgents[step.Actor]
+	if !ok {
+		return chatdoc.Task{}, fmt.Errorf("步骤 '%s' 的角色未注册: %s", step.Step, step.Actor)
+	}
+
+	// 准备当前步骤的输入
+	stepTask := currentTask
+	stepTask.Role = step.Actor
+	stepTask.Step = step.Step
+	stepTask.Inputs = step.Input
+	stepTask.Outputs = step.Output
+
+	// 从之前步骤的输出中收集所需的输入
+	inputContent := stepTask.Content
+	for _, requiredInput := range step.Input {
+		if output, exists := outputs[requiredInput]; exists {
+			inputContent += "\n\n关于 " + requiredInput + ":\n" + output
+		}
+	}
+	stepTask.Content = inputContent
+
+	// 执行子步骤
+	if len(step.Substeps) > 0 {
+		klog.Infof("%s处理子步骤，共 %d 个", prefix, len(step.Substeps))
+		subStepOutputs := make(map[string]string)
+
+		for subIndex, substep := range step.Substeps {
+			klog.Infof("%s子步骤 %d/%d: %s", prefix, subIndex+1, len(step.Substeps), substep.Step)
+
+			// 递归执行子步骤
+			subTask := stepTask
+			subTask, err := s.executeStep(ctx, substep, subTask, outputs, depth+1)
+			if err != nil {
+				return chatdoc.Task{}, fmt.Errorf("子步骤 '%s' 执行失败: %v", substep.Step, err)
+			}
+
+			// 保存子步骤的输出
+			for _, output := range substep.Output {
+				subStepOutputs[output] = subTask.Content
+			}
+		}
+
+		// 将子步骤的输出合并到当前步骤的输入中
+		for output, content := range subStepOutputs {
+			stepTask.Content += "\n\n子步骤输出 " + output + ":\n" + content
+		}
+	}
+
+	// 执行当前步骤
+	nextTask, err := agent.HandleTask(ctx, s, stepTask)
+	if err != nil {
+		return chatdoc.Task{}, fmt.Errorf("步骤 '%s' 执行失败: %v", step.Step, err)
+	}
+
+	// 保存步骤的输出供后续使用
+	for _, output := range step.Output {
+		outputs[output] = nextTask.Content
+	}
+
+	klog.Infof("%s步骤 '%s' 执行完成", prefix, step.Step)
+	return nextTask, nil
+}
+
+// ExecuteWorkflow 按工作流配置的步骤顺序执行
 func (s *chatDocService) ExecuteWorkflow(ctx context.Context, initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error {
+	if len(wf.Steps) == 0 {
+		return fmt.Errorf("工作流步骤为空")
+	}
+
 	currentTask := initialTask
-	currentTask.Role = wf.StartRole
-	for {
-		agent, ok := RegisteredAgents[currentTask.Role]
-		if !ok {
-			return fmt.Errorf("未知角色: %s", currentTask.Role)
-		}
-		nextTask, err := agent.HandleTask(ctx, s, currentTask)
+	outputs := make(map[string]string) // 存储每个步骤的输出，用于后续步骤的输入
+
+	// 遍历顶层步骤
+	for stepIndex, step := range wf.Steps {
+		klog.Infof("执行主流程步骤 %d/%d: %s", stepIndex+1, len(wf.Steps), step.Step)
+
+		nextTask, err := s.executeStep(ctx, step, currentTask, outputs, 0)
 		if err != nil {
-			return err
+			return fmt.Errorf("步骤 '%s' 执行失败: %v", step.Step, err)
 		}
-		klog.Infof(" 下一个任务: %s", utils.ToJSON(nextTask))
-		// TODO: 根据 workflow steps 匹配流转、条件、元数据
+
 		if nextTask.IsFinal {
+			klog.Infof("工作流执行完成，最后步骤: %s", step.Step)
 			return nil
 		}
+
 		currentTask = nextTask
 	}
+
+	return nil
 }
 
 // StartWorkflow 对外API：启动动态多角色协作流程
