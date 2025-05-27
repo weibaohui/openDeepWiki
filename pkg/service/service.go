@@ -5,7 +5,6 @@ var localUserService = &userService{}
 var localOperationLogService = NewOperationLogService()
 var localAiService = &aiService{}
 var localMcpService = &mcpService{}
-var localDocService = &docService{}
 
 // ChatService 返回或创建一个新的chatService实例
 func ChatService() *chatService {

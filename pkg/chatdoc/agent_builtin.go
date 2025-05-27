@@ -1,4 +1,4 @@
-package service
+package chatdoc
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/constants"
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"
+	"github.com/weibaohui/openDeepWiki/pkg/service"
 	"k8s.io/klog/v2"
 )
 
@@ -24,7 +25,7 @@ func (a *DocumentationLeaderAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, 
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
 	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
 
-	client, err := AIService().DefaultClient()
+	client, err := service.AIService().DefaultClient()
 	if err != nil {
 		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
 		return chatdoc.Task{}, err
@@ -57,7 +58,7 @@ func (a *CodeAnalysterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error)
 	klog.Infof("CodeAnalysterAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
 	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
-	client, err := AIService().DefaultClient()
+	client, err := service.AIService().DefaultClient()
 	if err != nil {
 		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
 		return chatdoc.Task{}, err
@@ -90,7 +91,7 @@ func (a *TechnicalWriterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, erro
 	klog.Infof("TechnicalWriterAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
 	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
-	client, err := AIService().DefaultClient()
+	client, err := service.AIService().DefaultClient()
 	if err != nil {
 		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
 		return chatdoc.Task{}, err
@@ -123,7 +124,7 @@ func (a *UserExperienceReviewerAgent) HandleTask(task chatdoc.Task) (chatdoc.Tas
 	klog.Infof("UserExperienceReviewerAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
 	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
-	client, err := AIService().DefaultClient()
+	client, err := service.AIService().DefaultClient()
 	if err != nil {
 		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
 		return chatdoc.Task{}, err

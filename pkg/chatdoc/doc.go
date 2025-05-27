@@ -1,4 +1,4 @@
-package service
+package chatdoc
 
 import (
 	"bufio"
@@ -13,6 +13,7 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/constants"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
+	"github.com/weibaohui/openDeepWiki/pkg/service"
 	"k8s.io/klog/v2"
 )
 
@@ -109,7 +110,7 @@ func (s *docService) chat(ctx context.Context, systemPrompt, initMessage string,
 	go func() {
 		defer pw.Close()
 		// 调用AI服务处理消息，将输出写入管道
-		err := ChatService().RunOneRound(ctx, initMessage, finalCheckPrompt, pw)
+		err := service.ChatService().RunOneRound(ctx, initMessage, finalCheckPrompt, pw)
 		if err != nil {
 			klog.Errorf("AI处理消息失败: %v", err)
 			return
