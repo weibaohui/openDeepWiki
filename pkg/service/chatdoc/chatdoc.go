@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
@@ -44,6 +45,7 @@ func ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error
 		if err != nil {
 			return err
 		}
+		klog.Infof(" 下一个任务: %s", utils.ToJSON(nextTask))
 		// TODO: 根据 workflow steps 匹配流转、条件、元数据
 		if nextTask.IsFinal {
 			return nil
@@ -69,7 +71,7 @@ func StartWorkflow(initialContent string) error {
 			return fmt.Errorf("未注册的智能体处理器: %s", r.Name)
 		}
 		RegisterAgentWithConfig(r.Name, agent, r)
-		klog.Infof("注册智能体: %s, 描述: %s", r.Name, r.Description)
+		klog.Infof("注册智能体: %s", utils.ToJSON(r))
 	}
 	initTask := chatdoc.Task{
 		Content:  initialContent,

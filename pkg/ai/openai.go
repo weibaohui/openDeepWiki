@@ -80,6 +80,7 @@ func (c *OpenAIClient) Configure(config IAIConfig) error {
 }
 
 func (c *OpenAIClient) GetCompletion(ctx context.Context, contents ...any) (string, error) {
+	klog.V(6).Infof("OpenAIClient GetCompletion \n %s \n", utils.ToJSON(contents))
 	c.fillChatHistory(ctx, contents)
 
 	// Create a completion request
@@ -91,6 +92,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, contents ...any) (stri
 	if err != nil {
 		return "", err
 	}
+	klog.V(6).Infof("OpenAIClient GetCompletion : %s", resp.Choices[0].Message.Content)
 	return resp.Choices[0].Message.Content, nil
 }
 func (c *OpenAIClient) GetCompletionNoHistory(ctx context.Context, contents ...any) (string, error) {

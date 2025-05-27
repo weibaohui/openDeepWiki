@@ -1,9 +1,13 @@
 package chatdoc
 
 import (
-	"fmt"
+	"context"
+	"strings"
 
+	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
+	"github.com/weibaohui/openDeepWiki/pkg/constants"
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"
+	"github.com/weibaohui/openDeepWiki/pkg/service/ai"
 	"k8s.io/klog/v2"
 )
 
@@ -17,12 +21,18 @@ type LeaderAgent struct {
 func (a *LeaderAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
 func (a *LeaderAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
-	klog.Infof("LeaderAgent 处理任务: %s", task.Content)
-	// 可用 a.Config.Description 等
+	klog.Infof("LeaderAgent 处理任务: %s", utils.ToJSON(task))
+	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
+	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
+	resp, err := ai.CallLLM(ctx, task.Content)
+	if err != nil {
+		klog.Errorf("LeaderAgent 处理任务失败: %v", err)
+		return chatdoc.Task{}, err
+	}
 	return chatdoc.Task{
 		Role:    "Writer",
 		Type:    "write",
-		Content: fmt.Sprintf("请根据需求撰写文档: %s", task.Content),
+		Content: resp,
 		Metadata: map[string]string{
 			"section": "第一部分",
 		},
@@ -36,14 +46,20 @@ type WriterAgent struct {
 func (a *WriterAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
 func (a *WriterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
-	klog.Infof("WriterAgent 处理任务: %s", task.Content)
-	// 简单模拟写作
+	klog.Infof("WriterAgent 处理任务: %s", utils.ToJSON(task))
+	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
+	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
+	resp, err := ai.CallLLM(ctx, task.Content)
+	if err != nil {
+		klog.Errorf("WriterAgent 处理任务失败: %v", err)
+		return chatdoc.Task{}, err
+	}
 	return chatdoc.Task{
 		Role:    "Reviewer",
 		Type:    "review",
-		Content: fmt.Sprintf("文档内容: %s (已完成)", task.Content),
+		Content: resp,
 		Metadata: map[string]string{
-			"content": task.Content,
+			"content": resp,
 		},
 	}, nil
 }
@@ -55,14 +71,20 @@ type ReviewerAgent struct {
 func (a *ReviewerAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
 func (a *ReviewerAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
-	klog.Infof("ReviewerAgent 处理任务: %s", task.Content)
-	// 简单模拟审核
+	klog.Infof("ReviewerAgent 处理任务: %s", utils.ToJSON(task))
+	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
+	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
+	resp, err := ai.CallLLM(ctx, task.Content)
+	if err != nil {
+		klog.Errorf("ReviewerAgent 处理任务失败: %v", err)
+		return chatdoc.Task{}, err
+	}
 	return chatdoc.Task{
 		Role:    "Leader",
 		Type:    "feedback",
-		Content: "审核通过，流程结束。",
+		Content: resp,
 		Metadata: map[string]string{
-			"review_comments": "很好",
+			"review_comments": resp,
 		},
 		IsFinal: true,
 	}, nil
