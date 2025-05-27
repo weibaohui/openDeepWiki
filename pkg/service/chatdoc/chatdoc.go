@@ -58,10 +58,12 @@ func ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error
 func StartWorkflow(initialContent string) error {
 	roles, err := LoadRoleConfigs("data/chatdoc_roles.yaml")
 	if err != nil {
+		klog.Errorf("加载角色配置失败: %v", err)
 		return err
 	}
 	wf, err := LoadWorkflowConfig("data/chatdoc_workflow.yaml")
 	if err != nil {
+		klog.Errorf("加载工作流配置失败: %v", err)
 		return err
 	}
 	// 注册所有角色并注入 config
