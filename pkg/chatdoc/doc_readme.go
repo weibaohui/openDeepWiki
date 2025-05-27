@@ -105,30 +105,15 @@ f. 许可证（仅当存在 LICENSE 文件时）
 func (s *docReadmeService) projectInfo(ctx context.Context) string {
 	prompt := `
 		/no_thinking
-
 		仓库名称是%s。
 		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
-		请你根据存放路径，使用 [list_directory] 方法 先读取仓库文件夹根目录结构，再根据目录结构，按需读取仓库的中的必要文件，然后根据文件内容，生成一个README.md文件。
-
- 
-
-重要准则：
-	•	所有 README 中的信息 必须通过读取实际文件内容（使用 READ_FILE ，相对路径）获取
-	•	不得对项目内容做任何未经验证的假设
-	•	使用 Markdown 格式优化可读性（如标题、代码块、列表等）
-	•	专注于创建一份专业、有吸引力的 README，突出项目优势
-	•	对话记录中，如有 已归纳 的信息，可以合理使用。
-	•	确保 README 结构清晰、内容准确
-	•	请使用中文书写文档。
-
-请将最终的 README.md 内容，使用<readme></readme>进行包裹。调用 [write_file] 函数写入 %s 目录下的 README.md 文件。
-请在结束对话前，务必检查将最终的 README.md 内容，使用<readme></readme>进行包裹。调用 [write_file] 函数写入 %s 目录下的 README.md 文件。		
-`
+  		输出的文件请 调用 [write_file] 函数写入 %s 目录下。
+ `
 
 	folder, _ := s.parent.GetRuntimeFolder()
 	path, _ := s.parent.RepoService().GetRepoPath(ctx)
 	repName := s.parent.RepoService().GetRepoName(ctx)
-	return fmt.Sprintf(prompt, repName, path, folder, folder)
+	return fmt.Sprintf(prompt, repName, path, folder)
 }
 
 func (s *docReadmeService) finalCheck(ctx context.Context) string {
