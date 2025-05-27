@@ -172,7 +172,7 @@ func (s *docReadmeService) Generate(ctx context.Context) error {
 		return err
 	}
 	info := s.projectInfo(ctx)
-	err := StartWorkflow("请编写一个readme文档" + info)
+	err := NewChatDocService().StartWorkflow("请编写一个readme文档" + info)
 	if err != nil {
 		return err
 	}

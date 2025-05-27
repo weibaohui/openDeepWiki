@@ -10,8 +10,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// chatDocService 服务结构体
+// 用于多角色协作流程相关方法
+// 你可以通过实例化 chatDocService{} 来调用相关方法
+type chatDocService struct{}
+
+func NewChatDocService() *chatDocService {
+	return &chatDocService{}
+}
+
 // 加载新版角色配置
-func LoadRoleConfigs(path string) ([]chatdoc.RoleConfig, error) {
+func (s *chatDocService) LoadRoleConfigs(path string) ([]chatdoc.RoleConfig, error) {
 	f, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -22,7 +31,7 @@ func LoadRoleConfigs(path string) ([]chatdoc.RoleConfig, error) {
 }
 
 // 加载新版工作流配置
-func LoadWorkflowConfig(path string) (*chatdoc.WorkflowConfig, error) {
+func (s *chatDocService) LoadWorkflowConfig(path string) (*chatdoc.WorkflowConfig, error) {
 	f, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -33,7 +42,7 @@ func LoadWorkflowConfig(path string) (*chatdoc.WorkflowConfig, error) {
 }
 
 // 主流程调度骨架
-func ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error {
+func (s *chatDocService) ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error {
 	currentTask := initialTask
 	currentTask.Role = wf.StartRole
 	for {
@@ -55,13 +64,13 @@ func ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error
 }
 
 // 对外API：启动动态多角色协作流程
-func StartWorkflow(initialContent string) error {
-	roles, err := LoadRoleConfigs("data/chatdoc_roles.yaml")
+func (s *chatDocService) StartWorkflow(initialContent string) error {
+	roles, err := s.LoadRoleConfigs("data/chatdoc_roles.yaml")
 	if err != nil {
 		klog.Errorf("加载角色配置失败: %v", err)
 		return err
 	}
-	wf, err := LoadWorkflowConfig("data/chatdoc_workflow.yaml")
+	wf, err := s.LoadWorkflowConfig("data/chatdoc_workflow.yaml")
 	if err != nil {
 		klog.Errorf("加载工作流配置失败: %v", err)
 		return err
@@ -79,5 +88,5 @@ func StartWorkflow(initialContent string) error {
 		Content:  initialContent,
 		Metadata: map[string]string{},
 	}
-	return ExecuteWorkflow(initTask, wf)
+	return s.ExecuteWorkflow(initTask, wf)
 }
