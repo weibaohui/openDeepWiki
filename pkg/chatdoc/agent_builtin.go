@@ -35,7 +35,7 @@ func (a *GenericAgent) HandleTask(ctx context.Context, s *chatDocService, task c
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{用户需求}}", userRequirement)
 	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
 
-	reader, err := s.parent.agentChat(ctx, task.Content, "")
+	reader, err := s.parent.agentChat(ctx, userRequirement)
 	if err != nil {
 		klog.Errorf("%s 处理任务 chat 失败: %v", a.Config.Name, err)
 		return chatdoc.Task{}, err

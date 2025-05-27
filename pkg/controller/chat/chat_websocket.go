@@ -168,7 +168,7 @@ func GPTShell(c *gin.Context) {
 			klog.V(6).Infof("prompt: %s", string(data))
 			ctx := amis.GetContextWithUser(c)
 			// TODO: 从上下文中获取repo信息
-			err = service.ChatService().RunOneRound(ctx, string(data), "", &outBuffer)
+			err = service.ChatService().RunOneRound(ctx, string(data), &outBuffer)
 
 			if err != nil {
 				klog.V(6).Infof("failed to write %v bytes to tty: %s", len(dataBuffer), err)

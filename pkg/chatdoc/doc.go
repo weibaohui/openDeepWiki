@@ -100,7 +100,7 @@ func (s *docService) MustHaveAnalysisInstance() error {
 
 	return nil
 }
-func (s *docService) chat(ctx context.Context, systemPrompt, initMessage string, finalCheckPrompt string) (io.Reader, error) {
+func (s *docService) chat(ctx context.Context, systemPrompt, initMessage string) (io.Reader, error) {
 	ctx = context.WithValue(ctx, constants.SystemPrompt, systemPrompt)
 	ctx = context.WithValue(ctx, constants.RepoName, s.repo.Name)
 	// 创建一个带有读写功能的管道
@@ -110,7 +110,7 @@ func (s *docService) chat(ctx context.Context, systemPrompt, initMessage string,
 	go func() {
 		defer pw.Close()
 		// 调用AI服务处理消息，将输出写入管道
-		err := service.ChatService().RunOneRound(ctx, initMessage, finalCheckPrompt, pw)
+		err := service.ChatService().RunOneRound(ctx, initMessage, pw)
 		if err != nil {
 			klog.Errorf("AI处理消息失败: %v", err)
 			return
@@ -119,7 +119,7 @@ func (s *docService) chat(ctx context.Context, systemPrompt, initMessage string,
 
 	return pr, nil
 }
-func (s *docService) agentChat(ctx context.Context, initMessage string, finalCheckPrompt string) (io.Reader, error) {
+func (s *docService) agentChat(ctx context.Context, initMessage string) (io.Reader, error) {
 	ctx = context.WithValue(ctx, constants.RepoName, s.repo.Name)
 	// 创建一个带有读写功能的管道
 	pr, pw := io.Pipe()
@@ -128,7 +128,7 @@ func (s *docService) agentChat(ctx context.Context, initMessage string, finalChe
 	go func() {
 		defer pw.Close()
 		// 调用AI服务处理消息，将输出写入管道
-		err := service.ChatService().RunOneRound(ctx, initMessage, finalCheckPrompt, pw)
+		err := service.ChatService().RunOneRound(ctx, initMessage, pw)
 		if err != nil {
 			klog.Errorf("AI处理消息失败: %v", err)
 			return
