@@ -65,12 +65,12 @@ func (s *chatDocService) ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.W
 
 // 对外API：启动动态多角色协作流程
 func (s *chatDocService) StartWorkflow(initialContent string) error {
-	roles, err := s.LoadRoleConfigs("data/chatdoc_roles.yaml")
+	roles, err := s.LoadRoleConfigs("config/chatdoc_roles.yaml")
 	if err != nil {
 		klog.Errorf("加载角色配置失败: %v", err)
 		return err
 	}
-	wf, err := s.LoadWorkflowConfig("data/chatdoc_workflow.yaml")
+	wf, err := s.LoadWorkflowConfig("config/chatdoc_workflow.yaml")
 	if err != nil {
 		klog.Errorf("加载工作流配置失败: %v", err)
 		return err
