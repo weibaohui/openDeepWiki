@@ -13,10 +13,6 @@ type Agent interface {
 
 var RegisteredAgents = map[string]Agent{}
 
-func RegisterAgent(name string, agent Agent) {
-	RegisteredAgents[name] = agent
-}
-
 func RegisterAgentWithConfig(name string, agent Agent, cfg chatdoc.RoleConfig) {
 	agent.SetConfig(cfg)
 	RegisteredAgents[name] = agent
