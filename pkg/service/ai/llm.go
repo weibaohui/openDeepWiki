@@ -14,5 +14,5 @@ func CallLLM(ctx context.Context, prompt string) (string, error) {
 		klog.Errorf("获取默认AI客户端失败: %v", err)
 		return "", err
 	}
-	return client.GetCompletion(ctx, prompt)
+	return client.GetCompletionNoHistory(ctx, prompt)
 }
