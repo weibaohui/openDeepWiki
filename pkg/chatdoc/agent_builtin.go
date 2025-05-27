@@ -2,6 +2,7 @@ package chatdoc
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
@@ -27,9 +28,13 @@ func (a *GenericAgent) HandleTask(ctx context.Context, s *chatDocService, task c
 	// 从 task.Metadata 中获取用户需求
 	userRequirement := task.Content
 	if task.Metadata != nil {
-		if req, exists := task.Metadata["用户需求"]; exists {
-			userRequirement = req
-		}
+		str := `
+			仓库名称= %s ,仓库描述= %s 。
+			仓库路径= %s 。
+			文档路径= %s ,新编写的文档，必须及时更新。调用[write_file]函数将内容写入到该目录下。
+		`
+
+		userRequirement = fmt.Sprintf(str, task.Metadata["repoName"], task.Metadata["repoPath"], task.Metadata["docPath"], task.Metadata["repoDescription"])
 	}
 
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{用户需求}}", userRequirement)

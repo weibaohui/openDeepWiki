@@ -176,7 +176,7 @@ func (s *chatDocService) ExecuteWorkflow(ctx context.Context, initialTask chatdo
 }
 
 // StartWorkflow 对外API：启动动态多角色协作流程
-func (s *chatDocService) StartWorkflow(ctx context.Context, initialContent string) error {
+func (s *chatDocService) StartWorkflow(ctx context.Context, info *RepoInfo) error {
 	roles, err := s.LoadRoleConfigs("config/chatdoc_roles.yaml")
 	if err != nil {
 		klog.Errorf("加载角色配置失败: %v", err)
@@ -196,9 +196,12 @@ func (s *chatDocService) StartWorkflow(ctx context.Context, initialContent strin
 	}
 
 	initTask := chatdoc.Task{
-		Content: initialContent,
+		Content: "请分析代码仓库并编写技术文档",
 		Metadata: map[string]string{
-			"用户需求": initialContent,
+			"仓库名称": info.RepoName,
+			"仓库路径": info.RepoPath,
+			"文档路径": info.DocPath,
+			"仓库描述": info.Description,
 		},
 	}
 	return s.ExecuteWorkflow(ctx, initTask, wf)

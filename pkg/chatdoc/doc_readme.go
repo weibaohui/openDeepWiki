@@ -5,8 +5,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"k8s.io/klog/v2"
 )
+
+// RepoInfo 包含仓库的基本信息
+type RepoInfo struct {
+	// RepoName 仓库名称
+	RepoName string `json:"repo_name"`
+	// RepoPath 仓库存放路径（相对路径）
+	RepoPath string `json:"repo_path"`
+	// DocPath 文档输出路径
+	DocPath string `json:"doc_path"`
+	// Description 仓库描述信息
+	Description string `json:"description"`
+}
 
 type docReadmeService struct {
 	parent *docService
@@ -102,21 +115,18 @@ f. 许可证（仅当存在 LICENSE 文件时）
 	repName := s.parent.RepoService().GetRepoName(ctx)
 	return fmt.Sprintf(prompt, repName, path, path, folder, folder)
 }
-func (s *docReadmeService) projectInfo(ctx context.Context) string {
-	prompt := `
-		/no_thinking
-		请为下面的代码仓库，编写技术文档。
-		仓库名称是%s。
-		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
-  		输出的文件请 调用 [write_file] 函数写入 %s 目录下。
 
-		请使用中文书写文档。
- `
-
+// projectInfo 获取项目基本信息结构体
+func (s *docReadmeService) projectInfo(ctx context.Context) *RepoInfo {
 	folder, _ := s.parent.GetRuntimeFolder()
 	path, _ := s.parent.RepoService().GetRepoPath(ctx)
 	repName := s.parent.RepoService().GetRepoName(ctx)
-	return fmt.Sprintf(prompt, repName, path, folder)
+
+	return &RepoInfo{
+		RepoName: repName,
+		RepoPath: path,
+		DocPath:  folder,
+	}
 }
 
 func (s *docReadmeService) Generate(ctx context.Context) error {
@@ -129,8 +139,9 @@ func (s *docReadmeService) Generate(ctx context.Context) error {
 	if err := s.parent.MustHaveAnalysisInstance(); err != nil {
 		return err
 	}
-	info := s.projectInfo(ctx)
-	err := s.parent.ChatDocService().StartWorkflow(ctx, info)
+	repoInfo := s.projectInfo(ctx)
+	klog.Infof("repoInfo: %s", utils.ToJSON(repoInfo))
+	err := s.parent.ChatDocService().StartWorkflow(ctx, repoInfo)
 	if err != nil {
 		return err
 	}
