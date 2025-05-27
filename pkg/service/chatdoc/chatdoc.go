@@ -47,11 +47,13 @@ func loadCollaboration() []chatdoc.Collaboration {
 }
 
 // 示例：发起协作会话
-func (svc *ChatDocService) StartSession(ctx context.Context) *chatdoc.ChatDocSession {
+// StartSession 支持传入初始任务描述
+func (svc *ChatDocService) StartSession(ctx context.Context, initialTask string) *chatdoc.ChatDocSession {
 	return &chatdoc.ChatDocSession{
 		ID:           "session-id",
 		CurrentStage: "init",
 		History:      []string{},
 		Roles:        svc.Roles,
+		InitialTask:  initialTask,
 	}
 }

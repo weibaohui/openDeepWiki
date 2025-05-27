@@ -17,4 +17,5 @@ type ChatDocSession struct {
 	CurrentStage string   `json:"current_stage"`
 	History      []string `json:"history"`
 	Roles        []Role   `json:"roles"`
+	InitialTask  string   `json:"initial_task"`
 }
