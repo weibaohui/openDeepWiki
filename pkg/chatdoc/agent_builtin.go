@@ -36,6 +36,7 @@ func (a *GenericAgent) HandleTask(ctx context.Context, s *chatDocService, task c
 		klog.Errorf("%s 处理任务 readAndWrite 失败: %v", a.Config.Name, err)
 		return chatdoc.Task{}, err
 	}
+
 	return chatdoc.Task{
 		Role:     a.NextRole,
 		Type:     a.TaskType,

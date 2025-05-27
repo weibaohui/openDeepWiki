@@ -12,7 +12,8 @@ import (
 )
 
 type chatDocService struct {
-	parent *docService
+	parent   *docService
+	workflow *chatdoc.WorkflowConfig
 }
 
 func (s *docService) ChatDocService() *chatDocService {
@@ -77,14 +78,14 @@ func (s *chatDocService) StartWorkflow(ctx context.Context, initialContent strin
 		klog.Errorf("加载工作流配置失败: %v", err)
 		return err
 	}
-
+	s.workflow = wf
 	// 注册Agent
 	for _, r := range roles {
 		agent := &GenericAgent{}
 		RegisterAgentWithConfig(r.Name, agent, r)
 		klog.Infof("注册智能体: %s", utils.ToJSON(r))
 	}
- 
+
 	initTask := chatdoc.Task{
 		Content:  initialContent,
 		Metadata: map[string]string{},
