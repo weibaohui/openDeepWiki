@@ -224,6 +224,8 @@ func main() {
 	chatdocGroup := r.Group("/chatdoc", middleware.RequireLogin())
 	{
 		chatdocGroup.POST("/start", chatdoc.StartSession)
+		chatdocGroup.POST("/execute", chatdoc.ExecuteTask)
+		chatdocGroup.POST("/workflow/start", chatdoc.StartWorkflow)
 	}
 
 	showBootInfo(Version, flag.Init().Port)
