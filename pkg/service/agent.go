@@ -1,4 +1,4 @@
-package chatdoc
+package service
 
 import (
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"

@@ -16,7 +16,6 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/mcp"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/admin/user"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/chat"
-	"github.com/weibaohui/openDeepWiki/pkg/controller/chatdoc"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/doc"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/login"
 	"github.com/weibaohui/openDeepWiki/pkg/controller/param"
@@ -219,13 +218,7 @@ func main() {
 		// 代码仓库管理
 		repo.RegisterRoutes(mgm)
 	}
-
-	// ChatDoc 协作模块
-	chatdocGroup := r.Group("/chatdoc", middleware.RequireLogin())
-	{
-		chatdocGroup.POST("/workflow/start", chatdoc.StartWorkflow)
-	}
-
+ 
 	showBootInfo(Version, flag.Init().Port)
 	err := r.Run(fmt.Sprintf(":%d", flag.Init().Port))
 	if err != nil {

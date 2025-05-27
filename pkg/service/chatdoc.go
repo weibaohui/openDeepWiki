@@ -1,4 +1,4 @@
-package chatdoc
+package service
 
 import (
 	"fmt"

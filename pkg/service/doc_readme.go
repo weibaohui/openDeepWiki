@@ -102,6 +102,19 @@ f. 许可证（仅当存在 LICENSE 文件时）
 	repName := s.parent.RepoService().GetRepoName(ctx)
 	return fmt.Sprintf(prompt, repName, path, path, folder, folder)
 }
+func (s *docReadmeService) projectInfo(ctx context.Context) string {
+	prompt := `
+		    
+		仓库名称是%s。
+		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
+		请你根据存放路径，使用 [list_directory] 方法 先读取仓库文件夹根目录结构，再根据目录结构，按需读取仓库的中的必要文件，然后根据文件内容，生成一个README.md文件。
+`
+
+	folder, _ := s.parent.GetRuntimeFolder()
+	// path, _ := s.parent.RepoService().GetRepoPath(ctx)
+	repName := s.parent.RepoService().GetRepoName(ctx)
+	return fmt.Sprintf(prompt, repName, folder)
+}
 
 func (s *docReadmeService) finalCheck(ctx context.Context) string {
 	prompt := `
@@ -126,7 +139,7 @@ func (s *docReadmeService) finalCheck(ctx context.Context) string {
 	repName := s.parent.RepoService().GetRepoName(ctx)
 	return fmt.Sprintf(prompt, repName, folder, folder, folder)
 }
-func (s *docReadmeService) Generate(ctx context.Context) error {
+func (s *docReadmeService) GenerateOLD(ctx context.Context) error {
 	// 计时
 	start := time.Now()
 	defer func() {
@@ -146,5 +159,23 @@ func (s *docReadmeService) Generate(ctx context.Context) error {
 		return err
 	}
 	klog.V(6).Infof("生成README.md文件成功: \n%s\n\n", all)
+	return nil
+}
+func (s *docReadmeService) Generate(ctx context.Context) error {
+	// 计时
+	start := time.Now()
+	defer func() {
+		klog.V(6).Infof("生成README.md文件耗时: %0.2f 秒", time.Since(start).Seconds())
+	}()
+
+	if err := s.parent.MustHaveAnalysisInstance(); err != nil {
+		return err
+	}
+	info := s.projectInfo(ctx)
+	err := StartWorkflow("请编写一个readme文档" + info)
+	if err != nil {
+		return err
+	}
+	// klog.V(6).Infof("生成README.md文件成功: \n%s\n\n", all)
 	return nil
 }
