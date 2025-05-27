@@ -2,30 +2,53 @@ start_role: DocumentationLeader
 steps:
   - step: "接收用户需求"
     actor: DocumentationLeader
-    input: "代码仓库地址 + 需求说明"
-    output: "任务分解 + 文档结构"
+    input:
+      - "代码仓库地址"
+      - "需求说明"
+    output:
+      - "任务分解"
+      - "文档结构"
+    substeps: []
 
   - step: "代码分析"
     actor: CodeAnalyzer
-    input: "代码仓库地址"
-    output: "模块结构图 + API接口说明 + 架构描述"
+    input:
+      - "代码仓库地址"
+    output:
+      - "模块结构图"
+      - "API接口说明"
+      - "架构描述"
+    substeps: []
 
   - step: "文档撰写"
     actor: TechnicalWriter
-    input: "技术说明 + 文档结构"
-    output: "初版文档"
+    input:
+      - "技术说明"
+      - "文档结构"
+    output:
+      - "初版文档"
+    substeps: []
 
   - step: "用户体验审查"
     actor: UserExperienceReviewer
-    input: "初版文档"
-    output: "反馈报告"
+    input:
+      - "初版文档"
+    output:
+      - "反馈报告"
+    substeps: []
 
   - step: "文档修订与交付"
     actor: TechnicalWriter
-    input: "反馈报告"
-    output: "最终交付版本"
+    input:
+      - "反馈报告"
+    output:
+      - "最终交付版本"
+    substeps: []
 
   - step: "最终审核"
     actor: DocumentationLeader
-    input: "最终文档版本"
-    output: "确认交付 ✅"
+    input:
+      - "最终文档版本"
+    output:
+      - "确认交付 ✅"
+    substeps: []

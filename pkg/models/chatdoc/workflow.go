@@ -1,10 +1,11 @@
 package chatdoc
 
 type WorkflowStep struct {
-	From      string   `yaml:"from" json:"from"`
-	To        string   `yaml:"to" json:"to"`
-	Condition string   `yaml:"condition" json:"condition"`
-	Metadata  []string `yaml:"metadata" json:"metadata"`
+	Step     string         `yaml:"step" json:"step"`
+	Actor    string         `yaml:"actor" json:"actor"`
+	Input    []string       `yaml:"input" json:"input"`
+	Output   []string       `yaml:"output" json:"output"`
+	Substeps []WorkflowStep `yaml:"substeps" json:"substeps"`
 }
 
 type WorkflowConfig struct {
