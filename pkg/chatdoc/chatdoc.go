@@ -198,10 +198,10 @@ func (s *chatDocService) StartWorkflow(ctx context.Context, info *RepoInfo) erro
 	initTask := chatdoc.Task{
 		Content: "请分析代码仓库并编写技术文档",
 		Metadata: map[string]string{
-			"仓库名称": info.RepoName,
-			"仓库路径": info.RepoPath,
-			"文档路径": info.DocPath,
-			"仓库描述": info.Description,
+			"repoName":    info.RepoName,
+			"repoPath":    info.RepoPath,
+			"docPath":     info.DocPath,
+			"description": info.Description,
 		},
 	}
 	klog.V(6).Infof("工作流配置: %s", utils.ToJSON(initTask))
