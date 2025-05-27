@@ -1,6 +1,7 @@
 package chatdoc
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -10,16 +11,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// chatDocService 服务结构体
-// 用于多角色协作流程相关方法
-// 你可以通过实例化 chatDocService{} 来调用相关方法
-type chatDocService struct{}
-
-func NewChatDocService() *chatDocService {
-	return &chatDocService{}
+type chatDocService struct {
+	parent *docService
 }
 
-// 加载新版角色配置
+func (s *docService) ChatDocService() *chatDocService {
+	return &chatDocService{
+		parent: s,
+	}
+}
+
+// LoadRoleConfigs 加载新版角色配置
 func (s *chatDocService) LoadRoleConfigs(path string) ([]chatdoc.RoleConfig, error) {
 	f, err := os.ReadFile(path)
 	if err != nil {
@@ -30,7 +32,7 @@ func (s *chatDocService) LoadRoleConfigs(path string) ([]chatdoc.RoleConfig, err
 	return roles, err
 }
 
-// 加载新版工作流配置
+// LoadWorkflowConfig 加载新版工作流配置
 func (s *chatDocService) LoadWorkflowConfig(path string) (*chatdoc.WorkflowConfig, error) {
 	f, err := os.ReadFile(path)
 	if err != nil {
@@ -41,8 +43,8 @@ func (s *chatDocService) LoadWorkflowConfig(path string) (*chatdoc.WorkflowConfi
 	return &wf, err
 }
 
-// 主流程调度骨架
-func (s *chatDocService) ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error {
+// ExecuteWorkflow 主流程调度骨架
+func (s *chatDocService) ExecuteWorkflow(ctx context.Context, initialTask chatdoc.Task, wf *chatdoc.WorkflowConfig) error {
 	currentTask := initialTask
 	currentTask.Role = wf.StartRole
 	for {
@@ -50,7 +52,7 @@ func (s *chatDocService) ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.W
 		if !ok {
 			return fmt.Errorf("未知角色: %s", currentTask.Role)
 		}
-		nextTask, err := agent.HandleTask(currentTask)
+		nextTask, err := agent.HandleTask(ctx, s, currentTask)
 		if err != nil {
 			return err
 		}
@@ -63,8 +65,8 @@ func (s *chatDocService) ExecuteWorkflow(initialTask chatdoc.Task, wf *chatdoc.W
 	}
 }
 
-// 对外API：启动动态多角色协作流程
-func (s *chatDocService) StartWorkflow(initialContent string) error {
+// StartWorkflow 对外API：启动动态多角色协作流程
+func (s *chatDocService) StartWorkflow(ctx context.Context, initialContent string) error {
 	roles, err := s.LoadRoleConfigs("config/chatdoc_roles.yaml")
 	if err != nil {
 		klog.Errorf("加载角色配置失败: %v", err)
@@ -88,5 +90,5 @@ func (s *chatDocService) StartWorkflow(initialContent string) error {
 		Content:  initialContent,
 		Metadata: map[string]string{},
 	}
-	return s.ExecuteWorkflow(initTask, wf)
+	return s.ExecuteWorkflow(ctx, initTask, wf)
 }

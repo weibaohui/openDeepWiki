@@ -7,7 +7,6 @@ import (
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/constants"
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"
-	"github.com/weibaohui/openDeepWiki/pkg/service"
 	"k8s.io/klog/v2"
 )
 
@@ -20,25 +19,27 @@ type DocumentationLeaderAgent struct {
 
 func (a *DocumentationLeaderAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
-func (a *DocumentationLeaderAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+func (a *DocumentationLeaderAgent) HandleTask(ctx context.Context, s *chatDocService, task chatdoc.Task) (chatdoc.Task, error) {
 	klog.Infof("DocumentationLeaderAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
-	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
+	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
 
-	client, err := service.AIService().DefaultClient()
+	reader, err := s.parent.agentChat(ctx, task.Content, "")
 	if err != nil {
-		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
+		klog.Errorf("DocumentationLeaderAgent 处理任务 chat 失败: %v", err)
+		return chatdoc.Task{}, err
+
+	}
+	all, err := s.parent.readAndWrite(ctx, reader)
+	if err != nil {
+		klog.Errorf("DocumentationLeaderAgent 处理任务 readAndWrite 失败: %v", err)
 		return chatdoc.Task{}, err
 	}
-	resp, err := client.GetCompletionNoHistory(ctx, task.Content)
-	if err != nil {
-		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
-		return chatdoc.Task{}, err
-	}
+
 	return chatdoc.Task{
 		Role:    "CodeAnalyster",
 		Type:    "analyze",
-		Content: resp,
+		Content: all,
 		Metadata: map[string]string{
 			"section": "任务分解",
 		},
@@ -54,24 +55,26 @@ type CodeAnalysterAgent struct {
 
 func (a *CodeAnalysterAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
-func (a *CodeAnalysterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+func (a *CodeAnalysterAgent) HandleTask(ctx context.Context, s *chatDocService, task chatdoc.Task) (chatdoc.Task, error) {
 	klog.Infof("CodeAnalysterAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
-	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
-	client, err := service.AIService().DefaultClient()
+	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
+
+	reader, err := s.parent.agentChat(ctx, task.Content, "")
 	if err != nil {
-		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
+		klog.Errorf("CodeAnalysterAgent 处理任务 chat 失败: %v", err)
 		return chatdoc.Task{}, err
+
 	}
-	resp, err := client.GetCompletionNoHistory(ctx, task.Content)
+	all, err := s.parent.readAndWrite(ctx, reader)
 	if err != nil {
-		klog.Errorf("CodeAnalysterAgent 处理任务失败: %v", err)
+		klog.Errorf("CodeAnalysterAgent 处理任务 readAndWrite 失败: %v", err)
 		return chatdoc.Task{}, err
 	}
 	return chatdoc.Task{
 		Role:    "TechnicalWriter",
 		Type:    "write",
-		Content: resp,
+		Content: all,
 		Metadata: map[string]string{
 			"section": "技术说明",
 		},
@@ -87,27 +90,27 @@ type TechnicalWriterAgent struct {
 
 func (a *TechnicalWriterAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
-func (a *TechnicalWriterAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+func (a *TechnicalWriterAgent) HandleTask(ctx context.Context, s *chatDocService, task chatdoc.Task) (chatdoc.Task, error) {
 	klog.Infof("TechnicalWriterAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
-	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
-	client, err := service.AIService().DefaultClient()
+	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
+
+	reader, err := s.parent.agentChat(ctx, task.Content, "")
 	if err != nil {
-		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
+		klog.Errorf("TechnicalWriterAgent 处理任务 chat 失败: %v", err)
 		return chatdoc.Task{}, err
+
 	}
-	resp, err := client.GetCompletionNoHistory(ctx, task.Content)
+	all, err := s.parent.readAndWrite(ctx, reader)
 	if err != nil {
-		klog.Errorf("TechnicalWriterAgent 处理任务失败: %v", err)
+		klog.Errorf("TechnicalWriterAgent 处理任务 readAndWrite 失败: %v", err)
 		return chatdoc.Task{}, err
 	}
 	return chatdoc.Task{
-		Role:    "UserExperienceReviewer",
-		Type:    "review",
-		Content: resp,
-		Metadata: map[string]string{
-			"content": resp,
-		},
+		Role:     "UserExperienceReviewer",
+		Type:     "review",
+		Content:  all,
+		Metadata: map[string]string{},
 	}, nil
 }
 
@@ -120,28 +123,28 @@ type UserExperienceReviewerAgent struct {
 
 func (a *UserExperienceReviewerAgent) SetConfig(cfg chatdoc.RoleConfig) { a.Config = cfg }
 
-func (a *UserExperienceReviewerAgent) HandleTask(task chatdoc.Task) (chatdoc.Task, error) {
+func (a *UserExperienceReviewerAgent) HandleTask(ctx context.Context, s *chatDocService, task chatdoc.Task) (chatdoc.Task, error) {
 	klog.Infof("UserExperienceReviewerAgent 处理任务: %s", utils.ToJSON(task))
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{需求描述}}", task.Content)
-	ctx := context.WithValue(context.Background(), constants.SystemPrompt, sysPrompt)
-	client, err := service.AIService().DefaultClient()
+	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
+
+	reader, err := s.parent.agentChat(ctx, task.Content, "")
 	if err != nil {
-		klog.Errorf("DocumentationLeaderAgent 处理任务失败: %v", err)
+		klog.Errorf("UserExperienceReviewerAgent 处理任务 chat 失败: %v", err)
 		return chatdoc.Task{}, err
+
 	}
-	resp, err := client.GetCompletionNoHistory(ctx, task.Content)
+	all, err := s.parent.readAndWrite(ctx, reader)
 	if err != nil {
-		klog.Errorf("UserExperienceReviewerAgent 处理任务失败: %v", err)
+		klog.Errorf("UserExperienceReviewerAgent 处理任务 readAndWrite 失败: %v", err)
 		return chatdoc.Task{}, err
 	}
 	return chatdoc.Task{
-		Role:    "DocumentationLeader",
-		Type:    "feedback",
-		Content: resp,
-		Metadata: map[string]string{
-			"review_comments": resp,
-		},
-		IsFinal: true,
+		Role:     "DocumentationLeader",
+		Type:     "feedback",
+		Content:  all,
+		Metadata: map[string]string{},
+		IsFinal:  true,
 	}, nil
 }
 

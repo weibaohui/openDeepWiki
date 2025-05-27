@@ -119,6 +119,24 @@ func (s *docService) chat(ctx context.Context, systemPrompt, initMessage string,
 
 	return pr, nil
 }
+func (s *docService) agentChat(ctx context.Context, initMessage string, finalCheckPrompt string) (io.Reader, error) {
+	ctx = context.WithValue(ctx, constants.RepoName, s.repo.Name)
+	// 创建一个带有读写功能的管道
+	pr, pw := io.Pipe()
+
+	// 启动一个goroutine来处理AI服务的输出
+	go func() {
+		defer pw.Close()
+		// 调用AI服务处理消息，将输出写入管道
+		err := service.ChatService().RunOneRound(ctx, initMessage, finalCheckPrompt, pw)
+		if err != nil {
+			klog.Errorf("AI处理消息失败: %v", err)
+			return
+		}
+	}()
+
+	return pr, nil
+}
 
 // GetLatestLogs 获取最新的日志内容
 func (s *docService) GetLatestLogs(ctx context.Context) (string, error) {

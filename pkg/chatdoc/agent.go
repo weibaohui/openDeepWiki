@@ -1,11 +1,13 @@
 package chatdoc
 
 import (
+	"context"
+
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"
 )
 
 type Agent interface {
-	HandleTask(task chatdoc.Task) (chatdoc.Task, error)
+	HandleTask(ctx context.Context, s *chatDocService, task chatdoc.Task) (chatdoc.Task, error)
 	SetConfig(cfg chatdoc.RoleConfig)
 }
 
