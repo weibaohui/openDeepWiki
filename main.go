@@ -223,8 +223,6 @@ func main() {
 	// ChatDoc 协作模块
 	chatdocGroup := r.Group("/chatdoc", middleware.RequireLogin())
 	{
-		chatdocGroup.POST("/start", chatdoc.StartSession)
-		chatdocGroup.POST("/execute", chatdoc.ExecuteTask)
 		chatdocGroup.POST("/workflow/start", chatdoc.StartWorkflow)
 	}
 
