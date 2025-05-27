@@ -6,6 +6,7 @@ import (
 
 	"github.com/weibaohui/openDeepWiki/pkg/models/chatdoc"
 	"gopkg.in/yaml.v3"
+	"k8s.io/klog/v2"
 )
 
 // 加载新版角色配置
@@ -68,6 +69,7 @@ func StartWorkflow(initialContent string) error {
 			return fmt.Errorf("未注册的智能体处理器: %s", r.Name)
 		}
 		RegisterAgentWithConfig(r.Name, agent, r)
+		klog.Infof("注册智能体: %s, 描述: %s", r.Name, r.Description)
 	}
 	initTask := chatdoc.Task{
 		Content:  initialContent,
