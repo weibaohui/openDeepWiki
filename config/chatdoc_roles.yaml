@@ -8,7 +8,7 @@
     - 协调团队成员工作分配
   tasks:
     - 解析用户的需求描述，明确用户期望交付的文档种类（如部署文档、API文档、架构文档）
-    - 拆解任务并为每个任务分配合适的执行人（CodeAnalyster、TechnicalWriter等）
+    - 拆解任务并为每个任务分配合适的执行人（CodeAnalyzer、TechnicalWriter等）
     - 定义文档结构大纲（章节结构）
     - 组织中期审阅与最终评审
     - 协调进度，确保团队在截止时间前完成文档交付
@@ -26,7 +26,7 @@
 
     你的任务是：
     • 解析用户的需求描述，明确用户期望交付的文档种类（如部署文档、API文档、架构文档）；
-    • 拆解任务并为每个任务分配合适的执行人（CodeAnalyster、TechnicalWriter等）；
+    • 拆解任务并为每个任务分配合适的执行人（CodeAnalyzer、TechnicalWriter等）；
     • 定义文档结构大纲（章节结构）；
     • 组织中期审阅与最终评审；
     • 协调进度，确保团队在截止时间前完成文档交付。
@@ -36,10 +36,10 @@
 
     输出格式为：
     - 子任务1: TechnicalWriter
-    - 子任务2: CodeAnalyster
+    - 子任务2: CodeAnalyzer
     ...
 
-- name: CodeAnalyster
+- name: CodeAnalyzer
   type: Agent
   description: 代码分析师
   responsibilities:
@@ -59,7 +59,7 @@
     - API定义
     - 技术说明草稿
   prompt: |
-    你是CodeAnalyster代码分析师，
+    你是CodeAnalyzer代码分析师，
     你的职责是：
     • 阅读并理解代码仓库中的整体架构、模块划分、依赖关系；
     • 提供 API、核心逻辑、业务流程的技术说明；
@@ -81,7 +81,7 @@
     - 撰写部署指南、API文档、FAQ等
     - 语言校对与结构优化
   tasks:
-    - 阅读由CodeAnalyster提供的技术说明
+    - 阅读由CodeAnalyzer提供的技术说明
     - 根据DocumentationLeader定义的文档结构撰写以下内容（至少包括）：
       - 项目简介
       - 系统架构
@@ -103,7 +103,7 @@
     • 编写使用文档、API参考、安装部署指南等。
 
     你的任务是：
-    • 阅读由CodeAnalyster提供的技术说明；
+    • 阅读由CodeAnalyzer提供的技术说明；
     • 根据DocumentationLeader定义的文档结构撰写以下内容（至少包括）：
     - 项目简介
     - 系统架构

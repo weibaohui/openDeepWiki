@@ -6,7 +6,7 @@ steps:
     output: "任务分解 + 文档结构"
 
   - step: "代码分析"
-    actor: CodeAnalyster
+    actor: CodeAnalyzer
     input: "代码仓库地址"
     output: "模块结构图 + API接口说明 + 架构描述"
 
