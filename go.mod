@@ -6,6 +6,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/duke-git/lancet/v2 v2.3.5
 	github.com/fatih/color v1.18.0
+	github.com/gabriel-vasile/mimetype v1.4.8
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-contrib/gzip v1.2.3
 	github.com/gin-gonic/gin v1.10.0
@@ -18,6 +19,7 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/weibaohui/kom v0.2.39
 	golang.org/x/oauth2 v0.30.0
+	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/gorm v1.26.1
 	k8s.io/apimachinery v0.33.0
 	k8s.io/klog/v2 v2.130.1
@@ -42,7 +44,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gin-contrib/sse v1.0.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
@@ -108,7 +109,6 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.33.0 // indirect
 	k8s.io/cli-runtime v0.33.0 // indirect
 	k8s.io/client-go v0.33.0 // indirect

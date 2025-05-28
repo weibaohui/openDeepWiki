@@ -41,7 +41,7 @@ func (c *chatService) GetChatStream(ctx context.Context, chat string) (*openai.C
 	return stream, nil
 
 }
-func (c *chatService) RunOneRound(ctx context.Context, chat string, finalCheckPrompt string, writer io.Writer) error {
+func (c *chatService) RunOneRound(ctx context.Context, chat string, writer io.Writer) error {
 
 	cfg := flag.Init()
 	client, err := AIService().DefaultClient()
@@ -70,20 +70,8 @@ func (c *chatService) RunOneRound(ctx context.Context, chat string, finalCheckPr
 		klog.Infof("Starting iteration %d/%d", currentIteration, cfg.MaxIterations)
 
 		// 优化对话终止与最终检查逻辑
-		if currChatContent == nil || (len(currChatContent) == 0 && currentIteration > 0) {
-			if finalCheckPrompt == "" {
-				klog.V(6).Infof("currChatContent为空且无finalCheckPrompt，退出对话")
-				return nil
-			}
-			// 只有finalCheckPrompt不为空时，检查是否需要最终确认
-			_, end := client.SearchHistory(ctx, "确认结束")
-			if end {
-				klog.V(6).Infof("已确认结束，退出对话")
-				return nil
-			}
-			klog.V(6).Infof("Final check prompt: %v", finalCheckPrompt)
-			currChatContent = append(currChatContent, finalCheckPrompt)
-
+		if currChatContent == nil || len(currChatContent) == 0 {
+			return fmt.Errorf("no chat content")
 		}
 
 		klog.V(6).Infof("Sending to LLM: %v", utils.ToJSON(currChatContent))

@@ -1,7 +1,9 @@
-package service
+package chatdoc
 
 import (
 	"context"
+
+	"github.com/weibaohui/openDeepWiki/pkg/service"
 )
 
 type docRepoService struct {
@@ -15,11 +17,11 @@ func (s *docService) RepoService() *docRepoService {
 }
 func (s *docRepoService) Clone(ctx context.Context) error {
 
-	return GitService().InitRepo(s.parent.repo)
+	return service.GitService().InitRepo(s.parent.repo)
 }
 func (s *docRepoService) GetRepoPath(ctx context.Context) (string, error) {
 
-	return GitService().GetRepoPath(s.parent.repo)
+	return service.GitService().GetRepoPath(s.parent.repo)
 }
 
 func (s *docRepoService) GetRepoName(ctx context.Context) string {

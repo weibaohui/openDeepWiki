@@ -32,7 +32,19 @@ export default defineConfig(({mode}) => {
                         });
                     },
                 },
-
+                '/chatdoc': {
+                    target: 'http://127.0.0.1:3721',
+                    changeOrigin: true,
+                    configure: (proxy) => {
+                        proxy.on('proxyReq', (proxyReq, req) => {
+                            const originalPath = req.url;
+                            console.log(`Before restoring: ${originalPath}`);
+                            // @ts-expect-error
+                            proxyReq.path = originalPath.replace('%2F%2F', '//');
+                            console.log(`Restored path: ${proxyReq.path}`);
+                        });
+                    },
+                },
                 '/params': {
                     target: 'http://127.0.0.1:3721',
                     changeOrigin: true,

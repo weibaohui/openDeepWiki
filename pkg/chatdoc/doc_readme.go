@@ -1,12 +1,25 @@
-package service
+package chatdoc
 
 import (
 	"context"
 	"fmt"
 	"time"
 
+	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"k8s.io/klog/v2"
 )
+
+// RepoInfo 包含仓库的基本信息
+type RepoInfo struct {
+	// RepoName 仓库名称
+	RepoName string `json:"repo_name"`
+	// RepoPath 仓库存放路径（相对路径）
+	RepoPath string `json:"repo_path"`
+	// DocPath 文档输出路径
+	DocPath string `json:"doc_path"`
+	// Description 仓库描述信息
+	Description string `json:"description"`
+}
 
 type docReadmeService struct {
 	parent *docService
@@ -103,48 +116,34 @@ f. 许可证（仅当存在 LICENSE 文件时）
 	return fmt.Sprintf(prompt, repName, path, path, folder, folder)
 }
 
-func (s *docReadmeService) finalCheck(ctx context.Context) string {
-	prompt := `
-		/no_thinking
-		仓库信息:
-		仓库名称是%s。
-		仓库存放路径=%s.这是一个相对路径。请注意在后面读取文件时先拼接相对路径。
-		Readme.md 存为路径[%s]/readme.md
-	
-		任务要求：
-		在对话结束前，请确认已经在目录[%s]下生成Readme.md.
-		请使用[READ_FILE]尝试读取确认改文件已经生成。
-
-		确认结果处理：
-		1. 如果没有生成，请利用历史对话信息重新生成。
-		2. 如果已经生成，并且历史对话信息中含有归纳信息，可以利用归纳信息，更新Readme.md文档
-		3. 如果已经生成，并且不需要更新，请输出 <确认结束> , 结束对话。
-		
-`
-
+// projectInfo 获取项目基本信息结构体
+func (s *docReadmeService) projectInfo(ctx context.Context) *RepoInfo {
 	folder, _ := s.parent.GetRuntimeFolder()
+	path, _ := s.parent.RepoService().GetRepoPath(ctx)
 	repName := s.parent.RepoService().GetRepoName(ctx)
-	return fmt.Sprintf(prompt, repName, folder, folder, folder)
+
+	return &RepoInfo{
+		RepoName: repName,
+		RepoPath: path,
+		DocPath:  folder,
+	}
 }
+
 func (s *docReadmeService) Generate(ctx context.Context) error {
 	// 计时
 	start := time.Now()
 	defer func() {
-		klog.V(6).Infof("生成README.md文件耗时: %0.2f 秒", time.Since(start).Seconds())
+		klog.V(6).Infof("本轮耗时: %0.2f 秒", time.Since(start).Seconds())
 	}()
 
 	if err := s.parent.MustHaveAnalysisInstance(); err != nil {
 		return err
 	}
-	reader, err := s.parent.chat(ctx, s.prompt(ctx), "", s.finalCheck(ctx))
-	if err != nil {
-		return err
-
-	}
-	all, err := s.parent.readAndWrite(ctx, reader)
+	repoInfo := s.projectInfo(ctx)
+	klog.Infof("repoInfo: %s", utils.ToJSON(repoInfo))
+	err := s.parent.ChatDocService().StartWorkflow(ctx, repoInfo)
 	if err != nil {
 		return err
 	}
-	klog.V(6).Infof("生成README.md文件成功: \n%s\n\n", all)
 	return nil
 }

@@ -5,10 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/weibaohui/openDeepWiki/internal/dao"
+	"github.com/weibaohui/openDeepWiki/pkg/chatdoc"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils/amis"
 	"github.com/weibaohui/openDeepWiki/pkg/models"
-	"github.com/weibaohui/openDeepWiki/pkg/service"
+	"k8s.io/klog/v2"
 )
 
 // Init 处理对指定 Git 仓库的文档服务初始化请求。
@@ -17,7 +18,7 @@ func Init(c *gin.Context) {
 
 	ctx := amis.GetNewContextWithUser(c)
 
-	docService := service.NewDocServiceWithRepoID(repoID)
+	docService := chatdoc.NewDocServiceWithRepoID(repoID)
 	err := docService.RepoService().Clone(ctx)
 
 	if err != nil {
@@ -37,7 +38,7 @@ func Analysis(c *gin.Context) {
 	ctx := amis.GetNewContextWithUser(c)
 
 	// 初始化文档服务
-	docService := service.NewDocServiceWithRepoID(repoID)
+	docService := chatdoc.NewDocServiceWithRepoID(repoID)
 
 	// 创建新的文档解读实例
 	analysis, err := docService.AnalysisService().Create(ctx)
@@ -50,7 +51,7 @@ func Analysis(c *gin.Context) {
 		// 生成README文档
 		err = docService.ReadmeService().Generate(ctx)
 		if err != nil {
-			_ = docService.AnalysisService().UpdateStatus(ctx, analysis, "failed", "", err)
+			klog.V(6).Infof("生成文档失败: %v", err)
 			return
 		}
 	}()

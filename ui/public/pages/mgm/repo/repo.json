@@ -74,6 +74,13 @@
                     "buttons": [
                         {
                             "type": "button",
+                            "label": "chatdoc",
+                            "actionType": "ajax",
+                            "api": "post:/chatdoc/workflow/start",
+                            "confirmText": "确定要更新仓库吗？"
+                        },
+                        {
+                            "type": "button",
                             "label": "更新仓库",
                             "actionType": "ajax",
                             "api": "post:/doc/repo/${id}/init",

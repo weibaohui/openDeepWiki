@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/weibaohui/openDeepWiki/pkg/chatdoc"
 	"github.com/weibaohui/openDeepWiki/pkg/comm/utils/amis"
-	"github.com/weibaohui/openDeepWiki/pkg/service"
 	"k8s.io/klog/v2"
 )
 
@@ -20,7 +20,7 @@ func GetLatestLogs(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 
-	docService := service.NewDocServiceWithAnalysisID(analysisID)
+	docService := chatdoc.NewDocServiceWithAnalysisID(analysisID)
 
 	_, err := docService.GetRuntimeFilePath()
 	if err != nil {
