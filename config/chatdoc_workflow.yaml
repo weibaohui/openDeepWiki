@@ -2,43 +2,33 @@ start_role: DocumentationLeader
 steps:
   - step: 需求分析与任务规划
     actor: DocumentationLeader
-    input:
-      - 代码仓库地址
     output:
       - 质量标准定义
     substeps: []
   - step: 项目背景编写
     actor: TechnicalWriter
-    input:
-      - 代码仓库地址
     output:
       - 项目背景
   - step: 项目目标
     actor: TechnicalWriter
-    input:
-      - 代码仓库地址
     output:
       - 项目目标
   - step: 项目核心功能
     actor: CodeAnalyzer
-    input:
-      - 项目背景
-      - 项目目标
-      - 代码仓库地址
     output:
       - 项目核心功能
   #安装步骤
   - step: 安装步骤
     actor: CodeAnalyzer
     input:
-      - 代码仓库地址
+      - 项目核心功能
     output:
       - 安装步骤
   # 配置指南
   - step: 配置指南
     actor: CodeAnalyzer
     input:
-      - 代码仓库地址
+      - 项目核心功能
     output:
       - 配置指南
   # 使用指南
