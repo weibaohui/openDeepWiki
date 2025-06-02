@@ -68,6 +68,11 @@ func (s *chatDocService) executeStep(
 	stepTask.Step = step.Step
 	stepTask.Inputs = step.Input
 	stepTask.Outputs = step.Output
+	//打印环节名称、输入输出、执行人
+	klog.Infof("%s环节名称: %s", prefix, step.Step)
+	klog.Infof("%s输入: %s", prefix, step.Input)
+	klog.Infof("%s输出: %s", prefix, step.Output)
+	klog.Infof("%s执行人: %s", prefix, step.Actor)
 
 	// ----------- 新增：确保 Metadata 累积并传递 -----------
 	if stepTask.Metadata == nil {
@@ -79,13 +84,13 @@ func (s *chatDocService) executeStep(
 	// ------------------------------------------------------
 
 	// 从之前步骤的输出中收集所需的输入
-	inputContent := stepTask.Content
-	for _, requiredInput := range step.Input {
-		if output, exists := outputs[requiredInput]; exists {
-			inputContent += "\n\n关于 " + requiredInput + ":\n" + output
-		}
-	}
-	stepTask.Content = inputContent
+	// inputContent := stepTask.Content
+	// for _, requiredInput := range step.Input {
+	// 	if output, exists := outputs[requiredInput]; exists {
+	// 		inputContent += "\n\n关于 " + requiredInput + ":\n" + output
+	// 	}
+	// }
+	// stepTask.Content = inputContent
 
 	// 执行子步骤
 	if len(step.Substeps) > 0 {
@@ -137,10 +142,10 @@ func (s *chatDocService) executeStep(
 	}
 	// ------------------------------------------------------
 
-	// 保存步骤的输出供后续使用
-	for _, output := range step.Output {
-		outputs[output] = nextTask.Content
-	}
+	// // 保存步骤的输出供后续使用
+	// for _, output := range step.Output {
+	// 	outputs[output] = nextTask.Content
+	// }
 
 	klog.Infof("%s步骤 '%s' 执行完成", prefix, step.Step)
 	return nextTask, nil
