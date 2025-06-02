@@ -1,122 +1,100 @@
 start_role: DocumentationLeader
 steps:
-  - step: "需求分析与任务规划"
+  - step: 需求分析与任务规划
     actor: DocumentationLeader
     input:
-      - "代码仓库地址"
-      - "用户需求描述"
+      - 代码仓库地址
+      - 用户需求描述
     output:
-      - "任务分解计划"
-      - "文档结构大纲"
-      - "质量标准定义"
+      - 任务分解计划
+      - 质量标准定义
     substeps: []
 
-  - step: "深度代码分析"
+  - step: 深度代码分析
     actor: CodeAnalyzer
     input:
-      - "任务分解计划"
+      - 任务分解计划
     output:
-      - "技术架构分析"
-      - "API接口文档"
-      - "核心模块说明"
-      - "依赖关系图"
+      - 技术架构分析
+      - API接口文档
+      - 核心模块说明
+      - 依赖关系图
     substeps:
-      - step: "仓库结构分析"
+      - step: 核心功能分析
         actor: CodeAnalyzer
         input:
-          - "代码仓库地址"
+          - 核心模块说明
         output:
-          - "目录结构说明"
-          - "技术栈识别"
-      - step: "核心功能分析"
+          - 主要功能模块
+          - 业务流程梳理
+      - step: 接口与配置分析
         actor: CodeAnalyzer
         input:
-          - "目录结构说明"
+          - API接口文档
         output:
-          - "主要功能模块"
-          - "业务流程梳理"
-      - step: "接口与配置分析"
-        actor: CodeAnalyzer
-        input:
-          - "主要功能模块"
-        output:
-          - "API接口清单"
-          - "配置文件说明"
+          - API接口清单
+          - 配置文件说明
 
-  - step: "技术文档编写"
+  - step: 技术文档编写
     actor: TechnicalWriter
     input:
-      - "文档结构大纲"
-      - "技术架构分析"
-      - "API接口文档"
-      - "核心模块说明"
+      - 技术架构分析
+      - API接口文档
+      - 核心模块说明
+      - 依赖关系图
+      - API接口清单
+      - 配置文件说明
+      - 主要功能模块
+      - 业务流程梳理
     output:
-      - "技术文档初稿"
-    substeps:
-      - step: "项目概述编写"
-        actor: TechnicalWriter
-        input:
-          - "技术架构分析"
-        output:
-          - "项目简介章节"
-      - step: "安装部署指南编写"
-        actor: TechnicalWriter
-        input:
-          - "依赖关系图"
-          - "配置文件说明"
-        output:
-          - "部署指南章节"
-      - step: "API文档编写"
-        actor: TechnicalWriter
-        input:
-          - "API接口清单"
-        output:
-          - "API参考章节"
+      - 技术文档初稿
 
-  - step: "文档质量审查"
+  - step: 文档质量审查
     actor: UserExperienceReviewer
     input:
-      - "技术文档初稿"
-      - "质量标准定义"
+      - 技术文档初稿
+      - 质量标准定义
     output:
-      - "质量评估报告"
-      - "改进建议清单"
+      - 质量评估报告
+      - 改进建议清单
     substeps:
-      - step: "可读性检查"
+      - step: 可读性检查
         actor: UserExperienceReviewer
         input:
-          - "技术文档初稿"
+          - 技术文档初稿
         output:
-          - "可读性评估"
-      - step: "完整性验证"
+          - 可读性评估
+      - step: 完整性验证
         actor: UserExperienceReviewer
         input:
-          - "技术文档初稿"
+          - 技术文档初稿
         output:
-          - "完整性检查报告"
-      - step: "实操验证"
+          - 完整性检查报告
+      - step: 实操验证
         actor: UserExperienceReviewer
         input:
-          - "部署指南章节"
+          - 技术文档初稿
         output:
-          - "实操验证结果"
+          - 实操验证结果
 
-  - step: "文档优化完善"
+  - step: 文档优化完善
     actor: TechnicalWriter
     input:
-      - "技术文档初稿"
-      - "质量评估报告"
-      - "改进建议清单"
+      - 技术文档初稿
+      - 质量评估报告
+      - 改进建议清单
+      - 完整性检查报告
+      - 实操验证结果
     output:
-      - "优化后文档"
+      - 优化后文档
     substeps: []
 
-  - step: "最终审核与交付"
+  - step: 最终审核与交付
     actor: DocumentationLeader
     input:
-      - "优化后文档"
-      - "质量标准定义"
+      - 优化后文档
+      - 质量标准定义
     output:
-      - "最终技术手册"
-      - "交付确认"
+      - 最终技术手册
+      - 交付确认
     substeps: []
