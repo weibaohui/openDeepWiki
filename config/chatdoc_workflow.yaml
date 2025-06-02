@@ -4,97 +4,47 @@ steps:
     actor: DocumentationLeader
     input:
       - 代码仓库地址
-      - 用户需求描述
     output:
-      - 任务分解计划
       - 质量标准定义
     substeps: []
-
-  - step: 深度代码分析
+  - step: 项目背景编写
+    actor: TechnicalWriter
+    input:
+      - 代码仓库地址
+    output:
+      - 项目背景
+  - step: 项目目标
+    actor: TechnicalWriter
+    input:
+      - 代码仓库地址
+    output:
+      - 项目目标
+  - step: 项目核心功能
     actor: CodeAnalyzer
     input:
-      - 任务分解计划
+      - 项目背景
+      - 项目目标
+      - 代码仓库地址
     output:
-      - 技术架构分析
-      - API接口文档
-      - 核心模块说明
-      - 依赖关系图
-    substeps:
-      - step: 核心功能分析
-        actor: CodeAnalyzer
-        input:
-          - 核心模块说明
-        output:
-          - 主要功能模块
-          - 业务流程梳理
-      - step: 接口与配置分析
-        actor: CodeAnalyzer
-        input:
-          - API接口文档
-        output:
-          - API接口清单
-          - 配置文件说明
-
-  - step: 技术文档编写
-    actor: TechnicalWriter
+      - 项目核心功能
+  #安装步骤
+  - step: 安装步骤
+    actor: CodeAnalyzer
     input:
-      - 技术架构分析
-      - API接口文档
-      - 核心模块说明
-      - 依赖关系图
-      - API接口清单
-      - 配置文件说明
-      - 主要功能模块
-      - 业务流程梳理
+      - 代码仓库地址
     output:
-      - 技术文档初稿
-
-  - step: 文档质量审查
-    actor: UserExperienceReviewer
+      - 安装步骤
+  # 配置指南
+  - step: 配置指南
+    actor: CodeAnalyzer
     input:
-      - 技术文档初稿
-      - 质量标准定义
+      - 代码仓库地址
     output:
-      - 质量评估报告
-      - 改进建议清单
-    substeps:
-      - step: 可读性检查
-        actor: UserExperienceReviewer
-        input:
-          - 技术文档初稿
-        output:
-          - 可读性评估
-      - step: 完整性验证
-        actor: UserExperienceReviewer
-        input:
-          - 技术文档初稿
-        output:
-          - 完整性检查报告
-      - step: 实操验证
-        actor: UserExperienceReviewer
-        input:
-          - 技术文档初稿
-        output:
-          - 实操验证结果
-
-  - step: 文档优化完善
-    actor: TechnicalWriter
+      - 配置指南
+  # 使用指南
+  - step: 使用指南
+    actor: CodeAnalyzer
     input:
-      - 技术文档初稿
-      - 质量评估报告
-      - 改进建议清单
-      - 完整性检查报告
-      - 实操验证结果
+      - 代码仓库地址
     output:
-      - 优化后文档
-    substeps: []
-
-  - step: 最终审核与交付
-    actor: DocumentationLeader
-    input:
-      - 优化后文档
-      - 质量标准定义
-    output:
-      - 最终技术手册
-      - 交付确认
-    substeps: []
+      - 使用指南

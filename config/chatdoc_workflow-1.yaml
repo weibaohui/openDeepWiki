@@ -1,0 +1,93 @@
+start_role: DocumentationLeader
+steps:
+  - step: 需求分析与任务规划
+    actor: DocumentationLeader
+    input:
+      - 代码仓库地址
+      - 用户需求描述
+    output:
+      - 任务分解计划
+      - 质量标准定义
+    substeps: []
+
+  - step: 深度代码分析
+    actor: CodeAnalyzer
+    substeps:
+      - step: 技术架构分析
+        actor: CodeAnalyzer
+        input:
+          - 任务分解计划
+        output:
+          - 技术架构分析
+      - step: 核心功能分析
+        actor: CodeAnalyzer
+        input:
+          - 任务分解计划
+        output:
+          - 核心模块说明
+      - step: 接口与配置分析
+        actor: CodeAnalyzer
+        input:
+          - 技术架构分析
+        output:
+          - API接口文档
+      - step: 依赖关系分析
+        actor: CodeAnalyzer
+        input:
+          - 技术架构分析
+        output:
+          - 依赖关系图
+
+  - step: 技术文档编写
+    actor: TechnicalWriter
+    input:
+      - 技术架构分析
+      - API接口文档
+      - 核心模块说明
+      - 依赖关系图
+    output:
+      - 技术文档初稿
+
+  - step: 文档质量审查
+    actor: UserExperienceReviewer
+    substeps:
+      - step: 可读性检查
+        actor: UserExperienceReviewer
+        input:
+          - 技术文档初稿
+        output:
+          - 可读性评估
+      - step: 完整性验证
+        actor: UserExperienceReviewer
+        input:
+          - 技术文档初稿
+        output:
+          - 完整性检查报告
+      - step: 实操验证
+        actor: UserExperienceReviewer
+        input:
+          - 技术文档初稿
+        output:
+          - 实操验证结果
+
+  - step: 文档优化完善
+    actor: TechnicalWriter
+    input:
+      - 技术文档初稿
+      - 质量评估报告
+      - 改进建议清单
+      - 完整性检查报告
+      - 实操验证结果
+    output:
+      - 优化后文档
+    substeps: []
+
+  - step: 最终审核与交付
+    actor: DocumentationLeader
+    input:
+      - 优化后文档
+      - 质量标准定义
+    output:
+      - 最终技术手册
+      - 交付确认
+    substeps: []
