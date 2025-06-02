@@ -31,13 +31,14 @@ func (a *GenericAgent) HandleTask(ctx context.Context, s *chatDocService, task c
 		str := `
 			仓库名称= %s 。
 			仓库路径= %s 。
-			文档路径= %s ,新编写的文档，必须及时更新。调用[write_file]函数将内容写入到该目录下。
+			文档路径= %s 。
 		`
 
 		userRequirement = fmt.Sprintf(str, task.Metadata["repoName"], task.Metadata["repoPath"], task.Metadata["docPath"])
 	}
 
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{用户需求}}", userRequirement)
+
 	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
 
 	reader, err := s.parent.agentChat(ctx, userRequirement)
