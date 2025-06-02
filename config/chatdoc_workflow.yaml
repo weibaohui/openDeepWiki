@@ -14,7 +14,6 @@ steps:
   - step: "深度代码分析"
     actor: CodeAnalyzer
     input:
-      - "代码仓库地址"
       - "任务分解计划"
     output:
       - "技术架构分析"

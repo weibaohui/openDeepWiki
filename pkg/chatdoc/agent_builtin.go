@@ -37,6 +37,8 @@ func (a *GenericAgent) HandleTask(ctx context.Context, s *chatDocService, task c
 	}
 
 	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{代码仓库信息}}", userRequirement)
+	sysPrompt = strings.ReplaceAll(sysPrompt, "{{input}}", strings.Join(task.Inputs, "\n"))
+	sysPrompt = strings.ReplaceAll(sysPrompt, "{{output}}", strings.Join(task.Outputs, ".md\n"))
 
 	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
 
