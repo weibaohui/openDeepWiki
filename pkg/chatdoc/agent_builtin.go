@@ -33,11 +33,10 @@ func (a *GenericAgent) HandleTask(ctx context.Context, s *chatDocService, task c
 			仓库路径= %s 。
 			文档路径= %s 。
 		`
-
 		userRequirement = fmt.Sprintf(str, task.Metadata["repoName"], task.Metadata["repoPath"], task.Metadata["docPath"])
 	}
 
-	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{用户需求}}", userRequirement)
+	sysPrompt := strings.ReplaceAll(a.Config.Prompt, "{{代码仓库信息}}", userRequirement)
 
 	ctx = context.WithValue(ctx, constants.SystemPrompt, sysPrompt)
 
