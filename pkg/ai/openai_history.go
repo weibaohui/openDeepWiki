@@ -157,7 +157,7 @@ func (c *OpenAIClient) SummarizeHistory(ctx context.Context) error {
 func (c *OpenAIClient) CheckAndSummarizeHistory(ctx context.Context) error {
 	// TODO 暂定 阈值，后续可配置
 	// TODO 暂定Token 跟 长度 为约等，后续再更新为算法计算值。
-	maxCount := 5
+	maxCount := 500
 	maxTotalLen := c.maxTokens
 	history := c.GetHistory(ctx)
 	count := 0
