@@ -17,13 +17,13 @@ import (
 )
 
 type TaskService struct {
-	cfg                  *config.Config
-	taskRepo             repository.TaskRepository
-	repoRepo             repository.RepoRepository
-	docService           *DocumentService
-	taskStateMachine      *statemachine.TaskStateMachine
-	repoAggregator       *statemachine.RepositoryStatusAggregator
-	orchestrator         *orchestrator.Orchestrator
+	cfg              *config.Config
+	taskRepo         repository.TaskRepository
+	repoRepo         repository.RepoRepository
+	docService       *DocumentService
+	taskStateMachine *statemachine.TaskStateMachine
+	repoAggregator   *statemachine.RepositoryStatusAggregator
+	orchestrator     *orchestrator.Orchestrator
 }
 
 func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService) *TaskService {
@@ -32,8 +32,8 @@ func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repo
 		taskRepo:         taskRepo,
 		repoRepo:         repoRepo,
 		docService:       docService,
-		taskStateMachine:  statemachine.NewTaskStateMachine(),
-		repoAggregator:    statemachine.NewRepositoryStatusAggregator(),
+		taskStateMachine: statemachine.NewTaskStateMachine(),
+		repoAggregator:   statemachine.NewRepositoryStatusAggregator(),
 	}
 }
 
@@ -65,23 +65,30 @@ func (s *TaskService) Enqueue(taskID, repositoryID uint, priority int) error {
 	oldStatus := statemachine.TaskStatus(task.Status)
 	newStatus := statemachine.TaskStatusQueued
 
-	// 使用状态机验证迁移
-	if err := s.taskStateMachine.Transition(oldStatus, newStatus, taskID); err != nil {
-		return fmt.Errorf("任务状态迁移失败: %w", err)
-	}
+	// 如果任务已经在队列中，直接入队（用于服务重启恢复或重试），跳过状态迁移
+	if oldStatus == statemachine.TaskStatusQueued {
+		klog.V(6).Infof("任务已在队列中，重新入队: taskID=%d", taskID)
+	} else {
+		// 使用状态机验证迁移
+		if err := s.taskStateMachine.Transition(oldStatus, newStatus, taskID); err != nil {
+			return fmt.Errorf("任务状态迁移失败: %w", err)
+		}
 
-	// 更新数据库状态
-	task.Status = string(newStatus)
-	if err := s.taskRepo.Save(task); err != nil {
-		return fmt.Errorf("更新任务状态失败: %w", err)
+		// 更新数据库状态
+		task.Status = string(newStatus)
+		if err := s.taskRepo.Save(task); err != nil {
+			return fmt.Errorf("更新任务状态失败: %w", err)
+		}
 	}
 
 	// 提交到编排器
 	job := orchestrator.NewTaskJob(taskID, repositoryID, priority)
 	if err := s.orchestrator.EnqueueJob(job); err != nil {
-		// 入队失败，回滚状态
-		task.Status = string(oldStatus)
-		_ = s.taskRepo.Save(task)
+		// 入队失败，只有在发生了状态迁移时才回滚状态
+		if oldStatus != statemachine.TaskStatusQueued {
+			task.Status = string(oldStatus)
+			_ = s.taskRepo.Save(task)
+		}
 		return fmt.Errorf("任务入队失败: %w", err)
 	}
 
