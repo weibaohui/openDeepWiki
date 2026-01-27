@@ -20,6 +20,8 @@ func main() {
 	flag.Parse()
 	defer klog.Flush()
 
+	klog.V(6).Info("klog initialized with level 6")
+
 	cfg := config.GetConfig()
 
 	if err := os.MkdirAll(cfg.Data.Dir, 0755); err != nil {
