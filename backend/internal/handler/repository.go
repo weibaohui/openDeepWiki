@@ -1,26 +1,25 @@
-package handlers
+package handler
 
 import (
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/services"
+	"github.com/opendeepwiki/backend/internal/service"
 )
 
 type RepositoryHandler struct {
-	service *services.RepositoryService
+	service *service.RepositoryService
 }
 
-func NewRepositoryHandler(cfg *config.Config) *RepositoryHandler {
+func NewRepositoryHandler(service *service.RepositoryService) *RepositoryHandler {
 	return &RepositoryHandler{
-		service: services.NewRepositoryService(cfg),
+		service: service,
 	}
 }
 
 func (h *RepositoryHandler) Create(c *gin.Context) {
-	var req services.CreateRepoRequest
+	var req service.CreateRepoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

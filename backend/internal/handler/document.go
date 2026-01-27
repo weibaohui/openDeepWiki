@@ -1,21 +1,20 @@
-package handlers
+package handler
 
 import (
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/services"
+	"github.com/opendeepwiki/backend/internal/service"
 )
 
 type DocumentHandler struct {
-	service *services.DocumentService
+	service *service.DocumentService
 }
 
-func NewDocumentHandler(cfg *config.Config) *DocumentHandler {
+func NewDocumentHandler(service *service.DocumentService) *DocumentHandler {
 	return &DocumentHandler{
-		service: services.NewDocumentService(cfg),
+		service: service,
 	}
 }
 

@@ -1,53 +1,27 @@
-package models
+package model
 
 import (
 	"time"
-
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
-
-func InitDB(dbType, dsn string) error {
-	var dialector gorm.Dialector
-
-	switch dbType {
-	case "mysql":
-		dialector = mysql.Open(dsn)
-	default:
-		dialector = sqlite.Open(dsn)
-	}
-
-	db, err := gorm.Open(dialector, &gorm.Config{})
-	if err != nil {
-		return err
-	}
-
-	DB = db
-
-	return DB.AutoMigrate(&Repository{}, &Task{}, &Document{})
-}
-
 type Repository struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Name        string    `json:"name" gorm:"size:255;not null"`
-	URL         string    `json:"url" gorm:"size:500;not null"`
-	LocalPath   string    `json:"local_path" gorm:"size:500"`
-	Description string    `json:"description" gorm:"size:1000"`
-	Status      string    `json:"status" gorm:"size:50;default:pending"` // pending, cloning, ready, analyzing, completed, error
-	ErrorMsg    string    `json:"error_msg" gorm:"size:1000"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Tasks       []Task    `json:"tasks,omitempty" gorm:"foreignKey:RepositoryID"`
+	ID          uint       `json:"id" gorm:"primaryKey"`
+	Name        string     `json:"name" gorm:"size:255;not null"`
+	URL         string     `json:"url" gorm:"size:500;not null"`
+	LocalPath   string     `json:"local_path" gorm:"size:500"`
+	Description string     `json:"description" gorm:"size:1000"`
+	Status      string     `json:"status" gorm:"size:50;default:pending"` // pending, cloning, ready, analyzing, completed, error
+	ErrorMsg    string     `json:"error_msg" gorm:"size:1000"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	Tasks       []Task     `json:"tasks,omitempty" gorm:"foreignKey:RepositoryID"`
 	Documents   []Document `json:"documents,omitempty" gorm:"foreignKey:RepositoryID"`
 }
 
 type Task struct {
 	ID           uint       `json:"id" gorm:"primaryKey"`
 	RepositoryID uint       `json:"repository_id" gorm:"index;not null"`
-	Type         string     `json:"type" gorm:"size:50;not null"`   // overview, architecture, api, business-flow, deployment
+	Type         string     `json:"type" gorm:"size:50;not null"` // overview, architecture, api, business-flow, deployment
 	Title        string     `json:"title" gorm:"size:255"`
 	Status       string     `json:"status" gorm:"size:50;default:pending"` // pending, running, completed, failed
 	ErrorMsg     string     `json:"error_msg" gorm:"size:1000"`

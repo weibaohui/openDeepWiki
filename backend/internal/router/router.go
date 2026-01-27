@@ -4,10 +4,16 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/handlers"
+	"github.com/opendeepwiki/backend/internal/handler"
 )
 
-func Setup(cfg *config.Config) *gin.Engine {
+func Setup(
+	cfg *config.Config,
+	repoHandler *handler.RepositoryHandler,
+	taskHandler *handler.TaskHandler,
+	docHandler *handler.DocumentHandler,
+	configHandler *handler.ConfigHandler,
+) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -21,11 +27,6 @@ func Setup(cfg *config.Config) *gin.Engine {
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
-
-	repoHandler := handlers.NewRepositoryHandler(cfg)
-	taskHandler := handlers.NewTaskHandler(cfg)
-	docHandler := handlers.NewDocumentHandler(cfg)
-	configHandler := handlers.NewConfigHandler(cfg)
 
 	api := r.Group("/api")
 	{

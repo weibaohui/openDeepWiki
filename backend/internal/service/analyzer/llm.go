@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opendeepwiki/backend/pkg/llm"
+	"github.com/opendeepwiki/backend/internal/pkg/llm"
 )
 
 type LLMAnalyzer struct {
