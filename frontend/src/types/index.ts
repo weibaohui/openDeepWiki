@@ -49,3 +49,5 @@ export interface Config {
         token: string;
     };
 }
+
+export type ThemeMode = 'default' | 'dark' | 'compact';

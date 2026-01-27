@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { ArrowLeft, FileText, Download, Edit2, Save, X, Loader2 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
+import { Button, Card, Spin, Layout, Typography, Space, Menu, message } from 'antd';
+import MDEditor from '@uiw/react-md-editor';
 import type { Document } from '../types';
 import { documentApi } from '../services/api';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { useAppConfig } from '@/context/AppConfigContext';
+
+const { Header, Content, Sider } = Layout;
+const { Title } = Typography;
 
 export default function DocViewer() {
-    const { t } = useTranslation();
+    const { t, themeMode } = useAppConfig();
     const { id, docId } = useParams<{ id: string; docId: string }>();
     const navigate = useNavigate();
     const [document, setDocument] = useState<Document | null>(null);
@@ -17,6 +19,7 @@ export default function DocViewer() {
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
+    const [messageApi, contextHolder] = message.useMessage();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -31,12 +34,13 @@ export default function DocViewer() {
                 setEditContent(docRes.data.content);
             } catch (error) {
                 console.error('Failed to fetch document:', error);
+                messageApi.error('Failed to load document');
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, [id, docId]);
+    }, [id, docId, messageApi]);
 
     const handleSave = async () => {
         if (!docId) return;
@@ -44,8 +48,10 @@ export default function DocViewer() {
             const { data } = await documentApi.update(Number(docId), editContent);
             setDocument(data);
             setEditing(false);
+            messageApi.success('Document saved');
         } catch (error) {
             console.error('Failed to save document:', error);
+            messageApi.error('Failed to save document');
         }
     };
 
@@ -62,113 +68,105 @@ export default function DocViewer() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Spin size="large" />
             </div>
         );
     }
 
     if (!document) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <p className="text-muted-foreground">{t('repository.not_found')}</p>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Typography.Text type="secondary">{t('repository.not_found')}</Typography.Text>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-background flex text-foreground">
-            {/* Sidebar */}
-            <aside className="w-64 bg-card border-r border-border flex-shrink-0">
-                <div className="p-4 border-b border-border">
+        <Layout style={{ minHeight: '100vh' }}>
+            {contextHolder}
+            <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
+                <div style={{ padding: '16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
                     <Button
-                        variant="ghost"
-                        className="w-full justify-start pl-0 hover:bg-transparent"
+                        type="text"
+                        icon={<ArrowLeftOutlined />}
                         onClick={() => navigate(`/repo/${id}`)}
+                        block
+                        style={{ textAlign: 'left' }}
                     >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
                         {t('repository.title')}
                     </Button>
                 </div>
-                <nav className="p-2">
-                    <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase">{t('repository.docs')}</p>
-                    {documents.map((doc) => (
-                        <Button
-                            key={doc.id}
-                            variant={doc.id === Number(docId) ? "secondary" : "ghost"}
-                            className="w-full justify-start mb-1"
-                            onClick={() => navigate(`/repo/${id}/doc/${doc.id}`)}
-                        >
-                            <FileText className="w-4 h-4 mr-2" />
-                            <span className="truncate">{doc.title}</span>
-                        </Button>
-                    ))}
-                </nav>
-            </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 overflow-auto bg-background">
-                <header className="sticky top-0 bg-card/80 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between z-10">
-                    <h1 className="text-xl font-semibold truncate pr-4">{document.title}</h1>
-                    <div className="flex gap-2 shrink-0">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDownload}
-                        >
-                            <Download className="w-4 h-4 mr-2" />
+                <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--ant-color-text-secondary)', textTransform: 'uppercase' }}>
+                    {t('repository.docs')}
+                </div>
+                <Menu
+                    mode="inline"
+                    selectedKeys={[docId || '']}
+                    style={{ borderRight: 0 }}
+                    items={documents.map(doc => ({
+                        key: String(doc.id),
+                        icon: <FileTextOutlined />,
+                        label: doc.title,
+                        onClick: () => navigate(`/repo/${id}/doc/${doc.id}`)
+                    }))}
+                />
+            </Sider>
+            <Layout>
+                <Header style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 24px',
+                    background: 'var(--ant-color-bg-container)',
+                    borderBottom: '1px solid var(--ant-color-border-secondary)'
+                }}>
+                    <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {document.title}
+                    </Title>
+                    <Space>
+                        <Button icon={<DownloadOutlined />} onClick={handleDownload}>
                             {t('common.save')}
                         </Button>
                         {editing ? (
                             <>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setEditing(false);
-                                        setEditContent(document.content);
-                                    }}
-                                >
-                                    <X className="w-4 h-4 mr-2" />
+                                <Button icon={<CloseOutlined />} onClick={() => {
+                                    setEditing(false);
+                                    setEditContent(document.content);
+                                }}>
                                     {t('common.cancel')}
                                 </Button>
-                                <Button
-                                    size="sm"
-                                    onClick={handleSave}
-                                >
-                                    <Save className="w-4 h-4 mr-2" />
+                                <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
                                     {t('common.save')}
                                 </Button>
                             </>
                         ) : (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditing(true)}
-                            >
-                                <Edit2 className="w-4 h-4 mr-2" />
+                            <Button type="text" icon={<EditOutlined />} onClick={() => setEditing(true)}>
                                 {t('common.edit')}
                             </Button>
                         )}
+                    </Space>
+                </Header>
+                <Content style={{ padding: '24px', overflow: 'auto' }}>
+                    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                        {editing ? (
+                            <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                <MDEditor
+                                    value={editContent}
+                                    onChange={(val) => setEditContent(val || '')}
+                                    height={window.innerHeight - 200}
+                                />
+                            </div>
+                        ) : (
+                            <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
+                                <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                    <MDEditor.Markdown source={document.content} style={{ background: 'transparent' }} />
+                                </div>
+                            </Card>
+                        )}
                     </div>
-                </header>
-
-                <div className="p-6 max-w-4xl mx-auto">
-                    {editing ? (
-                        <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full h-[calc(100vh-200px)] p-4 font-mono text-sm border border-input bg-transparent rounded-lg focus:ring-2 focus:ring-ring focus:outline-none resize-none"
-                        />
-                    ) : (
-                        <Card className="p-8 border-none shadow-none bg-transparent">
-                            <article className="prose prose-slate dark:prose-invert max-w-none">
-                                <ReactMarkdown>{document.content}</ReactMarkdown>
-                            </article>
-                        </Card>
-                    )}
-                </div>
-            </main>
-        </div>
+                </Content>
+            </Layout>
+        </Layout>
     );
 }

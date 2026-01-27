@@ -1,5 +1,5 @@
 import { Select } from 'antd';
-import { useAppConfig } from '@/providers/ThemeProvider';
+import { useAppConfig } from '@/context/AppConfigContext';
 import type { AppLocale } from '@/i18n';
 
 const languageOptions = [

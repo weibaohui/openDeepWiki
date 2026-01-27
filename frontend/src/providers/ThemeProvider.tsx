@@ -1,19 +1,9 @@
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { antdLocales, getMessage, type AppLocale } from '@/i18n';
-
-export type ThemeMode = 'default' | 'dark' | 'compact';
-
-interface AppConfigContextValue {
-    locale: AppLocale;
-    setLocale: (locale: AppLocale) => void;
-    themeMode: ThemeMode;
-    setThemeMode: (mode: ThemeMode) => void;
-    t: (key: string, fallback?: string) => string;
-}
-
-const AppConfigContext = createContext<AppConfigContextValue | null>(null);
+import { AppConfigContext } from '@/context/AppConfigContext';
+import type { ThemeMode } from '@/types';
 
 interface Props {
     children: ReactNode;
@@ -60,12 +50,4 @@ export function ThemeProvider({ children }: Props) {
             </ConfigProvider>
         </AppConfigContext.Provider>
     );
-}
-
-export function useAppConfig() {
-    const ctx = useContext(AppConfigContext);
-    if (!ctx) {
-        throw new Error('AppConfigContext 未初始化');
-    }
-    return ctx;
 }

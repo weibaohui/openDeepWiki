@@ -1,5 +1,6 @@
 import { Select } from 'antd';
-import { useAppConfig, type ThemeMode } from '@/providers/ThemeProvider';
+import { useAppConfig } from '@/context/AppConfigContext';
+import type { ThemeMode } from '@/types';
 
 export function ThemeSwitcher() {
     const { themeMode, setThemeMode, t } = useAppConfig();

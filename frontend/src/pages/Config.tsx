@@ -1,40 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Save, Eye, EyeOff, Loader2 } from 'lucide-react';
-import type { Config } from '../types';
+import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
+import { Button, Input, Card, Form, Spin, Layout, Typography, Space, message, InputNumber } from 'antd';
 import { configApi } from '../services/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import { useAppConfig } from '@/context/AppConfigContext';
+
+const { Header, Content } = Layout;
+const { Title } = Typography;
+
+interface ConfigFormValues {
+    llm_api_url: string;
+    llm_api_key: string;
+    llm_model: string;
+    llm_max_tokens: number;
+    github_token: string;
+}
 
 export default function ConfigPage() {
-    const { t } = useTranslation();
+    const { t } = useAppConfig();
     const navigate = useNavigate();
-    const [, setConfig] = useState<Config | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [showApiKey, setShowApiKey] = useState(false);
-    const [showGithubToken, setShowGithubToken] = useState(false);
-
-    const [formData, setFormData] = useState({
-        llm_api_url: '',
-        llm_api_key: '',
-        llm_model: '',
-        llm_max_tokens: 4096,
-        github_token: '',
-    });
+    const [form] = Form.useForm<ConfigFormValues>();
+    const [messageApi, contextHolder] = message.useMessage();
 
     useEffect(() => {
         const fetchConfig = async () => {
             try {
                 const { data } = await configApi.get();
-                setConfig(data);
-                setFormData({
+                form.setFieldsValue({
                     llm_api_url: data.llm.api_url,
                     llm_api_key: data.llm.api_key,
                     llm_model: data.llm.model,
@@ -43,31 +39,32 @@ export default function ConfigPage() {
                 });
             } catch (error) {
                 console.error('Failed to fetch config:', error);
+                messageApi.error('Failed to load configuration');
             } finally {
                 setLoading(false);
             }
         };
         fetchConfig();
-    }, []);
+    }, [form, messageApi]);
 
-    const handleSave = async () => {
+    const handleSave = async (values: ConfigFormValues) => {
         setSaving(true);
         try {
             await configApi.update({
                 llm: {
-                    api_url: formData.llm_api_url,
-                    api_key: formData.llm_api_key,
-                    model: formData.llm_model,
-                    max_tokens: formData.llm_max_tokens,
+                    api_url: values.llm_api_url,
+                    api_key: values.llm_api_key,
+                    model: values.llm_model,
+                    max_tokens: values.llm_max_tokens,
                 },
                 github: {
-                    token: formData.github_token,
+                    token: values.github_token,
                 },
             });
-            alert(t('settings.save_success'));
+            messageApi.success(t('settings.save_success'));
         } catch (error) {
             console.error('Failed to save config:', error);
-            alert(t('settings.save_failed'));
+            messageApi.error(t('settings.save_failed'));
         } finally {
             setSaving(false);
         }
@@ -75,137 +72,89 @@ export default function ConfigPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Spin size="large" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-background text-foreground">
-            <header className="border-b bg-card">
-                <div className="max-w-3xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/')}
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <h1 className="text-xl font-bold flex-1">{t('settings.title')}</h1>
+        <Layout style={{ minHeight: '100vh' }}>
+            {contextHolder}
+            <Header style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 24px',
+                background: 'var(--ant-color-bg-container)',
+                borderBottom: '1px solid var(--ant-color-border-secondary)'
+            }}>
+                <Button
+                    type="text"
+                    icon={<ArrowLeftOutlined />}
+                    onClick={() => navigate('/')}
+                    style={{ marginRight: 16 }}
+                />
+                <Title level={4} style={{ margin: 0, flex: 1 }}>{t('settings.title')}</Title>
+                <Space>
                     <LanguageSwitcher />
                     <ThemeSwitcher />
-                </div>
-            </header>
+                </Space>
+            </Header>
 
-            <main className="max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('settings.llm_config')}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="api_url">{t('settings.api_url')}</Label>
-                            <Input
-                                id="api_url"
-                                type="text"
-                                value={formData.llm_api_url}
-                                onChange={(e) => setFormData({ ...formData, llm_api_url: e.target.value })}
-                                placeholder="https://api.openai.com/v1"
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="api_key">{t('settings.api_key')}</Label>
-                            <div className="relative">
-                                <Input
-                                    id="api_key"
-                                    type={showApiKey ? 'text' : 'password'}
-                                    value={formData.llm_api_key}
-                                    onChange={(e) => setFormData({ ...formData, llm_api_key: e.target.value })}
-                                    placeholder="sk-..."
-                                    className="pr-10"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setShowApiKey(!showApiKey)}
-                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                                >
-                                    {showApiKey ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="model">{t('settings.model')}</Label>
-                            <Input
-                                id="model"
-                                type="text"
-                                value={formData.llm_model}
-                                onChange={(e) => setFormData({ ...formData, llm_model: e.target.value })}
-                                placeholder="gpt-4o"
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="max_tokens">{t('settings.max_tokens')}</Label>
-                            <Input
-                                id="max_tokens"
-                                type="number"
-                                value={formData.llm_max_tokens}
-                                onChange={(e) => setFormData({ ...formData, llm_max_tokens: Number(e.target.value) })}
-                            />
-                        </div>
-                    </CardContent>
-
-                    <Separator />
-
-                    <CardHeader>
-                        <CardTitle>{t('settings.github_config')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-2">
-                            <Label htmlFor="github_token">{t('settings.github_token')}</Label>
-                            <div className="relative">
-                                <Input
-                                    id="github_token"
-                                    type={showGithubToken ? 'text' : 'password'}
-                                    value={formData.github_token}
-                                    onChange={(e) => setFormData({ ...formData, github_token: e.target.value })}
-                                    placeholder="ghp_..."
-                                    className="pr-10"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setShowGithubToken(!showGithubToken)}
-                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                                >
-                                    {showGithubToken ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-
-                    <CardFooter className="justify-end pt-4">
-                        <Button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="gap-2"
+            <Content style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                <Card title={t('settings.llm_config')} style={{ marginBottom: 24 }}>
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={handleSave}
+                        initialValues={{ llm_max_tokens: 4096 }}
+                    >
+                        <Form.Item
+                            label={t('settings.api_url')}
+                            name="llm_api_url"
                         >
-                            {saving ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Save className="w-4 h-4" />
-                            )}
-                            {saving ? t('settings.saving') : t('common.save')}
-                        </Button>
-                    </CardFooter>
+                            <Input placeholder="https://api.openai.com/v1" />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={t('settings.api_key')}
+                            name="llm_api_key"
+                        >
+                            <Input.Password placeholder="sk-..." />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={t('settings.model')}
+                            name="llm_model"
+                        >
+                            <Input placeholder="gpt-4o" />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={t('settings.max_tokens')}
+                            name="llm_max_tokens"
+                        >
+                            <InputNumber style={{ width: '100%' }} />
+                        </Form.Item>
+
+                        <Card type="inner" title={t('settings.github_config')} style={{ marginTop: 24 }}>
+                            <Form.Item
+                                label={t('settings.github_token')}
+                                name="github_token"
+                                style={{ marginBottom: 0 }}
+                            >
+                                <Input.Password placeholder="ghp_..." />
+                            </Form.Item>
+                        </Card>
+
+                        <div style={{ marginTop: 24, textAlign: 'right' }}>
+                            <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
+                                {saving ? t('settings.saving') : t('common.save')}
+                            </Button>
+                        </div>
+                    </Form>
                 </Card>
-            </main>
-        </div>
+            </Content>
+        </Layout>
     );
 }
