@@ -1,0 +1,74 @@
+{
+    "common": {
+        "loading": "Loading...",
+        "error": "An error occurred",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "save": "Save",
+        "delete": "Delete",
+        "edit": "Edit",
+        "create": "Create",
+        "search": "Search"
+    },
+    "nav": {
+        "home": "Home",
+        "repositories": "Repositories",
+        "settings": "Settings"
+    },
+    "repository": {
+        "title": "Repositories",
+        "add": "Add Repository",
+        "url_placeholder": "Enter GitHub repository URL",
+        "status": {
+            "pending": "Pending",
+            "cloning": "Cloning",
+            "ready": "Ready",
+            "analyzing": "Analyzing",
+            "completed": "Completed",
+            "error": "Error"
+        },
+        "no_repos": "No repositories yet",
+        "add_hint": "Add a GitHub repository to start analyzing",
+        "delete_confirm": "Are you sure you want to delete this repository?",
+        "run_all": "Run All Tasks",
+        "view_docs": "View Docs",
+        "export_docs": "Export Docs",
+        "created_at": "Created At",
+        "tasks": "Tasks",
+        "docs": "Documents",
+        "no_docs": "No documents generated yet",
+        "no_docs_hint": "Run tasks to see documents here",
+        "not_found": "Repository not found"
+    },
+    "task": {
+        "title": "Tasks",
+        "run": "Run",
+        "reset": "Reset",
+        "status": {
+            "pending": "Pending",
+            "running": "Running",
+            "completed": "Completed",
+            "failed": "Failed"
+        }
+    },
+    "settings": {
+        "title": "Settings",
+        "language": "Language",
+        "theme": "Theme",
+        "llm_config": "LLM Configuration",
+        "github_config": "GitHub Configuration",
+        "api_url": "API URL",
+        "api_key": "API Key",
+        "model": "Model",
+        "max_tokens": "Max Tokens",
+        "github_token": "GitHub Token (for private repos)",
+        "save_success": "Configuration saved",
+        "save_failed": "Failed to save",
+        "saving": "Saving..."
+    },
+    "theme": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+    }
+}

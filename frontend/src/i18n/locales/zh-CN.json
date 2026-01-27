@@ -1,0 +1,74 @@
+{
+    "common": {
+        "loading": "加载中...",
+        "error": "发生错误",
+        "confirm": "确认",
+        "cancel": "取消",
+        "save": "保存",
+        "delete": "删除",
+        "edit": "编辑",
+        "create": "创建",
+        "search": "搜索"
+    },
+    "nav": {
+        "home": "首页",
+        "repositories": "仓库列表",
+        "settings": "设置"
+    },
+    "repository": {
+        "title": "代码仓库",
+        "add": "添加仓库",
+        "url_placeholder": "请输入 GitHub 仓库地址",
+        "status": {
+            "pending": "等待中",
+            "cloning": "克隆中",
+            "ready": "就绪",
+            "analyzing": "分析中",
+            "completed": "已完成",
+            "error": "错误"
+        },
+        "no_repos": "还没有仓库",
+        "add_hint": "添加一个 GitHub 仓库开始解读",
+        "delete_confirm": "确定要删除这个仓库吗？",
+        "run_all": "运行所有任务",
+        "view_docs": "查看文档",
+        "export_docs": "导出文档",
+        "created_at": "创建时间",
+        "tasks": "任务列表",
+        "docs": "生成的文档",
+        "no_docs": "还没有生成文档",
+        "no_docs_hint": "运行任务后将在此显示",
+        "not_found": "仓库不存在"
+    },
+    "task": {
+        "title": "任务列表",
+        "run": "运行",
+        "reset": "重置",
+        "status": {
+            "pending": "等待中",
+            "running": "运行中",
+            "completed": "已完成",
+            "failed": "失败"
+        }
+    },
+    "settings": {
+        "title": "设置",
+        "language": "语言",
+        "theme": "主题",
+        "llm_config": "LLM 配置",
+        "github_config": "GitHub 配置",
+        "api_url": "API 地址",
+        "api_key": "API Key",
+        "model": "模型",
+        "max_tokens": "最大 Token 数",
+        "github_token": "GitHub Token (用于访问私有仓库)",
+        "save_success": "配置已保存",
+        "save_failed": "保存失败",
+        "saving": "保存中..."
+    },
+    "theme": {
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统"
+    }
+}

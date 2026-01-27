@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ArrowLeft, Save, Eye, EyeOff, Loader2 } from 'lucide-react';
 import type { Config } from '../types';
 import { configApi } from '../services/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 export default function ConfigPage() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
-    const [_config, setConfig] = useState<Config | null>(null);
+    const [, setConfig] = useState<Config | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
@@ -55,10 +64,10 @@ export default function ConfigPage() {
                     token: formData.github_token,
                 },
             });
-            alert('配置已保存');
+            alert(t('settings.save_success'));
         } catch (error) {
             console.error('Failed to save config:', error);
-            alert('保存失败');
+            alert(t('settings.save_failed'));
         } finally {
             setSaving(false);
         }
@@ -66,129 +75,136 @@ export default function ConfigPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow-sm">
+        <div className="min-h-screen bg-background text-foreground">
+            <header className="border-b bg-card">
                 <div className="max-w-3xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center gap-4">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => navigate('/')}
-                        className="p-2 hover:bg-gray-100 rounded-lg"
                     >
                         <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    <h1 className="text-xl font-bold text-gray-900">设置</h1>
+                    </Button>
+                    <h1 className="text-xl font-bold flex-1">{t('settings.title')}</h1>
+                    <LanguageSwitcher />
+                    <ThemeSwitcher />
                 </div>
             </header>
 
             <main className="max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-lg font-semibold mb-6">LLM 配置</h2>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                API 地址
-                            </label>
-                            <input
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t('settings.llm_config')}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="api_url">{t('settings.api_url')}</Label>
+                            <Input
+                                id="api_url"
                                 type="text"
                                 value={formData.llm_api_url}
                                 onChange={(e) => setFormData({ ...formData, llm_api_url: e.target.value })}
                                 placeholder="https://api.openai.com/v1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                API Key
-                            </label>
+                        <div className="grid gap-2">
+                            <Label htmlFor="api_key">{t('settings.api_key')}</Label>
                             <div className="relative">
-                                <input
+                                <Input
+                                    id="api_key"
                                     type={showApiKey ? 'text' : 'password'}
                                     value={formData.llm_api_key}
                                     onChange={(e) => setFormData({ ...formData, llm_api_key: e.target.value })}
                                     placeholder="sk-..."
-                                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="pr-10"
                                 />
-                                <button
+                                <Button
                                     type="button"
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => setShowApiKey(!showApiKey)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                                 >
-                                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
+                                    {showApiKey ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                                </Button>
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                模型
-                            </label>
-                            <input
+                        <div className="grid gap-2">
+                            <Label htmlFor="model">{t('settings.model')}</Label>
+                            <Input
+                                id="model"
                                 type="text"
                                 value={formData.llm_model}
                                 onChange={(e) => setFormData({ ...formData, llm_model: e.target.value })}
                                 placeholder="gpt-4o"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                最大 Token 数
-                            </label>
-                            <input
+                        <div className="grid gap-2">
+                            <Label htmlFor="max_tokens">{t('settings.max_tokens')}</Label>
+                            <Input
+                                id="max_tokens"
                                 type="number"
                                 value={formData.llm_max_tokens}
                                 onChange={(e) => setFormData({ ...formData, llm_max_tokens: Number(e.target.value) })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
-                    </div>
+                    </CardContent>
 
-                    <hr className="my-6" />
+                    <Separator />
 
-                    <h2 className="text-lg font-semibold mb-6">GitHub 配置</h2>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            GitHub Token (用于访问私有仓库)
-                        </label>
-                        <div className="relative">
-                            <input
-                                type={showGithubToken ? 'text' : 'password'}
-                                value={formData.github_token}
-                                onChange={(e) => setFormData({ ...formData, github_token: e.target.value })}
-                                placeholder="ghp_..."
-                                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowGithubToken(!showGithubToken)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-                            >
-                                {showGithubToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
+                    <CardHeader>
+                        <CardTitle>{t('settings.github_config')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-2">
+                            <Label htmlFor="github_token">{t('settings.github_token')}</Label>
+                            <div className="relative">
+                                <Input
+                                    id="github_token"
+                                    type={showGithubToken ? 'text' : 'password'}
+                                    value={formData.github_token}
+                                    onChange={(e) => setFormData({ ...formData, github_token: e.target.value })}
+                                    placeholder="ghp_..."
+                                    className="pr-10"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setShowGithubToken(!showGithubToken)}
+                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                >
+                                    {showGithubToken ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
+                    </CardContent>
 
-                    <div className="mt-6 flex justify-end">
-                        <button
+                    <CardFooter className="justify-end pt-4">
+                        <Button
                             onClick={handleSave}
                             disabled={saving}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            className="gap-2"
                         >
-                            <Save className="w-4 h-4" />
-                            {saving ? '保存中...' : '保存配置'}
-                        </button>
-                    </div>
-                </div>
+                            {saving ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            {saving ? t('settings.saving') : t('common.save')}
+                        </Button>
+                    </CardFooter>
+                </Card>
             </main>
         </div>
     );

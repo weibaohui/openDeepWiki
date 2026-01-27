@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Play, RotateCcw, FileText, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 export default function RepoDetail() {
+    const { t } = useTranslation();
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [repository, setRepository] = useState<Repository | null>(null);
@@ -34,6 +40,7 @@ export default function RepoDetail() {
         fetchData();
         const interval = setInterval(fetchData, 3000);
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     const handleRunTask = async (taskId: number) => {
@@ -83,24 +90,14 @@ export default function RepoDetail() {
     const getTaskIcon = (status: string) => {
         switch (status) {
             case 'completed':
-                return <CheckCircle className="w-5 h-5 text-green-500" />;
+                return <CheckCircle className="w-5 h-5 text-green-500 dark:text-green-400" />;
             case 'running':
-                return <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />;
+                return <Loader2 className="w-5 h-5 text-blue-500 dark:text-blue-400 animate-spin" />;
             case 'failed':
-                return <XCircle className="w-5 h-5 text-red-500" />;
+                return <XCircle className="w-5 h-5 text-red-500 dark:text-red-400" />;
             default:
-                return <Clock className="w-5 h-5 text-gray-400" />;
+                return <Clock className="w-5 h-5 text-muted-foreground" />;
         }
-    };
-
-    const getTaskStatusText = (status: string) => {
-        const texts: Record<string, string> = {
-            pending: '等待中',
-            running: '运行中',
-            completed: '已完成',
-            failed: '失败',
-        };
-        return texts[status] || status;
     };
 
     const getDocumentForTask = (taskId: number) => {
@@ -109,52 +106,55 @@ export default function RepoDetail() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
         );
     }
 
     if (!repository) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <p className="text-gray-500">仓库不存在</p>
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <p className="text-muted-foreground">{t('repository.not_found')}</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow-sm">
+        <div className="min-h-screen bg-background text-foreground">
+            <header className="border-b bg-card">
                 <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-4">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => navigate('/')}
-                            className="p-2 hover:bg-gray-100 rounded-lg"
                         >
                             <ArrowLeft className="w-5 h-5" />
-                        </button>
+                        </Button>
                         <div className="flex-1">
-                            <h1 className="text-xl font-bold text-gray-900">{repository.name}</h1>
-                            <p className="text-sm text-gray-500 truncate">{repository.url}</p>
+                            <h1 className="text-xl font-bold">{repository.name}</h1>
+                            <p className="text-sm text-muted-foreground truncate">{repository.url}</p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
+                            <LanguageSwitcher />
+                            <ThemeSwitcher />
                             {documents.length > 0 && (
-                                <button
+                                <Button
+                                    variant="outline"
                                     onClick={handleExport}
-                                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
                                 >
-                                    导出文档
-                                </button>
+                                    {t('repository.export_docs')}
+                                </Button>
                             )}
                             {(repository.status === 'ready' || repository.status === 'completed') && (
-                                <button
+                                <Button
                                     onClick={handleRunAll}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                    className="gap-2"
                                 >
                                     <Play className="w-4 h-4" />
-                                    运行全部
-                                </button>
+                                    {t('repository.run_all')}
+                                </Button>
                             )}
                         </div>
                     </div>
@@ -164,83 +164,88 @@ export default function RepoDetail() {
             <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
                 <div className="grid gap-8 lg:grid-cols-2">
                     <div>
-                        <h2 className="text-lg font-semibold mb-4">任务列表</h2>
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <h2 className="text-lg font-semibold mb-4">{t('task.title')}</h2>
+                        <Card>
                             {tasks.map((task, index) => (
                                 <div
                                     key={task.id}
-                                    className={`p-4 flex items-center gap-4 ${index !== tasks.length - 1 ? 'border-b border-gray-100' : ''
+                                    className={`p-4 flex items-center gap-4 ${index !== tasks.length - 1 ? 'border-b border-border' : ''
                                         }`}
                                 >
                                     {getTaskIcon(task.status)}
                                     <div className="flex-1">
-                                        <p className="font-medium text-gray-900">{task.title}</p>
-                                        <p className="text-sm text-gray-500">{getTaskStatusText(task.status)}</p>
+                                        <p className="font-medium">{task.title}</p>
+                                        <p className="text-sm text-muted-foreground">{t(`task.status.${task.status}`)}</p>
                                         {task.error_msg && (
-                                            <p className="text-sm text-red-500 mt-1">{task.error_msg}</p>
+                                            <p className="text-sm text-destructive mt-1">{task.error_msg}</p>
                                         )}
                                     </div>
                                     <div className="flex gap-2">
                                         {task.status !== 'running' && (
                                             <>
-                                                <button
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => handleRunTask(task.id)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                                                    title="运行"
+                                                    title={t('task.run')}
+                                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
                                                 >
                                                     <Play className="w-4 h-4" />
-                                                </button>
+                                                </Button>
                                                 {(task.status === 'completed' || task.status === 'failed') && (
-                                                    <button
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
                                                         onClick={() => handleResetTask(task.id)}
-                                                        className="p-2 text-gray-600 hover:bg-gray-50 rounded"
-                                                        title="重置"
+                                                        title={t('task.reset')}
                                                     >
                                                         <RotateCcw className="w-4 h-4" />
-                                                    </button>
+                                                    </Button>
                                                 )}
                                             </>
                                         )}
                                         {getDocumentForTask(task.id) && (
-                                            <button
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={() => navigate(`/repo/${id}/doc/${getDocumentForTask(task.id)?.id}`)}
-                                                className="p-2 text-green-600 hover:bg-green-50 rounded"
-                                                title="查看文档"
+                                                title={t('repository.view_docs')}
+                                                className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
                                             >
                                                 <FileText className="w-4 h-4" />
-                                            </button>
+                                            </Button>
                                         )}
                                     </div>
                                 </div>
                             ))}
-                        </div>
+                        </Card>
                     </div>
 
                     <div>
-                        <h2 className="text-lg font-semibold mb-4">生成的文档</h2>
+                        <h2 className="text-lg font-semibold mb-4">{t('repository.docs')}</h2>
                         {documents.length === 0 ? (
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-                                <FileText className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                                <p className="text-gray-500">还没有生成文档</p>
-                                <p className="text-sm text-gray-400">运行任务后将在此显示</p>
-                            </div>
+                            <Card className="p-8 text-center border-dashed">
+                                <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-2 opacity-50" />
+                                <p className="text-muted-foreground">{t('repository.no_docs')}</p>
+                                <p className="text-sm text-muted-foreground/60">{t('repository.no_docs_hint')}</p>
+                            </Card>
                         ) : (
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <Card>
                                 {documents.map((doc, index) => (
                                     <div
                                         key={doc.id}
                                         onClick={() => navigate(`/repo/${id}/doc/${doc.id}`)}
-                                        className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 ${index !== documents.length - 1 ? 'border-b border-gray-100' : ''
+                                        className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-accent/50 ${index !== documents.length - 1 ? 'border-b border-border' : ''
                                             }`}
                                     >
-                                        <FileText className="w-5 h-5 text-blue-500" />
+                                        <FileText className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                                         <div className="flex-1">
-                                            <p className="font-medium text-gray-900">{doc.title}</p>
-                                            <p className="text-sm text-gray-500">{doc.filename}</p>
+                                            <p className="font-medium">{doc.title}</p>
+                                            <p className="text-sm text-muted-foreground">{doc.filename}</p>
                                         </div>
                                     </div>
                                 ))}
-                            </div>
+                            </Card>
                         )}
                     </div>
                 </div>

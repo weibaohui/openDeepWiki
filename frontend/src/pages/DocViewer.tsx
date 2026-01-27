@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Download, Edit2, Save, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ArrowLeft, FileText, Download, Edit2, Save, X, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Document } from '../types';
 import { documentApi } from '../services/api';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 export default function DocViewer() {
+    const { t } = useTranslation();
     const { id, docId } = useParams<{ id: string; docId: string }>();
     const navigate = useNavigate();
     const [document, setDocument] = useState<Document | null>(null);
@@ -58,91 +62,93 @@ export default function DocViewer() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
         );
     }
 
     if (!document) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <p className="text-gray-500">文档不存在</p>
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <p className="text-muted-foreground">{t('repository.not_found')}</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen bg-background flex text-foreground">
             {/* Sidebar */}
-            <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0">
-                <div className="p-4 border-b border-gray-200">
-                    <button
+            <aside className="w-64 bg-card border-r border-border flex-shrink-0">
+                <div className="p-4 border-b border-border">
+                    <Button
+                        variant="ghost"
+                        className="w-full justify-start pl-0 hover:bg-transparent"
                         onClick={() => navigate(`/repo/${id}`)}
-                        className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
                     >
-                        <ArrowLeft className="w-4 h-4" />
-                        返回仓库
-                    </button>
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        {t('repository.title')}
+                    </Button>
                 </div>
                 <nav className="p-2">
-                    <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase">文档目录</p>
+                    <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase">{t('repository.docs')}</p>
                     {documents.map((doc) => (
-                        <button
+                        <Button
                             key={doc.id}
+                            variant={doc.id === Number(docId) ? "secondary" : "ghost"}
+                            className="w-full justify-start mb-1"
                             onClick={() => navigate(`/repo/${id}/doc/${doc.id}`)}
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition ${doc.id === Number(docId)
-                                    ? 'bg-blue-50 text-blue-700'
-                                    : 'text-gray-700 hover:bg-gray-100'
-                                }`}
                         >
-                            <FileText className="w-4 h-4" />
-                            {doc.title}
-                        </button>
+                            <FileText className="w-4 h-4 mr-2" />
+                            <span className="truncate">{doc.title}</span>
+                        </Button>
                     ))}
                 </nav>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto">
-                <header className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                    <h1 className="text-xl font-semibold text-gray-900">{document.title}</h1>
-                    <div className="flex gap-2">
-                        <button
+            <main className="flex-1 overflow-auto bg-background">
+                <header className="sticky top-0 bg-card/80 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between z-10">
+                    <h1 className="text-xl font-semibold truncate pr-4">{document.title}</h1>
+                    <div className="flex gap-2 shrink-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={handleDownload}
-                            className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
                         >
-                            <Download className="w-4 h-4" />
-                            下载
-                        </button>
+                            <Download className="w-4 h-4 mr-2" />
+                            {t('common.save')}
+                        </Button>
                         {editing ? (
                             <>
-                                <button
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => {
                                         setEditing(false);
                                         setEditContent(document.content);
                                     }}
-                                    className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
                                 >
-                                    <X className="w-4 h-4" />
-                                    取消
-                                </button>
-                                <button
+                                    <X className="w-4 h-4 mr-2" />
+                                    {t('common.cancel')}
+                                </Button>
+                                <Button
+                                    size="sm"
                                     onClick={handleSave}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                                 >
-                                    <Save className="w-4 h-4" />
-                                    保存
-                                </button>
+                                    <Save className="w-4 h-4 mr-2" />
+                                    {t('common.save')}
+                                </Button>
                             </>
                         ) : (
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setEditing(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
                             >
-                                <Edit2 className="w-4 h-4" />
-                                编辑
-                            </button>
+                                <Edit2 className="w-4 h-4 mr-2" />
+                                {t('common.edit')}
+                            </Button>
                         )}
                     </div>
                 </header>
@@ -152,12 +158,14 @@ export default function DocViewer() {
                         <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full h-[calc(100vh-200px)] p-4 font-mono text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full h-[calc(100vh-200px)] p-4 font-mono text-sm border border-input bg-transparent rounded-lg focus:ring-2 focus:ring-ring focus:outline-none resize-none"
                         />
                     ) : (
-                        <article className="prose prose-slate max-w-none">
-                            <ReactMarkdown>{document.content}</ReactMarkdown>
-                        </article>
+                        <Card className="p-8 border-none shadow-none bg-transparent">
+                            <article className="prose prose-slate dark:prose-invert max-w-none">
+                                <ReactMarkdown>{document.content}</ReactMarkdown>
+                            </article>
+                        </Card>
                     )}
                 </div>
             </main>
