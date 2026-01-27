@@ -1,0 +1,66 @@
+# Air 配置文件 - Go 热重载开发工具
+# 安装: go install github.com/air-verse/air@latest
+# 使用: cd backend && air
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# 构建命令
+cmd = "go build -o ./tmp/main ."
+# 运行命令，添加 -v 6 启用 klog 详细日志
+bin = "./tmp/main -v 6"
+# 监听文件变化的延迟时间
+delay = 1000
+# 排除的目录
+exclude_dir = ["assets", "tmp", "vendor", "node_modules", "data"]
+# 排除的文件
+exclude_file = []
+# 排除正则匹配
+exclude_regex = ["_test.go"]
+# 排除不变的文件
+exclude_unchanged = false
+# 监听以下扩展名文件
+include_ext = ["go", "tpl", "tmpl", "html", "yaml", "yml"]
+# 监听的目录
+include_dir = []
+# 监听的文件
+include_file = []
+# 构建时跟踪符号链接目录
+follow_symlink = false
+# 是否打印日志
+full_bin = ""
+# 构建时 kill 延迟
+kill_delay = "0s"
+# 发送中断信号并等待进程退出
+send_interrupt = false
+# 停止运行旧的二进制文件再重新运行新的
+stop_on_error = false
+# 日志输出
+log = "build-errors.log"
+# 编译失败后等待重试的时间
+poll = false
+poll_interval = 0
+rerun = false
+rerun_delay = 500
+
+[log]
+# 是否显示时间
+time = true
+# 是否只显示主日志
+main_only = false
+
+[color]
+# 自定义每种日志的颜色
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+# 退出时清理 tmp 目录
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = false
+keep_scroll = true

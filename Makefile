@@ -1,0 +1,59 @@
+.PHONY: all build run dev clean air
+
+all: build
+
+# Build backend
+build-backend:
+	cd backend && go build -o bin/server .
+
+# Build frontend
+build-frontend:
+	cd frontend && npm run build
+
+# Build all
+build: build-backend build-frontend
+
+# Run backend
+run-backend:
+	cd backend && ./bin/server -v 6
+
+# Run frontend dev server
+run-frontend:
+	cd frontend && npm run dev
+
+# Development mode with air (hot reload)
+air:
+	@echo "Starting backend with air (hot reload)..."
+	@echo "Backend: http://localhost:8080"
+	@echo "Logs: -v 6 enabled for debugging"
+	cd backend && air
+
+# Development mode - run both with air
+dev:
+	@echo "Starting backend and frontend in development mode..."
+	@echo "Backend: http://localhost:8080 (with hot reload)"
+	@echo "Frontend: http://localhost:5173"
+	@trap 'kill 0' EXIT; \
+	cd backend && air & \
+	cd frontend && npm run dev
+
+# Clean build artifacts
+clean:
+	rm -rf backend/bin
+	rm -rf backend/tmp
+	rm -rf frontend/dist
+
+# Setup - install dependencies
+setup:
+	cd backend && go mod tidy
+	cd frontend && npm install
+	@command -v air >/dev/null 2>&1 || { echo "Installing air..."; go install github.com/air-verse/air@latest; }
+
+# Initialize config
+init-config:
+	@if [ ! -f backend/config.yaml ]; then \
+		cp backend/config.yaml.example backend/config.yaml; \
+		echo "Created backend/config.yaml - please update with your API keys"; \
+	else \
+		echo "backend/config.yaml already exists"; \
+	fi

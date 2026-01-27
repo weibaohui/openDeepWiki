@@ -1,0 +1,23 @@
+# Backend
+backend/bin/
+backend/data/
+backend/config.yaml
+backend/tmp/
+backend/build-errors.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,116 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	Server   ServerConfig   `yaml:"server"`
+	Database DatabaseConfig `yaml:"database"`
+	LLM      LLMConfig      `yaml:"llm"`
+	GitHub   GitHubConfig   `yaml:"github"`
+	Data     DataConfig     `yaml:"data"`
+}
+
+type ServerConfig struct {
+	Port string `yaml:"port"`
+	Mode string `yaml:"mode"` // debug, release
+}
+
+type DatabaseConfig struct {
+	Type string `yaml:"type"` // sqlite, mysql
+	DSN  string `yaml:"dsn"`
+}
+
+type LLMConfig struct {
+	APIURL    string `yaml:"api_url"`
+	APIKey    string `yaml:"api_key"`
+	Model     string `yaml:"model"`
+	MaxTokens int    `yaml:"max_tokens"`
+}
+
+type GitHubConfig struct {
+	Token string `yaml:"token"`
+}
+
+type DataConfig struct {
+	Dir     string `yaml:"dir"`
+	RepoDir string `yaml:"repo_dir"`
+}
+
+var (
+	cfg  *Config
+	once sync.Once
+)
+
+func GetConfig() *Config {
+	once.Do(func() {
+		cfg = loadConfig()
+	})
+	return cfg
+}
+
+func loadConfig() *Config {
+	config := &Config{
+		Server: ServerConfig{
+			Port: "8080",
+			Mode: "debug",
+		},
+		Database: DatabaseConfig{
+			Type: "sqlite",
+			DSN:  "./data/app.db",
+		},
+		LLM: LLMConfig{
+			APIURL:    "https://api.openai.com/v1",
+			Model:     "gpt-4o",
+			MaxTokens: 4096,
+		},
+		Data: DataConfig{
+			Dir:     "./data",
+			RepoDir: "./data/repos",
+		},
+	}
+
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err == nil {
+		yaml.Unmarshal(data, config)
+	}
+
+	// 环境变量优先级高于配置文件
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		config.LLM.APIKey = apiKey
+	}
+	if baseURL := os.Getenv("OPENAI_BASE_URL"); baseURL != "" {
+		config.LLM.APIURL = baseURL
+	}
+	if model := os.Getenv("OPENAI_MODEL_NAME"); model != "" {
+		config.LLM.Model = model
+	}
+
+	if config.Data.RepoDir == "" {
+		config.Data.RepoDir = filepath.Join(config.Data.Dir, "repos")
+	}
+
+	return config
+}
+
+func (c *Config) Save(path string) error {
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func UpdateConfig(newCfg *Config) {
+	cfg = newCfg
+}
