@@ -51,9 +51,9 @@
             "running": "运行中",
             "succeeded": "执行成功",
             "failed": "执行失败",
-            "canceled": "已取消"
+            "canceled": "已取消",
+            "completed": "已完成"
         }
-       
     },
     "settings": {
         "title": "设置",
