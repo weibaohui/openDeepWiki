@@ -19,6 +19,7 @@ func NewTaskHandler(service *service.TaskService) *TaskHandler {
 	}
 }
 
+// GetByRepository 获取仓库的所有任务
 func (h *TaskHandler) GetByRepository(c *gin.Context) {
 	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -35,24 +36,67 @@ func (h *TaskHandler) GetByRepository(c *gin.Context) {
 	c.JSON(http.StatusOK, tasks)
 }
 
-func (h *TaskHandler) Run(c *gin.Context) {
+// Enqueue 提交任务到队列（替代原来的Run方法）
+// 接口变更：从"立即执行"改为"提交作业"
+func (h *TaskHandler) Enqueue(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
-	go func() {
-		h.service.Run(uint(id))
-	}()
+	// 获取任务信息
+	task, err := h.service.Get(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "task started"})
+	// 提交任务到编排器队列
+	if err := h.service.Enqueue(uint(id), task.RepositoryID, 0); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task enqueued",
+		"status":  "queued",
+	})
 }
 
+// Run 兼容旧接口（保持向后兼容）
+// 内部调用Enqueue方法
+func (h *TaskHandler) Run(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	// 获取任务信息
+	task, err := h.service.Get(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		return
+	}
+
+	// 提交任务到编排器队列
+	if err := h.service.Enqueue(uint(id), task.RepositoryID, 0); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task started",
+		"status":  "queued",
+	})
+}
+
+// Get 获取单个任务详情
 func (h *TaskHandler) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
@@ -65,10 +109,11 @@ func (h *TaskHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, task)
 }
 
+// Reset 重置任务
 func (h *TaskHandler) Reset(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
@@ -77,14 +122,17 @@ func (h *TaskHandler) Reset(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "task reset"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task reset",
+		"status":  "pending",
+	})
 }
 
 // ForceReset 强制重置任务，无论当前状态
 func (h *TaskHandler) ForceReset(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
@@ -93,7 +141,10 @@ func (h *TaskHandler) ForceReset(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "task force reset"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task force reset",
+		"status":  "pending",
+	})
 }
 
 // CleanupStuck 清理超时的卡住任务
@@ -140,4 +191,18 @@ func (h *TaskHandler) GetStuck(c *gin.Context) {
 		"count":   len(tasks),
 		"timeout": timeout.String(),
 	})
+}
+
+// GetOrchestratorStatus 获取编排器状态
+// 新增接口，用于监控任务队列和执行状态
+func (h *TaskHandler) GetOrchestratorStatus(c *gin.Context) {
+	status := h.service.GetOrchestratorStatus()
+	if status == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "orchestrator not available",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, status)
 }

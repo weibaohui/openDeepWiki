@@ -14,6 +14,7 @@ import (
 	"github.com/opendeepwiki/backend/internal/repository"
 	"github.com/opendeepwiki/backend/internal/router"
 	"github.com/opendeepwiki/backend/internal/service"
+	"github.com/opendeepwiki/backend/internal/service/orchestrator"
 )
 
 func main() {
@@ -48,6 +49,12 @@ func main() {
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService)
+
+	// 初始化全局任务编排器
+	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
+	taskExecutor := &taskExecutorAdapter{taskService: taskService}
+	orchestrator.InitGlobalOrchestrator(2, taskExecutor)
+	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)

@@ -50,6 +50,19 @@ func (r *taskRepository) CleanupStuckTasks(timeout time.Duration) (int64, error)
 	return result.RowsAffected, result.Error
 }
 
+// CleanupStuckQueuedTasks 清理卡住的queued任务（入队超过指定时间的queued任务）
+// 用于处理入队后长时间未执行的任务
+func (r *taskRepository) CleanupStuckQueuedTasks(timeout time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-timeout)
+	result := r.db.Model(&model.Task{}).
+		Where("status = ? AND created_at < ?", "queued", cutoff).
+		Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": fmt.Sprintf("任务入队超时（超过 %v），已自动标记为失败", timeout),
+		})
+	return result.RowsAffected, result.Error
+}
+
 func (r *taskRepository) GetStuckTasks(timeout time.Duration) ([]model.Task, error) {
 	cutoff := time.Now().Add(-timeout)
 	var tasks []model.Task
