@@ -8,6 +8,7 @@ import (
 	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/models"
 	"github.com/opendeepwiki/backend/pkg/git"
+	"k8s.io/klog/v2"
 )
 
 type RepositoryService struct {
@@ -144,16 +145,69 @@ func (s *RepositoryService) runTasksAsync(repoID uint) {
 		}
 	}
 
+	// 统一使用 UpdateRepositoryStatus 更新最终状态
+	if err := UpdateRepositoryStatus(repoID); err != nil {
+		klog.Errorf("更新仓库最终状态失败: repoID=%d, error=%v", repoID, err)
+	}
+}
+
+// UpdateRepositoryStatus 根据任务状态更新仓库状态
+func UpdateRepositoryStatus(repoID uint) error {
 	var repo models.Repository
-	models.DB.First(&repo, repoID)
+	if err := models.DB.First(&repo, repoID).Error; err != nil {
+		return err
+	}
 
-	var failedCount int64
-	models.DB.Model(&models.Task{}).Where("repository_id = ? AND status = ?", repoID, "failed").Count(&failedCount)
+	// 如果还在克隆中或准备中（尚未开始分析），不自动更新
+	if repo.Status == "pending" || repo.Status == "cloning" {
+		return nil
+	}
 
-	if failedCount > 0 {
-		repo.Status = "error"
-	} else {
+	var tasks []models.Task
+	if err := models.DB.Where("repository_id = ?", repoID).Find(&tasks).Error; err != nil {
+		return err
+	}
+
+	var runningCount, pendingCount, failedCount, completedCount int
+	for _, t := range tasks {
+		switch t.Status {
+		case "running":
+			runningCount++
+		case "pending":
+			pendingCount++
+		case "failed":
+			failedCount++
+		case "completed":
+			completedCount++
+		}
+	}
+
+	oldStatus := repo.Status
+	if runningCount > 0 {
+		repo.Status = "analyzing"
+	} else if failedCount > 0 {
+		// 如果没有正在运行的任务，且有失败的任务，则状态为 error
+		// 但如果还有 pending 的任务，可能还是处于 analyzing 状态（等待继续或手动触发）
+		if pendingCount > 0 {
+			repo.Status = "analyzing"
+		} else {
+			repo.Status = "error"
+		}
+	} else if pendingCount > 0 {
+		// 没有运行和失败的任务，但有等待中的任务
+		if completedCount > 0 {
+			repo.Status = "analyzing"
+		} else {
+			repo.Status = "ready"
+		}
+	} else if completedCount == len(tasks) && len(tasks) > 0 {
 		repo.Status = "completed"
 	}
-	models.DB.Save(&repo)
+
+	if oldStatus != repo.Status {
+		klog.V(6).Infof("更新仓库状态: repoID=%d, %s -> %s", repoID, oldStatus, repo.Status)
+		return models.DB.Save(&repo).Error
+	}
+
+	return nil
 }

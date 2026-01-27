@@ -60,6 +60,9 @@ func (s *TaskService) Run(taskID uint) error {
 	models.DB.Save(&task)
 	klog.V(6).Infof("任务状态更新为 running: taskID=%d", taskID)
 
+	// 开始执行任务，更新仓库状态为分析中
+	UpdateRepositoryStatus(task.RepositoryID)
+
 	klog.V(6).Infof("开始静态分析: repoPath=%s", repo.LocalPath)
 	projectInfo, err := analyzer.Analyze(repo.LocalPath)
 	if err != nil {
@@ -125,6 +128,9 @@ func (s *TaskService) Run(taskID uint) error {
 	duration := completedAt.Sub(now)
 	klog.V(6).Infof("任务执行完成: taskID=%d, duration=%v", taskID, duration)
 
+	// 任务完成后更新仓库状态
+	UpdateRepositoryStatus(task.RepositoryID)
+
 	return nil
 }
 
@@ -133,6 +139,9 @@ func (s *TaskService) failTask(task *models.Task, errMsg string) {
 	task.Status = "failed"
 	task.ErrorMsg = errMsg
 	models.DB.Save(task)
+
+	// 任务失败后更新仓库状态
+	UpdateRepositoryStatus(task.RepositoryID)
 }
 
 func getTaskDefinition(taskType string) struct {
@@ -162,7 +171,11 @@ func (s *TaskService) Reset(taskID uint) error {
 	task.ErrorMsg = ""
 	task.StartedAt = nil
 	task.CompletedAt = nil
-	return models.DB.Save(&task).Error
+	err := models.DB.Save(&task).Error
+	if err == nil {
+		UpdateRepositoryStatus(task.RepositoryID)
+	}
+	return err
 }
 
 // ForceReset 强制重置任务，无论当前状态
@@ -186,7 +199,11 @@ func (s *TaskService) ForceReset(taskID uint) error {
 	task.CompletedAt = nil
 
 	klog.V(6).Infof("任务已强制重置: taskID=%d", taskID)
-	return models.DB.Save(&task).Error
+	if err := models.DB.Save(&task).Error; err != nil {
+		return err
+	}
+	UpdateRepositoryStatus(task.RepositoryID)
+	return nil
 }
 
 // CleanupStuckTasks 清理卡住的任务（运行超过指定时间的任务）
