@@ -144,7 +144,7 @@ export default function RepoDetail() {
                     onClick={() => navigate('/')}
                     style={{ marginRight: 16 }}
                 />
-                <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ flex: 1, overflow: 'hidden', lineHeight: 'normal', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <Title level={4} style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{repository.name}</Title>
                     <Text type="secondary" style={{ fontSize: '12px' }} ellipsis>{repository.url}</Text>
                 </div>
