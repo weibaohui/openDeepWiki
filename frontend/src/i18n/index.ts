@@ -1,28 +1,33 @@
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
+import type { Locale } from 'antd/es/locale';
+import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
+import appZhCN from './locales/zh-CN.json';
+import appEnUS from './locales/en-US.json';
 
-import zhCN from './locales/zh-CN.json';
-import enUS from './locales/en-US.json';
+export type AppLocale = 'zh-CN' | 'en-US';
 
-const resources = {
-    'zh-CN': { translation: zhCN },
-    'en-US': { translation: enUS },
+export const antdLocales: Record<AppLocale, Locale> = {
+    'zh-CN': zhCN,
+    'en-US': enUS,
 };
 
-i18n
-    .use(LanguageDetector)
-    .use(initReactI18next)
-    .init({
-        resources,
-        fallbackLng: 'zh-CN',
-        interpolation: {
-            escapeValue: false, // React 已经安全转义
-        },
-        detection: {
-            order: ['localStorage', 'navigator'],
-            caches: ['localStorage'],
-        },
-    });
+export const messages = {
+    'zh-CN': appZhCN,
+    'en-US': appEnUS,
+};
 
-export default i18n;
+export function getMessage(locale: AppLocale, path: string, fallback?: string) {
+    const parts = path.split('.');
+    let current: unknown = messages[locale];
+    for (const key of parts) {
+        if (current && typeof current === 'object') {
+            current = (current as Record<string, unknown>)[key];
+        } else {
+            current = undefined;
+        }
+    }
+    if (typeof current === 'string') {
+        return current;
+    }
+    return fallback ?? path;
+}

@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@/providers/ThemeProvider';
-import '@/i18n';
 
 import Home from './pages/Home';
 import RepoDetail from './pages/RepoDetail';
