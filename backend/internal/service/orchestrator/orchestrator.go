@@ -32,13 +32,13 @@ type Orchestrator struct {
 	priorityQueue chan *Job // 高优先级队列
 
 	// Worker池配置
-	maxWorkers      int
-	workers         []*worker
-	workerWg        sync.WaitGroup
+	maxWorkers int
+	workers    []*worker
+	workerWg   sync.WaitGroup
 
 	// 并发控制
-	repoConcurrency map[uint]bool      // 记录每个仓库是否有任务在执行
-	repoMutex      sync.Mutex         // 保护 repoConcurrency
+	repoConcurrency map[uint]bool // 记录每个仓库是否有任务在执行
+	repoMutex       sync.Mutex    // 保护 repoConcurrency
 
 	// 执行器
 	executor TaskExecutor
@@ -56,8 +56,8 @@ func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Orchestrator{
-		jobQueue:        make(chan *Job, 100),  // 普通任务队列，缓冲100
-		priorityQueue:   make(chan *Job, 20),   // 高优先级队列，缓冲20
+		jobQueue:        make(chan *Job, 100), // 普通任务队列，缓冲100
+		priorityQueue:   make(chan *Job, 20),  // 高优先级队列，缓冲20
 		maxWorkers:      maxWorkers,
 		workers:         make([]*worker, 0, maxWorkers),
 		repoConcurrency: make(map[uint]bool),
@@ -161,19 +161,19 @@ func (o *Orchestrator) GetQueueStatus() *QueueStatus {
 	defer o.repoMutex.Unlock()
 
 	return &QueueStatus{
-		QueueLength:     len(o.jobQueue),
-		PriorityLength:  len(o.priorityQueue),
-		ActiveWorkers:   len(o.workers),
-		ActiveRepos:     len(o.repoConcurrency),
+		QueueLength:    len(o.jobQueue),
+		PriorityLength: len(o.priorityQueue),
+		ActiveWorkers:  len(o.workers),
+		ActiveRepos:    len(o.repoConcurrency),
 	}
 }
 
 // QueueStatus 队列状态
 type QueueStatus struct {
-	QueueLength     int `json:"queue_length"`     // 普通队列长度
-	PriorityLength  int `json:"priority_length"`  // 高优先级队列长度
-	ActiveWorkers   int `json:"active_workers"`   // 活跃worker数
-	ActiveRepos     int `json:"active_repos"`     // 活跃仓库数
+	QueueLength    int `json:"queue_length"`    // 普通队列长度
+	PriorityLength int `json:"priority_length"` // 高优先级队列长度
+	ActiveWorkers  int `json:"active_workers"`  // 活跃worker数
+	ActiveRepos    int `json:"active_repos"`    // 活跃仓库数
 }
 
 // worker 工作线程
@@ -212,8 +212,13 @@ func (w *worker) processJob(job *Job) {
 
 	// 检查仓库并发限制
 	if !w.acquireRepoLock(job.RepositoryID) {
-		klog.V(6).Infof("仓库已有任务在执行，重新入队: repoID=%d, taskID=%d",
+		klog.V(6).Infof("仓库已有任务在执行，等待后重新入队: repoID=%d, taskID=%d",
 			job.RepositoryID, job.TaskID)
+
+		// 增加随机延迟，避免忙等待和日志刷屏
+		// 1-3秒的延迟
+		time.Sleep(time.Second * 2)
+
 		// 重新入队，等待下次调度
 		_ = w.orchestrator.EnqueueJob(job)
 		return
@@ -272,7 +277,7 @@ func NewTaskJob(taskID, repositoryID uint, priority int) *Job {
 // 全局编排器实例
 var (
 	globalOrchestrator *Orchestrator
-	orchestratorOnce  sync.Once
+	orchestratorOnce   sync.Once
 )
 
 // InitGlobalOrchestrator 初始化全局编排器
