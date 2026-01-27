@@ -54,6 +54,7 @@ func main() {
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
 	taskExecutor := &taskExecutorAdapter{taskService: taskService}
 	orchestrator.InitGlobalOrchestrator(2, taskExecutor)
+	taskService.SetOrchestrator(orchestrator.GetGlobalOrchestrator())
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 Handler

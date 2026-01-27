@@ -34,8 +34,13 @@ func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repo
 		docService:       docService,
 		taskStateMachine:  statemachine.NewTaskStateMachine(),
 		repoAggregator:    statemachine.NewRepositoryStatusAggregator(),
-		orchestrator:      orchestrator.GetGlobalOrchestrator(),
 	}
+}
+
+// SetOrchestrator 设置任务编排器
+// 用于解决循环依赖问题
+func (s *TaskService) SetOrchestrator(o *orchestrator.Orchestrator) {
+	s.orchestrator = o
 }
 
 // GetByRepository 获取仓库的所有任务
