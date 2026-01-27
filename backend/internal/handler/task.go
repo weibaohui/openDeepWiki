@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"net/http"
@@ -6,17 +6,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/services"
+	"github.com/opendeepwiki/backend/internal/service"
 )
 
 type TaskHandler struct {
-	service *services.TaskService
+	service *service.TaskService
 }
 
-func NewTaskHandler(cfg *config.Config) *TaskHandler {
+func NewTaskHandler(service *service.TaskService) *TaskHandler {
 	return &TaskHandler{
-		service: services.NewTaskService(cfg),
+		service: service,
 	}
 }
 

@@ -1,4 +1,5 @@
 # Backend
+backend/server
 backend/bin/
 backend/data/
 backend/config.yaml

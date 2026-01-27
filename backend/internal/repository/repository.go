@@ -1,0 +1,36 @@
+package repository
+
+import (
+	"time"
+
+	"github.com/opendeepwiki/backend/internal/model"
+)
+
+type RepoRepository interface {
+	Create(repo *model.Repository) error
+	List() ([]model.Repository, error)
+	Get(id uint) (*model.Repository, error)
+	GetBasic(id uint) (*model.Repository, error)
+	Save(repo *model.Repository) error
+	Delete(id uint) error
+}
+
+type TaskRepository interface {
+	Create(task *model.Task) error
+	GetByRepository(repoID uint) ([]model.Task, error)
+	Get(id uint) (*model.Task, error)
+	Save(task *model.Task) error
+	CleanupStuckTasks(timeout time.Duration) (int64, error)
+	GetStuckTasks(timeout time.Duration) ([]model.Task, error)
+	DeleteByRepositoryID(repoID uint) error
+}
+
+type DocumentRepository interface {
+	Create(doc *model.Document) error
+	GetByRepository(repoID uint) ([]model.Document, error)
+	Get(id uint) (*model.Document, error)
+	Save(doc *model.Document) error
+	Delete(id uint) error
+	DeleteByTaskID(taskID uint) error
+	DeleteByRepositoryID(repoID uint) error
+}
