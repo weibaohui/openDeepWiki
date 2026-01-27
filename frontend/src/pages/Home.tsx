@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
     Plus,
     Trash2,
-    Play,
     RefreshCw,
     Github,
     Settings,
@@ -13,7 +12,10 @@ import {
     Clock,
     ExternalLink,
     ChevronRight,
-    Search
+    Search,
+    CheckCircle,
+    Loader2,
+    AlertTriangle
 } from 'lucide-react';
 import type { Repository } from '../types';
 import { repositoryApi } from '../services/api';
@@ -110,6 +112,18 @@ export default function Home() {
         return configs[status] || { variant: 'secondary' };
     };
 
+    const getStatusDisplay = (status: string) => {
+        const map: Record<string, { label: string, icon: React.ReactNode }> = {
+            pending: { label: t('repository.status.pending'), icon: <Clock className="w-3 h-3 mr-1" /> },
+            cloning: { label: t('repository.status.cloning'), icon: <GitFork className="w-3 h-3 mr-1" /> },
+            analyzing: { label: t('repository.status.analyzing'), icon: <Loader2 className="w-3 h-3 mr-1 animate-spin" /> },
+            ready: { label: t('repository.status.ready'), icon: <CheckCircle className="w-3 h-3 mr-1" /> },
+            completed: { label: t('repository.status.completed'), icon: <CheckCircle className="w-3 h-3 mr-1" /> },
+            error: { label: t('repository.status.error'), icon: <AlertTriangle className="w-3 h-3 mr-1" /> },
+        };
+        return map[status] || { label: status, icon: null };
+    };
+
     const filteredRepositories = repositories.filter(repo =>
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.url.toLowerCase().includes(searchQuery.toLowerCase())
@@ -117,7 +131,6 @@ export default function Home() {
 
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col">
-            {/* Header with sticky positioning and backdrop blur */}
             <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="max-w-7xl mx-auto px-4 h-16 sm:px-6 lg:px-8 flex justify-between items-center">
                     <div className="flex items-center gap-2 transition-transform hover:scale-105 cursor-pointer" onClick={() => navigate('/')}>
@@ -145,7 +158,6 @@ export default function Home() {
             </header>
 
             <main className="flex-1 max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full">
-                {/* Hero / Action Section */}
                 <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <h2 className="text-3xl font-bold tracking-tight">{t('repository.list_title', 'Repositories')}</h2>
@@ -200,7 +212,6 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* Search Bar if items exist */}
                 {repositories.length > 0 && (
                     <div className="mb-6 relative max-w-md">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -263,8 +274,9 @@ export default function Home() {
                                                     </CardDescription>
                                                 </div>
                                             </div>
-                                            <Badge variant={statusConfig.variant} className={statusConfig.className}>
-                                                {t(`repository.status.${repo.status}`)}
+                                            <Badge variant={statusConfig.variant} className={statusConfig.className + ' inline-flex items-center'}>
+                                                {getStatusDisplay(repo.status).icon}
+                                                {getStatusDisplay(repo.status).label}
                                             </Badge>
                                         </div>
                                     </CardHeader>
@@ -274,6 +286,21 @@ export default function Home() {
                                             <span className="truncate" title={repo.url}>{repo.url.replace('https://github.com/', '')}</span>
                                             <ExternalLink className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-50" />
                                         </div>
+                                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                            <div className="rounded bg-muted/40 p-2 border border-transparent group-hover:border-border/50 transition-colors">
+                                                <span className="text-muted-foreground">{t('repository.doc_count', '文档数')}</span>
+                                                <span className="ml-2 font-medium">{Array.isArray((repo as any).documents) ? (repo as any).documents.length : 0}</span>
+                                            </div>
+                                            <div className="rounded bg-muted/40 p-2 border border-transparent group-hover:border-border/50 transition-colors">
+                                                <span className="text-muted-foreground">{t('repository.ai_summary', 'AI 概要')}</span>
+                                                <span className="ml-2 font-medium">{Array.isArray((repo as any).documents) && (repo as any).documents.length > 0 ? t('common.ready', '已生成') : t('common.not_ready', '未生成')}</span>
+                                            </div>
+                                        </div>
+                                        {repo.status === 'analyzing' && (
+                                            <div className="mt-3 h-2 rounded bg-muted/50 overflow-hidden">
+                                                <div className="h-full w-1/2 bg-primary/60 animate-pulse"></div>
+                                            </div>
+                                        )}
                                         {repo.error_msg && (
                                             <div className="mt-3 p-2 bg-destructive/5 border border-destructive/10 rounded text-xs text-destructive flex gap-2 items-start">
                                                 <div className="w-1 h-full bg-destructive rounded-full shrink-0 min-h-[12px]"></div>
@@ -282,37 +309,38 @@ export default function Home() {
                                         )}
                                     </CardContent>
                                     <CardFooter className="pt-2 pb-4 border-t bg-muted/5 flex justify-between items-center">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-xs text-muted-foreground group-hover:text-primary pl-0 hover:bg-transparent"
-                                        >
-                                            {t('common.details', 'View Details')}
-                                            <ChevronRight className="w-3 h-3 ml-1 group-hover:translate-x-1 transition-transform" />
-                                        </Button>
-
-                                        <div className="flex gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                                            {(repo.status === 'ready' || repo.status === 'completed') && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50"
-                                                    onClick={(e) => handleRunAll(repo.id, e)}
-                                                    title={t('repository.run_all')}
-                                                >
-                                                    <Play className="w-4 h-4" />
-                                                </Button>
-                                            )}
+                                        <div className="flex gap-2">
                                             <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                                onClick={(e) => handleDelete(repo.id, e)}
-                                                title={t('common.delete')}
+                                                variant="default"
+                                                size="sm"
+                                                className="gap-1"
+                                                onClick={(e) => { e.stopPropagation(); navigate(`/repo/${repo.id}`) }}
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                {t('repository.enter_wiki', '进入知识库')}
+                                                <ChevronRight className="w-3 h-3" />
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="gap-1"
+                                                onClick={(e) => handleRunAll(repo.id, e)}
+                                                disabled={!(repo.status === 'ready' || repo.status === 'completed')}
+                                                title={t('repository.run_all')}
+                                            >
+                                                {t('repository.rebuild', '重新分析')}
+                                                <RefreshCw className="w-3 h-3" />
                                             </Button>
                                         </div>
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            className="gap-1"
+                                            onClick={(e) => handleDelete(repo.id, e)}
+                                            title={t('common.delete')}
+                                        >
+                                            {t('common.delete', '删除')}
+                                            <Trash2 className="w-3 h-3" />
+                                        </Button>
                                     </CardFooter>
                                 </Card>
                             );
