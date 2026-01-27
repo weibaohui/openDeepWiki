@@ -4,11 +4,11 @@
 
 ## 三种结构体必须区分
 
-| 类型 | 用途 | 所在层 | Tag |
-| ---- | ---- | ------ | --- |
-| Request | HTTP 入参 | Handler | json, binding |
-| DTO | Service 返回 | Service | json |
-| Model | DB / GORM | Repository | gorm |
+| 类型    | 用途         | 所在层     | Tag           |
+| ------- | ------------ | ---------- | ------------- |
+| Request | HTTP 入参    | Handler    | json, binding |
+| DTO     | Service 返回 | Service    | json          |
+| Model   | DB / GORM    | Repository | gorm          |
 
 **禁止混用**。
 
@@ -169,14 +169,14 @@ type User struct {
 
 ## 命名规范
 
-| 类型 | 命名规范 | 示例 |
-| ---- | -------- | ---- |
+| 类型     | 命名规范         | 示例              |
+| -------- | ---------------- | ----------------- |
 | 创建请求 | CreateXxxRequest | CreateUserRequest |
 | 更新请求 | UpdateXxxRequest | UpdateUserRequest |
-| 查询参数 | ListXxxQuery | ListUserQuery |
-| DTO | XxxDTO | UserDTO |
-| 列表结果 | ListXxxResult | ListUserResult |
-| Model | XxxModel | UserModel |
+| 查询参数 | ListXxxQuery     | ListUserQuery     |
+| DTO      | XxxDTO           | UserDTO           |
+| 列表结果 | ListXxxResult    | ListUserResult    |
+| Model    | XxxModel         | UserModel         |
 
 ## 相关文档
 

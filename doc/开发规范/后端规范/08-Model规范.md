@@ -116,12 +116,12 @@ type User struct {
 
 ## 命名规范
 
-| 类型 | 规范 | 示例 |
-| ---- | ---- | ---- |
-| Model 名 | XxxModel | UserModel |
-| 表名 | 小写复数 | users |
-| 字段名 | 驼峰 | CreatedAt |
-| 列名 | 蛇形（自动转换） | created_at |
+| 类型     | 规范             | 示例       |
+| -------- | ---------------- | ---------- |
+| Model 名 | XxxModel         | UserModel  |
+| 表名     | 小写复数         | users      |
+| 字段名   | 驼峰             | CreatedAt  |
+| 列名     | 蛇形（自动转换） | created_at |
 
 ## 禁止事项
 

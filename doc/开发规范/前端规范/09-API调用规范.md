@@ -124,14 +124,14 @@ function RepositoryList() {
 
 ## API 命名规范
 
-| 操作 | HTTP 方法 | 命名 | 示例 |
-| ---- | --------- | ---- | ---- |
-| 获取列表 | GET | list | `repositoryApi.list()` |
-| 获取单个 | GET | get | `repositoryApi.get(id)` |
-| 创建 | POST | create | `repositoryApi.create(data)` |
-| 更新 | PUT/PATCH | update | `repositoryApi.update(id, data)` |
-| 删除 | DELETE | delete | `repositoryApi.delete(id)` |
-| 自定义操作 | POST | 动词 | `taskApi.run(id)` |
+| 操作       | HTTP 方法 | 命名   | 示例                             |
+| ---------- | --------- | ------ | -------------------------------- |
+| 获取列表   | GET       | list   | `repositoryApi.list()`           |
+| 获取单个   | GET       | get    | `repositoryApi.get(id)`          |
+| 创建       | POST      | create | `repositoryApi.create(data)`     |
+| 更新       | PUT/PATCH | update | `repositoryApi.update(id, data)` |
+| 删除       | DELETE    | delete | `repositoryApi.delete(id)`       |
+| 自定义操作 | POST      | 动词   | `taskApi.run(id)`                |
 
 ## 相关文档
 
