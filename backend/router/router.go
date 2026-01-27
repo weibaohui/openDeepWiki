@@ -44,9 +44,12 @@ func Setup(cfg *config.Config) *gin.Engine {
 
 		tasks := api.Group("/tasks")
 		{
+			tasks.GET("/stuck", taskHandler.GetStuck)        // 获取卡住的任务
+			tasks.POST("/cleanup", taskHandler.CleanupStuck) // 清理卡住的任务
 			tasks.GET("/:id", taskHandler.Get)
 			tasks.POST("/:id/run", taskHandler.Run)
 			tasks.POST("/:id/reset", taskHandler.Reset)
+			tasks.POST("/:id/force-reset", taskHandler.ForceReset) // 强制重置
 		}
 
 		docs := api.Group("/documents")

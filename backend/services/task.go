@@ -164,3 +164,58 @@ func (s *TaskService) Reset(taskID uint) error {
 	task.CompletedAt = nil
 	return models.DB.Save(&task).Error
 }
+
+// ForceReset 强制重置任务，无论当前状态
+func (s *TaskService) ForceReset(taskID uint) error {
+	klog.V(6).Infof("强制重置任务: taskID=%d", taskID)
+	var task models.Task
+	if err := models.DB.First(&task, taskID).Error; err != nil {
+		return err
+	}
+
+	klog.V(6).Infof("任务当前状态: taskID=%d, status=%s, startedAt=%v",
+		taskID, task.Status, task.StartedAt)
+
+	// 删除关联的文档
+	models.DB.Where("task_id = ?", taskID).Delete(&models.Document{})
+
+	// 重置任务状态
+	task.Status = "pending"
+	task.ErrorMsg = ""
+	task.StartedAt = nil
+	task.CompletedAt = nil
+
+	klog.V(6).Infof("任务已强制重置: taskID=%d", taskID)
+	return models.DB.Save(&task).Error
+}
+
+// CleanupStuckTasks 清理卡住的任务（运行超过指定时间的任务）
+func (s *TaskService) CleanupStuckTasks(timeout time.Duration) (int64, error) {
+	klog.V(6).Infof("开始清理卡住的任务: timeout=%v", timeout)
+
+	cutoff := time.Now().Add(-timeout)
+
+	result := models.DB.Model(&models.Task{}).
+		Where("status = ? AND started_at < ?", "running", cutoff).
+		Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": fmt.Sprintf("任务超时（超过 %v），已自动标记为失败", timeout),
+		})
+
+	if result.Error != nil {
+		klog.V(6).Infof("清理卡住任务失败: error=%v", result.Error)
+		return 0, result.Error
+	}
+
+	klog.V(6).Infof("清理卡住任务完成: affected=%d", result.RowsAffected)
+	return result.RowsAffected, nil
+}
+
+// GetStuckTasks 获取卡住的任务列表
+func (s *TaskService) GetStuckTasks(timeout time.Duration) ([]models.Task, error) {
+	cutoff := time.Now().Add(-timeout)
+
+	var tasks []models.Task
+	err := models.DB.Where("status = ? AND started_at < ?", "running", cutoff).Find(&tasks).Error
+	return tasks, err
+}
