@@ -137,7 +137,6 @@ export default function Home() {
                 <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <Title level={2} style={{ margin: 0 }}>{t('repository.list_title', 'Repositories')}</Title>
-                        <Text type="secondary">{t('repository.list_subtitle', 'Manage and generate documentation for your codebases.')}</Text>
                     </div>
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAddModal(true)}>
                         {t('repository.add')}

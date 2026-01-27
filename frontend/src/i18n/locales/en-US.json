@@ -18,6 +18,7 @@
     "repository": {
         "title": "Repositories",
         "add": "Add Repository",
+        "list_title": "Repositories",
         "url_placeholder": "Enter GitHub repository URL",
         "status": {
             "pending": "Pending",

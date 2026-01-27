@@ -18,6 +18,7 @@
     "repository": {
         "title": "代码仓库",
         "add": "添加仓库",
+        "list_title": "仓库列表",
         "url_placeholder": "请输入 GitHub 仓库地址",
         "status": {
             "pending": "等待中",
