@@ -120,3 +120,11 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:latest
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:${{ steps.date.outputs.today }}
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:${{ env.GITHUB_REF_NAME }}
+      - name: Deploy to Fly
+        uses: superfly/flyctl-actions@v1
+        with:
+          args: >
+            deploy
+            --image ghcr.io/${{ github.repository }}:${{ github.sha }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
