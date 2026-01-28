@@ -2,6 +2,7 @@ package statemachine
 
 import (
 	"fmt"
+
 	"k8s.io/klog/v2"
 )
 
@@ -51,6 +52,8 @@ func NewTaskStateMachine() *TaskStateMachine {
 		{TaskStatusFailed, TaskStatusPending},
 		{TaskStatusSucceeded, TaskStatusPending},
 		{TaskStatusCanceled, TaskStatusPending},
+		// 允许失败任务直接重试入队
+		{TaskStatusFailed, TaskStatusQueued},
 
 		// 取消流程
 		{TaskStatusQueued, TaskStatusCanceled},
