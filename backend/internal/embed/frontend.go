@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/gzip"
 )
 
 //go:embed ui/dist/*
@@ -19,6 +20,9 @@ func GetFrontendFS() fs.FS {
 
 // SetupRouter 设置前端静态文件路由
 func SetupRouter(r *gin.Engine) {
+	// 添加 gzip 压缩中间件，使用最佳压缩级别
+	r.Use(gzip.Gzip(gzip.BestCompression))
+
 	// 获取嵌入的文件系统
 	frontendFS := GetFrontendFS()
 
