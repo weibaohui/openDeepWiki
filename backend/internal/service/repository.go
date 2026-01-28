@@ -37,7 +37,7 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		docRepo:          docRepo,
 		taskService:      taskService,
 		repoStateMachine: statemachine.NewRepositoryStateMachine(),
-		orchestrator:      orchestrator.GetGlobalOrchestrator(),
+		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 	}
 }
 
@@ -175,7 +175,7 @@ func (s *RepositoryService) Delete(id uint) error {
 		}
 	}
 
-	// 删除数据库记录（使用事务）
+	// TODO 删除数据库记录（使用事务）
 	if err := s.docRepo.DeleteByRepositoryID(id); err != nil {
 		return fmt.Errorf("删除文档失败: %w", err)
 	}
