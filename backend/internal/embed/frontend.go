@@ -37,7 +37,7 @@ func GetFrontendFS() fs.FS {
 
 // GetAssetsFS 获取assets目录的文件系统
 func GetAssetsFS() fs.FS {
-	assetsFS, err := fs.Sub(embeddedFiles, "ui/dist/assets")
+	assetsFS, err := fs.Sub(embeddedFiles, "dist/assets")
 	if err != nil {
 		// 如果获取失败，返回根文件系统
 		return embeddedFiles
@@ -77,7 +77,7 @@ func SetupRouter(r *gin.Engine) {
 		}
 
 		// 对于其他请求，返回index.html（SPA路由）
-		indexHTML, err := fs.ReadFile(frontendFS, "ui/dist/index.html")
+		indexHTML, err := fs.ReadFile(frontendFS, "dist/index.html")
 		if err != nil {
 			c.String(http.StatusInternalServerError, "Failed to load index.html")
 			return
