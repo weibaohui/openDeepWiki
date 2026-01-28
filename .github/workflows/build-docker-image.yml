@@ -68,6 +68,13 @@ jobs:
         id: date
         run: echo "::set-output name=today::$(date +'%Y%m%d-%H%M')"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
 
