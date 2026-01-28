@@ -19,6 +19,7 @@ import type { Repository } from '../types';
 import { repositoryApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import GitHubPromoBanner from '@/components/common/GitHubPromoBanner';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content } = Layout;
@@ -105,8 +106,10 @@ export default function Home() {
     );
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
-            <Header style={{
+        <>
+            <GitHubPromoBanner />
+            <Layout style={{ minHeight: '100vh', paddingTop: '60px' }}>
+                <Header style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -240,5 +243,6 @@ export default function Home() {
                 </Modal>
             </Content>
         </Layout>
+        </>
     );
 }
