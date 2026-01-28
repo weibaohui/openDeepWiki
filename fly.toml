@@ -16,8 +16,8 @@ primary_region = 'sin'
   min_machines_running = 0
 
 [mounts]
-  source = "data_volume"
-  destination = "/data"
+  source = "db_volume"
+  destination = "/data/db"
 
 [[vm]]
   memory = '256mb'
