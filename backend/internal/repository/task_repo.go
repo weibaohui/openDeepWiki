@@ -39,6 +39,8 @@ func (r *taskRepository) Save(task *model.Task) error {
 	return r.db.Save(task).Error
 }
 
+// CleanupStuckTasks 清理卡住的running任务（未完成超过指定时间的running任务）
+// 用于处理运行中的任务超时
 func (r *taskRepository) CleanupStuckTasks(timeout time.Duration) (int64, error) {
 	cutoff := time.Now().Add(-timeout)
 	result := r.db.Model(&model.Task{}).
