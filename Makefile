@@ -2,16 +2,33 @@
 
 all: build
 
-# Build backend
+# Build backend with embedded frontend
 build-backend:
-	cd backend && go build -o bin/server .
+	@echo "Building backend with embedded frontend..."
+	cd backend && go build -o bin/server ./cmd/server/
 
 # Build frontend
 build-frontend:
+	@echo "Building frontend..."
 	cd frontend && npm run build
 
-# Build all
-build: build-backend build-frontend
+# Prepare embed directory (copy frontend dist to backend internal embed)
+prepare-embed:
+	@echo "Preparing embed directory..."
+	@mkdir -p backend/internal/embed/ui/dist
+	@rm -rf backend/internal/embed/ui/dist/*
+	@cp -r frontend/dist/* backend/internal/embed/ui/dist/
+	@echo "Frontend files copied to backend/internal/embed/ui/dist/"
+
+# Build all (build frontend, prepare embed, build backend, cleanup)
+build: build-frontend prepare-embed build-backend cleanup-embed
+
+# Cleanup embed directory after build
+cleanup-embed:
+	@echo "Cleaning up embed directory..."
+	@rm -rf backend/internal/embed/ui/dist/*
+	@touch backend/internal/embed/ui/dist/.keep
+	@echo "Embed directory cleaned"
 
 # Run backend
 run-backend:
@@ -41,6 +58,7 @@ dev:
 clean:
 	rm -rf backend/bin
 	rm -rf backend/tmp
+	rm -rf backend/internal/embed/ui/dist
 	rm -rf frontend/dist
 
 # Setup - install dependencies

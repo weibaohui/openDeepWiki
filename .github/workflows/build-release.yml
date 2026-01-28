@@ -1,0 +1,53 @@
+name: build and push binary to release
+
+on:
+  release:
+    types: [created, published] # 表示在创建新的 Release 时触发
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - name: 使用 Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 18
+          cache: "pnpm"
+          cache-dependency-path: "frontend/pnpm-lock.yaml"
+
+      - name: 编译前端
+        run: |
+          cd frontend
+          pnpm install
+          pnpm build
+
+      - name: 上传到共享
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace
+          path: frontend/dist
+
+      - name: 设置go环境
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "go.sum"
+
+      - name: Set build time variable
+        run: echo "BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
+      - name: 编译后端
+        run: |
+          make build  GIT_COMMIT=${{ github.sha }} GIT_TAG=${{ github.ref_name }} GIT_REPOSITORY=${{ github.repository }} BUILD_DATE=${{ env.BUILD_TIME }} VERSION=${{ github.ref_name }}
+
+      - name: 上传二进制
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: backend/bin/server*
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
