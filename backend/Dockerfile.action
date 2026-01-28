@@ -1,0 +1,19 @@
+FROM alpine:3.21
+
+WORKDIR /app
+
+ENV BINARY_NAME=server
+ENV TZ=Asia/Shanghai
+
+ARG TARGETOS
+ARG TARGETARCH
+
+ADD reload.sh reload.sh
+COPY backend/bin/${BINARY_NAME}-${TARGETOS}-${TARGETARCH} ${BINARY_NAME}
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk upgrade && apk add --no-cache  tzdata   ca-certificates \
+     && rm -rf /var/cache/* && chmod +x server
+
+EXPOSE 8080
+CMD [ "/app/server"]
