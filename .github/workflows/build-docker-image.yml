@@ -59,7 +59,7 @@ jobs:
 
       - name: 编译后端
         run: |
-          make build GIT_COMMIT=${{ github.sha }} GIT_TAG=${{ github.ref_name }} GIT_REPOSITORY=${{ github.repository }} BUILD_DATE=${{ env.BUILD_TIME }} VERSION=${{ github.ref_name }}
+          make build-linux GIT_COMMIT=${{ github.sha }} GIT_TAG=${{ github.ref_name }} GIT_REPOSITORY=${{ github.repository }} BUILD_DATE=${{ env.BUILD_TIME }} VERSION=${{ github.ref_name }}
 
       - name: Inject slug/short variables
         uses: rlespinasse/github-slug-action@v4

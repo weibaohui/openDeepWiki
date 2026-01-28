@@ -1,6 +1,31 @@
+# 定义需要编译的Linux平台和架构
+# 格式为 GOOS/GOARCH
+LINUX_PLATFORMS := \
+    linux/arm64 \
+    linux/amd64
+
 .PHONY: all build run dev clean air
 
 all: build
+
+
+
+
+# 为所有指定的平台和架构构建可执行文件
+.PHONY: build-linux
+build-linux:
+	@echo "为所有平台构建可执行文件..."
+	@mkdir -p backend/bin
+	@for platform in $(LINUX_PLATFORMS); do \
+		GOOS=$${platform%/*} GOARCH=$${platform#*/}; \
+		echo "构建平台: $$GOOS/$$GOARCH ..."; \
+		OUTPUT_FILE="backend/bin/$(BINARY_NAME)-$$GOOS-$$GOARCH$$EXT"; \
+		echo "输出文件: $$OUTPUT_FILE"; \
+		echo "执行命令: GOOS=$$GOOS GOARCH=$$GOARCH go build -ldflags \"-s -w \" -o $$OUTPUT_FILE ."; \
+		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w  " -o "$$OUTPUT_FILE" .; \
+	done
+
+
 
 # Build backend with embedded frontend
 build-backend:
