@@ -51,6 +51,7 @@ func NewRepositoryStateMachine() *RepositoryStateMachine {
 		// 分析结果
 		{RepoStatusAnalyzing, RepoStatusCompleted},
 		{RepoStatusAnalyzing, RepoStatusError},
+		{RepoStatusAnalyzing, RepoStatusReady}, // 任务被取消/未完成时回到可执行态
 
 		// 错误恢复
 		{RepoStatusError, RepoStatusAnalyzing}, // 重新尝试
