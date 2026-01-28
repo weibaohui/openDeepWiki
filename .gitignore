@@ -5,7 +5,7 @@ backend/data/
 backend/config.yaml
 backend/tmp/
 backend/build-errors.log
-
+backend/internal/embed/dist
 # Frontend
 frontend/node_modules/
 frontend/dist/

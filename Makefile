@@ -2,16 +2,20 @@
 
 all: build
 
-# Build backend
+# Build backend with embedded frontend
 build-backend:
-	cd backend && go build -o bin/server .
+	@echo "Building frontend..."
+	cd frontend && npm run build
+	@echo "Building backend with embedded frontend..."
+	cd backend && go build -o bin/server ./cmd/server/
 
 # Build frontend
 build-frontend:
+	@echo "Building frontend..."
 	cd frontend && npm run build
 
 # Build all
-build: build-backend build-frontend
+build: build-frontend build-backend
 
 # Run backend
 run-backend:

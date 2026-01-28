@@ -4,6 +4,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/opendeepwiki/backend/config"
+	"github.com/opendeepwiki/backend/internal/embed"
 	"github.com/opendeepwiki/backend/internal/handler"
 )
 
@@ -64,6 +65,10 @@ func Setup(
 		api.GET("/config", configHandler.Get)
 		api.PUT("/config", configHandler.Update)
 	}
+
+	// 设置前端静态文件路由（嵌入式）
+	// 必须在API路由之后设置，确保API请求优先匹配
+	embed.SetupRouter(r)
 
 	return r
 }
