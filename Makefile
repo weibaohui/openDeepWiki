@@ -27,6 +27,7 @@ build: build-frontend prepare-embed build-backend cleanup-embed
 cleanup-embed:
 	@echo "Cleaning up embed directory..."
 	@rm -rf backend/internal/embed/ui/dist/*
+	@touch backend/internal/embed/ui/dist/.keep
 	@echo "Embed directory cleaned"
 
 # Run backend
