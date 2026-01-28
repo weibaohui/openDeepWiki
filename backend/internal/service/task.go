@@ -335,17 +335,21 @@ func (s *TaskService) ForceReset(taskID uint) error {
 	oldStatus := statemachine.TaskStatus(task.Status)
 	newStatus := statemachine.TaskStatusPending
 
-	// 如果是running状态，需要先转到canceled，然后再转到pending
-	if oldStatus == statemachine.TaskStatusRunning {
-		if err := s.taskStateMachine.Transition(oldStatus, statemachine.TaskStatusCanceled, taskID); err != nil {
-			klog.Warningf("任务状态迁移失败（running -> canceled）: taskID=%d, error=%v，继续强制重置", taskID, err)
+	// 如果是running或queued状态，需要先转到canceled，然后再转到pending
+	currentStatus := oldStatus
+	if currentStatus == statemachine.TaskStatusRunning || currentStatus == statemachine.TaskStatusQueued {
+		if err := s.taskStateMachine.Transition(currentStatus, statemachine.TaskStatusCanceled, taskID); err != nil {
+			klog.Warningf("任务状态迁移失败（%s -> canceled）: taskID=%d, error=%v，继续强制重置", currentStatus, taskID, err)
+		} else {
+			currentStatus = statemachine.TaskStatusCanceled
 		}
-		// 继续执行迁移到pending
 	}
 
-	// 使用状态机验证迁移
-	if err := s.taskStateMachine.Transition(newStatus, newStatus, taskID); err != nil {
-		klog.Warningf("任务状态迁移失败: taskID=%d, error=%v，继续强制重置", taskID, err)
+	// 使用状态机验证迁移到pending
+	if currentStatus != newStatus {
+		if err := s.taskStateMachine.Transition(currentStatus, newStatus, taskID); err != nil {
+			klog.Warningf("任务状态迁移失败（%s -> %s）: taskID=%d, error=%v，继续强制重置", currentStatus, newStatus, taskID, err)
+		}
 	}
 
 	// 删除关联的文档
