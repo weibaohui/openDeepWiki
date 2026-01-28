@@ -21,8 +21,8 @@ build-linux:
 		echo "构建平台: $$GOOS/$$GOARCH ..."; \
 		OUTPUT_FILE="backend/bin/$(BINARY_NAME)-$$GOOS-$$GOARCH$$EXT"; \
 		echo "输出文件: $$OUTPUT_FILE"; \
-		echo "执行命令: GOOS=$$GOOS GOARCH=$$GOARCH go build -ldflags \"-s -w \" -o $$OUTPUT_FILE ."; \
-		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w  " -o "$$OUTPUT_FILE" .; \
+		echo "执行命令: GOOS=$$GOOS GOARCH=$$GOARCH go build -ldflags \"-s -w \" -o $$OUTPUT_FILE ./cmd/server/"; \
+		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w  " -o "$$OUTPUT_FILE" ./cmd/server/; \
 	done
 
 
