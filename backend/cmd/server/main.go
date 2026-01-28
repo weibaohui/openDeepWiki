@@ -48,7 +48,6 @@ func main() {
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService)
 
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
@@ -56,6 +55,9 @@ func main() {
 	orchestrator.InitGlobalOrchestrator(2, taskExecutor)
 	taskService.SetOrchestrator(orchestrator.GetGlobalOrchestrator())
 	defer orchestrator.ShutdownGlobalOrchestrator()
+
+	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)
