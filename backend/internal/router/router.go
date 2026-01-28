@@ -43,15 +43,17 @@ func Setup(
 			repos.GET("/:id/documents/export", docHandler.Export)
 		}
 
-		tasks := api.Group("/tasks")
-		{
-			tasks.GET("/stuck", taskHandler.GetStuck)        // 获取卡住的任务
-			tasks.POST("/cleanup", taskHandler.CleanupStuck) // 清理卡住的任务
-			tasks.GET("/:id", taskHandler.Get)
-			tasks.POST("/:id/run", taskHandler.Run)
-			tasks.POST("/:id/reset", taskHandler.Reset)
-			tasks.POST("/:id/force-reset", taskHandler.ForceReset) // 强制重置
-		}
+	tasks := api.Group("/tasks")
+	{
+		tasks.GET("/status", taskHandler.GetOrchestratorStatus) // 获取编排器状态（新增）
+		tasks.GET("/stuck", taskHandler.GetStuck)              // 获取卡住的任务
+		tasks.POST("/cleanup", taskHandler.CleanupStuck)         // 清理卡住的任务
+		tasks.GET("/:id", taskHandler.Get)
+		tasks.POST("/:id/run", taskHandler.Run)
+		tasks.POST("/:id/enqueue", taskHandler.Enqueue) // 新增：提交任务到队列
+		tasks.POST("/:id/reset", taskHandler.Reset)
+		tasks.POST("/:id/force-reset", taskHandler.ForceReset) // 强制重置
+	}
 
 		docs := api.Group("/documents")
 		{

@@ -49,7 +49,10 @@
             "pending": "Pending",
             "running": "Running",
             "completed": "Completed",
-            "failed": "Failed"
+            "failed": "Failed",
+            "queued": "Queued",
+            "succeeded": "Succeeded",
+            "canceled": "Canceled"
         }
     },
     "settings": {

@@ -5,11 +5,14 @@ import (
 	"path/filepath"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/model"
 	"github.com/opendeepwiki/backend/internal/pkg/git"
 	"github.com/opendeepwiki/backend/internal/repository"
-	"k8s.io/klog/v2"
+	"github.com/opendeepwiki/backend/internal/service/orchestrator"
+	"github.com/opendeepwiki/backend/internal/service/statemachine"
 )
 
 type RepositoryService struct {
@@ -18,15 +21,23 @@ type RepositoryService struct {
 	taskRepo    repository.TaskRepository
 	docRepo     repository.DocumentRepository
 	taskService *TaskService
+
+	// 状态机
+	repoStateMachine *statemachine.RepositoryStateMachine
+
+	// 编排器
+	orchestrator *orchestrator.Orchestrator
 }
 
 func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService) *RepositoryService {
 	return &RepositoryService{
-		cfg:         cfg,
-		repoRepo:    repoRepo,
-		taskRepo:    taskRepo,
-		docRepo:     docRepo,
-		taskService: taskService,
+		cfg:              cfg,
+		repoRepo:         repoRepo,
+		taskRepo:         taskRepo,
+		docRepo:          docRepo,
+		taskService:      taskService,
+		repoStateMachine: statemachine.NewRepositoryStateMachine(),
+		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 	}
 }
 
@@ -34,52 +45,79 @@ type CreateRepoRequest struct {
 	URL string `json:"url" binding:"required"`
 }
 
+// Create 创建仓库并初始化任务
 func (s *RepositoryService) Create(req CreateRepoRequest) (*model.Repository, error) {
+	// 生成仓库名称和本地路径
 	repoName := git.ParseRepoName(req.URL)
 	localPath := filepath.Join(s.cfg.Data.RepoDir, repoName+"-"+fmt.Sprintf("%d", time.Now().Unix()))
 
+	// 创建仓库（初始状态为pending）
 	repo := &model.Repository{
 		Name:      repoName,
 		URL:       req.URL,
 		LocalPath: localPath,
-		Status:    "pending",
+		Status:    string(statemachine.RepoStatusPending),
 	}
 
 	if err := s.repoRepo.Create(repo); err != nil {
-		return nil, fmt.Errorf("failed to create repository: %w", err)
+		return nil, fmt.Errorf("创建仓库失败: %w", err)
 	}
 
+	klog.V(6).Infof("仓库创建成功: repoID=%d, name=%s, url=%s", repo.ID, repo.Name, repo.URL)
+
+	// 创建默认任务
 	for _, taskType := range model.TaskTypes {
 		task := &model.Task{
 			RepositoryID: repo.ID,
 			Type:         taskType.Type,
 			Title:        taskType.Title,
-			Status:       "pending",
+			Status:       string(statemachine.TaskStatusPending),
 			SortOrder:    taskType.SortOrder,
 		}
 		if err := s.taskRepo.Create(task); err != nil {
-			return nil, fmt.Errorf("failed to create task: %w", err)
+			return nil, fmt.Errorf("创建任务失败: %w", err)
 		}
+		klog.V(6).Infof("任务创建成功: taskID=%d, type=%s, title=%s", task.ID, task.Type, task.Title)
 	}
 
-	go s.cloneAndAnalyze(repo.ID)
+	// 异步克隆仓库
+	go s.cloneRepository(repo.ID)
 
 	return repo, nil
 }
 
-func (s *RepositoryService) cloneAndAnalyze(repoID uint) {
+// cloneRepository 克隆仓库
+// 状态迁移: pending -> cloning -> ready/error
+func (s *RepositoryService) cloneRepository(repoID uint) {
+	klog.V(6).Infof("开始克隆仓库: repoID=%d", repoID)
+
+	// 获取仓库
 	repo, err := s.repoRepo.GetBasic(repoID)
 	if err != nil {
 		klog.Errorf("获取仓库失败: repoID=%d, error=%v", repoID, err)
 		return
 	}
 
-	repo.Status = "cloning"
+	// 状态迁移: pending -> cloning
+	oldStatus := statemachine.RepositoryStatus(repo.Status)
+	newStatus := statemachine.RepoStatusCloning
+
+	// 使用状态机验证迁移
+	if err := s.repoStateMachine.Transition(oldStatus, newStatus, repoID); err != nil {
+		klog.Errorf("仓库状态迁移失败: repoID=%d, error=%v", repoID, err)
+		return
+	}
+
+	// 更新数据库状态
+	repo.Status = string(newStatus)
 	if err := s.repoRepo.Save(repo); err != nil {
 		klog.Errorf("更新仓库状态失败: repoID=%d, error=%v", repoID, err)
 		return
 	}
 
+	klog.V(6).Infof("仓库状态已更新为 cloning: repoID=%d", repoID)
+
+	// 执行克隆
 	err = git.Clone(git.CloneOptions{
 		URL:       repo.URL,
 		TargetDir: repo.LocalPath,
@@ -87,96 +125,157 @@ func (s *RepositoryService) cloneAndAnalyze(repoID uint) {
 	})
 
 	if err != nil {
-		repo.Status = "error"
-		repo.ErrorMsg = err.Error()
+		// 克隆失败，状态迁移: cloning -> error
+		repo.Status = string(statemachine.RepoStatusError)
+		repo.ErrorMsg = fmt.Sprintf("克隆失败: %v", err)
+
 		if err := s.repoRepo.Save(repo); err != nil {
 			klog.Errorf("更新仓库状态失败: repoID=%d, error=%v", repoID, err)
 		}
+
+		klog.Errorf("仓库克隆失败: repoID=%d, error=%v", repoID, err)
 		return
 	}
 
-	repo.Status = "ready"
+	// 克隆成功，状态迁移: cloning -> ready
+	repo.Status = string(statemachine.RepoStatusReady)
+	repo.ErrorMsg = ""
+
 	if err := s.repoRepo.Save(repo); err != nil {
 		klog.Errorf("更新仓库状态失败: repoID=%d, error=%v", repoID, err)
+		return
 	}
+
+	klog.V(6).Infof("仓库克隆成功，状态已更新为 ready: repoID=%d, localPath=%s", repoID, repo.LocalPath)
 }
 
+// List 获取所有仓库
 func (s *RepositoryService) List() ([]model.Repository, error) {
 	return s.repoRepo.List()
 }
 
+// Get 获取单个仓库（包含任务和文档）
 func (s *RepositoryService) Get(id uint) (*model.Repository, error) {
 	return s.repoRepo.Get(id)
 }
 
+// Delete 删除仓库
 func (s *RepositoryService) Delete(id uint) error {
+	// 获取仓库基本信息
 	repo, err := s.repoRepo.GetBasic(id)
 	if err != nil {
-		return err
+		return fmt.Errorf("获取仓库失败: %w", err)
 	}
 
+	// 删除本地仓库文件
 	if repo.LocalPath != "" {
-		git.RemoveRepo(repo.LocalPath)
+		klog.V(6).Infof("删除本地仓库: repoID=%d, localPath=%s", id, repo.LocalPath)
+		if err := git.RemoveRepo(repo.LocalPath); err != nil {
+			klog.Warningf("删除本地仓库失败: repoID=%d, error=%v", id, err)
+		}
 	}
 
+	// TODO 删除数据库记录（使用事务）
 	if err := s.docRepo.DeleteByRepositoryID(id); err != nil {
-		return err
+		return fmt.Errorf("删除文档失败: %w", err)
 	}
 	if err := s.taskRepo.DeleteByRepositoryID(id); err != nil {
-		return err
+		return fmt.Errorf("删除任务失败: %w", err)
 	}
-	return s.repoRepo.Delete(id)
+	if err := s.repoRepo.Delete(id); err != nil {
+		return fmt.Errorf("删除仓库失败: %w", err)
+	}
+
+	klog.V(6).Infof("仓库删除成功: repoID=%d", id)
+	return nil
 }
 
+// RunAllTasks 执行仓库的所有任务
+// 将所有pending任务提交到编排器队列
 func (s *RepositoryService) RunAllTasks(repoID uint) error {
+	klog.V(6).Infof("准备执行仓库的所有任务: repoID=%d", repoID)
+
+	// 获取仓库
 	repo, err := s.repoRepo.GetBasic(repoID)
 	if err != nil {
-		return err
+		return fmt.Errorf("获取仓库失败: %w", err)
 	}
 
-	if repo.Status != "ready" && repo.Status != "completed" {
-		return fmt.Errorf("repository not ready for analysis")
+	// 检查仓库状态
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if !statemachine.CanExecuteTasks(currentStatus) {
+		return fmt.Errorf("仓库状态不允许执行任务: current=%s", currentStatus)
 	}
 
-	repo.Status = "analyzing"
-	if err := s.repoRepo.Save(repo); err != nil {
-		return err
+	// 获取所有任务
+	tasks, err := s.taskRepo.GetByRepository(repoID)
+	if err != nil {
+		return fmt.Errorf("获取任务失败: %w", err)
 	}
 
-	go s.runTasksAsync(repoID)
+	// 筛选出pending状态的任务
+	var pendingTasks []*model.Task
+	for i := range tasks {
+		if tasks[i].Status == string(statemachine.TaskStatusPending) {
+			pendingTasks = append(pendingTasks, &tasks[i])
+		}
+	}
+
+	// 如果没有pending任务，直接返回
+	if len(pendingTasks) == 0 {
+		klog.V(6).Infof("仓库没有待执行的任务: repoID=%d", repoID)
+		return nil
+	}
+
+	klog.V(6).Infof("找到 %d 个待执行任务: repoID=%d", len(pendingTasks), repoID)
+
+	// 将所有pending任务提交到编排器队列
+	// 按sort_order顺序提交，保证执行顺序
+	jobs := make([]*orchestrator.Job, 0, len(pendingTasks))
+	for _, task := range pendingTasks {
+		job := orchestrator.NewTaskJob(task.ID, task.RepositoryID, 0)
+		jobs = append(jobs, job)
+	}
+
+	// 批量提交到编排器
+	if err := s.orchestrator.EnqueueBatch(jobs); err != nil {
+		return fmt.Errorf("批量提交任务失败: %w", err)
+	}
+
+	klog.V(6).Infof("成功提交 %d 个任务到编排器: repoID=%d", len(jobs), repoID)
 
 	return nil
 }
 
-func (s *RepositoryService) runTasksAsync(repoID uint) {
-	tasks, err := s.taskRepo.GetByRepository(repoID)
+// CloneRepository 手动触发克隆仓库（用于克隆失败的仓库）
+func (s *RepositoryService) CloneRepository(repoID uint) error {
+	repo, err := s.repoRepo.GetBasic(repoID)
 	if err != nil {
-		klog.Errorf("获取任务失败: repoID=%d, error=%v", repoID, err)
-		return
+		return fmt.Errorf("获取仓库失败: %w", err)
 	}
 
-	for _, task := range tasks {
-		if task.Status == "completed" {
-			continue
-		}
-		if err := s.taskService.Run(task.ID); err != nil {
-			break
-		}
+	// 只有pending或error状态的仓库可以重新克隆
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if currentStatus != statemachine.RepoStatusPending && currentStatus != statemachine.RepoStatusError {
+		return fmt.Errorf("仓库状态不允许重新克隆: current=%s", currentStatus)
 	}
 
-	// 统一使用 TaskService 中的 updateRepositoryStatus 更新最终状态
-	// 但 updateRepositoryStatus 是私有方法，这里需要 TaskService 提供一个公开方法来更新状态，
-	// 或者直接在 TaskService.Run 中已经更新了。
-	// 原代码中 RunAllTasks 最后也调用了 UpdateRepositoryStatus。
-	// TaskService.Run 最后会调用 updateRepositoryStatus。
-	// 但是如果所有任务都 skipped (completed), Run 不会被调用，状态可能不会更新？
-	// 检查 loop:
-	// for _, task := range tasks { if completed continue; ... Run ... }
-	// 如果所有都 completed，循环结束，没有调用 Run。
-	// 这种情况下，需要显式调用一次更新。
-	// 但 TaskService 没有公开 updateRepositoryStatus。
-	// 我们可以简单地再次调用 updateRepositoryStatus 逻辑，或者让 TaskService 公开它。
-	// 为了简单起见，且遵循单一职责，RepositoryService 应该可以负责更新状态？
-	// 不，状态逻辑在 TaskService 中已经有了。
-	// 最好在 TaskService 中添加 UpdateStatus(repoID) 方法。
+	// 先删除已存在的本地目录（如果有）
+	if repo.LocalPath != "" {
+		_ = git.RemoveRepo(repo.LocalPath)
+	}
+
+	// 重新生成路径
+	repoName := git.ParseRepoName(repo.URL)
+	repo.LocalPath = filepath.Join(s.cfg.Data.RepoDir, repoName+"-"+fmt.Sprintf("%d", time.Now().Unix()))
+
+	// 保存新路径
+	if err := s.repoRepo.Save(repo); err != nil {
+		return fmt.Errorf("更新仓库路径失败: %w", err)
+	}
+
+	// 异步克隆
+	go s.cloneRepository(repoID)
+
+	return nil
 }

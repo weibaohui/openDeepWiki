@@ -7,9 +7,9 @@ tmp_dir = "tmp"
 
 [build]
 # 构建命令
-cmd = "go build -o ./tmp/main ."
+cmd = "go build -o ./bin/server cmd/server/*.go"
 # 运行命令，添加 -v 6 启用 klog 详细日志
-bin = "./tmp/main -v 6"
+bin = "./bin/server -v 6"
 # 监听文件变化的延迟时间
 delay = 1000
 # 排除的目录

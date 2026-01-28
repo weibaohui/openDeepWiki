@@ -23,11 +23,11 @@ type Task struct {
 	RepositoryID uint       `json:"repository_id" gorm:"index;not null"`
 	Type         string     `json:"type" gorm:"size:50;not null"` // overview, architecture, api, business-flow, deployment
 	Title        string     `json:"title" gorm:"size:255"`
-	Status       string     `json:"status" gorm:"size:50;default:pending"` // pending, running, completed, failed
+	Status       string     `json:"status" gorm:"size:50;default:pending"` // pending, queued, running, succeeded, failed, canceled
 	ErrorMsg     string     `json:"error_msg" gorm:"size:1000"`
 	SortOrder    int        `json:"sort_order" gorm:"default:0"`
-	StartedAt    *time.Time `json:"started_at"`
-	CompletedAt  *time.Time `json:"completed_at"`
+	StartedAt    *time.Time `json:"started_at" gorm:"column:started_at"`
+	CompletedAt  *time.Time `json:"completed_at" gorm:"column:completed_at"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
