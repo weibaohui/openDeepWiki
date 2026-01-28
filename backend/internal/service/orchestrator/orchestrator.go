@@ -222,7 +222,10 @@ func (w *worker) processJob(job *Job) {
 		time.Sleep(time.Second * 2)
 
 		// 重新入队，等待下次调度
-		_ = w.orchestrator.EnqueueJob(job)
+		if err := w.orchestrator.EnqueueJob(job); err != nil {
+			klog.Errorf("重新入队任务失败: workerID=%d, taskID=%d, repoID=%d, error=%v",
+				w.id, job.TaskID, job.RepositoryID, err)
+		}
 		return
 	}
 	defer w.releaseRepoLock(job.RepositoryID)
