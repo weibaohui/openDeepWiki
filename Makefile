@@ -13,7 +13,7 @@ all: build
 
 # 为所有指定的平台和架构构建可执行文件
 .PHONY: build-linux
-build-linux:
+build-linux-cross:
 	@echo "为所有平台构建可执行文件..."
 	@mkdir -p backend/bin
 	@cd backend && ls -l &&for platform in $(LINUX_PLATFORMS); do \
@@ -25,7 +25,7 @@ build-linux:
 		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w  " -o "$$OUTPUT_FILE" ./cmd/server/; \
 	done
 
-
+build-linux: build-frontend prepare-embed build-linux-cross cleanup-embed
 
 # Build backend with embedded frontend
 build-backend:

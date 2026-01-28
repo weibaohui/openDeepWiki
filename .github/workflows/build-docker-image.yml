@@ -42,11 +42,10 @@ jobs:
           node-version: 22
           cache: "pnpm"
           cache-dependency-path: "frontend/pnpm-lock.yaml"
-      - name: 编译前端
+      - name: 初始化前端
         run: |
           cd frontend
           pnpm install
-          pnpm build
 
       - name: 设置go环境
         uses: actions/setup-go@v6
