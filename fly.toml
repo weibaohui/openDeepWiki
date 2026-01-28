@@ -1,0 +1,22 @@
+# fly.toml app configuration file generated for opendeepwiki on 2026-01-28T19:43:35+08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'opendeepwiki'
+primary_region = 'sin'
+
+[build]
+  image = "ghcr.io/weibaohui/opendeepwiki:latest"
+
+[http_service]
+  internal_port = 8080
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
