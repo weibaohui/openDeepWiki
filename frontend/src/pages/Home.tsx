@@ -37,10 +37,13 @@ export default function Home() {
 
     const fetchRepositories = async () => {
         try {
-            const { data } = await repositoryApi.list();
-            setRepositories(data);
+            const response = await repositoryApi.list();
+            // 确保 data 是一个数组
+            const repos = Array.isArray(response.data) ? response.data : [];
+            setRepositories(repos);
         } catch (error) {
             console.error('Failed to fetch repositories:', error);
+            setRepositories([]);
         } finally {
             setLoading(false);
         }
