@@ -8,7 +8,7 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/server /app/server
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
-    && apk upgrade && apk add --no-cache ca-certificates  \
+    && apk upgrade && apk add --no-cache git tzdata   ca-certificates  \
     && apk del alpine-conf && rm -rf /var/cache/* && chmod +x server
 
 #Server

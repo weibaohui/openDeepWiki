@@ -11,7 +11,7 @@ ARG TARGETARCH
 COPY backend/bin/${BINARY_NAME}-${TARGETOS}-${TARGETARCH} ${BINARY_NAME}
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
-    && apk upgrade && apk add --no-cache  tzdata   ca-certificates \
+    && apk upgrade && apk add --no-cache git tzdata   ca-certificates \
      && rm -rf /var/cache/* && chmod +x server
 
 EXPOSE 8080
