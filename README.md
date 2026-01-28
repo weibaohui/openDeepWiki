@@ -6,6 +6,12 @@
 
 openDeepWiki 是一个基于 AI 的代码仓库智能解读平台，能够自动分析任意 GitHub 代码仓库，并生成结构化的项目文档。通过结合静态代码分析和大语言模型（LLM），帮助开发者快速理解开源项目的架构、API 和业务流程。
 
+## 🌟 在线体验
+
+[https://opendeepwiki.fly.dev/](https://opendeepwiki.fly.dev/)
+
+无需安装配置，立即体验 openDeepWiki 的强大功能！
+
 ## 核心特性
 
 - 🚀 **一键分析**：输入 GitHub URL，自动克隆并解读代码仓库

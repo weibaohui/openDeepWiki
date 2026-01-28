@@ -6,6 +6,12 @@ English | [简体中文](./README.md)
 
 openDeepWiki is an AI-powered intelligent code repository analysis platform that automatically analyzes any GitHub repository and generates structured project documentation. By combining static code analysis with Large Language Models (LLM), it helps developers quickly understand the architecture, APIs, and business flows of open-source projects.
 
+## 🌟 Try It Online
+
+[https://opendeepwiki.fly.dev/](https://opendeepwiki.fly.dev/)
+
+Experience the powerful features of openDeepWiki immediately without installation or configuration!
+
 ## Key Features
 
 - 🚀 **One-Click Analysis**: Enter a GitHub URL to automatically clone and analyze the repository
