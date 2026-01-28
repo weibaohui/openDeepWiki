@@ -124,7 +124,7 @@ jobs:
         uses: superfly/flyctl-actions@v1
         with:
           args: >
-            deploy
+            deploy -a opendeepwiki-swbqow 
             --image ghcr.io/${{ github.repository }}:${{ github.sha }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
