@@ -9,6 +9,7 @@ backend/internal/embed/ui/dist
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/package-lock.json
 
 # IDE
 .idea/
