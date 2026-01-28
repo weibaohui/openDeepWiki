@@ -15,6 +15,10 @@ primary_region = 'sin'
   auto_start_machines = true
   min_machines_running = 0
 
+[mounts]
+  source = "data_volume"
+  destination = "/data"
+
 [[vm]]
   memory = '256mb'
   cpu_kind = 'shared'

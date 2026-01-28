@@ -96,6 +96,22 @@ func loadConfig() *Config {
 		config.LLM.Model = model
 	}
 
+	// 数据库环境变量
+	if dbType := os.Getenv("DB_TYPE"); dbType != "" {
+		config.Database.Type = dbType
+	}
+	if dbDSN := os.Getenv("DB_DSN"); dbDSN != "" {
+		config.Database.DSN = dbDSN
+	}
+
+	// 数据目录环境变量
+	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
+		config.Data.Dir = dataDir
+	}
+	if repoDir := os.Getenv("REPO_DIR"); repoDir != "" {
+		config.Data.RepoDir = repoDir
+	}
+
 	if config.Data.RepoDir == "" {
 		config.Data.RepoDir = filepath.Join(config.Data.Dir, "repos")
 	}
