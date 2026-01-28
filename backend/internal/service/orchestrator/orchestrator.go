@@ -137,6 +137,8 @@ func (o *Orchestrator) EnqueueJob(job *Job) error {
 		return nil
 	case <-o.ctx.Done():
 		return fmt.Errorf("orchestrator is stopped")
+	default:
+		return fmt.Errorf("task queue is full")
 	}
 }
 
