@@ -1,9 +1,7 @@
 FROM golang:alpine AS builder
 WORKDIR /app
-COPY backend/go.mod backend/go.sum /app/backend/
-RUN cd /app/backend && go mod download
 COPY . /app
-RUN cd /app/backend && CGO_ENABLED=0  go build -ldflags "-s -w  -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT  -X main.GitTag=$GIT_TAG  -X main.GitRepo=$GIT_REPOSITORY  " -o /app/server
+RUN cd /app/backend && go mod download && CGO_ENABLED=0  go build -ldflags "-s -w  -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT  -X main.GitTag=$GIT_TAG  -X main.GitRepo=$GIT_REPOSITORY  " -o /app/server
 
 FROM alpine:latest
 WORKDIR /app
