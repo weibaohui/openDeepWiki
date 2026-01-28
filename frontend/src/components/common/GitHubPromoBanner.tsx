@@ -1,6 +1,7 @@
 import React from 'react';
 import { StarOutlined, GithubOutlined, RocketOutlined } from '@ant-design/icons';
 import { Button, Space } from 'antd';
+import { useAppConfig } from '@/context/AppConfigContext';
 
 interface GitHubPromoBannerProps {
     repoUrl?: string;
@@ -11,6 +12,7 @@ const GitHubPromoBanner: React.FC<GitHubPromoBannerProps> = ({
     repoUrl = 'https://github.com/weibaohui/openDeepWiki',
     repoName = 'weibaohui/openDeepWiki'
 }) => {
+    const { t } = useAppConfig();
     return (
         <div
             style={{
@@ -39,10 +41,10 @@ const GitHubPromoBanner: React.FC<GitHubPromoBannerProps> = ({
                 <Space size="middle" align="center">
                     <RocketOutlined style={{ fontSize: '20px', color: '#fff' }} />
                     <span style={{ color: '#fff', fontSize: '16px', fontWeight: 600 }}>
-                        本项目为开源项目
+                        {t('banner.title')}
                     </span>
                     <span style={{ color: '#fff', fontSize: '14px', opacity: 0.9 }}>
-                        如果你觉得好用，请点亮小星星支持一下！
+                        {t('banner.description')}
                     </span>
                 </Space>
 

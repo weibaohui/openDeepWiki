@@ -74,5 +74,9 @@
         "light": "Light",
         "dark": "Dark",
         "system": "System"
+    },
+    "banner": {
+        "title": "This is an open source project",
+        "description": "If you find it useful, please give us a star!"
     }
 }
