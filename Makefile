@@ -9,7 +9,7 @@ build-backend:
 	@mkdir -p backend/bin
 	@cd backend && GOOS=$(shell go env GOOS) GOARCH=$(shell go env GOARCH) \
 	    CGO_ENABLED=0 go build -ldflags "-s -w  -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT)  -X main.GitTag=$(GIT_TAG)  -X main.GitRepo=$(GIT_REPOSITORY)   " \
-	    -o "backend/bin/server" ./cmd/server/
+	    -o "bin/server" ./cmd/server/
 # Build frontend
 build-frontend:
 	@echo "Building frontend..."
