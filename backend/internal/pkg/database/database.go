@@ -2,7 +2,7 @@ package database
 
 import (
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"github.com/opendeepwiki/backend/internal/model"
 )
@@ -14,6 +14,7 @@ func InitDB(dbType, dsn string) (*gorm.DB, error) {
 	case "mysql":
 		dialector = mysql.Open(dsn)
 	default:
+		// 使用 github.com/glebarez/sqlite 驱动
 		dialector = sqlite.Open(dsn)
 	}
 
