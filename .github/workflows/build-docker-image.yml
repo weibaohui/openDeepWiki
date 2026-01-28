@@ -51,8 +51,8 @@ jobs:
       - name: 设置go环境
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
-          cache-dependency-path: "go.sum"
+          go-version-file: "backend/go.mod"
+          cache-dependency-path: "backend/go.sum"
 
       - name: Set build time variable
         run: echo "BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV

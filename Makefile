@@ -6,11 +6,15 @@ all: build
 build-backend:
 	@echo "Building backend with embedded frontend..."
 	cd backend && go build -o bin/server ./cmd/server/
-
+	@echo "构建当前平台可执行文件..."
+	@mkdir -p backend/bin
+	@GOOS=$(shell go env GOOS) GOARCH=$(shell go env GOARCH) \
+	    CGO_ENABLED=0 go build -ldflags "-s -w  -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT)  -X main.GitTag=$(GIT_TAG)  -X main.GitRepo=$(GIT_REPOSITORY)  -X main.BuildDate=$(BUILD_DATE) -X main.InnerModel=$(MODEL) -X main.InnerApiKey=$(API_KEY) -X main.InnerApiUrl=$(API_URL) " \
+	    -o "backend/bin/server" .
 # Build frontend
 build-frontend:
 	@echo "Building frontend..."
-	cd frontend && npm run build
+	cd frontend && pnpm run build
 
 # Prepare embed directory (copy frontend dist to backend internal embed)
 prepare-embed:
@@ -36,7 +40,7 @@ run-backend:
 
 # Run frontend dev server
 run-frontend:
-	cd frontend && npm run dev
+	cd frontend && pnpm run dev
 
 # Development mode with air (hot reload)
 air:
@@ -52,7 +56,7 @@ dev:
 	@echo "Frontend: http://localhost:5173"
 	@trap 'kill 0' EXIT; \
 	cd backend && air & \
-	cd frontend && npm run dev
+	cd frontend && pnpm run dev
 
 # Clean build artifacts
 clean:
@@ -64,7 +68,7 @@ clean:
 # Setup - install dependencies
 setup:
 	cd backend && go mod tidy
-	cd frontend && npm install
+	cd frontend && pnpm install
 	@command -v air >/dev/null 2>&1 || { echo "Installing air..."; go install github.com/air-verse/air@latest; }
 
 # Initialize config
