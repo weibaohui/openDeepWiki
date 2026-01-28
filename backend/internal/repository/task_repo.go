@@ -55,7 +55,7 @@ func (r *taskRepository) CleanupStuckTasks(timeout time.Duration) (int64, error)
 func (r *taskRepository) CleanupStuckQueuedTasks(timeout time.Duration) (int64, error) {
 	cutoff := time.Now().Add(-timeout)
 	result := r.db.Model(&model.Task{}).
-		Where("status = ? AND created_at < ?", "queued", cutoff).
+		Where("status = ? AND updated_at < ?", "queued", cutoff).
 		Updates(map[string]interface{}{
 			"status":    "failed",
 			"error_msg": fmt.Sprintf("任务入队超时（超过 %v），已自动标记为失败", timeout),
