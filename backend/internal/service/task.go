@@ -61,6 +61,11 @@ func (s *TaskService) Enqueue(taskID, repositoryID uint, priority int) error {
 		return fmt.Errorf("获取任务失败: %w", err)
 	}
 
+	// 验证 repositoryID 是否匹配
+	if task.RepositoryID != repositoryID {
+		return fmt.Errorf("repository ID mismatch: expected %d, got %d", task.RepositoryID, repositoryID)
+	}
+
 	// 状态迁移: pending -> queued
 	oldStatus := statemachine.TaskStatus(task.Status)
 	newStatus := statemachine.TaskStatusQueued
@@ -68,6 +73,10 @@ func (s *TaskService) Enqueue(taskID, repositoryID uint, priority int) error {
 	// 如果任务已经在队列中，直接入队（用于服务重启恢复或重试），跳过状态迁移
 	if oldStatus == statemachine.TaskStatusQueued {
 		klog.V(6).Infof("任务已在队列中，重新入队: taskID=%d", taskID)
+		// 刷新任务更新时间
+		if err := s.taskRepo.Save(task); err != nil {
+			return fmt.Errorf("刷新任务时间失败: %w", err)
+		}
 	} else {
 		// 使用状态机验证迁移
 		if err := s.taskStateMachine.Transition(oldStatus, newStatus, taskID); err != nil {
@@ -82,7 +91,7 @@ func (s *TaskService) Enqueue(taskID, repositoryID uint, priority int) error {
 	}
 
 	// 提交到编排器
-	job := orchestrator.NewTaskJob(taskID, repositoryID, priority)
+	job := orchestrator.NewTaskJob(taskID, task.RepositoryID, priority)
 	if err := s.orchestrator.EnqueueJob(job); err != nil {
 		// 入队失败，只有在发生了状态迁移时才回滚状态
 		if oldStatus != statemachine.TaskStatusQueued {
