@@ -8,7 +8,6 @@ ENV TZ=Asia/Shanghai
 ARG TARGETOS
 ARG TARGETARCH
 
-ADD reload.sh reload.sh
 COPY backend/bin/${BINARY_NAME}-${TARGETOS}-${TARGETARCH} ${BINARY_NAME}
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
