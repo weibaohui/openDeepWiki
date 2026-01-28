@@ -108,7 +108,7 @@ func (e *InvalidStateTransitionError) Error() string {
 	return fmt.Sprintf("invalid task state transition: %s -> %s", e.From, e.To)
 }
 
-// IsTerminal 判断状态是否为终止态（不能再迁移）
+// IsTerminal 判断状态是否为终止态
 func IsTerminal(status TaskStatus) bool {
 	return status == TaskStatusSucceeded || status == TaskStatusFailed || status == TaskStatusCanceled
 }
