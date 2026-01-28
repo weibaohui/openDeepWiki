@@ -125,6 +125,6 @@ jobs:
         with:
           args: >
             deploy -a opendeepwiki 
-            --image ghcr.io/${{ github.repository }}:latest
+            --image ghcr.io/weibaohui/opendeepwiki:latest
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
