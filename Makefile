@@ -5,11 +5,10 @@ all: build
 # Build backend with embedded frontend
 build-backend:
 	@echo "Building backend with embedded frontend..."
-	cd backend && go build -o bin/server ./cmd/server/
 	@echo "构建当前平台可执行文件..."
 	@mkdir -p backend/bin
-	@GOOS=$(shell go env GOOS) GOARCH=$(shell go env GOARCH) \
-	    CGO_ENABLED=0 go build -ldflags "-s -w  -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT)  -X main.GitTag=$(GIT_TAG)  -X main.GitRepo=$(GIT_REPOSITORY)  -X main.BuildDate=$(BUILD_DATE) -X main.InnerModel=$(MODEL) -X main.InnerApiKey=$(API_KEY) -X main.InnerApiUrl=$(API_URL) " \
+	@cd backend && GOOS=$(shell go env GOOS) GOARCH=$(shell go env GOARCH) \
+	    CGO_ENABLED=0 go build -ldflags "-s -w  -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT)  -X main.GitTag=$(GIT_TAG)  -X main.GitRepo=$(GIT_REPOSITORY)  " \
 	    -o "backend/bin/server" .
 # Build frontend
 build-frontend:
