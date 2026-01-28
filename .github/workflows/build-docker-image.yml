@@ -120,11 +120,11 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:${{ steps.date.outputs.today }}
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:${{ env.GITHUB_REF_NAME }}
       - name: Deploy to Fly
-        if: startsWith(github.ref, 'refs/tags/v')
+        #if: startsWith(github.ref, 'refs/tags/v')
         uses: superfly/flyctl-actions@v1
         with:
           args: >
             deploy -a opendeepwiki 
-            --image ghcr.io/${{ github.repository }}:${{ github.sha }}
+            --image ghcr.io/${{ github.repository }}:latest
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
