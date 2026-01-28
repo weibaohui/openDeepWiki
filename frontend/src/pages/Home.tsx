@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
     PlusOutlined,
     DeleteOutlined,
-    ReloadOutlined,
     GithubOutlined,
     SettingOutlined,
     BookOutlined,
@@ -86,16 +85,6 @@ export default function Home() {
                 }
             }
         });
-    };
-
-    const handleRunAll = async (id: number, e: React.MouseEvent) => {
-        e.stopPropagation();
-        try {
-            await repositoryApi.runAll(id);
-            fetchRepositories();
-        } catch (error) {
-            console.error('Failed to run tasks:', error);
-        }
     };
 
     const getStatusDisplay = (status: string) => {
@@ -186,15 +175,6 @@ export default function Home() {
                                         actions={[
                                             <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/repo/${repo.id}`) }}>
                                                 {t('repository.enter_wiki', '进入知识库')} <RightOutlined />
-                                            </Button>,
-                                            <Button
-                                                type="text"
-                                                size="small"
-                                                onClick={(e) => handleRunAll(repo.id, e)}
-                                                disabled={!(repo.status === 'ready' || repo.status === 'completed')}
-                                                icon={<ReloadOutlined />}
-                                            >
-                                                {t('repository.rebuild', '重新分析')}
                                             </Button>,
                                             <Button
                                                 type="text"

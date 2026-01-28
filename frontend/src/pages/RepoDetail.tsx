@@ -157,8 +157,8 @@ export default function RepoDetail() {
                         </Button>
                     )}
                     {(repository.status === 'ready' || repository.status === 'completed') && (
-                        <Button type="primary" onClick={handleRunAll} icon={<PlayCircleOutlined />}>
-                            {t('repository.run_all')}
+                        <Button type="primary" onClick={handleRunAll} icon={<ReloadOutlined />}>
+                            {t('repository.rebuild', '重新分析')}
                         </Button>
                     )}
                 </Space>
