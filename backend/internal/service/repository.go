@@ -23,7 +23,8 @@ type RepositoryService struct {
 	taskService *TaskService
 
 	// 状态机
-	repoStateMachine *statemachine.RepositoryStateMachine
+	repoStateMachine  *statemachine.RepositoryStateMachine
+	taskStateMachine *statemachine.TaskStateMachine
 
 	// 编排器
 	orchestrator *orchestrator.Orchestrator
@@ -37,6 +38,7 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		docRepo:          docRepo,
 		taskService:      taskService,
 		repoStateMachine: statemachine.NewRepositoryStateMachine(),
+		taskStateMachine:  statemachine.NewTaskStateMachine(),
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 	}
 }
@@ -229,8 +231,28 @@ func (s *RepositoryService) RunAllTasks(repoID uint) error {
 
 	klog.V(6).Infof("找到 %d 个待执行任务: repoID=%d", len(pendingTasks), repoID)
 
-	// 将所有pending任务提交到编排器队列
-	// 按sort_order顺序提交，保证执行顺序
+	// 先将所有pending任务状态更新为queued，然后提交到编排器队列
+	// 按sort_order顺序处理，保证执行顺序
+	for _, task := range pendingTasks {
+		// 状态迁移: pending -> queued
+		oldStatus := statemachine.TaskStatus(task.Status)
+		newStatus := statemachine.TaskStatusQueued
+
+		// 使用状态机验证迁移
+		if err := s.taskStateMachine.Transition(oldStatus, newStatus, task.ID); err != nil {
+			klog.Errorf("任务状态迁移失败: taskID=%d, error=%v", task.ID, err)
+			return fmt.Errorf("任务状态迁移失败: taskID=%d, %w", task.ID, err)
+		}
+
+		// 更新数据库状态
+		task.Status = string(newStatus)
+		if err := s.taskRepo.Save(task); err != nil {
+			klog.Errorf("更新任务状态失败: taskID=%d, error=%v", task.ID, err)
+			return fmt.Errorf("更新任务状态失败: taskID=%d, %w", task.ID, err)
+		}
+	}
+
+	// 将所有queued任务提交到编排器队列
 	jobs := make([]*orchestrator.Job, 0, len(pendingTasks))
 	for _, task := range pendingTasks {
 		job := orchestrator.NewTaskJob(task.ID, task.RepositoryID, 0)
