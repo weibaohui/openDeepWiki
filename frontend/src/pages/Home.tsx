@@ -13,6 +13,7 @@ import {
     CheckCircleOutlined,
     LoadingOutlined,
     WarningOutlined,
+    FileTextOutlined,
 } from '@ant-design/icons';
 import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid } from 'antd';
 import type { Repository } from '../types';
@@ -124,6 +125,9 @@ export default function Home() {
                         {screens.sm && <Title level={4} style={{ margin: 0 }}>openDeepWiki</Title>}
                     </div>
                     <Space size={screens.md ? 'middle' : 'small'}>
+                        <Button type="text" icon={<FileTextOutlined />} onClick={() => navigate('/templates')}>
+                            {screens.md && 'Templates'}
+                        </Button>
                         <LanguageSwitcher />
                         <ThemeSwitcher />
                         <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/config')} />

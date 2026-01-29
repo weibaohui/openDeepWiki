@@ -44,10 +44,16 @@ func main() {
 	repoRepo := repository.NewRepoRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
 	docRepo := repository.NewDocumentRepository(db)
+	templateRepo := repository.NewTemplateRepository(db)
+	chapterRepo := repository.NewChapterRepository(db)
+	docTemplateRepo := repository.NewDocTemplateRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
+	templateService := service.NewTemplateService(templateRepo)
+	chapterService := service.NewChapterService(chapterRepo, templateRepo)
+	docTemplateService := service.NewDocTemplateService(docTemplateRepo, chapterRepo)
 
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
@@ -64,12 +70,18 @@ func main() {
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docService)
 	configHandler := handler.NewConfigHandler(cfg)
+	templateHandler := handler.NewDocumentTemplateHandler(templateService, chapterService, docTemplateService)
+
+	// 初始化预置模板数据
+	if err := service.InitDefaultTemplates(db); err != nil {
+		log.Printf("Failed to initialize default templates: %v", err)
+	}
 
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler)
 
 	log.Printf("Server starting on port %s...", cfg.Server.Port)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {

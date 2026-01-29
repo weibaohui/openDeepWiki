@@ -1,10 +1,10 @@
 package database
 
 import (
-	"gorm.io/driver/mysql"
 	"github.com/glebarez/sqlite"
-	"gorm.io/gorm"
 	"github.com/opendeepwiki/backend/internal/model"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 func InitDB(dbType, dsn string) (*gorm.DB, error) {
@@ -26,6 +26,8 @@ func InitDB(dbType, dsn string) (*gorm.DB, error) {
 	if err := db.AutoMigrate(&model.Repository{}, &model.Task{}, &model.Document{}); err != nil {
 		return nil, err
 	}
-
+	if err := db.AutoMigrate(&model.DocumentTemplate{}, &model.TemplateChapter{}, &model.TemplateDocument{}); err != nil {
+		return nil, err
+	}
 	return db, nil
 }

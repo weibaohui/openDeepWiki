@@ -51,3 +51,34 @@ export interface Config {
 }
 
 export type ThemeMode = 'default' | 'dark' | 'compact';
+
+// 文档模板类型
+export interface DocumentTemplate {
+    id: number;
+    key: string;
+    name: string;
+    description: string;
+    is_system: boolean;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface TemplateChapter {
+    id: number;
+    title: string;
+    sort_order: number;
+    documents: TemplateDocument[];
+}
+
+export interface TemplateDocument {
+    id: number;
+    title: string;
+    filename: string;
+    content_prompt: string;
+    sort_order: number;
+}
+
+export interface TemplateDetail extends DocumentTemplate {
+    chapters: TemplateChapter[];
+}
