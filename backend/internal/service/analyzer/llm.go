@@ -26,7 +26,7 @@ func (a *LLMAnalyzer) Analyze(ctx context.Context, req AnalyzeRequest) (string, 
 	systemPrompt := getSystemPrompt(req.TaskType)
 	userPrompt := buildUserPrompt(req)
 
-	return a.client.GenerateDocument(ctx, systemPrompt, userPrompt)
+	return a.client.GenerateDocumentWithTools(ctx, systemPrompt, userPrompt, llm.DefaultTools(), "/tmp")
 }
 
 func getSystemPrompt(taskType string) string {
