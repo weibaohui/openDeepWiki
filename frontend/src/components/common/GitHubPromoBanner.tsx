@@ -16,11 +16,10 @@ const GitHubPromoBanner: React.FC<GitHubPromoBannerProps> = ({
     return (
         <div
             style={{
-                position: 'fixed',
+                position: 'sticky',
                 top: 0,
-                left: 0,
-                right: 0,
                 zIndex: 9999,
+                width: '100%',
                 background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
                 padding: '12px 24px',
                 boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)',

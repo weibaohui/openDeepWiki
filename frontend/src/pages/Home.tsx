@@ -110,141 +110,141 @@ export default function Home() {
     return (
         <>
             <GitHubPromoBanner />
-            <Layout style={{ minHeight: '100vh', paddingTop: '60px' }}>
+            <Layout style={{ minHeight: '100vh' }}>
                 <Header style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 24px',
-                background: 'var(--ant-color-bg-container)',
-                borderBottom: '1px solid var(--ant-color-border-secondary)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => navigate('/')}>
-                    <BookOutlined style={{ fontSize: '24px', marginRight: '8px', color: 'var(--ant-color-primary)' }} />
-                    <Title level={4} style={{ margin: 0 }}>openDeepWiki</Title>
-                </div>
-                <Space>
-                    <LanguageSwitcher />
-                    <ThemeSwitcher />
-                    <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/config')} />
-                </Space>
-            </Header>
-
-            <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <Title level={2} style={{ margin: 0 }}>{t('repository.list_title', 'Repositories')}</Title>
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 24px',
+                    background: 'var(--ant-color-bg-container)',
+                    borderBottom: '1px solid var(--ant-color-border-secondary)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => navigate('/')}>
+                        <BookOutlined style={{ fontSize: '24px', marginRight: '8px', color: 'var(--ant-color-primary)' }} />
+                        <Title level={4} style={{ margin: 0 }}>openDeepWiki</Title>
                     </div>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAddModal(true)}>
-                        {t('repository.add')}
-                    </Button>
-                </div>
+                    <Space>
+                        <LanguageSwitcher />
+                        <ThemeSwitcher />
+                        <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/config')} />
+                    </Space>
+                </Header>
 
-                {repositories.length > 0 && (
-                    <Input
-                        prefix={<SearchOutlined />}
-                        placeholder={t('common.search', 'Search repositories...')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ marginBottom: '24px', maxWidth: '400px' }}
-                    />
-                )}
-
-                {loading ? (
-                    <div style={{ textAlign: 'center', padding: '50px' }}>
-                        <Spin size="large" />
-                        <div style={{ marginTop: '16px' }}>{t('common.loading_data', 'Loading repositories...')}</div>
+                <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+                    <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <Title level={2} style={{ margin: 0 }}>{t('repository.list_title', 'Repositories')}</Title>
+                        </div>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAddModal(true)}>
+                            {t('repository.add')}
+                        </Button>
                     </div>
-                ) : filteredRepositories.length === 0 ? (
-                    <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={searchQuery ? t('common.no_results', 'No matching repositories found') : t('repository.no_repos')}
+
+                    {repositories.length > 0 && (
+                        <Input
+                            prefix={<SearchOutlined />}
+                            placeholder={t('common.search', 'Search repositories...')}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{ marginBottom: '24px', maxWidth: '400px' }}
+                        />
+                    )}
+
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '50px' }}>
+                            <Spin size="large" />
+                            <div style={{ marginTop: '16px' }}>{t('common.loading_data', 'Loading repositories...')}</div>
+                        </div>
+                    ) : filteredRepositories.length === 0 ? (
+                        <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description={searchQuery ? t('common.no_results', 'No matching repositories found') : t('repository.no_repos')}
+                        >
+                            {!searchQuery && (
+                                <Button type="primary" onClick={() => setShowAddModal(true)}>
+                                    {t('repository.add')}
+                                </Button>
+                            )}
+                        </Empty>
+                    ) : (
+                        <List
+                            grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 3 }}
+                            dataSource={filteredRepositories}
+                            renderItem={(repo) => {
+                                const statusInfo = getStatusDisplay(repo.status);
+                                return (
+                                    <List.Item>
+                                        <Card
+                                            hoverable
+                                            onClick={() => navigate(`/repo/${repo.id}`)}
+                                            actions={[
+                                                <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/repo/${repo.id}`) }}>
+                                                    {t('repository.enter_wiki', '进入知识库')} <RightOutlined />
+                                                </Button>,
+                                                <Button
+                                                    type="text"
+                                                    danger
+                                                    size="small"
+                                                    onClick={(e) => handleDelete(repo.id, e)}
+                                                    icon={<DeleteOutlined />}
+                                                >
+                                                    {t('common.delete')}
+                                                </Button>
+                                            ]}
+                                        >
+                                            <Card.Meta
+                                                avatar={<BookOutlined style={{ fontSize: 24, color: 'var(--ant-color-primary)' }} />}
+                                                title={
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }} title={repo.name}>{repo.name}</span>
+                                                        <Tag icon={statusInfo.icon} color={statusInfo.color}>{statusInfo.label}</Tag>
+                                                    </div>
+                                                }
+                                                description={
+                                                    <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+                                                            <ClockCircleOutlined style={{ marginRight: 4 }} />
+                                                            {new Date(repo.created_at).toLocaleDateString()}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+                                                            <GithubOutlined style={{ marginRight: 4 }} />
+                                                            <span title={repo.url} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                                                                {repo.url.replace('https://github.com/', '')}
+                                                            </span>
+                                                        </div>
+                                                        {repo.error_msg && (
+                                                            <Text type="danger" style={{ fontSize: '12px' }}>
+                                                                <WarningOutlined /> {repo.error_msg}
+                                                            </Text>
+                                                        )}
+                                                    </Space>
+                                                }
+                                            />
+                                        </Card>
+                                    </List.Item>
+                                );
+                            }}
+                        />
+                    )}
+
+                    <Modal
+                        title={t('repository.add')}
+                        open={showAddModal}
+                        onCancel={() => setShowAddModal(false)}
+                        onOk={handleAddRepository}
+                        confirmLoading={adding}
                     >
-                        {!searchQuery && (
-                            <Button type="primary" onClick={() => setShowAddModal(true)}>
-                                {t('repository.add')}
-                            </Button>
-                        )}
-                    </Empty>
-                ) : (
-                    <List
-                        grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 3 }}
-                        dataSource={filteredRepositories}
-                        renderItem={(repo) => {
-                            const statusInfo = getStatusDisplay(repo.status);
-                            return (
-                                <List.Item>
-                                    <Card
-                                        hoverable
-                                        onClick={() => navigate(`/repo/${repo.id}`)}
-                                        actions={[
-                                            <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/repo/${repo.id}`) }}>
-                                                {t('repository.enter_wiki', '进入知识库')} <RightOutlined />
-                                            </Button>,
-                                            <Button
-                                                type="text"
-                                                danger
-                                                size="small"
-                                                onClick={(e) => handleDelete(repo.id, e)}
-                                                icon={<DeleteOutlined />}
-                                            >
-                                                {t('common.delete')}
-                                            </Button>
-                                        ]}
-                                    >
-                                        <Card.Meta
-                                            avatar={<BookOutlined style={{ fontSize: 24, color: 'var(--ant-color-primary)' }} />}
-                                            title={
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }} title={repo.name}>{repo.name}</span>
-                                                    <Tag icon={statusInfo.icon} color={statusInfo.color}>{statusInfo.label}</Tag>
-                                                </div>
-                                            }
-                                            description={
-                                                <Space direction="vertical" style={{ width: '100%' }} size={4}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
-                                                        <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                                        {new Date(repo.created_at).toLocaleDateString()}
-                                                    </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
-                                                        <GithubOutlined style={{ marginRight: 4 }} />
-                                                        <span title={repo.url} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                                                            {repo.url.replace('https://github.com/', '')}
-                                                        </span>
-                                                    </div>
-                                                    {repo.error_msg && (
-                                                        <Text type="danger" style={{ fontSize: '12px' }}>
-                                                            <WarningOutlined /> {repo.error_msg}
-                                                        </Text>
-                                                    )}
-                                                </Space>
-                                            }
-                                        />
-                                    </Card>
-                                </List.Item>
-                            );
-                        }}
-                    />
-                )}
-
-                <Modal
-                    title={t('repository.add')}
-                    open={showAddModal}
-                    onCancel={() => setShowAddModal(false)}
-                    onOk={handleAddRepository}
-                    confirmLoading={adding}
-                >
-                    <Paragraph>{t('repository.add_hint')}</Paragraph>
-                    <Input
-                        prefix={<GithubOutlined />}
-                        placeholder="https://github.com/username/repo"
-                        value={newRepoUrl}
-                        onChange={(e) => setNewRepoUrl(e.target.value)}
-                        onPressEnter={handleAddRepository}
-                    />
-                </Modal>
-            </Content>
-        </Layout>
+                        <Paragraph>{t('repository.add_hint')}</Paragraph>
+                        <Input
+                            prefix={<GithubOutlined />}
+                            placeholder="https://github.com/username/repo"
+                            value={newRepoUrl}
+                            onChange={(e) => setNewRepoUrl(e.target.value)}
+                            onPressEnter={handleAddRepository}
+                        />
+                    </Modal>
+                </Content>
+            </Layout>
         </>
     );
 }
