@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/opendeepwiki/backend/internal/pkg/llm"
+	"k8s.io/klog/v2"
 )
 
 type LLMAnalyzer struct {
@@ -25,8 +26,9 @@ type AnalyzeRequest struct {
 func (a *LLMAnalyzer) Analyze(ctx context.Context, req AnalyzeRequest) (string, error) {
 	systemPrompt := getSystemPrompt(req.TaskType)
 	userPrompt := buildUserPrompt(req)
-
-	return a.client.GenerateDocumentWithTools(ctx, systemPrompt, userPrompt, llm.DefaultTools(), "/tmp")
+	//获取配置RepoDir目录
+	klog.V(6).Infof("Analyze ProjectInfo.Path: %s", req.ProjectInfo.Path)
+	return a.client.GenerateDocumentWithTools(ctx, systemPrompt, userPrompt, llm.DefaultTools(), req.ProjectInfo.Path)
 }
 
 func getSystemPrompt(taskType string) string {
