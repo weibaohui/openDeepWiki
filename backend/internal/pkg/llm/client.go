@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// Client LLM 客户端
 type Client struct {
 	BaseURL   string
 	APIKey    string
@@ -18,43 +19,7 @@ type Client struct {
 	Client    *http.Client
 }
 
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type ChatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
-	Temperature float64       `json:"temperature,omitempty"`
-}
-
-type ChatResponse struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	Model   string `json:"model"`
-	Choices []struct {
-		Index   int `json:"index"`
-		Message struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		} `json:"message"`
-		FinishReason string `json:"finish_reason"`
-	} `json:"choices"`
-	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
-	} `json:"usage"`
-	Error *struct {
-		Message string `json:"message"`
-		Type    string `json:"type"`
-		Code    string `json:"code"`
-	} `json:"error,omitempty"`
-}
-
+// NewClient 创建新的 LLM 客户端
 func NewClient(baseURL, apiKey, model string, maxTokens int) *Client {
 	return &Client{
 		BaseURL:   baseURL,
@@ -67,22 +32,129 @@ func NewClient(baseURL, apiKey, model string, maxTokens int) *Client {
 	}
 }
 
+// Chat 发送对话请求（基础版本，向后兼容）
 func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
-	reqBody := ChatRequest{
+	resp, err := c.sendRequest(ctx, ChatRequest{
 		Model:       c.Model,
 		Messages:    messages,
 		MaxTokens:   c.MaxTokens,
 		Temperature: 0.7,
+	})
+	if err != nil {
+		return "", err
 	}
 
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("no response from LLM")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
+// ChatWithTools 发送带 Tools 的对话请求
+func (c *Client) ChatWithTools(ctx context.Context, messages []ChatMessage, tools []Tool) (*ChatResponse, error) {
+	return c.sendRequest(ctx, ChatRequest{
+		Model:       c.Model,
+		Messages:    messages,
+		Tools:       tools,
+		ToolChoice:  "auto", // 允许模型自动选择是否使用工具
+		MaxTokens:   c.MaxTokens,
+		Temperature: 0.7,
+	})
+}
+
+// ChatWithToolExecution 发送对话请求并自动处理 Tool Calls
+// 这个方法会处理多轮工具调用，直到获得最终文本响应
+func (c *Client) ChatWithToolExecution(ctx context.Context, messages []ChatMessage, tools []Tool, basePath string) (string, error) {
+	executor := NewSafeExecutor(basePath, nil)
+	return c.ChatWithToolExecutionAndExecutor(ctx, messages, tools, executor)
+}
+
+// ChatWithToolExecutionAndExecutor 使用自定义执行器处理 Tool Calls
+func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages []ChatMessage, tools []Tool, executor ToolExecutor) (string, error) {
+	maxRounds := 10
+
+	for round := 0; round < maxRounds; round++ {
+		// 发送请求到 LLM
+		resp, err := c.ChatWithTools(ctx, messages, tools)
+		if err != nil {
+			return "", fmt.Errorf("LLM request failed: %w", err)
+		}
+
+		// 检查是否有错误
+		if resp.Error != nil {
+			return "", fmt.Errorf("API error: %s", resp.Error.Message)
+		}
+
+		if len(resp.Choices) == 0 {
+			return "", fmt.Errorf("no response from LLM")
+		}
+
+		choice := resp.Choices[0]
+		message := choice.Message
+
+		// 如果没有 Tool Calls，直接返回内容
+		if len(message.ToolCalls) == 0 {
+			return message.Content, nil
+		}
+
+		// 添加 assistant 的响应到消息历史
+		messages = append(messages, ChatMessage{
+			Role:      "assistant",
+			Content:   message.Content,
+			ToolCalls: message.ToolCalls,
+		})
+
+		// 执行所有 Tool Calls
+		for _, toolCall := range message.ToolCalls {
+			// 执行工具
+			result, err := executor.Execute(ctx, toolCall)
+			content := result.Content
+			if err != nil {
+				content = fmt.Sprintf("Error executing tool: %v", err)
+				result.IsError = true
+			}
+
+			// 添加 tool 结果到消息历史
+			messages = append(messages, ChatMessage{
+				Role:       "tool",
+				ToolCallID: toolCall.ID,
+				Content:    content,
+			})
+		}
+	}
+
+	return "", fmt.Errorf("exceeded maximum tool call rounds (%d)", maxRounds)
+}
+
+// GenerateDocument 生成文档（向后兼容）
+func (c *Client) GenerateDocument(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	messages := []ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPrompt},
+	}
+	return c.Chat(ctx, messages)
+}
+
+// GenerateDocumentWithTools 使用工具生成文档
+func (c *Client) GenerateDocumentWithTools(ctx context.Context, systemPrompt, userPrompt string, tools []Tool, basePath string) (string, error) {
+	messages := []ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPrompt},
+	}
+	return c.ChatWithToolExecution(ctx, messages, tools, basePath)
+}
+
+// sendRequest 发送 HTTP 请求到 LLM API
+func (c *Client) sendRequest(ctx context.Context, reqBody ChatRequest) (*ChatResponse, error) {
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -90,35 +162,23 @@ func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, erro
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	var chatResp ChatResponse
 	if err := json.Unmarshal(body, &chatResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if chatResp.Error != nil {
-		return "", fmt.Errorf("API error: %s", chatResp.Error.Message)
+		return nil, fmt.Errorf("API error: %s", chatResp.Error.Message)
 	}
 
-	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("no response from LLM")
-	}
-
-	return chatResp.Choices[0].Message.Content, nil
-}
-
-func (c *Client) GenerateDocument(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
-	messages := []ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: userPrompt},
-	}
-	return c.Chat(ctx, messages)
+	return &chatResp, nil
 }
