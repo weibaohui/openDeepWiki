@@ -232,89 +232,72 @@ make init-config      # 初始化配置文件
 ## 系统架构
 ```mermaid
 flowchart TB
-    %% ======================
+
     %% 外部系统
-    %% ======================
     subgraph EXT[外部系统]
-        GitRepo[代码仓库<br/>GitHub / GitLab / Gitee]
+        GitRepo[代码仓库\nGitHub / GitLab / Gitee]
         User[用户 / 开发者]
     end
 
-    %% ======================
-    %% 触发 & 接入层
-    %% ======================
-    subgraph L1[代码仓库接入 & 触发层]
+    %% 代码接入与触发层
+    subgraph L1[代码仓库接入与触发层]
         Importer[仓库导入器]
-        BranchMgr[分支 & 主分支管理]
+        BranchMgr[分支与主分支管理]
         Webhook[Webhook 触发器]
         Syncer[代码同步器]
     end
 
-    %% ======================
-    %% 数据 & 版本层
-    %% ======================
-    subgraph L2[代码版本 & 数据层]
-        CodeSnapshot[代码快照<br/>(Repo + Branch + Commit)]
-        DiffAnalyzer[Commit Diff 分析器]
-        MetaDB[(元数据存储<br/>Repo / Branch / Commit / Tag)]
+    %% 版本与数据层
+    subgraph L2[代码版本与数据层]
+        CodeSnapshot[代码快照\nRepo + Branch + Commit]
+        DiffAnalyzer[Commit 差异分析器]
+        MetaDB[(元数据存储\nRepo / Branch / Commit / Tag)]
     end
 
-    %% ======================
     %% 代码理解层
-    %% ======================
-    subgraph L3[代码解析 & 结构化分析层]
-        RepoScanner[仓库预处理分析器<br/>(结构 / 技术栈 / 入口)]
-        ASTParser[AST / 语义解析器]
+    subgraph L3[代码解析与结构化分析层]
+        RepoScanner[仓库预处理分析\n结构 技术栈 入口]
+        ASTParser[AST 与语义解析器]
         APIParser[API 专项解析器]
         DBParser[数据库结构解析器]
         FEParser[前端组件解析器]
         StructStore[(结构化分析结果存储)]
     end
 
-    %% ======================
-    %% AI 编排层（核心）
-    %% ======================
-    subgraph L4[AI 编排 & 文档生成核心层]
-        TOCGen[目录生成器<br/>(TOC Generator)]
-        UserTOCExt[用户目录扩展<br/>(命题式调查)]
+    %% AI 编排与生成核心层
+    subgraph L4[AI 编排与文档生成核心层]
+        TOCGen[目录生成器\nTOC Generator]
+        UserTOCExt[用户目录扩展\n命题式调查]
         TaskPlanner[文档任务拆解器]
-        DocWriter[文档生成器<br/>(Markdown + Mermaid)]
-        Reviewer[一致性校对 / 回顾分析]
+        DocWriter[文档生成器\nMarkdown 与 Mermaid]
+        Reviewer[一致性校对与回顾分析]
         Incremental[增量更新处理器]
     end
 
-    %% ======================
-    %% 文档 & 知识层
-    %% ======================
-    subgraph L5[文档 & 知识资产层]
-        DocStore[(文档库<br/>多版本 / 多语言)]
-        MermaidStore[(流程图 / 架构图)]
-        BadgeSvc[状态徽标服务<br/>(Badge API)]
+    %% 文档与知识资产层
+    subgraph L5[文档与知识资产层]
+        DocStore[(文档库\n多版本 多语言)]
+        MermaidStore[(流程图与架构图)]
+        BadgeSvc[状态徽标服务\nBadge API]
     end
 
-    %% ======================
-    %% 智能问答层
-    %% ======================
+    %% 智能问答器
     subgraph L6[智能问答器]
         Embedding[内容向量化]
         VectorDB[(向量数据库)]
-        QAChat[问答聊天框]
-        FAQGen[高频问题整理<br/>→ 目录反哺]
+        QAChat[问答引擎]
+        FAQGen[高频问题整理\n反向生成目录]
     end
 
-    %% ======================
-    %% 前端展示层
-    %% ======================
-    subgraph L7[前端 / 交互层]
-        DocUI[文档浏览<br/>(多语言 / 多版本)]
+    %% 前端交互层
+    subgraph L7[前端与交互层]
+        DocUI[文档浏览\n多语言 多版本]
         TOCEditor[目录编辑器]
-        MermaidUI[流程图编辑 / 预览]
-        ChatUI[智能问答 UI]
+        MermaidUI[流程图编辑与预览]
+        ChatUI[智能问答界面]
     end
 
-    %% ======================
-    %% 数据流
-    %% ======================
+    %% 数据流关系
     GitRepo --> Importer
     Importer --> BranchMgr
     BranchMgr --> Syncer
@@ -353,18 +336,17 @@ flowchart TB
 
     DocStore --> BadgeSvc
 
-    %% ======================
     %% 前端连接
-    %% ======================
     User --> DocUI
-    User --> ChatUI
     User --> TOCEditor
     User --> MermaidUI
+    User --> ChatUI
 
     DocUI --> DocStore
     TOCEditor --> TOCGen
     MermaidUI --> MermaidStore
     ChatUI --> QAChat
+
 ```
 
 
