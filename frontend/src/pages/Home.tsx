@@ -14,7 +14,7 @@ import {
     LoadingOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty } from 'antd';
+import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid } from 'antd';
 import type { Repository } from '../types';
 import { repositoryApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -24,10 +24,12 @@ import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function Home() {
     const { t } = useAppConfig();
     const navigate = useNavigate();
+    const screens = useBreakpoint();
     const [repositories, setRepositories] = useState<Repository[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);

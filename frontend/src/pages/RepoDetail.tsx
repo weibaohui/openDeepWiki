@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message } from 'antd';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -10,11 +10,13 @@ import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function RepoDetail() {
     const { t } = useAppConfig();
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const screens = useBreakpoint();
     const [repository, setRepository] = useState<Repository | null>(null);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [documents, setDocuments] = useState<Document[]>([]);

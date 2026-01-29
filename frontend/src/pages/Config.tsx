@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
-import { Button, Input, Card, Form, Spin, Layout, Typography, Space, message, InputNumber } from 'antd';
+import { Button, Input, Card, Form, Spin, Layout, Typography, Space, message, InputNumber, Grid } from 'antd';
 import { configApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
@@ -9,6 +9,7 @@ import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 interface ConfigFormValues {
     llm_api_url: string;
@@ -21,6 +22,7 @@ interface ConfigFormValues {
 export default function ConfigPage() {
     const { t } = useAppConfig();
     const navigate = useNavigate();
+    const screens = useBreakpoint();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [form] = Form.useForm<ConfigFormValues>();
