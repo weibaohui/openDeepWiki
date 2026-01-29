@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 // Client LLM 客户端
@@ -34,6 +36,7 @@ func NewClient(baseURL, apiKey, model string, maxTokens int) *Client {
 
 // Chat 发送对话请求（基础版本，向后兼容）
 func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
+	klog.V(6).Infof("Chat 请求: model=%s, messages=%d", c.Model, len(messages))
 	resp, err := c.sendRequest(ctx, ChatRequest{
 		Model:       c.Model,
 		Messages:    messages,
@@ -53,6 +56,7 @@ func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, erro
 
 // ChatWithTools 发送带 Tools 的对话请求
 func (c *Client) ChatWithTools(ctx context.Context, messages []ChatMessage, tools []Tool) (*ChatResponse, error) {
+	klog.V(6).Infof("ChatWithTools 请求: model=%s, messages=%d, tools=%d", c.Model, len(messages), len(tools))
 	return c.sendRequest(ctx, ChatRequest{
 		Model:       c.Model,
 		Messages:    messages,
@@ -72,9 +76,11 @@ func (c *Client) ChatWithToolExecution(ctx context.Context, messages []ChatMessa
 
 // ChatWithToolExecutionAndExecutor 使用自定义执行器处理 Tool Calls
 func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages []ChatMessage, tools []Tool, executor ToolExecutor) (string, error) {
-	maxRounds := 10
+	klog.V(6).Infof("开始 ChatWithToolExecution: messages=%d, tools=%d", len(messages), len(tools))
+	maxRounds := 100
 
 	for round := 0; round < maxRounds; round++ {
+		klog.V(6).Infof("Tool执行循环: round=%d/%d", round+1, maxRounds)
 		// 发送请求到 LLM
 		resp, err := c.ChatWithTools(ctx, messages, tools)
 		if err != nil {
@@ -95,9 +101,12 @@ func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages 
 
 		// 如果没有 Tool Calls，直接返回内容
 		if len(message.ToolCalls) == 0 {
+			klog.V(6).Infof("LLM 返回文本响应，对话结束")
 			return message.Content, nil
 		}
 
+		klog.V(6).Infof("LLM 返回工具调用: count=%d", len(message.ToolCalls))
+		klog.V(6).Infof("调用详情%v",message.ToolCalls)
 		// 添加 assistant 的响应到消息历史
 		messages = append(messages, ChatMessage{
 			Role:      "assistant",
@@ -114,6 +123,7 @@ func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages 
 				content = fmt.Sprintf("Error executing tool: %v", err)
 				result.IsError = true
 			}
+			klog.V(6).Infof("工具执行结果%s ",content)
 
 			// 添加 tool 结果到消息历史
 			messages = append(messages, ChatMessage{
@@ -147,6 +157,9 @@ func (c *Client) GenerateDocumentWithTools(ctx context.Context, systemPrompt, us
 
 // sendRequest 发送 HTTP 请求到 LLM API
 func (c *Client) sendRequest(ctx context.Context, reqBody ChatRequest) (*ChatResponse, error) {
+	url := c.BaseURL + "/chat/completions"
+	klog.V(6).Infof("发送 LLM 请求: url=%s, model=%s", url, reqBody.Model)
+
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
