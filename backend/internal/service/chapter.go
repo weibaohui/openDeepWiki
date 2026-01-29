@@ -15,7 +15,7 @@ var (
 
 // CreateChapterRequest 创建章节请求
 type CreateChapterRequest struct {
-	TemplateID uint   `json:"template_id" binding:"required"`
+	TemplateID uint   `json:"-"` // 从 URL 参数获取，不接收 JSON
 	Title      string `json:"title" binding:"required,min=1,max=100"`
 	SortOrder  int    `json:"sort_order"`
 }

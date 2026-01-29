@@ -15,7 +15,7 @@ var (
 
 // CreateDocTemplateRequest 创建文档请求
 type CreateDocTemplateRequest struct {
-	ChapterID     uint   `json:"chapter_id" binding:"required"`
+	ChapterID     uint   `json:"-"` // 从 URL 参数获取，不接收 JSON
 	Title         string `json:"title" binding:"required,min=1,max=100"`
 	Filename      string `json:"filename" binding:"required,min=1,max=100"`
 	ContentPrompt string `json:"content_prompt"`
