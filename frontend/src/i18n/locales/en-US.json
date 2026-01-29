@@ -8,7 +8,12 @@
         "delete": "Delete",
         "edit": "Edit",
         "create": "Create",
-        "search": "Search"
+        "search": "Search",
+        "back": "Back",
+        "yes": "Yes",
+        "no": "No",
+        "required": "Required",
+        "actions": "Actions"
     },
     "nav": {
         "home": "Home",
@@ -74,6 +79,61 @@
         "light": "Light",
         "dark": "Dark",
         "system": "System"
+    },
+    "template": {
+        "title": "Document Template Manager",
+        "list": "Templates",
+        "structure": "Template Structure",
+        "new_template": "New Template",
+        "new_chapter": "Add Chapter",
+        "new_document": "Add Document",
+        "edit_template": "Edit Template",
+        "edit_chapter": "Edit Chapter",
+        "edit_document": "Edit Document",
+        "clone_template": "Clone Template",
+        "delete_template": "Delete Template",
+        "delete_chapter": "Delete Chapter",
+        "delete_document": "Delete Document",
+        "delete_template_confirm": "Are you sure you want to delete this template?",
+        "delete_chapter_confirm": "Are you sure you want to delete this chapter? All documents in this chapter will be deleted.",
+        "delete_document_confirm": "Are you sure you want to delete this document?",
+        "system_template": "System Template",
+        "key": "Key",
+        "name": "Name",
+        "description": "Description",
+        "sort_order": "Sort Order",
+        "filename": "Filename",
+        "content_prompt": "Content Prompt",
+        "placeholder": {
+            "key": "e.g., my-template",
+            "name": "e.g., My Template",
+            "description": "Template description",
+            "chapter_title": "e.g., Architecture Analysis",
+            "document_title": "e.g., Data Architecture",
+            "filename": "e.g., data_architecture.md",
+            "content_prompt": "Prompt for LLM to generate content"
+        },
+        "actions": {
+            "view": "View",
+            "edit": "Edit",
+            "clone": "Clone",
+            "delete": "Delete"
+        },
+        "errors": {
+            "key_exists": "Template key already exists",
+            "system_delete": "System templates cannot be deleted",
+            "fetch_failed": "Failed to fetch templates",
+            "create_failed": "Failed to create",
+            "update_failed": "Failed to update",
+            "delete_failed": "Failed to delete",
+            "clone_failed": "Failed to clone"
+        },
+        "success": {
+            "created": "Created successfully",
+            "updated": "Updated successfully",
+            "deleted": "Deleted successfully",
+            "cloned": "Cloned successfully"
+        }
     },
     "banner": {
         "title": "This is an open source project",

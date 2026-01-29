@@ -24,14 +24,19 @@ import {
     Typography,
     Layout,
     Descriptions,
+    Grid,
+    Row,
+    Col,
 } from 'antd';
 import type { DocumentTemplate, TemplateDetail, TemplateChapter, TemplateDocument } from '../types';
 import { templateApi } from '../services/api';
+import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { confirm } = Modal;
+const { useBreakpoint } = Grid;
 
 // 树节点类型
 type TreeNode = {
@@ -44,6 +49,8 @@ type TreeNode = {
 
 export default function TemplateManager() {
     const navigate = useNavigate();
+    const { t } = useAppConfig();
+    const screens = useBreakpoint();
     const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState<TemplateDetail | null>(null);
     const [loading, setLoading] = useState(false);
@@ -75,7 +82,7 @@ export default function TemplateManager() {
             const response = await templateApi.list();
             setTemplates(response.data.data || []);
         } catch (error) {
-            message.error('Failed to fetch templates');
+            message.error(t('template.errors.fetch_failed'));
         } finally {
             setLoading(false);
         }
@@ -88,7 +95,7 @@ export default function TemplateManager() {
             setSelectedTemplate(detail);
             buildTreeData(detail);
         } catch (error) {
-            message.error('Failed to fetch template detail');
+            message.error(t('template.errors.fetch_failed'));
         }
     };
 
@@ -118,15 +125,15 @@ export default function TemplateManager() {
     const handleCreateTemplate = async (values: any) => {
         try {
             await templateApi.create(values);
-            message.success('Template created successfully');
+            message.success(t('template.success.created'));
             setIsTemplateModalOpen(false);
             templateForm.resetFields();
             fetchTemplates();
         } catch (error: any) {
             if (error.response?.status === 409) {
-                message.error('Template key already exists');
+                message.error(t('template.errors.key_exists'));
             } else {
-                message.error('Failed to create template');
+                message.error(t('template.errors.create_failed'));
             }
         }
     };
@@ -135,7 +142,7 @@ export default function TemplateManager() {
         if (!editingTemplate) return;
         try {
             await templateApi.update(editingTemplate.id, values);
-            message.success('Template updated successfully');
+            message.success(t('template.success.updated'));
             setIsTemplateModalOpen(false);
             templateForm.resetFields();
             setEditingTemplate(null);
@@ -144,23 +151,23 @@ export default function TemplateManager() {
                 fetchTemplateDetail(editingTemplate.id);
             }
         } catch (error) {
-            message.error('Failed to update template');
+            message.error(t('template.errors.update_failed'));
         }
     };
 
     const handleDeleteTemplate = (id: number, isSystem: boolean) => {
         if (isSystem) {
-            message.error('System templates cannot be deleted');
+            message.error(t('template.errors.system_delete'));
             return;
         }
         confirm({
-            title: 'Delete Template',
+            title: t('template.delete_template'),
             icon: <ExclamationCircleFilled />,
-            content: 'Are you sure you want to delete this template?',
+            content: t('template.delete_template_confirm'),
             onOk: async () => {
                 try {
                     await templateApi.delete(id);
-                    message.success('Template deleted successfully');
+                    message.success(t('template.success.deleted'));
                     fetchTemplates();
                     if (selectedTemplate?.id === id) {
                         setSelectedTemplate(null);
@@ -168,9 +175,9 @@ export default function TemplateManager() {
                     }
                 } catch (error: any) {
                     if (error.response?.status === 403) {
-                        message.error('System templates cannot be deleted');
+                        message.error(t('template.errors.system_delete'));
                     } else {
-                        message.error('Failed to delete template');
+                        message.error(t('template.errors.delete_failed'));
                     }
                 }
             },
@@ -181,16 +188,16 @@ export default function TemplateManager() {
         if (!cloneSourceId) return;
         try {
             await templateApi.clone(cloneSourceId, values.key);
-            message.success('Template cloned successfully');
+            message.success(t('template.success.cloned'));
             setIsCloneModalOpen(false);
             cloneForm.resetFields();
             setCloneSourceId(null);
             fetchTemplates();
         } catch (error: any) {
             if (error.response?.status === 409) {
-                message.error('Template key already exists');
+                message.error(t('template.errors.key_exists'));
             } else {
-                message.error('Failed to clone template');
+                message.error(t('template.errors.clone_failed'));
             }
         }
     };
@@ -200,12 +207,12 @@ export default function TemplateManager() {
         if (!selectedTemplate) return;
         try {
             await templateApi.createChapter(selectedTemplate.id, values);
-            message.success('Chapter created successfully');
+            message.success(t('template.success.created'));
             setIsChapterModalOpen(false);
             chapterForm.resetFields();
             fetchTemplateDetail(selectedTemplate.id);
         } catch (error) {
-            message.error('Failed to create chapter');
+            message.error(t('template.errors.create_failed'));
         }
     };
 
@@ -213,7 +220,7 @@ export default function TemplateManager() {
         if (!editingChapter) return;
         try {
             await templateApi.updateChapter(editingChapter.id, values);
-            message.success('Chapter updated successfully');
+            message.success(t('template.success.updated'));
             setIsChapterModalOpen(false);
             chapterForm.resetFields();
             setEditingChapter(null);
@@ -221,24 +228,24 @@ export default function TemplateManager() {
                 fetchTemplateDetail(selectedTemplate.id);
             }
         } catch (error) {
-            message.error('Failed to update chapter');
+            message.error(t('template.errors.update_failed'));
         }
     };
 
     const handleDeleteChapter = (id: number) => {
         confirm({
-            title: 'Delete Chapter',
+            title: t('template.delete_chapter'),
             icon: <ExclamationCircleFilled />,
-            content: 'Are you sure you want to delete this chapter? All documents in this chapter will be deleted.',
+            content: t('template.delete_chapter_confirm'),
             onOk: async () => {
                 try {
                     await templateApi.deleteChapter(id);
-                    message.success('Chapter deleted successfully');
+                    message.success(t('template.success.deleted'));
                     if (selectedTemplate) {
                         fetchTemplateDetail(selectedTemplate.id);
                     }
                 } catch (error) {
-                    message.error('Failed to delete chapter');
+                    message.error(t('template.errors.delete_failed'));
                 }
             },
         });
@@ -249,7 +256,7 @@ export default function TemplateManager() {
         if (!parentChapterId) return;
         try {
             await templateApi.createDocument(parentChapterId, values);
-            message.success('Document created successfully');
+            message.success(t('template.success.created'));
             setIsDocumentModalOpen(false);
             documentForm.resetFields();
             setParentChapterId(null);
@@ -257,7 +264,7 @@ export default function TemplateManager() {
                 fetchTemplateDetail(selectedTemplate.id);
             }
         } catch (error) {
-            message.error('Failed to create document');
+            message.error(t('template.errors.create_failed'));
         }
     };
 
@@ -265,7 +272,7 @@ export default function TemplateManager() {
         if (!editingDocument) return;
         try {
             await templateApi.updateDocument(editingDocument.id, values);
-            message.success('Document updated successfully');
+            message.success(t('template.success.updated'));
             setIsDocumentModalOpen(false);
             documentForm.resetFields();
             setEditingDocument(null);
@@ -273,24 +280,24 @@ export default function TemplateManager() {
                 fetchTemplateDetail(selectedTemplate.id);
             }
         } catch (error) {
-            message.error('Failed to update document');
+            message.error(t('template.errors.update_failed'));
         }
     };
 
     const handleDeleteDocument = (id: number) => {
         confirm({
-            title: 'Delete Document',
+            title: t('template.delete_document'),
             icon: <ExclamationCircleFilled />,
-            content: 'Are you sure you want to delete this document?',
+            content: t('template.delete_document_confirm'),
             onOk: async () => {
                 try {
                     await templateApi.deleteDocument(id);
-                    message.success('Document deleted successfully');
+                    message.success(t('template.success.deleted'));
                     if (selectedTemplate) {
                         fetchTemplateDetail(selectedTemplate.id);
                     }
                 } catch (error) {
-                    message.error('Failed to delete document');
+                    message.error(t('template.errors.delete_failed'));
                 }
             },
         });
@@ -356,39 +363,39 @@ export default function TemplateManager() {
     // 表格列定义
     const columns = [
         {
-            title: 'Name',
+            title: t('template.name'),
             dataIndex: 'name',
             key: 'name',
             render: (text: string, record: DocumentTemplate) => (
                 <Space>
                     <span>{text}</span>
-                    {record.is_system && <Tag color="blue">System</Tag>}
+                    {record.is_system && <Tag color="blue">{t('template.system_template')}</Tag>}
                 </Space>
             ),
         },
         {
-            title: 'Key',
+            title: t('template.key'),
             dataIndex: 'key',
             key: 'key',
         },
         {
-            title: 'Description',
+            title: t('template.description'),
             dataIndex: 'description',
             key: 'description',
             ellipsis: true,
         },
         {
-            title: 'Actions',
+            title: t('common.actions'),
             key: 'actions',
-            width: 200,
+            width: screens.md ? 200 : 120,
             render: (_: any, record: DocumentTemplate) => (
-                <Space>
+                <Space size="small" wrap>
                     <Button
                         type="link"
                         size="small"
                         onClick={() => fetchTemplateDetail(record.id)}
                     >
-                        View
+                        {screens.md ? t('template.actions.view') : <EditOutlined />}
                     </Button>
                     <Button
                         type="link"
@@ -396,7 +403,7 @@ export default function TemplateManager() {
                         icon={<EditOutlined />}
                         onClick={() => openEditTemplateModal(record)}
                     >
-                        Edit
+                        {screens.md && t('template.actions.edit')}
                     </Button>
                     <Button
                         type="link"
@@ -404,7 +411,7 @@ export default function TemplateManager() {
                         icon={<CopyOutlined />}
                         onClick={() => openCloneModal(record.id)}
                     >
-                        Clone
+                        {screens.md && t('template.actions.clone')}
                     </Button>
                     <Button
                         type="link"
@@ -414,7 +421,7 @@ export default function TemplateManager() {
                         icon={<DeleteOutlined />}
                         onClick={() => handleDeleteTemplate(record.id, record.is_system)}
                     >
-                        Delete
+                        {screens.md && t('template.actions.delete')}
                     </Button>
                 </Space>
             ),
@@ -446,7 +453,7 @@ export default function TemplateManager() {
                                 openCreateDocumentModal((node.data as TemplateChapter).id);
                             }}
                         >
-                            Add Doc
+                            {screens.md && t('template.new_document')}
                         </Button>
                     )}
                     {(isChapter || isDocument) && (
@@ -491,7 +498,7 @@ export default function TemplateManager() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '0 24px',
+                padding: screens.md ? '0 24px' : '0 12px',
                 background: 'var(--ant-color-bg-container)',
                 borderBottom: '1px solid var(--ant-color-border-secondary)',
             }}>
@@ -501,75 +508,86 @@ export default function TemplateManager() {
                         icon={<ArrowLeftOutlined />}
                         onClick={() => navigate('/')}
                     >
-                        Back
+                        {screens.md && t('common.back')}
                     </Button>
-                    <Title level={4} style={{ margin: 0 }}>Document Template Manager</Title>
+                    <Title level={4} style={{ margin: 0, fontSize: screens.md ? '20px' : '16px' }}>
+                        {t('template.title')}
+                    </Title>
                 </Space>
                 <Button
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={openCreateTemplateModal}
+                    size={screens.md ? 'middle' : 'small'}
                 >
-                    New Template
+                    {t('template.new_template')}
                 </Button>
             </Header>
 
-            <Content style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', gap: '24px' }}>
+            <Content style={{ padding: screens.md ? '24px' : '12px' }}>
+                <Row gutter={[16, 16]}>
                     {/* 左侧模板列表 */}
-                    <Card title="Templates" style={{ width: '60%' }} loading={loading}>
-                        <Table
-                            dataSource={templates}
-                            columns={columns}
-                            rowKey="id"
-                            pagination={false}
-                            size="small"
-                        />
-                    </Card>
+                    <Col xs={24} lg={16}>
+                        <Card title={t('template.list')} loading={loading}>
+                            <Table
+                                dataSource={templates}
+                                columns={columns}
+                                rowKey="id"
+                                pagination={false}
+                                size="small"
+                                scroll={{ x: 'max-content' }}
+                            />
+                        </Card>
+                    </Col>
 
                     {/* 右侧模板详情 */}
-                    <Card
-                        title="Template Structure"
-                        style={{ width: '40%' }}
-                        extra={selectedTemplate && (
-                            <Button
-                                type="primary"
-                                size="small"
-                                icon={<PlusOutlined />}
-                                onClick={openCreateChapterModal}
-                            >
-                                Add Chapter
-                            </Button>
-                        )}
-                    >
-                        {selectedTemplate ? (
-                            <>
-                                <Descriptions column={1} size="small" style={{ marginBottom: 16 }}>
-                                    <Descriptions.Item label="Name">{selectedTemplate.name}</Descriptions.Item>
-                                    <Descriptions.Item label="Key">{selectedTemplate.key}</Descriptions.Item>
-                                    <Descriptions.Item label="System">
-                                        {selectedTemplate.is_system ? <Tag color="blue">Yes</Tag> : <Tag>No</Tag>}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label="Description">
-                                        {selectedTemplate.description || '-'}
-                                    </Descriptions.Item>
-                                </Descriptions>
-                                <Tree
-                                    treeData={treeData}
-                                    titleRender={renderTreeTitle}
-                                    defaultExpandAll
-                                />
-                            </>
-                        ) : (
-                            <Text type="secondary">Select a template to view details</Text>
-                        )}
-                    </Card>
-                </div>
+                    <Col xs={24} lg={8}>
+                        <Card
+                            title={t('template.structure')}
+                            extra={selectedTemplate && (
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<PlusOutlined />}
+                                    onClick={openCreateChapterModal}
+                                >
+                                    {t('template.new_chapter')}
+                                </Button>
+                            )}
+                        >
+                            {selectedTemplate ? (
+                                <>
+                                    <Descriptions column={1} size="small" style={{ marginBottom: 16 }}>
+                                        <Descriptions.Item label={t('template.name')}>
+                                            {selectedTemplate.name}
+                                        </Descriptions.Item>
+                                        <Descriptions.Item label={t('template.key')}>
+                                            {selectedTemplate.key}
+                                        </Descriptions.Item>
+                                        <Descriptions.Item label={t('template.system_template')}>
+                                            {selectedTemplate.is_system ? <Tag color="blue">{t('common.yes')}</Tag> : <Tag>{t('common.no')}</Tag>}
+                                        </Descriptions.Item>
+                                        <Descriptions.Item label={t('template.description')}>
+                                            {selectedTemplate.description || '-'}
+                                        </Descriptions.Item>
+                                    </Descriptions>
+                                    <Tree
+                                        treeData={treeData}
+                                        titleRender={renderTreeTitle}
+                                        defaultExpandAll
+                                    />
+                                </>
+                            ) : (
+                                <Text type="secondary">{t('template.select_hint') || 'Select a template to view details'}</Text>
+                            )}
+                        </Card>
+                    </Col>
+                </Row>
             </Content>
 
             {/* 模板模态框 */}
             <Modal
-                title={editingTemplate ? 'Edit Template' : 'Create Template'}
+                title={editingTemplate ? t('template.edit_template') : t('template.new_template')}
                 open={isTemplateModalOpen}
                 onCancel={() => setIsTemplateModalOpen(false)}
                 onOk={() => templateForm.submit()}
@@ -581,28 +599,28 @@ export default function TemplateManager() {
                 >
                     {!editingTemplate && (
                         <Form.Item
-                            label="Key"
+                            label={t('template.key')}
                             name="key"
-                            rules={[{ required: true, message: 'Please input template key' }]}
+                            rules={[{ required: true, message: t('common.required') }]}
                         >
-                            <Input placeholder="e.g., my-template" />
+                            <Input placeholder={t('template.placeholder.key')} />
                         </Form.Item>
                     )}
                     <Form.Item
-                        label="Name"
+                        label={t('template.name')}
                         name="name"
-                        rules={[{ required: true, message: 'Please input template name' }]}
+                        rules={[{ required: true, message: t('common.required') }]}
                     >
-                        <Input placeholder="e.g., My Template" />
+                        <Input placeholder={t('template.placeholder.name')} />
                     </Form.Item>
                     <Form.Item
-                        label="Description"
+                        label={t('template.description')}
                         name="description"
                     >
-                        <TextArea rows={3} placeholder="Template description" />
+                        <TextArea rows={3} placeholder={t('template.placeholder.description')} />
                     </Form.Item>
                     <Form.Item
-                        label="Sort Order"
+                        label={t('template.sort_order')}
                         name="sort_order"
                         initialValue={0}
                     >
@@ -613,7 +631,7 @@ export default function TemplateManager() {
 
             {/* 克隆模态框 */}
             <Modal
-                title="Clone Template"
+                title={t('template.clone_template')}
                 open={isCloneModalOpen}
                 onCancel={() => setIsCloneModalOpen(false)}
                 onOk={() => cloneForm.submit()}
@@ -624,18 +642,18 @@ export default function TemplateManager() {
                     onFinish={handleCloneTemplate}
                 >
                     <Form.Item
-                        label="New Key"
+                        label={t('template.key')}
                         name="key"
-                        rules={[{ required: true, message: 'Please input new template key' }]}
+                        rules={[{ required: true, message: t('common.required') }]}
                     >
-                        <Input placeholder="e.g., cloned-template" />
+                        <Input placeholder={t('template.placeholder.key')} />
                     </Form.Item>
                 </Form>
             </Modal>
 
             {/* 章节模态框 */}
             <Modal
-                title={editingChapter ? 'Edit Chapter' : 'Create Chapter'}
+                title={editingChapter ? t('template.edit_chapter') : t('template.new_chapter')}
                 open={isChapterModalOpen}
                 onCancel={() => setIsChapterModalOpen(false)}
                 onOk={() => chapterForm.submit()}
@@ -646,14 +664,14 @@ export default function TemplateManager() {
                     onFinish={editingChapter ? handleUpdateChapter : handleCreateChapter}
                 >
                     <Form.Item
-                        label="Title"
+                        label={t('template.name')}
                         name="title"
-                        rules={[{ required: true, message: 'Please input chapter title' }]}
+                        rules={[{ required: true, message: t('common.required') }]}
                     >
-                        <Input placeholder="e.g., Architecture Analysis" />
+                        <Input placeholder={t('template.placeholder.chapter_title')} />
                     </Form.Item>
                     <Form.Item
-                        label="Sort Order"
+                        label={t('template.sort_order')}
                         name="sort_order"
                         initialValue={0}
                     >
@@ -664,7 +682,7 @@ export default function TemplateManager() {
 
             {/* 文档模态框 */}
             <Modal
-                title={editingDocument ? 'Edit Document' : 'Create Document'}
+                title={editingDocument ? t('template.edit_document') : t('template.new_document')}
                 open={isDocumentModalOpen}
                 onCancel={() => setIsDocumentModalOpen(false)}
                 onOk={() => documentForm.submit()}
@@ -676,30 +694,30 @@ export default function TemplateManager() {
                     onFinish={editingDocument ? handleUpdateDocument : handleCreateDocument}
                 >
                     <Form.Item
-                        label="Title"
+                        label={t('template.name')}
                         name="title"
-                        rules={[{ required: true, message: 'Please input document title' }]}
+                        rules={[{ required: true, message: t('common.required') }]}
                     >
-                        <Input placeholder="e.g., Data Architecture" />
+                        <Input placeholder={t('template.placeholder.document_title')} />
                     </Form.Item>
                     <Form.Item
-                        label="Filename"
+                        label={t('template.filename')}
                         name="filename"
-                        rules={[{ required: true, message: 'Please input filename' }]}
+                        rules={[{ required: true, message: t('common.required') }]}
                     >
-                        <Input placeholder="e.g., data_architecture.md" />
+                        <Input placeholder={t('template.placeholder.filename')} />
                     </Form.Item>
                     <Form.Item
-                        label="Content Prompt"
+                        label={t('template.content_prompt')}
                         name="content_prompt"
                     >
                         <TextArea
                             rows={4}
-                            placeholder="Prompt for LLM to generate document content"
+                            placeholder={t('template.placeholder.content_prompt')}
                         />
                     </Form.Item>
                     <Form.Item
-                        label="Sort Order"
+                        label={t('template.sort_order')}
                         name="sort_order"
                         initialValue={0}
                     >
