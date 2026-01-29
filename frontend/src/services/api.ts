@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, Config } from '../types';
+import type { Repository, Task, Document, Config, DocumentTemplate, TemplateDetail, TemplateChapter, TemplateDocument } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -40,6 +40,29 @@ export const documentApi = {
 export const configApi = {
     get: () => api.get<Config>('/config'),
     update: (config: Partial<Config>) => api.put('/config', config),
+};
+
+// Document Template APIs
+export const templateApi = {
+    list: () => api.get<{ data: DocumentTemplate[] }>('/document-templates'),
+    get: (id: number) => api.get<{ data: TemplateDetail }>(`/document-templates/${id}`),
+    create: (data: { key: string; name: string; description?: string; sort_order?: number }) =>
+        api.post<{ data: DocumentTemplate }>('/document-templates', data),
+    update: (id: number, data: { name: string; description?: string; sort_order?: number }) =>
+        api.put<{ data: DocumentTemplate }>(`/document-templates/${id}`, data),
+    delete: (id: number) => api.delete(`/document-templates/${id}`),
+    clone: (id: number, key: string) =>
+        api.post<{ data: DocumentTemplate }>(`/document-templates/${id}/clone`, { key }),
+    createChapter: (templateId: number, data: { title: string; sort_order?: number }) =>
+        api.post<{ data: TemplateChapter }>(`/document-templates/${templateId}/chapters`, data),
+    updateChapter: (id: number, data: { title: string; sort_order?: number }) =>
+        api.put<{ data: TemplateChapter }>(`/chapters/${id}`, data),
+    deleteChapter: (id: number) => api.delete(`/chapters/${id}`),
+    createDocument: (chapterId: number, data: { title: string; filename: string; content_prompt?: string; sort_order?: number }) =>
+        api.post<{ data: TemplateDocument }>(`/chapters/${chapterId}/documents`, data),
+    updateDocument: (id: number, data: { title: string; filename: string; content_prompt?: string; sort_order?: number }) =>
+        api.put<{ data: TemplateDocument }>(`/template-documents/${id}`, data),
+    deleteDocument: (id: number) => api.delete(`/template-documents/${id}`),
 };
 
 export default api;

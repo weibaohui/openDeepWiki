@@ -1,10 +1,14 @@
 package repository
 
 import (
+	"errors"
 	"time"
 
 	"github.com/opendeepwiki/backend/internal/model"
 )
+
+// ErrNotFound 记录不存在错误
+var ErrNotFound = errors.New("record not found")
 
 type RepoRepository interface {
 	Create(repo *model.Repository) error
