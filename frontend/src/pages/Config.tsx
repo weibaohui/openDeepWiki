@@ -86,7 +86,7 @@ export default function ConfigPage() {
             <Header style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '0 24px',
+                padding: screens.md ? '0 24px' : '0 12px',
                 background: 'var(--ant-color-bg-container)',
                 borderBottom: '1px solid var(--ant-color-border-secondary)'
             }}>
@@ -103,8 +103,8 @@ export default function ConfigPage() {
                 </Space>
             </Header>
 
-            <Content style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                <Card title={t('settings.llm_config')} style={{ marginBottom: 24 }}>
+            <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                <Card title={t('settings.llm_config')} style={{ marginBottom: 24 }} size={screens.md ? 'default' : 'small'}>
                     <Form
                         form={form}
                         layout="vertical"

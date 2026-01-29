@@ -136,7 +136,7 @@ export default function RepoDetail() {
             <Header style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '0 24px',
+                padding: screens.md ? '0 24px' : '0 12px',
                 background: 'var(--ant-color-bg-container)',
                 borderBottom: '1px solid var(--ant-color-border-secondary)'
             }}>
@@ -144,30 +144,34 @@ export default function RepoDetail() {
                     type="text"
                     icon={<ArrowLeftOutlined />}
                     onClick={() => navigate('/')}
-                    style={{ marginRight: 16 }}
+                    style={{ marginRight: 8 }}
                 />
                 <div style={{ flex: 1, overflow: 'hidden', lineHeight: 'normal', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <Title level={4} style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{repository.name}</Title>
-                    <Text type="secondary" style={{ fontSize: '12px' }} ellipsis>{repository.url}</Text>
+                    <Title level={4} style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: screens.md ? '20px' : '16px' }}>{repository.name}</Title>
+                    {screens.sm && <Text type="secondary" style={{ fontSize: '12px' }} ellipsis>{repository.url}</Text>}
                 </div>
-                <Space>
-                    <LanguageSwitcher />
-                    <ThemeSwitcher />
+                <Space size={screens.md ? 'middle' : 'small'}>
+                    {screens.md && <LanguageSwitcher />}
+                    {screens.md && <ThemeSwitcher />}
                     {documents.length > 0 && (
-                        <Button onClick={handleExport}>
-                            {t('repository.export_docs')}
-                        </Button>
+                        <Tooltip title={!screens.md ? t('repository.export_docs') : undefined}>
+                            <Button onClick={handleExport} icon={<DownloadOutlined />}>
+                                {screens.md && t('repository.export_docs')}
+                            </Button>
+                        </Tooltip>
                     )}
                     {(repository.status === 'ready' || repository.status === 'completed') && (
-                        <Button type="primary" onClick={handleRunAll} icon={<ReloadOutlined />}>
-                            {t('repository.rebuild', '重新分析')}
-                        </Button>
+                        <Tooltip title={!screens.md ? t('repository.rebuild') : undefined}>
+                            <Button type="primary" onClick={handleRunAll} icon={<ReloadOutlined />}>
+                                {screens.md && t('repository.rebuild', '重新分析')}
+                            </Button>
+                        </Tooltip>
                     )}
                 </Space>
             </Header>
 
-            <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-                <Row gutter={[24, 24]}>
+            <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+                <Row gutter={[screens.md ? 24 : 12, screens.md ? 24 : 12]}>
                     <Col xs={24} lg={12}>
                         <Title level={4}>{t('task.title')}</Title>
                         <Card bodyStyle={{ padding: 0 }}>
