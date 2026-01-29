@@ -56,7 +56,7 @@ openDeepWiki 是一个基于 AI 的代码仓库智能解读平台，能够自动
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/yourusername/openDeepWiki.git
+git clone https://github.com/weibaohui/openDeepWiki.git
 cd openDeepWiki
 
 # 2. 安装依赖
@@ -136,98 +136,7 @@ export OPENAI_MODEL_NAME="gpt-4o"
 - **在线阅读**：左侧导航树，右侧 Markdown 渲染
 - **在线编辑**：点击「编辑」按钮修改文档内容
 - **导出文档**：支持单个文档或整体打包导出
-
-## 项目结构
-
-```
-openDeepWiki/
-├── backend/              # Go 后端
-│   ├── cmd/server/      # 入口文件
-│   ├── config/          # 配置管理
-│   ├── internal/
-│   │   ├── handler/     # HTTP 处理器
-│   │   ├── model/       # 数据模型
-│   │   ├── repository/  # 数据访问层
-│   │   ├── service/     # 业务逻辑层
-│   │   │   └── analyzer/ # 分析引擎（静态分析 + LLM）
-│   │   ├── router/      # 路由配置
-│   │   └── pkg/         # 工具包（git/llm/database）
-│   ├── go.mod
-│   └── config.yaml.example
-├── frontend/             # React 前端
-│   ├── src/
-│   │   ├── components/  # 通用组件
-│   │   ├── pages/       # 页面组件
-│   │   ├── services/    # API 调用
-│   │   ├── i18n/        # 国际化
-│   │   └── types/       # TypeScript 类型
-│   └── package.json
-├── doc/                 # 项目文档
-│   ├── 开发规范/
-│   └── 需求/
-├── Makefile             # 构建脚本
-└── README.md            # 本文件
-```
-
-## 生成的文档类型
-
-每个仓库解读后会生成以下 5 份文档：
-
-| 文档名称 | 文件名           | 内容说明                         |
-| -------- | ---------------- | -------------------------------- |
-| 项目概览 | overview.md      | 项目基本信息、技术栈、目录结构   |
-| 架构分析 | architecture.md  | 整体架构、模块划分、依赖关系     |
-| 核心接口 | api.md           | API 接口、函数签名、模块间调用   |
-| 业务流程 | business-flow.md | 核心业务逻辑、数据流程           |
-| 部署配置 | deployment.md    | 配置文件说明、部署方式、环境要求 |
-
-## 配置说明
-
-完整配置示例（`config.yaml`）：
-
-```yaml
-server:
-  port: "8080"
-  mode: "debug"  # debug 或 release
-
-database:
-  type: "sqlite"  # sqlite 或 mysql
-  dsn: "./data/app.db"
-
-llm:
-  api_url: "https://api.openai.com/v1"
-  api_key: ""  # 推荐使用环境变量
-  model: "gpt-4o"
-  max_tokens: 4096
-
-github:
-  token: ""  # 用于访问私有仓库
-
-data:
-  dir: "./data"
-  repo_dir: "./data/repos"
-```
-
-## 常用命令
-
-```bash
-# 开发
-make dev              # 开发模式（前后端 + 热重载）
-make air              # 后端热重载
-make run-frontend     # 前端开发服务器
-
-# 构建
-make build            # 构建前后端
-make build-backend    # 仅构建后端
-make build-frontend   # 仅构建前端
-
-# 清理
-make clean            # 清理构建产物
-
-# 其他
-make setup            # 安装依赖
-make init-config      # 初始化配置文件
-```
+ 
 
 ## 系统架构
 ```mermaid
