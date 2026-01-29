@@ -115,27 +115,39 @@ export default function Home() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '0 24px',
+                    padding: screens.md ? '0 24px' : '0 12px',
                     background: 'var(--ant-color-bg-container)',
                     borderBottom: '1px solid var(--ant-color-border-secondary)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => navigate('/')}>
                         <BookOutlined style={{ fontSize: '24px', marginRight: '8px', color: 'var(--ant-color-primary)' }} />
-                        <Title level={4} style={{ margin: 0 }}>openDeepWiki</Title>
+                        {screens.sm && <Title level={4} style={{ margin: 0 }}>openDeepWiki</Title>}
                     </div>
-                    <Space>
+                    <Space size={screens.md ? 'middle' : 'small'}>
                         <LanguageSwitcher />
                         <ThemeSwitcher />
                         <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/config')} />
                     </Space>
                 </Header>
 
-                <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-                    <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
+                <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+                    <div style={{
+                        marginBottom: '24px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexDirection: screens.md ? 'row' : 'column',
+                        gap: screens.md ? 0 : 16
+                    }}>
+                        <div style={{ width: screens.md ? 'auto' : '100%' }}>
                             <Title level={2} style={{ margin: 0 }}>{t('repository.list_title', 'Repositories')}</Title>
                         </div>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAddModal(true)}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => setShowAddModal(true)}
+                            block={!screens.md}
+                        >
                             {t('repository.add')}
                         </Button>
                     </div>
@@ -146,7 +158,7 @@ export default function Home() {
                             placeholder={t('common.search', 'Search repositories...')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ marginBottom: '24px', maxWidth: '400px' }}
+                            style={{ marginBottom: '24px', maxWidth: screens.md ? '400px' : '100%' }}
                         />
                     )}
 
