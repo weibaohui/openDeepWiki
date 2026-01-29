@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, Menu, message } from 'antd';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined } from '@ant-design/icons';
+import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document } from '../types';
 import { documentApi } from '../services/api';
@@ -9,17 +9,20 @@ import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function DocViewer() {
     const { t, themeMode } = useAppConfig();
     const { id, docId } = useParams<{ id: string; docId: string }>();
     const navigate = useNavigate();
+    const screens = useBreakpoint();
     const [document, setDocument] = useState<Document | null>(null);
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
     const [messageApi, contextHolder] = message.useMessage();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -82,72 +85,104 @@ export default function DocViewer() {
         );
     }
 
+    const SidebarContent = () => (
+        <>
+            <div style={{ padding: '16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
+                <Button
+                    type="text"
+                    icon={<ArrowLeftOutlined />}
+                    onClick={() => navigate(`/repo/${id}`)}
+                    block
+                    style={{ textAlign: 'left' }}
+                >
+                    {t('repository.title')}
+                </Button>
+            </div>
+            <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--ant-color-text-secondary)', textTransform: 'uppercase' }}>
+                {t('repository.docs')}
+            </div>
+            <Menu
+                mode="inline"
+                selectedKeys={[docId || '']}
+                style={{ borderRight: 0 }}
+                items={documents.map(doc => ({
+                    key: String(doc.id),
+                    icon: <FileTextOutlined />,
+                    label: doc.title,
+                    onClick: () => {
+                        navigate(`/repo/${id}/doc/${doc.id}`);
+                        setMobileMenuOpen(false);
+                    }
+                }))}
+            />
+        </>
+    );
+
     return (
         <Layout style={{ minHeight: '100vh' }}>
             {contextHolder}
-            <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
-                <div style={{ padding: '16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
-                    <Button
-                        type="text"
-                        icon={<ArrowLeftOutlined />}
-                        onClick={() => navigate(`/repo/${id}`)}
-                        block
-                        style={{ textAlign: 'left' }}
-                    >
-                        {t('repository.title')}
-                    </Button>
-                </div>
-                <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--ant-color-text-secondary)', textTransform: 'uppercase' }}>
-                    {t('repository.docs')}
-                </div>
-                <Menu
-                    mode="inline"
-                    selectedKeys={[docId || '']}
-                    style={{ borderRight: 0 }}
-                    items={documents.map(doc => ({
-                        key: String(doc.id),
-                        icon: <FileTextOutlined />,
-                        label: doc.title,
-                        onClick: () => navigate(`/repo/${id}/doc/${doc.id}`)
-                    }))}
-                />
-            </Sider>
+            {screens.md ? (
+                <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
+                    <SidebarContent />
+                </Sider>
+            ) : (
+                <Drawer
+                    title={t('repository.docs')}
+                    placement="left"
+                    onClose={() => setMobileMenuOpen(false)}
+                    open={mobileMenuOpen}
+                    width={250}
+                    styles={{ body: { padding: 0 } }}
+                >
+                    <SidebarContent />
+                </Drawer>
+            )}
             <Layout>
                 <Header style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '0 24px',
+                    padding: screens.md ? '0 24px' : '0 12px',
                     background: 'var(--ant-color-bg-container)',
                     borderBottom: '1px solid var(--ant-color-border-secondary)'
                 }}>
-                    <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {document.title}
-                    </Title>
-                    <Space>
-                        <Button icon={<DownloadOutlined />} onClick={handleDownload}>
-                            {t('common.save')}
+                    <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1 }}>
+                        {!screens.md && (
+                            <Button
+                                type="text"
+                                icon={<MenuOutlined />}
+                                onClick={() => setMobileMenuOpen(true)}
+                                style={{ marginRight: 8 }}
+                            />
+                        )}
+                        <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {document.title}
+                        </Title>
+                    </div>
+                    <Space size="small">
+                        <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>
+                            {screens.md && t('common.save')}
                         </Button>
                         {editing ? (
                             <>
                                 <Button icon={<CloseOutlined />} onClick={() => {
                                     setEditing(false);
                                     setEditContent(document.content);
-                                }}>
-                                    {t('common.cancel')}
+                                }} size={screens.md ? 'middle' : 'small'}>
+                                    {screens.md && t('common.cancel')}
                                 </Button>
-                                <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
-                                    {t('common.save')}
+                                <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} size={screens.md ? 'middle' : 'small'}>
+                                    {screens.md && t('common.save')}
                                 </Button>
                             </>
                         ) : (
-                            <Button type="text" icon={<EditOutlined />} onClick={() => setEditing(true)}>
-                                {t('common.edit')}
+                            <Button type="text" icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
+                                {screens.md && t('common.edit')}
                             </Button>
                         )}
                     </Space>
                 </Header>
-                <Content style={{ padding: '24px', overflow: 'auto' }}>
+                <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
                     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                         {editing ? (
                             <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
