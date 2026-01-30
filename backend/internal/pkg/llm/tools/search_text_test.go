@@ -14,8 +14,8 @@ func TestSearchText(t *testing.T) {
 
 	// 创建测试文件
 	files := map[string]string{
-		"main.go":     "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}",
-		"utils.go":    "package main\n\nfunc helper() {\n\t// helper function\n}",
+		"main.go":     "Package main\n\nfunc main() {\n\tprintln(\"hello\")\n}",
+		"utils.go":    "Package main\n\nfunc helper() {\n\t// helper function\n}",
 		"test.txt":    "This is a test file\nwith multiple lines\n",
 		"config.yaml": "database:\n  host: localhost\n",
 	}
@@ -74,7 +74,7 @@ func TestSearchText(t *testing.T) {
 		},
 		{
 			name:      "search for package keyword",
-			pattern:   "^package ",
+			pattern:   "^Package ",
 			glob:      "*.go",
 			wantCount: 2, // main.go 和 utils.go
 			wantErr:   false,
@@ -116,6 +116,7 @@ func TestSearchText(t *testing.T) {
 			} else {
 				// 检查结果中的匹配数量（每行一个匹配）
 				lines := strings.Count(result, "\n")
+				t.Logf("SearchText() found %d matches: %s", lines, result)
 				// 考虑结果可能被截断的情况
 				if lines < tt.wantCount && !strings.Contains(result, "truncated") {
 					t.Errorf("SearchText() expected at least %d matches, got %d: %s", tt.wantCount, lines, result)
