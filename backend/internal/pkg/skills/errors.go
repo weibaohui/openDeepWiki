@@ -7,24 +7,33 @@ var (
 	// ErrSkillNotFound Skill 不存在
 	ErrSkillNotFound = errors.New("skill not found")
 
-	// ErrSkillDisabled Skill 已禁用
-	ErrSkillDisabled = errors.New("skill is disabled")
-
 	// ErrSkillAlreadyExists Skill 已存在
 	ErrSkillAlreadyExists = errors.New("skill already exists")
 
+	// ErrInvalidMetadata 元数据无效
+	ErrInvalidMetadata = errors.New("invalid skill metadata")
+
+	// ErrInvalidName name 格式错误
+	ErrInvalidName = errors.New("invalid skill name")
+
+	// ErrInvalidDescription description 格式错误
+	ErrInvalidDescription = errors.New("invalid skill description")
+
+	// ErrSkillLoadFailed 加载失败
+	ErrSkillLoadFailed = errors.New("failed to load skill")
+
+	// ErrSkillDirNotFound Skills 目录不存在
+	ErrSkillDirNotFound = errors.New("skills directory not found")
+
+	// ErrSkillMDNotFound SKILL.md 不存在
+	ErrSkillMDNotFound = errors.New("SKILL.md not found")
+
+	// ErrInvalidFrontmatter frontmatter 格式错误
+	ErrInvalidFrontmatter = errors.New("invalid YAML frontmatter")
+
+	// ErrBodyNotFound body 内容不存在
+	ErrBodyNotFound = errors.New("skill body not found")
+
 	// ErrInvalidConfig 配置无效
 	ErrInvalidConfig = errors.New("invalid skill config")
-
-	// ErrProviderNotFound Provider 不存在
-	ErrProviderNotFound = errors.New("provider not found")
-
-	// ErrInvalidProviderType 无效的 Provider 类型
-	ErrInvalidProviderType = errors.New("invalid provider type")
-
-	// ErrExecutionFailed 执行失败
-	ErrExecutionFailed = errors.New("skill execution failed")
-
-	// ErrTimeout 执行超时
-	ErrTimeout = errors.New("skill execution timeout")
 )

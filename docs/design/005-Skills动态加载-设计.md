@@ -1,1281 +1,1052 @@
 # 005-Skills动态加载-设计.md
 
-## 1. 设计概述
+## 1. 架构设计
 
-本文档详细描述 Skills 动态加载功能的实现方案。
-
----
-
-## 2. 架构设计
-
-### 2.1 整体架构
+### 1.1 整体架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        LLM Client                          │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              ChatWithToolExecution                  │   │
-│  └─────────────────────────────────────────────────────┘   │
+│                         LLM Client                          │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │              Chat / GenerateDocument                  │ │
+│  └───────────────────────────────────────────────────────┘ │
 │                           │                                 │
 │                           ▼                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                 Registry.ToTools()                  │   │
-│  │         (将 enabled Skills 转为 LLM Tools)          │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │              Skill Injector                           │ │
+│  │  将匹配的 Skills 注入 System Prompt                   │ │
+│  └───────────────────────────────────────────────────────┘ │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                   Skill Registry (单例)                     │
+│                   Skill Matcher                             │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │  - 分析任务描述                                       │ │
+│  │  - 匹配 Skills description 关键字                     │ │
+│  │  - 计算匹配分数                                       │ │
+│  │  - 返回排序后的匹配列表                               │ │
+│  └───────────────────────────────────────────────────────┘ │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│                   Skill Registry                            │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   skills    │  │   status    │  │      mutex          │ │
-│  │  (map[name] │  │  (map[name] │  │   (RWMutex)         │ │
-│  │   Skill)    │  │   bool)     │  │                     │ │
+│  │   skills    │  │   status    │  │      metadata       │ │
+│  │  (map[name] │  │  (map[name] │  │   index for search  │ │
+│  │   *Skill)   │  │   bool)     │  │                     │ │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-│  - Register()    - Enable()                                │
-│  - Unregister()  - Disable()                               │
-│  - Get()         - List()                                  │
-│  - ListEnabled() - ToTools()                               │
 └───────────────────────────┬─────────────────────────────────┘
                             │
         ┌───────────────────┼───────────────────┐
         │                   │                   │
         ▼                   ▼                   ▼
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│   Builtin     │   │     HTTP      │   │   (Future)    │
-│   Provider    │   │   Provider    │   │ WASM Provider │
-├───────────────┤   ├───────────────┤   ├───────────────┤
-│ Go 代码实现   │   │ HTTP 调用     │   │ WASM 运行时   │
-│ 直接注册      │   │ 远程服务      │   │ 沙箱执行      │
+│ Skill Loader  │   │ Skill Parser  │   │ File Watcher  │
+│               │   │               │   │               │
+│ 目录扫描       │   │ YAML 解析      │   │ 热加载监听     │
+│ 资源发现       │   │ Markdown 提取  │   │ 变更检测       │
 └───────────────┘   └───────────────┘   └───────────────┘
-        ▲
         │
-┌───────┴─────────────────────────────────────────────────┐
-│                    Config Loader                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
-│  │   Load      │  │   Watch     │  │    Validate     │  │
-│  │  初始加载    │  │  文件监听    │  │    配置校验      │  │
-│  └─────────────┘  └─────────────┘  └─────────────────┘  │
-│                                                         │
-│  配置来源（优先级从高到低）：                              │
-│  1. SKILLS_DIR 环境变量                                  │
-│  2. config.yaml 中 skills.dir                            │
-│  3. 默认 ./skills 目录                                   │
-└─────────────────────────────────────────────────────────┘
+        ▼
+┌───────────────┐
+│  skills/      │
+│  ├── skill-a/ │
+│  │   └── SKILL.md
+│  ├── skill-b/ │
+│  │   ├── SKILL.md
+│  │   └── references/
+│  └── ...      │
+└───────────────┘
 ```
 
-### 2.2 数据流
+### 1.2 数据流
 
 ```
 1. 系统启动
    │
-   ├── 加载配置目录（./skills 或环境变量指定）
+   ├── 解析 Skills 目录
    │
-   ├── 解析所有 YAML 配置文件
+   ├── 遍历每个子目录
+   │   ├── 读取 SKILL.md
+   │   ├── 解析 YAML frontmatter（元数据）
+   │   ├── 提取 Markdown body（指令）
+   │   ├── 检查 scripts/ references/ assets/
+   │   └── 创建 Skill 对象（仅保存元数据，body 按需加载）
    │
-   ├── 根据 provider 类型创建对应 Provider
-   │
-   ├── Provider 创建 Skill 实例
-   │
-   └── Registry.Register(skill)
+   └── 注册到 Registry（仅元数据索引）
 
-2. 运行时变更
+2. 任务执行
    │
-   ├── 文件监听器检测到变更
+   ├── 接收任务（类型、描述、上下文）
    │
-   ├── 重新加载配置文件
+   ├── Matcher 分析任务
+   │   ├── 提取关键词
+   │   ├── 与 Skills description 匹配
+   │   └── 计算匹配分数
    │
-   ├── 对比新旧配置
+   ├── 加载匹配 Skills 的完整指令
+   │   ├── 读取 SKILL.md body
+   │   └── 加载所需的 references/
    │
-   └── 执行 Register/Unregister/Update
-
-3. LLM 调用流程
+   ├── Injector 构建 Skill 上下文
+   │   └── 格式化 Skills 内容
    │
-   ├── LLM Client 调用 Registry.ToTools()
-   │
-   ├── 获取所有 enabled Skills 的 Tool 定义
-   │
-   ├── 发送给 LLM
-   │
-   ├── LLM 返回 tool_calls
-   │
-   ├── 根据 name 从 Registry 获取 Skill
-   │
-   ├── 调用 Skill.Execute(ctx, args)
-   │
-   └── 返回结果给 LLM
+   └── 注入到 LLM System Prompt
+       └── 执行对话
 ```
 
 ---
 
-## 3. 核心接口设计
+## 2. 核心组件设计
 
-### 3.1 Skill 接口
-
-```go
-package skills
-
-import (
-    "context"
-    "encoding/json"
-)
-
-// Skill 技能接口，所有技能必须实现
-type Skill interface {
-    // Name 返回技能唯一名称
-    // 约束：全局唯一，符合 [a-zA-Z0-9_-]+ 格式
-    Name() string
-    
-    // Description 返回技能描述
-    // 供 LLM 理解该技能的用途
-    Description() string
-    
-    // Parameters 返回参数 JSON Schema
-    // 符合 JSON Schema Draft 7 规范
-    Parameters() ParameterSchema
-    
-    // Execute 执行技能
-    // ctx: 上下文，包含超时控制
-    // args: JSON 格式的参数，需根据 Parameters 解析
-    // 返回: 执行结果（必须可 JSON 序列化）和错误
-    Execute(ctx context.Context, args json.RawMessage) (interface{}, error)
-    
-    // ProviderType 返回提供者类型
-    // 用于调试和监控
-    ProviderType() string
-}
-
-// ParameterSchema 参数 JSON Schema 定义
-type ParameterSchema struct {
-    Type       string              `json:"type"`                 // 固定为 "object"
-    Properties map[string]Property `json:"properties"`           // 参数属性
-    Required   []string            `json:"required,omitempty"`   // 必需参数列表
-}
-
-// Property 单个参数属性
-type Property struct {
-    Type        string      `json:"type"`                   // string, integer, boolean, array, object
-    Description string      `json:"description"`            // 参数描述
-    Enum        []string    `json:"enum,omitempty"`         // 可选的枚举值
-    Items       *Property   `json:"items,omitempty"`        // 数组元素类型（当 type 为 array）
-}
-```
-
-### 3.2 Registry 接口与实现
+### 2.1 Skill 结构
 
 ```go
 package skills
 
 import (
-    "context"
-    "fmt"
-    "sync"
-    
-    "github.com/weibh/openDeepWiki/backend/internal/pkg/llm"
-)
-
-// Registry Skill 注册中心接口
-type Registry interface {
-    // Register 注册 Skill
-    // 如果同名 Skill 已存在，返回错误
-    Register(skill Skill) error
-    
-    // Unregister 注销 Skill
-    // 如果不存在，返回 ErrSkillNotFound
-    Unregister(name string) error
-    
-    // Enable 启用 Skill
-    // 只有 enabled 的 Skill 才会被暴露给 LLM
-    Enable(name string) error
-    
-    // Disable 禁用 Skill
-    // 禁用后 Skill 保留在 Registry 中，但不可被 LLM 调用
-    Disable(name string) error
-    
-    // Get 获取指定名称的 Skill
-    Get(name string) (Skill, error)
-    
-    // List 列出所有已注册的 Skills
-    List() []Skill
-    
-    // ListEnabled 列出所有已启用的 Skills
-    ListEnabled() []Skill
-    
-    // ToTools 将所有 enabled Skills 转换为 LLM Tools
-    ToTools() []llm.Tool
-}
-
-// registry Registry 的实现
-type registry struct {
-    mu       sync.RWMutex
-    skills   map[string]Skill    // name -> Skill
-    enabled  map[string]bool     // name -> enabled
-}
-
-// NewRegistry 创建新的 Registry 实例
-func NewRegistry() Registry {
-    return &registry{
-        skills:  make(map[string]Skill),
-        enabled: make(map[string]bool),
-    }
-}
-
-// Register 实现
-func (r *registry) Register(skill Skill) error {
-    if skill == nil {
-        return fmt.Errorf("skill cannot be nil")
-    }
-    
-    name := skill.Name()
-    if name == "" {
-        return fmt.Errorf("skill name cannot be empty")
-    }
-    
-    r.mu.Lock()
-    defer r.mu.Unlock()
-    
-    if _, exists := r.skills[name]; exists {
-        return fmt.Errorf("skill %q already registered", name)
-    }
-    
-    r.skills[name] = skill
-    r.enabled[name] = true  // 默认启用
-    
-    return nil
-}
-
-// Unregister 实现
-func (r *registry) Unregister(name string) error {
-    r.mu.Lock()
-    defer r.mu.Unlock()
-    
-    if _, exists := r.skills[name]; !exists {
-        return ErrSkillNotFound
-    }
-    
-    delete(r.skills, name)
-    delete(r.enabled, name)
-    
-    return nil
-}
-
-// Enable 实现
-func (r *registry) Enable(name string) error {
-    r.mu.Lock()
-    defer r.mu.Unlock()
-    
-    if _, exists := r.skills[name]; !exists {
-        return ErrSkillNotFound
-    }
-    
-    r.enabled[name] = true
-    return nil
-}
-
-// Disable 实现
-func (r *registry) Disable(name string) error {
-    r.mu.Lock()
-    defer r.mu.Unlock()
-    
-    if _, exists := r.skills[name]; !exists {
-        return ErrSkillNotFound
-    }
-    
-    r.enabled[name] = false
-    return nil
-}
-
-// Get 实现
-func (r *registry) Get(name string) (Skill, error) {
-    r.mu.RLock()
-    defer r.mu.RUnlock()
-    
-    skill, exists := r.skills[name]
-    if !exists {
-        return nil, ErrSkillNotFound
-    }
-    
-    return skill, nil
-}
-
-// List 实现
-func (r *registry) List() []Skill {
-    r.mu.RLock()
-    defer r.mu.RUnlock()
-    
-    result := make([]Skill, 0, len(r.skills))
-    for _, skill := range r.skills {
-        result = append(result, skill)
-    }
-    
-    return result
-}
-
-// ListEnabled 实现
-func (r *registry) ListEnabled() []Skill {
-    r.mu.RLock()
-    defer r.mu.RUnlock()
-    
-    result := make([]Skill, 0)
-    for name, skill := range r.skills {
-        if r.enabled[name] {
-            result = append(result, skill)
-        }
-    }
-    
-    return result
-}
-
-// ToTools 实现
-func (r *registry) ToTools() []llm.Tool {
-    enabled := r.ListEnabled()
-    tools := make([]llm.Tool, 0, len(enabled))
-    
-    for _, skill := range enabled {
-        tool := llm.Tool{
-            Type: "function",
-            Function: llm.ToolFunction{
-                Name:        skill.Name(),
-                Description: skill.Description(),
-                Parameters:  skill.Parameters(),
-            },
-        }
-        tools = append(tools, tool)
-    }
-    
-    return tools
-}
-
-// 错误定义
-var (
-    ErrSkillNotFound    = fmt.Errorf("skill not found")
-    ErrSkillDisabled    = fmt.Errorf("skill is disabled")
-    ErrInvalidConfig    = fmt.Errorf("invalid skill config")
-    ErrProviderNotFound = fmt.Errorf("provider not found")
-)
-```
-
-### 3.3 Provider 接口
-
-```go
-package skills
-
-// Provider Skill 提供者接口
-type Provider interface {
-    // Type 返回 Provider 类型标识
-    Type() string
-    
-    // Create 根据配置创建 Skill 实例
-    Create(config SkillConfig) (Skill, error)
-}
-
-// ProviderRegistry Provider 注册中心
-type ProviderRegistry struct {
-    providers map[string]Provider
-    mu        sync.RWMutex
-}
-
-// NewProviderRegistry 创建 Provider 注册中心
-func NewProviderRegistry() *ProviderRegistry {
-    return &ProviderRegistry{
-        providers: make(map[string]Provider),
-    }
-}
-
-// Register 注册 Provider
-func (pr *ProviderRegistry) Register(provider Provider) {
-    pr.mu.Lock()
-    defer pr.mu.Unlock()
-    pr.providers[provider.Type()] = provider
-}
-
-// Get 获取 Provider
-func (pr *ProviderRegistry) Get(providerType string) (Provider, error) {
-    pr.mu.RLock()
-    defer pr.mu.RUnlock()
-    
-    provider, exists := pr.providers[providerType]
-    if !exists {
-        return nil, ErrProviderNotFound
-    }
-    
-    return provider, nil
-}
-```
-
-### 3.4 配置结构
-
-```go
-package skills
-
-// SkillConfig Skill 配置文件结构
-type SkillConfig struct {
-    // 基础信息
-    Name        string `yaml:"name" json:"name"`
-    Description string `yaml:"description" json:"description"`
-    
-    // Provider 配置
-    Provider string `yaml:"provider" json:"provider"` // builtin / http
-    
-    // HTTP Provider 特有配置
-    Endpoint string            `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
-    Timeout  int               `yaml:"timeout,omitempty" json:"timeout,omitempty"`
-    Headers  map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
-    
-    // 安全相关
-    RiskLevel string `yaml:"risk_level,omitempty" json:"risk_level,omitempty"` // read / write / destructive
-    
-    // 参数定义
-    Parameters ParameterSchema `yaml:"parameters" json:"parameters"`
-}
-
-// Validate 校验配置是否有效
-func (c *SkillConfig) Validate() error {
-    if c.Name == "" {
-        return fmt.Errorf("skill name is required")
-    }
-    
-    if c.Description == "" {
-        return fmt.Errorf("skill description is required")
-    }
-    
-    if c.Provider == "" {
-        return fmt.Errorf("skill provider is required")
-    }
-    
-    if c.Provider == "http" && c.Endpoint == "" {
-        return fmt.Errorf("endpoint is required for http provider")
-    }
-    
-    // 校验 RiskLevel
-    if c.RiskLevel != "" && c.RiskLevel != "read" && c.RiskLevel != "write" && c.RiskLevel != "destructive" {
-        return fmt.Errorf("invalid risk_level: %s", c.RiskLevel)
-    }
-    
-    return nil
-}
-```
-
----
-
-## 4. Provider 实现
-
-### 4.1 Builtin Provider
-
-```go
-package builtin
-
-import (
-    "context"
-    "encoding/json"
-    "fmt"
-    
-    "github.com/weibh/openDeepWiki/backend/internal/pkg/skills"
-)
-
-// Provider 内置 Provider
-type Provider struct {
-    creators map[string]SkillCreator
-}
-
-// SkillCreator Skill 创建函数
-type SkillCreator func(config skills.SkillConfig) (skills.Skill, error)
-
-// NewProvider 创建 Builtin Provider
-func NewProvider() *Provider {
-    return &Provider{
-        creators: make(map[string]SkillCreator),
-    }
-}
-
-// Type 返回 Provider 类型
-func (p *Provider) Type() string {
-    return "builtin"
-}
-
-// Register 注册 Skill 创建器
-func (p *Provider) Register(name string, creator SkillCreator) {
-    p.creators[name] = creator
-}
-
-// Create 创建 Skill
-func (p *Provider) Create(config skills.SkillConfig) (skills.Skill, error) {
-    creator, exists := p.creators[config.Name]
-    if !exists {
-        return nil, fmt.Errorf("builtin skill %q not found", config.Name)
-    }
-    
-    return creator(config)
-}
-
-// BuiltinSkill 内置 Skill 基类
-type BuiltinSkill struct {
-    config skills.SkillConfig
-    fn     func(ctx context.Context, args json.RawMessage) (interface{}, error)
-}
-
-// Name 返回名称
-func (s *BuiltinSkill) Name() string {
-    return s.config.Name
-}
-
-// Description 返回描述
-func (s *BuiltinSkill) Description() string {
-    return s.config.Description
-}
-
-// Parameters 返回参数定义
-func (s *BuiltinSkill) Parameters() skills.ParameterSchema {
-    return s.config.Parameters
-}
-
-// Execute 执行
-func (s *BuiltinSkill) Execute(ctx context.Context, args json.RawMessage) (interface{}, error) {
-    return s.fn(ctx, args)
-}
-
-// ProviderType 返回 Provider 类型
-func (s *BuiltinSkill) ProviderType() string {
-    return "builtin"
-}
-
-// NewBuiltinSkill 创建内置 Skill
-func NewBuiltinSkill(config skills.SkillConfig, fn func(ctx context.Context, args json.RawMessage) (interface{}, error)) skills.Skill {
-    return &BuiltinSkill{
-        config: config,
-        fn:     fn,
-    }
-}
-```
-
-### 4.2 HTTP Provider
-
-```go
-package http
-
-import (
-    "bytes"
-    "context"
-    "encoding/json"
-    "fmt"
-    "net/http"
     "time"
-    
-    "github.com/weibh/openDeepWiki/backend/internal/pkg/skills"
 )
 
-// Provider HTTP Provider
-type Provider struct {
-    client *http.Client
+// Skill 技能定义
+type Skill struct {
+    // 元数据（始终加载）
+    Name          string            `yaml:"name" json:"name"`
+    Description   string            `yaml:"description" json:"description"`
+    License       string            `yaml:"license,omitempty" json:"license,omitempty"`
+    Compatibility string            `yaml:"compatibility,omitempty" json:"compatibility,omitempty"`
+    Metadata      map[string]string `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+    AllowedTools  string            `yaml:"allowed-tools,omitempty" json:"allowed_tools,omitempty"`
+
+    // 路径信息
+    Path          string `json:"path"`          // Skill 目录绝对路径
+    SkillMDPath   string `json:"skill_md_path"` // SKILL.md 文件路径
+
+    // 资源标志（用于判断是否存在子目录）
+    HasScripts    bool `json:"has_scripts"`
+    HasReferences bool `json:"has_references"`
+    HasAssets     bool `json:"has_assets"`
+
+    // 状态
+    Enabled       bool      `json:"enabled"`
+    LoadedAt      time.Time `json:"loaded_at"`
 }
 
-// NewProvider 创建 HTTP Provider
-func NewProvider() *Provider {
-    return &Provider{
-        client: &http.Client{
-            Timeout: 30 * time.Second,
-        },
-    }
-}
-
-// Type 返回 Provider 类型
-func (p *Provider) Type() string {
-    return "http"
-}
-
-// Create 创建 HTTP Skill
-func (p *Provider) Create(config skills.SkillConfig) (skills.Skill, error) {
-    if err := config.Validate(); err != nil {
-        return nil, err
-    }
-    
-    timeout := config.Timeout
-    if timeout <= 0 {
-        timeout = 30
-    }
-    
-    return &HTTPSkill{
-        config:  config,
-        client:  p.client,
-        timeout: time.Duration(timeout) * time.Second,
-    }, nil
-}
-
-// HTTPSkill HTTP Skill 实现
-type HTTPSkill struct {
-    config  skills.SkillConfig
-    client  *http.Client
-    timeout time.Duration
-}
-
-// Name 返回名称
-func (s *HTTPSkill) Name() string {
-    return s.config.Name
-}
-
-// Description 返回描述
-func (s *HTTPSkill) Description() string {
-    return s.config.Description
-}
-
-// Parameters 返回参数定义
-func (s *HTTPSkill) Parameters() skills.ParameterSchema {
-    return s.config.Parameters
-}
-
-// Execute 执行 HTTP 调用
-func (s *HTTPSkill) Execute(ctx context.Context, args json.RawMessage) (interface{}, error) {
-    // 创建带超时的上下文
-    ctx, cancel := context.WithTimeout(ctx, s.timeout)
-    defer cancel()
-    
-    // 创建请求
-    req, err := http.NewRequestWithContext(ctx, "POST", s.config.Endpoint, bytes.NewReader(args))
-    if err != nil {
-        return nil, fmt.Errorf("failed to create request: %w", err)
-    }
-    
-    // 设置 Headers
-    req.Header.Set("Content-Type", "application/json")
-    for key, value := range s.config.Headers {
-        req.Header.Set(key, value)
-    }
-    
-    // 发送请求
-    resp, err := s.client.Do(req)
-    if err != nil {
-        return nil, fmt.Errorf("http request failed: %w", err)
-    }
-    defer resp.Body.Close()
-    
-    // 解析响应
-    var result interface{}
-    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        return nil, fmt.Errorf("failed to decode response: %w", err)
-    }
-    
-    return result, nil
-}
-
-// ProviderType 返回 Provider 类型
-func (s *HTTPSkill) ProviderType() string {
-    return "http"
+// SkillContent Skill 完整内容（按需加载）
+type SkillContent struct {
+    Skill        *Skill
+    Instructions string            // SKILL.md body (frontmatter 之后的内容)
+    References   map[string]string // references/ 下的文件内容
 }
 ```
 
----
-
-## 5. 配置加载器设计
-
-### 5.1 目录解析
+### 2.2 Skill Parser
 
 ```go
 package skills
 
 import (
     "fmt"
-    "os"
-    "path/filepath"
-)
-
-// ResolveSkillsDir 解析 Skills 目录
-// 优先级：环境变量 > 配置文件 > 默认目录
-func ResolveSkillsDir(configDir string) (string, error) {
-    // 1. 检查环境变量
-    if dir := os.Getenv("SKILLS_DIR"); dir != "" {
-        return filepath.Abs(dir)
-    }
-    
-    // 2. 检查配置文件
-    if configDir != "" {
-        return filepath.Abs(configDir)
-    }
-    
-    // 3. 默认目录
-    exePath, err := os.Executable()
-    if err != nil {
-        return "", err
-    }
-    
-    defaultDir := filepath.Join(filepath.Dir(exePath), "skills")
-    return defaultDir, nil
-}
-
-// EnsureDir 确保目录存在
-func EnsureDir(dir string) error {
-    info, err := os.Stat(dir)
-    if os.IsNotExist(err) {
-        return os.MkdirAll(dir, 0755)
-    }
-    if err != nil {
-        return err
-    }
-    if !info.IsDir() {
-        return fmt.Errorf("%s is not a directory", dir)
-    }
-    return nil
-}
-```
-
-### 5.2 文件监听器
-
-```go
-package skills
-
-import (
-    "log"
     "os"
     "path/filepath"
     "strings"
-    "time"
-)
 
-// FileWatcher 文件监听器
-type FileWatcher struct {
-    dir      string
-    interval time.Duration
-    stop     chan struct{}
-    callback func(event FileEvent)
-    files    map[string]os.FileInfo
-}
-
-// FileEvent 文件事件
-type FileEvent struct {
-    Type string // create, modify, delete
-    Path string
-    Info os.FileInfo
-}
-
-// NewFileWatcher 创建文件监听器
-func NewFileWatcher(dir string, interval time.Duration, callback func(event FileEvent)) *FileWatcher {
-    return &FileWatcher{
-        dir:      dir,
-        interval: interval,
-        stop:     make(chan struct{}),
-        callback: callback,
-        files:    make(map[string]os.FileInfo),
-    }
-}
-
-// Start 启动监听
-func (w *FileWatcher) Start() {
-    // 初始扫描
-    w.scan()
-    
-    // 定时扫描
-    ticker := time.NewTicker(w.interval)
-    go func() {
-        for {
-            select {
-            case <-ticker.C:
-                w.scan()
-            case <-w.stop:
-                ticker.Stop()
-                return
-            }
-        }
-    }()
-}
-
-// Stop 停止监听
-func (w *FileWatcher) Stop() {
-    close(w.stop)
-}
-
-// scan 扫描目录变化
-func (w *FileWatcher) scan() {
-    currentFiles := make(map[string]os.FileInfo)
-    
-    err := filepath.Walk(w.dir, func(path string, info os.FileInfo, err error) error {
-        if err != nil {
-            return err
-        }
-        
-        // 只处理 YAML/JSON 文件
-        if !info.IsDir() && (strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") || strings.HasSuffix(path, ".json")) {
-            currentFiles[path] = info
-        }
-        
-        return nil
-    })
-    
-    if err != nil {
-        log.Printf("Failed to scan skills directory: %v", err)
-        return
-    }
-    
-    // 检测新增和修改
-    for path, info := range currentFiles {
-        oldInfo, exists := w.files[path]
-        if !exists {
-            w.callback(FileEvent{Type: "create", Path: path, Info: info})
-        } else if info.ModTime() != oldInfo.ModTime() || info.Size() != oldInfo.Size() {
-            w.callback(FileEvent{Type: "modify", Path: path, Info: info})
-        }
-    }
-    
-    // 检测删除
-    for path, info := range w.files {
-        if _, exists := currentFiles[path]; !exists {
-            w.callback(FileEvent{Type: "delete", Path: path, Info: info})
-        }
-    }
-    
-    w.files = currentFiles
-}
-```
-
-### 5.3 配置加载器
-
-```go
-package skills
-
-import (
-    "encoding/json"
-    "fmt"
-    "os"
-    "path/filepath"
-    
+    "github.com/opendeepwiki/backend/internal/pkg/llm"
     "gopkg.in/yaml.v3"
 )
 
-// ConfigLoader 配置加载器
-type ConfigLoader struct {
-    registry  Registry
-    providers *ProviderRegistry
+// Parser Skill 解析器
+type Parser struct {
+    maxDescriptionLen int
+    maxNameLen        int
 }
 
-// NewConfigLoader 创建配置加载器
-func NewConfigLoader(registry Registry, providers *ProviderRegistry) *ConfigLoader {
-    return &ConfigLoader{
-        registry:  registry,
-        providers: providers,
+// NewParser 创建解析器
+func NewParser() *Parser {
+    return &Parser{
+        maxDescriptionLen: 1024,
+        maxNameLen:        64,
     }
 }
 
-// LoadFromDir 从目录加载所有配置
-func (l *ConfigLoader) LoadFromDir(dir string) error {
-    files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
+// Parse 完整解析 Skill 目录
+func (p *Parser) Parse(skillPath string) (*Skill, string, error) {
+    skillPath = filepath.Clean(skillPath)
+    skillMDPath := filepath.Join(skillPath, "SKILL.md")
+
+    // 检查 SKILL.md 是否存在
+    if _, err := os.Stat(skillMDPath); os.IsNotExist(err) {
+        return nil, "", fmt.Errorf("SKILL.md not found in %s", skillPath)
+    }
+
+    // 读取文件内容
+    content, err := os.ReadFile(skillMDPath)
     if err != nil {
-        return err
+        return nil, "", fmt.Errorf("failed to read SKILL.md: %w", err)
     }
-    
-    ymlFiles, err := filepath.Glob(filepath.Join(dir, "*.yml"))
+
+    // 解析 frontmatter 和 body
+    skill, body, err := p.parseSkillMD(string(content))
     if err != nil {
-        return err
+        return nil, "", err
     }
-    files = append(files, ymlFiles...)
-    
-    jsonFiles, err := filepath.Glob(filepath.Join(dir, "*.json"))
+
+    // 设置路径信息
+    skill.Path = skillPath
+    skill.SkillMDPath = skillMDPath
+    skill.LoadedAt = time.Now()
+
+    // 检查资源目录
+    skill.HasScripts = p.dirExists(filepath.Join(skillPath, "scripts"))
+    skill.HasReferences = p.dirExists(filepath.Join(skillPath, "references"))
+    skill.HasAssets = p.dirExists(filepath.Join(skillPath, "assets"))
+
+    // 校验
+    if err := p.Validate(skill); err != nil {
+        return nil, "", err
+    }
+
+    return skill, body, nil
+}
+
+// ParseMetadata 仅解析元数据（快速）
+func (p *Parser) ParseMetadata(skillPath string) (*Skill, error) {
+    skillPath = filepath.Clean(skillPath)
+    skillMDPath := filepath.Join(skillPath, "SKILL.md")
+
+    content, err := os.ReadFile(skillMDPath)
     if err != nil {
-        return err
+        return nil, err
     }
-    files = append(files, jsonFiles...)
-    
-    for _, file := range files {
-        if err := l.LoadFromFile(file); err != nil {
-            log.Printf("Failed to load skill config from %s: %v", file, err)
-            continue
-        }
+
+    skill, _, err := p.parseSkillMD(string(content))
+    if err != nil {
+        return nil, err
     }
-    
+
+    skill.Path = skillPath
+    skill.SkillMDPath = skillMDPath
+    skill.LoadedAt = time.Now()
+
+    return skill, nil
+}
+
+// parseSkillMD 解析 SKILL.md 内容
+func (p *Parser) parseSkillMD(content string) (*Skill, string, error) {
+    skill := &Skill{}
+
+    // 检查 frontmatter
+    if !strings.HasPrefix(content, "---\n") && !strings.HasPrefix(content, "---\r\n") {
+        return nil, "", fmt.Errorf("SKILL.md must start with YAML frontmatter")
+    }
+
+    // 找到 frontmatter 结束位置
+    endIdx := strings.Index(content[3:], "\n---")
+    if endIdx == -1 {
+        return nil, "", fmt.Errorf("YAML frontmatter not properly closed")
+    }
+    endIdx += 3 // 加上前面的 "---"
+
+    // 提取 YAML
+    yamlContent := content[3:endIdx]
+    body := strings.TrimSpace(content[endIdx+4:])
+
+    // 解析 YAML
+    if err := yaml.Unmarshal([]byte(yamlContent), skill); err != nil {
+        return nil, "", fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+    }
+
+    return skill, body, nil
+}
+
+// Validate 校验 Skill
+func (p *Parser) Validate(skill *Skill) error {
+    // 校验 name
+    if skill.Name == "" {
+        return fmt.Errorf("name is required")
+    }
+    if len(skill.Name) > p.maxNameLen {
+        return fmt.Errorf("name exceeds %d characters", p.maxNameLen)
+    }
+    if !isValidSkillName(skill.Name) {
+        return fmt.Errorf("name must contain only lowercase letters, numbers, and hyphens")
+    }
+
+    // 校验 description
+    if skill.Description == "" {
+        return fmt.Errorf("description is required")
+    }
+    if len(skill.Description) > p.maxDescriptionLen {
+        return fmt.Errorf("description exceeds %d characters", p.maxDescriptionLen)
+    }
+
     return nil
 }
 
-// LoadFromFile 从文件加载配置
-func (l *ConfigLoader) LoadFromFile(path string) error {
-    data, err := os.ReadFile(path)
+// dirExists 检查目录是否存在
+func (p *Parser) dirExists(path string) bool {
+    info, err := os.Stat(path)
     if err != nil {
-        return fmt.Errorf("failed to read file: %w", err)
+        return false
     }
-    
-    var config SkillConfig
-    
-    // 根据扩展名解析
-    ext := filepath.Ext(path)
-    switch ext {
-    case ".yaml", ".yml":
-        err = yaml.Unmarshal(data, &config)
-    case ".json":
-        err = json.Unmarshal(data, &config)
-    default:
-        return fmt.Errorf("unsupported file format: %s", ext)
-    }
-    
-    if err != nil {
-        return fmt.Errorf("failed to parse config: %w", err)
-    }
-    
-    // 校验配置
-    if err := config.Validate(); err != nil {
-        return fmt.Errorf("invalid config: %w", err)
-    }
-    
-    // 获取 Provider
-    provider, err := l.providers.Get(config.Provider)
-    if err != nil {
-        return fmt.Errorf("provider not found: %w", err)
-    }
-    
-    // 创建 Skill
-    skill, err := provider.Create(config)
-    if err != nil {
-        return fmt.Errorf("failed to create skill: %w", err)
-    }
-    
-    // 注册到 Registry
-    // 如果已存在，先注销
-    if _, err := l.registry.Get(config.Name); err == nil {
-        l.registry.Unregister(config.Name)
-    }
-    
-    if err := l.registry.Register(skill); err != nil {
-        return fmt.Errorf("failed to register skill: %w", err)
-    }
-    
-    return nil
+    return info.IsDir()
 }
 
-// UnloadFromFile 根据文件路径卸载 Skill
-func (l *ConfigLoader) UnloadFromFile(path string) error {
-    // 从文件名推断 Skill 名称
-    basename := filepath.Base(path)
-    ext := filepath.Ext(basename)
-    name := basename[:len(basename)-len(ext)]
-    
-    // 尝试从 Registry 获取
-    skill, err := l.registry.Get(name)
-    if err != nil {
-        // 可能名称不匹配，尝试从文件内容读取
-        data, err := os.ReadFile(path)
-        if err != nil {
-            return err
-        }
-        
-        var config SkillConfig
-        if err := yaml.Unmarshal(data, &config); err != nil {
-            return err
-        }
-        name = config.Name
-    } else {
-        name = skill.Name()
+// isValidSkillName 校验 name 格式
+func isValidSkillName(name string) bool {
+    if name == "" {
+        return false
     }
-    
-    return l.registry.Unregister(name)
+    // 不能以连字符开头或结尾
+    if name[0] == '-' || name[len(name)-1] == '-' {
+        return false
+    }
+    // 不能包含连续连字符
+    if strings.Contains(name, "--") {
+        return false
+    }
+    // 只能包含小写字母、数字、连字符
+    for _, c := range name {
+        if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+            return false
+        }
+    }
+    return true
 }
 ```
 
----
-
-## 6. 初始化流程
+### 2.3 Skill Loader
 
 ```go
 package skills
 
 import (
+    "fmt"
     "log"
+    "os"
+    "path/filepath"
+    "sync"
     "time"
-    
-    "github.com/weibh/openDeepWiki/backend/internal/pkg/skills/builtin"
-    httpprovider "github.com/weibh/openDeepWiki/backend/internal/pkg/skills/http"
 )
+
+// Loader Skill 加载器
+type Loader struct {
+    parser    *Parser
+    registry  Registry
+    mu        sync.RWMutex
+    skillBodies map[string]string // name -> body (缓存)
+}
+
+// NewLoader 创建加载器
+func NewLoader(parser *Parser, registry Registry) *Loader {
+    return &Loader{
+        parser:      parser,
+        registry:    registry,
+        skillBodies: make(map[string]string),
+    }
+}
+
+// LoadFromDir 从目录加载所有 Skills
+func (l *Loader) LoadFromDir(dir string) ([]*LoadResult, error) {
+    dir = filepath.Clean(dir)
+    
+    // 检查目录是否存在
+    if _, err := os.Stat(dir); os.IsNotExist(err) {
+        log.Printf("Skills directory does not exist: %s", dir)
+        return nil, nil
+    }
+
+    entries, err := os.ReadDir(dir)
+    if err != nil {
+        return nil, fmt.Errorf("failed to read skills directory: %w", err)
+    }
+
+    results := make([]*LoadResult, 0)
+
+    for _, entry := range entries {
+        if !entry.IsDir() {
+            continue
+        }
+
+        skillPath := filepath.Join(dir, entry.Name())
+        result := l.loadSkill(skillPath)
+        results = append(results, result)
+    }
+
+    return results, nil
+}
+
+// LoadFromPath 加载单个 Skill
+func (l *Loader) LoadFromPath(path string) (*Skill, error) {
+    result := l.loadSkill(path)
+    if result.Error != nil {
+        return nil, result.Error
+    }
+    return result.Skill, nil
+}
+
+// loadSkill 加载 Skill（内部）
+func (l *Loader) loadSkill(path string) *LoadResult {
+    skill, body, err := l.parser.Parse(path)
+    if err != nil {
+        return &LoadResult{
+            Error:  err,
+            Action: "failed",
+        }
+    }
+
+    // 缓存 body
+    l.mu.Lock()
+    l.skillBodies[skill.Name] = body
+    l.mu.Unlock()
+
+    // 检查是否已存在
+    existing, _ := l.registry.Get(skill.Name)
+    action := "created"
+    if existing != nil {
+        action = "updated"
+    }
+
+    // 注册到 Registry
+    if err := l.registry.Register(skill); err != nil {
+        return &LoadResult{
+            Skill:  skill,
+            Error:  err,
+            Action: "failed",
+        }
+    }
+
+    return &LoadResult{
+        Skill:  skill,
+        Action: action,
+    }
+}
+
+// GetBody 获取 Skill 的 body 内容
+func (l *Loader) GetBody(name string) (string, error) {
+    l.mu.RLock()
+    body, exists := l.skillBodies[name]
+    l.mu.RUnlock()
+
+    if exists {
+        return body, nil
+    }
+
+    // 如果缓存中没有，尝试从文件加载
+    skill, err := l.registry.Get(name)
+    if err != nil {
+        return "", err
+    }
+
+    // 重新解析获取 body
+    _, body, err = l.parser.Parse(skill.Path)
+    if err != nil {
+        return "", err
+    }
+
+    // 缓存
+    l.mu.Lock()
+    l.skillBodies[name] = body
+    l.mu.Unlock()
+
+    return body, nil
+}
+
+// LoadReferences 加载 references/ 下的文件
+func (l *Loader) LoadReferences(skill *Skill) (map[string]string, error) {
+    if !skill.HasReferences {
+        return nil, nil
+    }
+
+    refsDir := filepath.Join(skill.Path, "references")
+    entries, err := os.ReadDir(refsDir)
+    if err != nil {
+        return nil, err
+    }
+
+    refs := make(map[string]string)
+    for _, entry := range entries {
+        if entry.IsDir() {
+            continue
+        }
+
+        path := filepath.Join(refsDir, entry.Name())
+        content, err := os.ReadFile(path)
+        if err != nil {
+            log.Printf("Failed to read reference file %s: %v", path, err)
+            continue
+        }
+        refs[entry.Name()] = string(content)
+    }
+
+    return refs, nil
+}
+
+// Unload 卸载 Skill
+func (l *Loader) Unload(name string) error {
+    l.mu.Lock()
+    delete(l.skillBodies, name)
+    l.mu.Unlock()
+
+    return l.registry.Unregister(name)
+}
+
+// Reload 重新加载 Skill
+func (l *Loader) Reload(name string) (*Skill, error) {
+    skill, err := l.registry.Get(name)
+    if err != nil {
+        return nil, err
+    }
+
+    l.Unload(name)
+    return l.LoadFromPath(skill.Path)
+}
+
+// LoadResult 加载结果
+type LoadResult struct {
+    Skill  *Skill
+    Error  error
+    Action string // "created", "updated", "failed"
+}
+```
+
+### 2.4 Skill Matcher
+
+```go
+package skills
+
+import (
+    "strings"
+)
+
+// Task 任务定义
+type Task struct {
+    Type        string   // 任务类型（overview, architecture, api等）
+    Description string   // 任务描述
+    RepoType    string   // 仓库类型（go, python, java等）
+    Tags        []string // 标签
+}
+
+// Match 匹配结果
+type Match struct {
+    Skill  *Skill
+    Score  float64 // 匹配分数 0-1
+    Reason string  // 匹配原因
+}
+
+// Matcher Skill 匹配器
+type Matcher struct {
+    registry Registry
+}
+
+// NewMatcher 创建匹配器
+func NewMatcher(registry Registry) *Matcher {
+    return &Matcher{registry: registry}
+}
+
+// Match 根据任务匹配 Skills
+func (m *Matcher) Match(task Task) ([]*Match, error) {
+    enabled := m.registry.ListEnabled()
+    matches := make([]*Match, 0)
+
+    for _, skill := range enabled {
+        score, reason := m.calculateScore(skill, task)
+        if score > 0 {
+            matches = append(matches, &Match{
+                Skill:  skill,
+                Score:  score,
+                Reason: reason,
+            })
+        }
+    }
+
+    // 按分数排序
+    sortMatches(matches)
+    return matches, nil
+}
+
+// MatchByDescription 根据描述匹配（简单版本）
+func (m *Matcher) MatchByDescription(description string) ([]*Match, error) {
+    task := Task{Description: description}
+    return m.Match(task)
+}
+
+// calculateScore 计算匹配分数
+func (m *Matcher) calculateScore(skill *Skill, task Task) (float64, string) {
+    score := 0.0
+    reasons := make([]string, 0)
+
+    desc := strings.ToLower(skill.Description)
+    taskDesc := strings.ToLower(task.Description)
+    taskType := strings.ToLower(task.Type)
+    repoType := strings.ToLower(task.RepoType)
+
+    // 1. 描述关键词匹配（最高权重）
+    keywords := extractKeywords(taskDesc)
+    keywordMatches := 0
+    for _, kw := range keywords {
+        if strings.Contains(desc, kw) {
+            keywordMatches++
+        }
+    }
+    if len(keywords) > 0 {
+        matchRatio := float64(keywordMatches) / float64(len(keywords))
+        score += matchRatio * 0.5
+        if matchRatio > 0.5 {
+            reasons = append(reasons, "keyword match")
+        }
+    }
+
+    // 2. 任务类型匹配
+    if taskType != "" && strings.Contains(desc, taskType) {
+        score += 0.3
+        reasons = append(reasons, "task type match")
+    }
+
+    // 3. 仓库类型匹配
+    if repoType != "" && strings.Contains(desc, repoType) {
+        score += 0.2
+        reasons = append(reasons, "repo type match")
+    }
+
+    // 4. 标签匹配
+    for _, tag := range task.Tags {
+        if strings.Contains(desc, strings.ToLower(tag)) {
+            score += 0.1
+            reasons = append(reasons, "tag match")
+            break
+        }
+    }
+
+    if score == 0 {
+        return 0, ""
+    }
+
+    return score, strings.Join(reasons, ", ")
+}
+
+// extractKeywords 提取关键词
+func extractKeywords(text string) []string {
+    // 简单的关键词提取：过滤常见停用词，保留长度>2的词
+    stopWords := map[string]bool{
+        "the": true, "a": true, "an": true, "and": true, "or": true,
+        "is": true, "are": true, "was": true, "were": true,
+        "this": true, "that": true, "these": true, "those": true,
+        "to": true, "of": true, "in": true, "for": true, "on": true,
+        "with": true, "by": true, "at": true, "from": true,
+    }
+
+    words := strings.Fields(text)
+    keywords := make([]string, 0)
+    seen := make(map[string]bool)
+
+    for _, word := range words {
+        word = strings.Trim(word, ".,!?;:()[]{}\"")
+        word = strings.ToLower(word)
+        if len(word) > 2 && !stopWords[word] && !seen[word] {
+            keywords = append(keywords, word)
+            seen[word] = true
+        }
+    }
+
+    return keywords
+}
+
+// sortMatches 排序匹配结果（按分数降序）
+func sortMatches(matches []*Match) {
+    // 简单冒泡排序（数据量小）
+    for i := 0; i < len(matches); i++ {
+        for j := i + 1; j < len(matches); j++ {
+            if matches[j].Score > matches[i].Score {
+                matches[i], matches[j] = matches[j], matches[i]
+            }
+        }
+    }
+}
+```
+
+### 2.5 Skill Injector
+
+```go
+package skills
+
+import (
+    "fmt"
+    "strings"
+)
+
+// Injector Skill 注入器
+type Injector struct {
+    loader *Loader
+}
+
+// NewInjector 创建注入器
+func NewInjector(loader *Loader) *Injector {
+    return &Injector{loader: loader}
+}
+
+// InjectToPrompt 将 Skills 注入到 System Prompt
+func (i *Injector) InjectToPrompt(systemPrompt string, matches []*Match) (string, error) {
+    if len(matches) == 0 {
+        return systemPrompt, nil
+    }
+
+    // 构建 Skills 上下文
+    skillContext, err := i.BuildSkillContext(matches)
+    if err != nil {
+        return "", err
+    }
+
+    // 注入到 Prompt
+    var sb strings.Builder
+    sb.WriteString(systemPrompt)
+    sb.WriteString("\n\n")
+    sb.WriteString(skillContext)
+
+    return sb.String(), nil
+}
+
+// BuildSkillContext 构建 Skills 上下文
+func (i *Injector) BuildSkillContext(matches []*Match) (string, error) {
+    var sb strings.Builder
+
+    sb.WriteString("## 专业技能指导\n\n")
+    sb.WriteString("在完成以下任务时，请遵循相关技能的专业指导：\n\n")
+
+    for idx, match := range matches {
+        skill := match.Skill
+
+        sb.WriteString(fmt.Sprintf("### 技能 %d: %s\n", idx+1, skill.Name))
+        sb.WriteString(fmt.Sprintf("*匹配原因: %s (%.0f%%)*\n\n", match.Reason, match.Score*100))
+
+        // 获取指令内容
+        body, err := i.loader.GetBody(skill.Name)
+        if err != nil {
+            sb.WriteString(fmt.Sprintf("*(无法加载技能内容: %v)*\n", err))
+            continue
+        }
+
+        sb.WriteString(body)
+        sb.WriteString("\n\n---\n\n")
+    }
+
+    return sb.String(), nil
+}
+
+// BuildSingleSkillContext 构建单个 Skill 上下文
+func (i *Injector) BuildSingleSkillContext(skill *Skill) (string, error) {
+    body, err := i.loader.GetBody(skill.Name)
+    if err != nil {
+        return "", err
+    }
+
+    var sb strings.Builder
+    sb.WriteString(fmt.Sprintf("## 技能: %s\n\n", skill.Name))
+    sb.WriteString(body)
+
+    return sb.String(), nil
+}
+```
+
+### 2.6 Manager（整合）
+
+```go
+package skills
+
+import (
+    "fmt"
+    "log"
+    "os"
+    "path/filepath"
+    "time"
+)
+
+// Config Manager 配置
+type Config struct {
+    Dir            string
+    AutoReload     bool
+    ReloadInterval time.Duration
+}
+
+// DefaultConfig 默认配置
+func DefaultConfig() *Config {
+    return &Config{
+        Dir:            "./skills",
+        AutoReload:     true,
+        ReloadInterval: 5 * time.Second,
+    }
+}
 
 // Manager Skills 管理器
 type Manager struct {
-    Registry  Registry
-    Loader    *ConfigLoader
-    Watcher   *FileWatcher
-    providers *ProviderRegistry
+    Config   *Config
+    Registry Registry
+    Parser   *Parser
+    Loader   *Loader
+    Matcher  *Matcher
+    Injector *Injector
+    watcher  *FileWatcher
 }
 
-// NewManager 创建 Skills 管理器
-func NewManager(configDir string) (*Manager, error) {
+// NewManager 创建 Manager
+func NewManager(config *Config) (*Manager, error) {
+    if config == nil {
+        config = DefaultConfig()
+    }
+
     // 解析目录
-    skillsDir, err := ResolveSkillsDir(configDir)
+    dir, err := resolveSkillsDir(config.Dir)
     if err != nil {
         return nil, err
     }
-    
+    config.Dir = dir
+
+    log.Printf("Skills directory: %s", dir)
+
     // 确保目录存在
-    if err := EnsureDir(skillsDir); err != nil {
-        return nil, err
+    if err := os.MkdirAll(dir, 0755); err != nil {
+        return nil, fmt.Errorf("failed to create skills directory: %w", err)
     }
-    
-    // 创建 Registry
+
+    // 创建组件
     registry := NewRegistry()
-    
-    // 创建 Provider 注册中心
-    providers := NewProviderRegistry()
-    
-    // 注册 Builtin Provider
-    builtinProvider := builtin.NewProvider()
-    providers.Register(builtinProvider)
-    
-    // 注册 HTTP Provider
-    httpProvider := httpprovider.NewProvider()
-    providers.Register(httpProvider)
-    
-    // 创建配置加载器
-    loader := NewConfigLoader(registry, providers)
-    
-    // 初始加载
-    if err := loader.LoadFromDir(skillsDir); err != nil {
-        log.Printf("Failed to load skills from %s: %v", skillsDir, err)
+    parser := NewParser()
+    loader := NewLoader(parser, registry)
+    matcher := NewMatcher(registry)
+    injector := NewInjector(loader)
+
+    m := &Manager{
+        Config:   config,
+        Registry: registry,
+        Parser:   parser,
+        Loader:   loader,
+        Matcher:  matcher,
+        Injector: injector,
     }
-    
-    // 创建文件监听器
-    watcher := NewFileWatcher(skillsDir, 5*time.Second, func(event FileEvent) {
+
+    // 初始加载
+    if _, err := loader.LoadFromDir(dir); err != nil {
+        log.Printf("Warning: failed to load skills: %v", err)
+    }
+
+    // 启动热加载
+    if config.AutoReload {
+        m.startWatcher()
+    }
+
+    return m, nil
+}
+
+// startWatcher 启动文件监听
+func (m *Manager) startWatcher() {
+    m.watcher = NewFileWatcher(m.Config.Dir, m.Config.ReloadInterval, func(event FileEvent) {
         switch event.Type {
-        case "create", "modify":
-            if err := loader.LoadFromFile(event.Path); err != nil {
-                log.Printf("Failed to reload skill from %s: %v", event.Path, err)
-            } else {
-                log.Printf("Reloaded skill from %s", event.Path)
+        case "create":
+            if isSkillDir(event.Path) {
+                log.Printf("Loading new skill from %s", event.Path)
+                if _, err := m.Loader.LoadFromPath(event.Path); err != nil {
+                    log.Printf("Failed to load skill: %v", err)
+                }
+            }
+        case "modify":
+            // 检查是否是 SKILL.md 被修改
+            if filepath.Base(event.Path) == "SKILL.md" {
+                skillDir := filepath.Dir(event.Path)
+                skillName := filepath.Base(skillDir)
+                log.Printf("Reloading skill: %s", skillName)
+                if _, err := m.Loader.Reload(skillName); err != nil {
+                    log.Printf("Failed to reload skill: %v", err)
+                }
             }
         case "delete":
-            if err := loader.UnloadFromFile(event.Path); err != nil {
-                log.Printf("Failed to unload skill from %s: %v", event.Path, err)
-            } else {
-                log.Printf("Unloaded skill from %s", event.Path)
+            // 尝试根据路径推断 skill name
+            skillName := filepath.Base(event.Path)
+            if _, err := m.Registry.Get(skillName); err == nil {
+                log.Printf("Unloading skill: %s", skillName)
+                if err := m.Loader.Unload(skillName); err != nil {
+                    log.Printf("Failed to unload skill: %v", err)
+                }
             }
         }
     })
-    
-    // 启动监听
-    watcher.Start()
-    
-    return &Manager{
-        Registry:  registry,
-        Loader:    loader,
-        Watcher:   watcher,
-        providers: providers,
-    }, nil
+
+    if err := m.watcher.Start(); err != nil {
+        log.Printf("Warning: failed to start file watcher: %v", err)
+    }
 }
 
-// Stop 停止管理器
+// Stop 停止 Manager
 func (m *Manager) Stop() {
-    if m.Watcher != nil {
-        m.Watcher.Stop()
+    if m.watcher != nil {
+        m.watcher.Stop()
     }
 }
 
-// RegisterBuiltin 注册内置 Skill
-func (m *Manager) RegisterBuiltin(name string, creator builtin.SkillCreator) {
-    if p, ok := m.providers.Get("builtin"); ok == nil {
-        if bp, ok := p.(*builtin.Provider); ok {
-            bp.Register(name, creator)
-        }
+// MatchAndInject 匹配 Skills 并注入 Prompt
+func (m *Manager) MatchAndInject(systemPrompt string, task Task) (string, []*Match, error) {
+    // 匹配 Skills
+    matches, err := m.Matcher.Match(task)
+    if err != nil {
+        return "", nil, err
     }
+
+    // 注入 Prompt
+    newPrompt, err := m.Injector.InjectToPrompt(systemPrompt, matches)
+    if err != nil {
+        return "", nil, err
+    }
+
+    return newPrompt, matches, nil
+}
+
+// resolveSkillsDir 解析 Skills 目录
+func resolveSkillsDir(configDir string) (string, error) {
+    // 1. 环境变量
+    if dir := os.Getenv("SKILLS_DIR"); dir != "" {
+        return filepath.Abs(dir)
+    }
+
+    // 2. 配置
+    if configDir != "" {
+        return filepath.Abs(configDir)
+    }
+
+    // 3. 默认
+    exePath, err := os.Executable()
+    if err != nil {
+        cwd, _ := os.Getwd()
+        return filepath.Join(cwd, "skills"), nil
+    }
+    return filepath.Join(filepath.Dir(exePath), "skills"), nil
+}
+
+// isSkillDir 检查是否是 Skill 目录
+func isSkillDir(path string) bool {
+    skillMD := filepath.Join(path, "SKILL.md")
+    _, err := os.Stat(skillMD)
+    return err == nil
 }
 ```
 
 ---
 
-## 7. 与 LLM Client 集成
+## 3. 示例 Skill
 
-```go
-package llm
+```markdown
+# skills/go-analysis/SKILL.md
 
-import (
-    "context"
-    "encoding/json"
-    "fmt"
-    
-    "github.com/weibh/openDeepWiki/backend/internal/pkg/skills"
-)
+---
+name: go-analysis
+description: Analyze Go projects to identify architecture patterns, module dependencies, and code organization. Use when working with Go repositories or when the user asks about Go project structure.
+license: MIT
+compatibility: Requires Go 1.18+
+metadata:
+  author: openDeepWiki
+  version: "1.0"
+---
 
-// SkillExecutor Skill 执行器
-type SkillExecutor struct {
-    registry skills.Registry
-}
+# Go 项目分析指南
 
-// NewSkillExecutor 创建 Skill 执行器
-func NewSkillExecutor(registry skills.Registry) *SkillExecutor {
-    return &SkillExecutor{registry: registry}
-}
+## 分析步骤
 
-// Execute 执行 Tool Call
-func (e *SkillExecutor) Execute(ctx context.Context, toolCall ToolCall) (ToolResult, error) {
-    // 从 Registry 获取 Skill
-    skill, err := e.registry.Get(toolCall.Function.Name)
-    if err != nil {
-        return ToolResult{
-            Content: fmt.Sprintf("Skill not found: %s", toolCall.Function.Name),
-            IsError: true,
-        }, nil
-    }
-    
-    // 执行 Skill
-    result, err := skill.Execute(ctx, json.RawMessage(toolCall.Function.Arguments))
-    if err != nil {
-        return ToolResult{
-            Content: fmt.Sprintf("Execution failed: %v", err),
-            IsError: true,
-        }, nil
-    }
-    
-    // 序列化结果
-    content, err := json.Marshal(result)
-    if err != nil {
-        return ToolResult{
-            Content: fmt.Sprintf("Failed to serialize result: %v", err),
-            IsError: true,
-        }, nil
-    }
-    
-    return ToolResult{
-        Content: string(content),
-        IsError: false,
-    }, nil
-}
+1. **识别项目结构**
+   - 查找 `go.mod` 了解模块路径和依赖
+   - 分析目录结构，识别主要包（pkg/, cmd/, internal/ 等）
+   - 找出入口点（main 包）
+
+2. **分析架构模式**
+   - 检查是否使用分层架构（handler -> service -> repository）
+   - 识别接口定义和实现分离
+   - 查找依赖注入的使用
+
+3. **核心组件识别**
+   - 列出所有公开 API（HTTP handlers / gRPC services）
+   - 识别业务逻辑层（services/usecases）
+   - 找到数据访问层（repositories / DAOs）
+
+4. **依赖关系**
+   - 分析 import 关系
+   - 识别循环依赖
+   - 找出核心依赖库的作用
+
+## 输出格式
+
+生成以下文档：
+- `overview.md`: 项目概述、技术栈
+- `architecture.md`: 架构分析、模块划分
+- `api.md`: API 接口文档
+- `business-flow.md`: 业务流程
+
+## 注意事项
+
+- 关注 `internal/` 包的封装性
+- 注意接口定义的抽象程度
+- 检查错误处理模式
+- 识别并发和通道的使用
 ```
 
 ---
 
-## 8. 代码目录结构
+## 4. 测试策略
+
+### 4.1 Parser 测试
+
+- [ ] 正常解析 SKILL.md
+- [ ] 缺少 frontmatter
+- [ ] name 格式错误
+- [ ] description 过长
+- [ ] YAML 语法错误
+
+### 4.2 Loader 测试
+
+- [ ] 加载目录下所有 Skills
+- [ ] 加载单个 Skill
+- [ ] 重新加载更新
+- [ ] 卸载 Skill
+
+### 4.3 Matcher 测试
+
+- [ ] 关键词匹配
+- [ ] 任务类型匹配
+- [ ] 多 Skills 排序
+- [ ] 无匹配情况
+
+### 4.4 Injector 测试
+
+- [ ] 构建 Skill 上下文
+- [ ] 注入到 Prompt
+- [ ] 多个 Skills 组合
+
+### 4.5 集成测试
+
+- [ ] 完整流程：加载 -> 匹配 -> 注入
+- [ ] 热加载测试
+- [ ] 并发安全测试
+
+---
+
+## 5. 代码目录结构
 
 ```
 backend/internal/pkg/skills/
-├── skill.go              # Skill 接口定义
+├── skill.go              # Skill 结构定义
 ├── registry.go           # Registry 接口与实现
-├── provider.go           # Provider 接口
-├── config.go             # 配置结构定义
-├── loader.go             # 配置加载
+├── parser.go             # SKILL.md 解析器
+├── loader.go             # Skill 加载器
+├── matcher.go            # Skill 匹配器
+├── injector.go           # Prompt 注入器
+├── manager.go            # 管理器（整合）
 ├── watcher.go            # 文件监听
-├── manager.go            # 管理器（初始化入口）
 ├── errors.go             # 错误定义
-├── builtin/
-│   ├── provider.go       # Builtin Provider
-│   └── skills/           # 内置 Skills 实现
-│       └── example.go    # 示例 Skill
-├── http/
-│   ├── provider.go       # HTTP Provider
-│   └── skill.go          # HTTP Skill 实现
+├── types.go              # 公共类型
+├── parser_test.go        # 解析器测试
+├── loader_test.go        # 加载器测试
+├── matcher_test.go       # 匹配器测试
 └── README.md             # 使用文档
 
-# Skills 配置目录（运行时）
-skills/
-└── example.yaml          # 示例配置
+skills/                   # Skills 目录
+└── go-analysis/          # 示例 Skill
+    ├── SKILL.md
+    └── references/
+        └── GO_CONVENTIONS.md
 ```
-
----
-
-## 9. 使用示例
-
-### 9.1 初始化 Skills
-
-```go
-// main.go
-import "github.com/weibh/openDeepWiki/backend/internal/pkg/skills"
-
-func main() {
-    // 创建 Skills 管理器
-    skillsManager, err := skills.NewManager(cfg.Skills.Dir)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer skillsManager.Stop()
-    
-    // 获取 Registry
-    registry := skillsManager.Registry
-    
-    // ... 其他初始化
-}
-```
-
-### 9.2 LLM Client 使用 Skills
-
-```go
-// 创建 Skill 执行器
-skillExecutor := llm.NewSkillExecutor(registry)
-
-// 获取 Tools
-tools := registry.ToTools()
-
-// 执行对话
-messages := []llm.ChatMessage{
-    {Role: "system", Content: "你是一个代码分析助手..."},
-    {Role: "user", Content: "分析这个项目的架构"},
-}
-
-response, err := client.ChatWithToolExecution(ctx, messages, tools, skillExecutor)
-```
-
-### 9.3 添加内置 Skill
-
-```go
-// 注册内置 Skill
-skillsManager.RegisterBuiltin("count_go_files", func(config skills.SkillConfig) (skills.Skill, error) {
-    return builtin.NewBuiltinSkill(config, func(ctx context.Context, args json.RawMessage) (interface{}, error) {
-        // 实现逻辑
-        return map[string]int{"count": 42}, nil
-    }), nil
-})
-```
-
-### 9.4 Skill 配置文件示例
-
-```yaml
-# skills/search_logs.yaml
-name: search_logs
-description: 搜索 Kubernetes Pod 日志，返回匹配的日志行
-provider: http
-endpoint: http://127.0.0.1:8081/execute
-timeout: 30
-headers:
-  Authorization: Bearer ${K8S_TOKEN}
-risk_level: read
-parameters:
-  type: object
-  properties:
-    namespace:
-      type: string
-      description: Kubernetes 命名空间
-    pod:
-      type: string
-      description: Pod 名称，支持通配符
-    keyword:
-      type: string
-      description: 搜索关键词
-    limit:
-      type: integer
-      description: 返回最大行数
-      default: 100
-  required:
-    - namespace
-    - pod
-```
-
----
-
-## 10. 测试策略
-
-### 10.1 单元测试
-
-| 模块 | 测试内容 |
-|------|---------|
-| Registry | 并发注册/注销、启用/禁用、状态一致性 |
-| Provider | Builtin 和 HTTP Provider 创建 Skill |
-| Loader | 配置文件解析、错误处理 |
-| Watcher | 文件事件检测 |
-
-### 10.2 集成测试
-
-- 完整初始化流程
-- 文件变更热加载
-- LLM Client 集成
-
----
-
-## 11. 实现计划
-
-| 阶段 | 内容 | 预估时间 |
-|------|------|---------|
-| 1 | 核心接口定义（Skill、Registry、Provider） | 1h |
-| 2 | Registry 实现 | 2h |
-| 3 | HTTP Provider 实现 | 2h |
-| 4 | 配置加载与文件监听 | 2h |
-| 5 | Manager 和初始化流程 | 1h |
-| 6 | LLM Client 集成 | 1h |
-| 7 | 单元测试 | 2h |
-| 8 | 示例 Skill 和文档 | 1h |
-| **总计** | | **12h** |

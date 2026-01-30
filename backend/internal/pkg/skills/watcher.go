@@ -10,7 +10,7 @@ import (
 
 // FileEvent 文件事件
 type FileEvent struct {
-	Type string      // create, modify, delete
+	Type string // create, modify, delete
 	Path string
 	Info os.FileInfo
 }
@@ -66,12 +66,6 @@ func (w *FileWatcher) Stop() {
 	close(w.stop)
 }
 
-// isConfigFile 检查文件是否为配置文件
-func isConfigFile(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	return ext == ".yaml" || ext == ".yml" || ext == ".json"
-}
-
 // scan 扫描目录变化
 func (w *FileWatcher) scan() error {
 	// 检查目录是否存在
@@ -86,26 +80,32 @@ func (w *FileWatcher) scan() error {
 
 	currentFiles := make(map[string]os.FileInfo)
 
-	err := filepath.Walk(w.dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// 跳过目录
-		if info.IsDir() {
-			return nil
-		}
-
-		// 只处理配置文件
-		if isConfigFile(path) {
-			currentFiles[path] = info
-		}
-
-		return nil
-	})
-
+	// 读取目录
+	entries, err := os.ReadDir(w.dir)
 	if err != nil {
 		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// 跳过隐藏目录
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		path := filepath.Join(w.dir, entry.Name())
+
+		// 检查是否是 Skill 目录
+		skillMDPath := filepath.Join(path, "SKILL.md")
+		info, err := os.Stat(skillMDPath)
+		if err != nil {
+			continue // 不是 Skill 目录
+		}
+
+		currentFiles[path] = info
 	}
 
 	// 检测新增和修改
@@ -127,4 +127,34 @@ func (w *FileWatcher) scan() error {
 
 	w.files = currentFiles
 	return nil
+}
+
+// WatchSkillMD 监听特定 Skill 的 SKILL.md 文件变化
+func (w *FileWatcher) WatchSkillMD(skillPath string, onChange func()) {
+	skillMDPath := filepath.Join(skillPath, "SKILL.md")
+
+	go func() {
+		ticker := time.NewTicker(w.interval)
+		defer ticker.Stop()
+
+		var lastModTime time.Time
+
+		for {
+			select {
+			case <-ticker.C:
+				info, err := os.Stat(skillMDPath)
+				if err != nil {
+					continue
+				}
+
+				if !lastModTime.IsZero() && info.ModTime() != lastModTime {
+					onChange()
+				}
+				lastModTime = info.ModTime()
+
+			case <-w.stop:
+				return
+			}
+		}
+	}()
 }

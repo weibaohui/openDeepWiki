@@ -1,159 +1,210 @@
 package skills
 
 import (
-	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
+	"sync"
 )
 
-// ConfigLoader 配置加载器
-type ConfigLoader struct {
-	registry  Registry
-	providers *ProviderRegistry
+// Loader Skill 加载器
+type Loader struct {
+	parser      *Parser
+	registry    Registry
+	mu          sync.RWMutex
+	skillBodies map[string]string // name -> body (缓存)
 }
 
-// NewConfigLoader 创建配置加载器
-func NewConfigLoader(registry Registry, providers *ProviderRegistry) *ConfigLoader {
-	return &ConfigLoader{
-		registry:  registry,
-		providers: providers,
+// NewLoader 创建加载器
+func NewLoader(parser *Parser, registry Registry) *Loader {
+	return &Loader{
+		parser:      parser,
+		registry:    registry,
+		skillBodies: make(map[string]string),
 	}
 }
 
-// LoadFromDir 从目录加载所有配置
-func (l *ConfigLoader) LoadFromDir(dir string) error {
+// LoadFromDir 从目录加载所有 Skills
+func (l *Loader) LoadFromDir(dir string) ([]*LoadResult, error) {
+	dir = filepath.Clean(dir)
+
 	// 检查目录是否存在
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		// 目录不存在，静默返回
-		return nil
+		log.Printf("Skills directory does not exist: %s", dir)
+		return nil, nil
 	}
 
-	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to read skills directory: %w", err)
 	}
 
-	ymlFiles, err := filepath.Glob(filepath.Join(dir, "*.yml"))
-	if err != nil {
-		return err
-	}
-	files = append(files, ymlFiles...)
+	results := make([]*LoadResult, 0)
 
-	jsonFiles, err := filepath.Glob(filepath.Join(dir, "*.json"))
-	if err != nil {
-		return err
-	}
-	files = append(files, jsonFiles...)
-
-	for _, file := range files {
-		if err := l.LoadFromFile(file); err != nil {
-			// 记录错误但继续加载其他文件
-			fmt.Fprintf(os.Stderr, "Failed to load skill config from %s: %v\n", file, err)
+	for _, entry := range entries {
+		if !entry.IsDir() {
 			continue
+		}
+
+		// 跳过以 . 开头的隐藏目录
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		skillPath := filepath.Join(dir, entry.Name())
+
+		// 检查是否是有效的 Skill 目录（包含 SKILL.md）
+		skillMDPath := filepath.Join(skillPath, "SKILL.md")
+		if _, err := os.Stat(skillMDPath); os.IsNotExist(err) {
+			continue
+		}
+
+		result := l.loadSkill(skillPath)
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// LoadFromPath 加载单个 Skill
+func (l *Loader) LoadFromPath(path string) (*Skill, error) {
+	result := l.loadSkill(path)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Skill, nil
+}
+
+// loadSkill 加载 Skill（内部）
+func (l *Loader) loadSkill(path string) *LoadResult {
+	skill, body, err := l.parser.Parse(path)
+	if err != nil {
+		return &LoadResult{
+			Error:  err,
+			Action: "failed",
 		}
 	}
 
-	return nil
-}
+	// 缓存 body
+	l.mu.Lock()
+	l.skillBodies[skill.Name] = body
+	l.mu.Unlock()
 
-// LoadFromFile 从文件加载配置
-func (l *ConfigLoader) LoadFromFile(path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
-	var config SkillConfig
-
-	// 根据扩展名解析
-	ext := strings.ToLower(filepath.Ext(path))
-	switch ext {
-	case ".yaml", ".yml":
-		err = yaml.Unmarshal(data, &config)
-	case ".json":
-		err = json.Unmarshal(data, &config)
-	default:
-		return fmt.Errorf("unsupported file format: %s", ext)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
-	}
-
-	// 校验配置
-	if err := config.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w", err)
-	}
-
-	// 获取 Provider
-	provider, err := l.providers.Get(config.Provider)
-	if err != nil {
-		return fmt.Errorf("provider not found: %w", err)
-	}
-
-	// 创建 Skill
-	skill, err := provider.Create(config)
-	if err != nil {
-		return fmt.Errorf("failed to create skill: %w", err)
+	// 检查是否已存在
+	existing, _ := l.registry.Get(skill.Name)
+	action := "created"
+	if existing != nil {
+		action = "updated"
 	}
 
 	// 注册到 Registry
-	// 如果已存在，先注销（支持更新）
-	if _, err := l.registry.Get(config.Name); err == nil {
-		_ = l.registry.Unregister(config.Name)
-	}
-
 	if err := l.registry.Register(skill); err != nil {
-		return fmt.Errorf("failed to register skill: %w", err)
+		return &LoadResult{
+			Skill:  skill,
+			Error:  err,
+			Action: "failed",
+		}
 	}
 
-	return nil
+	return &LoadResult{
+		Skill:  skill,
+		Action: action,
+	}
 }
 
-// UnloadFromFile 根据文件路径卸载 Skill
-func (l *ConfigLoader) UnloadFromFile(path string) error {
-	// 从文件名推断 Skill 名称
-	basename := filepath.Base(path)
-	ext := filepath.Ext(basename)
-	name := basename[:len(basename)-len(ext)]
+// GetBody 获取 Skill 的 body 内容
+func (l *Loader) GetBody(name string) (string, error) {
+	l.mu.RLock()
+	body, exists := l.skillBodies[name]
+	l.mu.RUnlock()
 
-	// 首先尝试使用文件名（不含扩展名）作为 Skill 名称卸载
-	// 这在大部分情况下是正确的
-	err := l.registry.Unregister(name)
-	if err == nil {
-		return nil
+	if exists {
+		return body, nil
 	}
 
-	// 如果失败，尝试从文件内容读取 name 字段
-	data, err := os.ReadFile(path)
+	// 如果缓存中没有，尝试从文件加载
+	skill, err := l.registry.Get(name)
 	if err != nil {
-		// 文件可能已被删除，无法读取内容
-		// 尝试从 Registry 中查找匹配的 skill
-		// 由于无法确定确切的 name，这里返回错误
-		return fmt.Errorf("cannot determine skill name from deleted file: %s", path)
+		return "", err
 	}
 
-	// 尝试解析获取 name
-	var config struct {
-		Name string `yaml:"name" json:"name"`
+	// 重新解析获取 body
+	_, body, err = l.parser.Parse(skill.Path)
+	if err != nil {
+		return "", err
 	}
 
-	ext = strings.ToLower(filepath.Ext(path))
-	switch ext {
-	case ".yaml", ".yml":
-		_ = yaml.Unmarshal(data, &config)
-	case ".json":
-		_ = json.Unmarshal(data, &config)
+	// 缓存
+	l.mu.Lock()
+	l.skillBodies[name] = body
+	l.mu.Unlock()
+
+	return body, nil
+}
+
+// LoadReferences 加载 references/ 下的文件
+func (l *Loader) LoadReferences(skill *Skill) (map[string]string, error) {
+	if !skill.HasReferences {
+		return nil, nil
 	}
 
-	if config.Name != "" {
-		return l.registry.Unregister(config.Name)
+	refsDir := filepath.Join(skill.Path, "references")
+	entries, err := os.ReadDir(refsDir)
+	if err != nil {
+		return nil, err
 	}
 
-	// 最后尝试使用文件名
+	refs := make(map[string]string)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		path := filepath.Join(refsDir, entry.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			log.Printf("Failed to read reference file %s: %v", path, err)
+			continue
+		}
+		refs[entry.Name()] = string(content)
+	}
+
+	return refs, nil
+}
+
+// LoadReference 加载单个 reference 文件
+func (l *Loader) LoadReference(skill *Skill, filename string) (string, error) {
+	if !skill.HasReferences {
+		return "", fmt.Errorf("skill has no references")
+	}
+
+	path := filepath.Join(skill.Path, "references", filename)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
+}
+
+// Unload 卸载 Skill
+func (l *Loader) Unload(name string) error {
+	l.mu.Lock()
+	delete(l.skillBodies, name)
+	l.mu.Unlock()
+
 	return l.registry.Unregister(name)
+}
+
+// Reload 重新加载 Skill
+func (l *Loader) Reload(name string) (*Skill, error) {
+	skill, err := l.registry.Get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	l.Unload(name)
+	return l.LoadFromPath(skill.Path)
 }

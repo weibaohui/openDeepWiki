@@ -1,183 +1,188 @@
 # Skills 动态加载框架
 
-## 概述
-
-Skills 是一个动态加载的能力框架，允许在运行时加载、卸载、启用和禁用能力模块，并可被大模型自动选择和调用。
+基于 [Agent Skills Specification](https://agentskills.io/specification) 的技能框架，支持通过 Markdown 文件定义专业技能，动态加载并注入 LLM 上下文。
 
 ## 核心概念
 
-- **Skill**: 最小能力单元，包含名称、描述、参数定义和执行逻辑
-- **Provider**: Skill 的提供者，支持 `builtin`（内置）和 `http`（外部 HTTP 服务）
-- **Registry**: 技能注册中心，管理技能的生命周期
-- **Manager**: 管理器，负责初始化、配置加载和文件监听
+### Skill 结构
+
+每个 Skill 是一个目录，包含 `SKILL.md` 文件：
+
+```
+skill-name/
+├── SKILL.md          # 必需：元数据 + 指令
+├── scripts/          # 可选：可执行脚本
+├── references/       # 可选：参考文档
+└── assets/           # 可选：静态资源
+```
+
+### SKILL.md 格式
+
+```markdown
+---
+name: skill-name
+description: A description of what this skill does and when to use it.
+license: MIT
+compatibility: Requires Python 3.9+
+metadata:
+  author: example
+  version: "1.0"
+---
+
+# 技能指令
+
+详细的步骤说明、示例、最佳实践...
+```
+
+### Progressive Disclosure（渐进式披露）
+
+- **L1 - 元数据**：启动时加载所有 Skills 的 name 和 description
+- **L2 - 指令**：匹配 Skill 时加载 SKILL.md body
+- **L3 - 资源**：按需加载 references/ 中的文件
 
 ## 快速开始
 
 ### 1. 初始化 Manager
 
 ```go
-import "github.com/weibh/openDeepWiki/backend/internal/pkg/skills"
+import "github.com/opendeepwiki/backend/internal/pkg/skills"
 
-// 使用默认目录（./skills 或 SKILLS_DIR 环境变量）
-manager, err := skills.NewManager("")
+// 使用默认配置
+manager, err := skills.NewManager(nil)
 if err != nil {
     log.Fatal(err)
 }
 defer manager.Stop()
 
-// 或指定目录
-manager, err := skills.NewManager("/path/to/skills")
-```
-
-### 2. 注册内置 Skill
-
-```go
-import (
-    "context"
-    "encoding/json"
-    "github.com/weibh/openDeepWiki/backend/internal/pkg/skills/builtin"
-)
-
-// 方式1：注册创建器
-manager.RegisterBuiltinCreator("my_skill", func(config skills.SkillConfig) (skills.Skill, error) {
-    return builtin.NewBuiltinSkill(
-        "my_skill",
-        "我的技能描述",
-        skills.ParameterSchema{
-            Type: "object",
-            Properties: map[string]skills.Property{
-                "input": {Type: "string", Description: "输入参数"},
-            },
-            Required: []string{"input"},
-        },
-        func(ctx context.Context, args json.RawMessage) (interface{}, error) {
-            var params struct {
-                Input string `json:"input"`
-            }
-            if err := json.Unmarshal(args, &params); err != nil {
-                return nil, err
-            }
-            return map[string]string{"result": params.Input}, nil
-        },
-    ), nil
+// 或自定义配置
+manager, err := skills.NewManager(&skills.Config{
+    Dir:            "./my-skills",
+    AutoReload:     true,
+    ReloadInterval: 5 * time.Second,
 })
-
-// 方式2：直接注册 Skill 实例
-skill := builtin.NewBuiltinSkill(...)
-manager.RegisterBuiltinSkill(skill)
 ```
 
-### 3. 在 LLM Client 中使用
+### 2. 匹配 Skills 并注入 Prompt
 
 ```go
-import "github.com/weibh/openDeepWiki/backend/internal/pkg/llm"
-
-// 创建 Skill 执行器
-executor := skills.NewExecutor(manager.Registry)
-
-// 获取 Tools（从 enabled Skills 转换）
-tools := manager.Registry.ToTools()
-
-// 执行对话
-messages := []llm.ChatMessage{
-    {Role: "system", Content: "你是一个助手..."},
-    {Role: "user", Content: "请使用技能..."},
+// 定义任务
+task := skills.Task{
+    Type:        "architecture",
+    Description: "分析这个 Go 项目的架构",
+    RepoType:    "go",
+    Tags:        []string{"microservice"},
 }
 
-response, err := client.ChatWithToolExecution(ctx, messages, tools, executor)
+// 匹配并注入
+newPrompt, matches, err := manager.MatchAndInject(systemPrompt, task)
+if err != nil {
+    log.Fatal(err)
+}
+
+// 查看匹配的 Skills
+for _, m := range matches {
+    fmt.Printf("Skill: %s, Score: %.0f%%, Reason: %s\n", 
+        m.Skill.Name, m.Score*100, m.Reason)
+}
 ```
 
-## 配置文件
-
-Skill 配置文件放在 `skills/` 目录下，支持 YAML 和 JSON 格式。
-
-### HTTP Skill 示例
-
-```yaml
-# skills/my_api.yaml
-name: my_api
-description: 调用外部 API 服务
-provider: http
-endpoint: http://localhost:8080/api/execute
-timeout: 30
-headers:
-  Authorization: Bearer ${API_TOKEN}
-  Content-Type: application/json
-risk_level: read
-parameters:
-  type: object
-  properties:
-    query:
-      type: string
-      description: 查询参数
-    limit:
-      type: integer
-      description: 返回数量限制
-      default: 10
-  required:
-    - query
-```
-
-### 配置字段说明
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| name | string | 是 | Skill 唯一名称 |
-| description | string | 是 | Skill 描述 |
-| provider | string | 是 | Provider 类型：`builtin` 或 `http` |
-| endpoint | string | HTTP 必填 | HTTP 服务端点 |
-| timeout | int | 否 | 超时时间（秒），默认 30 |
-| headers | map | 否 | HTTP 请求头 |
-| risk_level | string | 否 | 风险等级：`read`/`write`/`destructive` |
-| parameters | object | 是 | JSON Schema 参数定义 |
-
-## 动态加载
-
-Manager 会自动监听 `skills/` 目录的变化：
-
-- **新增文件**: 自动加载并注册 Skill
-- **修改文件**: 自动更新 Skill
-- **删除文件**: 自动注销 Skill
-
-监听间隔为 5 秒。
-
-## 目录结构
-
-```
-skills/
-├── skill.go              # Skill 接口定义
-├── registry.go           # Registry 实现
-├── provider.go           # Provider 接口
-├── config.go             # 配置结构
-├── loader.go             # 配置加载
-├── watcher.go            # 文件监听
-├── manager.go            # 管理器
-├── executor.go           # LLM 执行器
-├── errors.go             # 错误定义
-├── builtin/
-│   └── provider.go       # Builtin Provider
-└── http/
-    ├── provider.go       # HTTP Provider
-    ├── skill.go          # HTTP Skill
-    └── client.go         # HTTP 客户端
-```
-
-## 扩展 Provider
-
-实现自定义 Provider：
+### 3. 手动使用组件
 
 ```go
-type MyProvider struct{}
+// 匹配 Skills
+matches, err := manager.Matcher.Match(task)
 
-func (p *MyProvider) Type() string {
-    return "my_provider"
-}
+// 构建 Skill 上下文
+context, err := manager.Injector.BuildSkillContext(matches)
 
-func (p *MyProvider) Create(config skills.SkillConfig) (skills.Skill, error) {
-    // 创建并返回 Skill 实例
-    return &MySkill{config: config}, nil
-}
-
-// 注册 Provider
-manager.providers.Register(&MyProvider{})
+// 获取单个 Skill 内容
+skill, body, err := manager.GetSkillContent("go-analysis")
 ```
+
+## 组件说明
+
+| 组件 | 职责 | 主要方法 |
+|-----|------|---------|
+| **Parser** | 解析 SKILL.md | `Parse()`, `ParseMetadata()`, `Validate()` |
+| **Loader** | 加载 Skills | `LoadFromDir()`, `LoadFromPath()`, `GetBody()` |
+| **Registry** | 管理 Skills | `Register()`, `Get()`, `List()`, `Enable()` |
+| **Matcher** | 匹配 Skills | `Match()`, `MatchByDescription()` |
+| **Injector** | 注入 Prompt | `InjectToPrompt()`, `BuildSkillContext()` |
+| **Manager** | 整合管理 | `MatchAndInject()`, `ReloadAll()` |
+
+## Skill 编写规范
+
+### name 规范
+
+- 只能包含小写字母、数字、连字符
+- 不能以连字符开头或结尾
+- 不能包含连续连字符
+- 长度 1-64 字符
+- 应与目录名一致
+
+### description 规范
+
+- 描述技能做什么和何时使用
+- 包含关键词帮助匹配
+- 长度 1-1024 字符
+- 良好的示例：
+  ```
+  Extracts text and tables from PDF files, fills PDF forms. 
+  Use when working with PDF documents or when user mentions PDFs.
+  ```
+
+### 指令编写建议
+
+- 提供清晰的步骤说明
+- 包含输入输出示例
+- 说明常见边界情况
+- 保持 main SKILL.md 在 500 行以内
+- 详细参考文档放在 references/ 目录
+
+## 配置
+
+### 环境变量
+
+- `SKILLS_DIR`: 指定 Skills 目录
+
+### 配置选项
+
+```go
+type Config struct {
+    Dir            string        // Skills 目录，默认 "./skills"
+    AutoReload     bool          // 自动热加载，默认 true
+    ReloadInterval time.Duration // 检查间隔，默认 5s
+}
+```
+
+## 示例 Skills
+
+### go-analysis
+
+分析 Go 项目架构，识别模块依赖和代码组织。
+
+适用场景：
+- Go 仓库分析
+- 架构文档生成
+- 代码审查
+
+### doc-generation
+
+生成技术文档的最佳实践指南。
+
+适用场景：
+- 项目文档编写
+- API 文档生成
+- 开发者指南
+
+## 测试
+
+```bash
+cd backend
+go test ./internal/pkg/skills/... -v
+```
+
+## 参考
+
+- [Agent Skills Specification](https://agentskills.io/specification)
+- [Claude Custom Skills](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)
