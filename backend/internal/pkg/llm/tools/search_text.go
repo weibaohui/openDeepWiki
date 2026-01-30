@@ -50,18 +50,15 @@ func SearchText(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 搜索路径
-	searchPath := basePath
-	if params.Path != "" {
-		searchPath = filepath.Join(basePath, params.Path)
-	}
+	 
 
 	// 安全检查
-	if !isPathSafe(basePath, searchPath) {
+	if !isPathSafe(basePath, params.Path) {
 		return "", fmt.Errorf("path escapes base directory: %s", params.Path)
 	}
 
 	// 执行搜索
-	results, err := searchInDir(searchPath, re, params.Glob)
+	results, err := searchInDir(params.Path, re, params.Glob)
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
 	}

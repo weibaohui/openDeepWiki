@@ -20,20 +20,20 @@ import (
 
 // ExtractFunctionsArgs code.extract_functions 参数
 type ExtractFunctionsArgs struct {
-	FilePath     string `json:"file_path"`
-	IncludeBody  bool   `json:"include_body,omitempty"`
+	FilePath    string `json:"file_path"`
+	IncludeBody bool   `json:"include_body,omitempty"`
 }
 
 // FunctionInfo 函数信息
 type FunctionInfo struct {
-	Name       string `json:"name"`
-	Signature  string `json:"signature"`
-	LineStart  int    `json:"line_start"`
-	LineEnd    int    `json:"line_end"`
+	Name       string   `json:"name"`
+	Signature  string   `json:"signature"`
+	LineStart  int      `json:"line_start"`
+	LineEnd    int      `json:"line_end"`
 	Params     []string `json:"params,omitempty"`
 	Returns    []string `json:"returns,omitempty"`
-	Complexity int    `json:"complexity,omitempty"`
-	Body       string `json:"body,omitempty"`
+	Complexity int      `json:"complexity,omitempty"`
+	Body       string   `json:"body,omitempty"`
 }
 
 // ExtractFunctions 提取文件中的函数列表
@@ -150,7 +150,7 @@ func ExtractFunctions(args json.RawMessage, basePath string) (string, error) {
 	// 格式化输出
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Found %d functions:\n", len(functions)))
-	
+
 	for _, fn := range functions {
 		lines = append(lines, fmt.Sprintf("- %s", fn.Signature))
 		lines = append(lines, fmt.Sprintf("  Lines: %d-%d, Complexity: %d", fn.LineStart, fn.LineEnd, fn.Complexity))
@@ -321,12 +321,12 @@ func GetFileTree(args json.RawMessage, basePath string) (string, error) {
 	// 格式化输出
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Total files: %d\n", totalFiles))
-	
+
 	lines = append(lines, "Languages:")
 	for lang, count := range languageCount {
 		lines = append(lines, fmt.Sprintf("  %s: %d", lang, count))
 	}
-	
+
 	lines = append(lines, "\nFile tree:")
 	for _, f := range files {
 		if len(lines) > 150 {
@@ -421,7 +421,7 @@ func CalculateComplexity(args json.RawMessage, basePath string) (string, error) 
 	lines = append(lines, fmt.Sprintf("File: %s", params.FilePath))
 	lines = append(lines, fmt.Sprintf("Rating: %s (avg complexity: %d)\n", rating, avgComplexity))
 	lines = append(lines, "Functions:")
-	
+
 	for _, fn := range functions {
 		indicator := "✓"
 		if fn.Complexity > 10 {
@@ -455,7 +455,7 @@ func FindDefinitions(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 安全检查
-	fullPath := filepath.Join(basePath, params.RepoPath)
+	fullPath := params.RepoPath
 	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("repo_path escapes base directory: %s", params.RepoPath)
 	}
@@ -511,7 +511,7 @@ func FindDefinitions(args json.RawMessage, basePath string) (string, error) {
 		return fmt.Sprintf("No definitions found for symbol: %s", params.Symbol), nil
 	}
 
-	return fmt.Sprintf("Found %d definitions for '%s':\n%s", 
+	return fmt.Sprintf("Found %d definitions for '%s':\n%s",
 		len(definitions), params.Symbol, strings.Join(definitions, "\n")), nil
 }
 
@@ -596,7 +596,6 @@ func getFileLines(filePath string, start, end int) (string, error) {
 
 	return strings.Join(lines, "\n"), nil
 }
- 
 
 // 添加必要的 import
 var _ = regexp.MatchString // 用于避免未使用 import 的错误

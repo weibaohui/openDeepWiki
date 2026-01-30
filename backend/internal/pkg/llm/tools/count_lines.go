@@ -34,7 +34,7 @@ func CountLines(args json.RawMessage, basePath string) (string, error) {
 	// }
 
 	// 构建完整路径
-	fullPath := filepath.Join(basePath, params.Path)
+	fullPath := params.Path
 
 	// 安全检查
 	if !isPathSafe(basePath, fullPath) {

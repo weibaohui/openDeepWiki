@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -34,15 +33,14 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 	// }
 
 	// 构建完整路径
-	fullPath := filepath.Join(basePath, params.Path)
 
 	// 安全检查
-	if !isPathSafe(basePath, fullPath) {
+	if !isPathSafe(basePath, params.Path) {
 		return "", fmt.Errorf("path escapes base directory: %s", params.Path)
 	}
 
 	// 检查文件是否存在
-	info, err := os.Stat(fullPath)
+	info, err := os.Stat(params.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", fmt.Errorf("file not found: %s", params.Path)
@@ -75,7 +73,7 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 打开文件
-	file, err := os.Open(fullPath)
+	file, err := os.Open(params.Path)
 	if err != nil {
 		return "", fmt.Errorf("cannot open file: %w", err)
 	}

@@ -40,6 +40,13 @@ func TestSearchText(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			name:      "search in go files for (M|m)ain keyword",
+			pattern:   "func (M|m)ain",
+			glob:      "**/*.go",
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
 			name:      "search with regex",
 			pattern:   "func.*\\(\\)",
 			glob:      "*.go",
@@ -76,6 +83,7 @@ func TestSearchText(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			args := SearchTextArgs{
+				Path:    tempDir,
 				Pattern: tt.pattern,
 				Glob:    tt.glob,
 			}
@@ -150,28 +158,28 @@ func TestSearchTextPathSafety(t *testing.T) {
 
 func TestTruncate(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		maxLen  int
-		want    string
+		name   string
+		input  string
+		maxLen int
+		want   string
 	}{
 		{
-			name:    "no truncation needed",
-			input:   "short text",
-			maxLen:  20,
-			want:    "short text",
+			name:   "no truncation needed",
+			input:  "short text",
+			maxLen: 20,
+			want:   "short text",
 		},
 		{
-			name:    "truncation needed",
-			input:   "this is a very long text that needs to be truncated",
-			maxLen:  10,
-			want:    "this is a ...",
+			name:   "truncation needed",
+			input:  "this is a very long text that needs to be truncated",
+			maxLen: 10,
+			want:   "this is a ...",
 		},
 		{
-			name:    "exact length",
-			input:   "exactlyten",
-			maxLen:  10,
-			want:    "exactlyten",
+			name:   "exact length",
+			input:  "exactlyten",
+			maxLen: 10,
+			want:   "exactlyten",
 		},
 	}
 
