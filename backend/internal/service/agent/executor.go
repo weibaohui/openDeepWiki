@@ -55,7 +55,7 @@ func NewExecutor(cfg *config.Config) *Executor {
 	managerConfig := &agents.Config{
 		Dir:          "../agents",
 		AutoReload:   true,
-		DefaultAgent: "default-agent",
+		DefaultAgent: "architect-agent",
 		Routes: map[string]string{
 			"repo-analysis": "repo-analysis-agent",
 			"code-diagnose": "code-diagnosis-agent",
