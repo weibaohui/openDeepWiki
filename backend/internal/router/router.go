@@ -15,6 +15,7 @@ func Setup(
 	docHandler *handler.DocumentHandler,
 	configHandler *handler.ConfigHandler,
 	templateHandler *handler.DocumentTemplateHandler,
+	aiAnalyzeHandler *handler.AIAnalyzeHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -39,6 +40,9 @@ func Setup(
 			repos.GET("/:id", repoHandler.Get)
 			repos.DELETE("/:id", repoHandler.Delete)
 			repos.POST("/:id/run-all", repoHandler.RunAllTasks)
+			repos.POST("/:id/ai-analyze", aiAnalyzeHandler.StartAnalysis)
+			repos.GET("/:id/ai-analysis-status", aiAnalyzeHandler.GetAnalysisStatus)
+			repos.GET("/:id/ai-analysis-result", aiAnalyzeHandler.GetAnalysisResult)
 			repos.GET("/:id/tasks", taskHandler.GetByRepository)
 			repos.GET("/:id/documents", docHandler.GetByRepository)
 			repos.GET("/:id/documents/index", docHandler.GetIndex)

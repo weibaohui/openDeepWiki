@@ -47,6 +47,7 @@ func main() {
 	templateRepo := repository.NewTemplateRepository(db)
 	chapterRepo := repository.NewChapterRepository(db)
 	docTemplateRepo := repository.NewDocTemplateRepository(db)
+	aiAnalysisTaskRepo := repository.NewAIAnalysisTaskRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
@@ -54,6 +55,7 @@ func main() {
 	templateService := service.NewTemplateService(templateRepo)
 	chapterService := service.NewChapterService(chapterRepo, templateRepo)
 	docTemplateService := service.NewDocTemplateService(docTemplateRepo, chapterRepo)
+	aiAnalyzeService := service.NewAIAnalyzeService(cfg, repoRepo, aiAnalysisTaskRepo)
 
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
@@ -71,6 +73,7 @@ func main() {
 	docHandler := handler.NewDocumentHandler(docService)
 	configHandler := handler.NewConfigHandler(cfg)
 	templateHandler := handler.NewDocumentTemplateHandler(templateService, chapterService, docTemplateService)
+	aiAnalyzeHandler := handler.NewAIAnalyzeHandler(aiAnalyzeService)
 
 	// 初始化预置模板数据
 	if err := service.InitDefaultTemplates(db); err != nil {
@@ -81,7 +84,7 @@ func main() {
 	cleanupStuckTasks(taskService)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler, aiAnalyzeHandler)
 
 	log.Printf("Server starting on port %s...", cfg.Server.Port)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {

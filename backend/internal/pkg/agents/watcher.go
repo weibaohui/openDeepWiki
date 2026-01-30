@@ -46,7 +46,12 @@ func (w *FileWatcher) Stop() {
 
 // watch 监听循环
 func (w *FileWatcher) watch() {
-	ticker := time.NewTicker(w.interval)
+	// 验证间隔时间是否有效，如果无效则使用默认值
+	interval := w.interval
+	if interval <= 0 {
+		interval = 1 * time.Second // 使用默认间隔
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// 初始状态
