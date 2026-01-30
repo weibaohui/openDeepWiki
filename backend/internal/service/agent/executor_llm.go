@@ -153,6 +153,10 @@ func (e *Executor) ExecuteConversation(
 		// 5.2 记录 Usage
 		execCtx.trackUsage(response)
 
+		if len(response.Choices) == 0 {
+			klog.Errorf("LLM response choices is empty at step %d", execCtx.step+1)
+			return nil, fmt.Errorf("LLM response choices is empty at step %d", execCtx.step+1)
+		}
 		klog.V(6).Infof("Step %d: LLM response: %s", execCtx.step+1, utils.ToJSON(response))
 		// 5.3 提取 Assistant message
 		assistantMessage = llm.ChatMessage{

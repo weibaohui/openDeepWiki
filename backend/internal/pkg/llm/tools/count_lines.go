@@ -34,8 +34,11 @@ func CountLines(args json.RawMessage, basePath string) (string, error) {
 	// }
 
 	// 构建完整路径
-	fullPath := params.Path
-
+	fullPath := filepath.Join(basePath, params.Path)
+	if strings.HasPrefix(params.Path, "/") {
+		fullPath = params.Path
+	}
+		
 	// 安全检查
 	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("path escapes base directory: %s", params.Path)

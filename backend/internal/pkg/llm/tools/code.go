@@ -455,7 +455,10 @@ func FindDefinitions(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 安全检查
-	fullPath := params.RepoPath
+	fullPath := filepath.Join(basePath, params.RepoPath)
+	if strings.HasPrefix(params.RepoPath, "/") {
+		fullPath = params.RepoPath
+	}
 	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("repo_path escapes base directory: %s", params.RepoPath)
 	}

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 // SearchTextArgs search_text 工具参数
@@ -50,14 +52,17 @@ func SearchText(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 搜索路径
-
+	fullPath := filepath.Join(basePath, params.Path)
+	if strings.HasPrefix(params.Path, "/") {
+		fullPath = params.Path
+	}
 	// 安全检查
-	if !isPathSafe(basePath, params.Path) {
+	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("path escapes base directory: %s", params.Path)
 	}
 
 	// 执行搜索
-	results, err := searchInDir(params.Path, re, params.Glob)
+	results, err := searchInDir(fullPath, re, params.Glob)
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
 	}
@@ -138,7 +143,10 @@ func searchInDir(root string, re *regexp.Regexp, glob string) ([]SearchResult, e
 
 		// 限制总结果数
 		if len(searchResults) > 100 {
-			return fmt.Errorf("too many matches")
+			klog.V(6).Infof("搜索到 %d 个匹配项，已截断", len(searchResults))
+			// 截断结果
+			searchResults = searchResults[:100]
+			return nil
 		}
 
 		return nil
