@@ -14,10 +14,11 @@ import {
     LoadingOutlined,
     WarningOutlined,
     FileTextOutlined,
+    RobotOutlined,
 } from '@ant-design/icons';
-import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid } from 'antd';
+import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid, message, Tooltip } from 'antd';
 import type { Repository } from '../types';
-import { repositoryApi } from '../services/api';
+import { repositoryApi, aiAnalyzeApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import GitHubPromoBanner from '@/components/common/GitHubPromoBanner';
@@ -27,16 +28,24 @@ const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
 
+// AI分析状态映射
+interface AIAnalyzeState {
+    status: 'idle' | 'pending' | 'running' | 'completed' | 'failed';
+    progress: number;
+}
+
 export default function Home() {
     const { t } = useAppConfig();
     const navigate = useNavigate();
     const screens = useBreakpoint();
+    const [messageApi, contextHolder] = message.useMessage();
     const [repositories, setRepositories] = useState<Repository[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newRepoUrl, setNewRepoUrl] = useState('');
     const [adding, setAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [aiAnalyzeStates, setAiAnalyzeStates] = useState<Record<number, AIAnalyzeState>>({});
 
     const fetchRepositories = async () => {
         try {
@@ -52,11 +61,61 @@ export default function Home() {
         }
     };
 
+    // 轮询AI分析状态
+    const pollAIAnalysisStatus = async (repoId: number) => {
+        try {
+            const response = await aiAnalyzeApi.getStatus(repoId);
+            const status = response.data;
+            
+            setAiAnalyzeStates(prev => ({
+                ...prev,
+                [repoId]: {
+                    status: status.status as AIAnalyzeState['status'],
+                    progress: status.progress,
+                }
+            }));
+
+            // 如果还在运行中，继续轮询
+            if (status.status === 'pending' || status.status === 'running') {
+                setTimeout(() => pollAIAnalysisStatus(repoId), 3000);
+            } else if (status.status === 'completed') {
+                messageApi.success(t('repository.ai_analyze_completed', 'AI分析完成'));
+            } else if (status.status === 'failed') {
+                messageApi.error(t('repository.ai_analyze_failed', 'AI分析失败') + ': ' + status.error_msg);
+            }
+        } catch (error) {
+            console.error('Failed to fetch AI analysis status:', error);
+        }
+    };
+
     useEffect(() => {
         fetchRepositories();
         const interval = setInterval(fetchRepositories, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    // 初始加载时检查所有仓库的AI分析状态
+    useEffect(() => {
+        repositories.forEach(repo => {
+            if (repo.status === 'ready' || repo.status === 'completed') {
+                aiAnalyzeApi.getStatus(repo.id).then(response => {
+                    const status = response.data;
+                    if (status && (status.status === 'pending' || status.status === 'running')) {
+                        setAiAnalyzeStates(prev => ({
+                            ...prev,
+                            [repo.id]: {
+                                status: status.status as AIAnalyzeState['status'],
+                                progress: status.progress,
+                            }
+                        }));
+                        pollAIAnalysisStatus(repo.id);
+                    }
+                }).catch(() => {
+                    // 忽略错误，可能还没有分析记录
+                });
+            }
+        });
+    }, [repositories.length]);
 
     const handleAddRepository = async () => {
         if (!newRepoUrl.trim()) return;
@@ -91,6 +150,43 @@ export default function Home() {
         });
     };
 
+    const handleAIAnalyze = async (repoId: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        // 检查是否已有进行中的分析
+        const currentState = aiAnalyzeStates[repoId];
+        if (currentState?.status === 'running' || currentState?.status === 'pending') {
+            messageApi.info(t('repository.ai_analyze_in_progress', 'AI分析正在进行中'));
+            return;
+        }
+
+        try {
+            setAiAnalyzeStates(prev => ({
+                ...prev,
+                [repoId]: { status: 'pending', progress: 0 }
+            }));
+
+            await aiAnalyzeApi.start(repoId);
+            
+            setAiAnalyzeStates(prev => ({
+                ...prev,
+                [repoId]: { status: 'running', progress: 10 }
+            }));
+
+            messageApi.success(t('repository.ai_analyze_started', 'AI分析已启动'));
+            
+            // 开始轮询状态
+            pollAIAnalysisStatus(repoId);
+        } catch (error: any) {
+            console.error('Failed to start AI analysis:', error);
+            setAiAnalyzeStates(prev => ({
+                ...prev,
+                [repoId]: { status: 'failed', progress: 0 }
+            }));
+            messageApi.error(error.response?.data?.error || t('repository.ai_analyze_start_failed', '启动AI分析失败'));
+        }
+    };
+
     const getStatusDisplay = (status: string) => {
         const map: Record<string, { label: string, icon: React.ReactNode, color: string }> = {
             pending: { label: t('repository.status.pending'), icon: <ClockCircleOutlined />, color: 'default' },
@@ -103,6 +199,47 @@ export default function Home() {
         return map[status] || { label: status, icon: null, color: 'default' };
     };
 
+    const getAIAnalyzeButtonProps = (repo: Repository) => {
+        const state = aiAnalyzeStates[repo.id];
+        
+        // 只有ready或completed状态的仓库才能进行AI分析
+        const canAnalyze = repo.status === 'ready' || repo.status === 'completed';
+        
+        if (!canAnalyze) {
+            return {
+                disabled: true,
+                loading: false,
+                icon: <RobotOutlined />,
+                text: t('repository.ai_analyze', 'AI分析'),
+            };
+        }
+
+        if (state?.status === 'running' || state?.status === 'pending') {
+            return {
+                disabled: false,
+                loading: true,
+                icon: <RobotOutlined />,
+                text: t('repository.ai_analyzing', '分析中'),
+            };
+        }
+
+        if (state?.status === 'completed') {
+            return {
+                disabled: false,
+                loading: false,
+                icon: <CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />,
+                text: t('repository.ai_analyze_again', '再次分析'),
+            };
+        }
+
+        return {
+            disabled: false,
+            loading: false,
+            icon: <RobotOutlined />,
+            text: t('repository.ai_analyze', 'AI分析'),
+        };
+    };
+
     const filteredRepositories = repositories.filter(repo =>
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.url.toLowerCase().includes(searchQuery.toLowerCase())
@@ -110,6 +247,7 @@ export default function Home() {
 
     return (
         <>
+            {contextHolder}
             <GitHubPromoBanner />
             <Layout style={{ minHeight: '100vh' }}>
                 <Header style={{
@@ -188,12 +326,25 @@ export default function Home() {
                             dataSource={filteredRepositories}
                             renderItem={(repo) => {
                                 const statusInfo = getStatusDisplay(repo.status);
+                                const aiButtonProps = getAIAnalyzeButtonProps(repo);
                                 return (
                                     <List.Item>
                                         <Card
                                             hoverable
                                             onClick={() => navigate(`/repo/${repo.id}`)}
                                             actions={[
+                                                <Tooltip title={t('repository.ai_analyze_tooltip', '使用AI Agent分析代码并生成文档')}>
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={aiButtonProps.icon}
+                                                        loading={aiButtonProps.loading}
+                                                        disabled={aiButtonProps.disabled}
+                                                        onClick={(e) => handleAIAnalyze(repo.id, e)}
+                                                    >
+                                                        {aiButtonProps.text}
+                                                    </Button>
+                                                </Tooltip>,
                                                 <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/repo/${repo.id}`) }}>
                                                     {t('repository.enter_wiki', '进入知识库')} <RightOutlined />
                                                 </Button>,
@@ -205,7 +356,7 @@ export default function Home() {
                                                     icon={<DeleteOutlined />}
                                                 >
                                                     {t('common.delete')}
-                                                </Button>
+                                                </Button>,
                                             ]}
                                         >
                                             <Card.Meta
