@@ -61,7 +61,7 @@ var TaskTypes = []struct {
 // AIAnalysisTask AI分析任务模型
 type AIAnalysisTask struct {
 	ID           uint       `json:"id" gorm:"primaryKey"`
-	RepositoryID uint       `json:"repository_id" gorm:"index;not null"`
+	RepositoryID uint       `json:"repository_id" gorm:"index;"`
 	TaskID       string     `json:"task_id" gorm:"size:64;uniqueIndex"` // UUID
 	Status       string     `json:"status" gorm:"size:50;default:pending"` // pending, running, completed, failed
 	Progress     int        `json:"progress" gorm:"default:0"` // 0-100
