@@ -2,6 +2,8 @@ package llm
 
 import (
 	"encoding/json"
+
+	"github.com/opendeepwiki/backend/internal/pkg/llm/tools"
 )
 
 // Tool 定义一个可供 LLM 调用的工具
@@ -100,15 +102,35 @@ type ChatResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// DefaultTools 返回默认的工具集合
+// DefaultTools 返回默认的工具集合（包含所有内置工具）
 func DefaultTools() []Tool {
-	return []Tool{
+	toolList := []Tool{
 		SearchFilesTool(),
 		ReadFileTool(),
 		SearchTextTool(),
 		ExecuteBashTool(),
 		CountLinesTool(),
 	}
+	
+	// 添加 Git 工具
+	toolList = append(toolList, tools.GitTools()...)
+	
+	// 添加 Filesystem 扩展工具
+	toolList = append(toolList, tools.FilesystemTools()...)
+	
+	// 添加 Code Analysis 工具
+	toolList = append(toolList, tools.CodeTools()...)
+	
+	// 添加 Advanced Search 工具
+	toolList = append(toolList, tools.AdvancedSearchTools()...)
+	
+	// 添加 Generation 工具
+	toolList = append(toolList, tools.GenerationTools()...)
+	
+	// 添加 Quality 工具
+	toolList = append(toolList, tools.QualityTools()...)
+	
+	return toolList
 }
 
 // SearchFilesTool 返回 search_files 工具定义

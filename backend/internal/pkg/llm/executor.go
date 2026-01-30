@@ -62,11 +62,49 @@ func NewSafeExecutor(basePath string, config *ExecutorConfig) *SafeExecutor {
 
 // registerDefaultTools 注册默认工具处理器
 func (e *SafeExecutor) registerDefaultTools() {
+	// 基础工具
 	e.handlers["search_files"] = tools.SearchFiles
 	e.handlers["read_file"] = tools.ReadFile
 	e.handlers["search_text"] = tools.SearchText
 	e.handlers["execute_bash"] = tools.ExecuteBash
 	e.handlers["count_lines"] = tools.CountLines
+	
+	// Git 工具
+	e.handlers["git_clone"] = tools.GitClone
+	e.handlers["git_diff"] = tools.GitDiff
+	e.handlers["git_log"] = tools.GitLog
+	e.handlers["git_status"] = tools.GitStatus
+	e.handlers["git_branch_list"] = tools.GitBranchList
+	
+	// Filesystem 扩展工具
+	e.handlers["list_dir"] = tools.ListDir
+	e.handlers["file_stat"] = tools.FileStat
+	e.handlers["file_exists"] = tools.FileExistsTool
+	e.handlers["find_files"] = tools.FindFiles
+	
+	// Code Analysis 工具
+	e.handlers["extract_functions"] = tools.ExtractFunctions
+	e.handlers["get_code_snippet"] = tools.GetCodeSnippet
+	e.handlers["get_file_tree"] = tools.GetFileTree
+	e.handlers["calculate_complexity"] = tools.CalculateComplexity
+	e.handlers["find_definitions"] = tools.FindDefinitions
+	
+	// Advanced Search 工具
+	e.handlers["semantic_search"] = tools.SemanticSearch
+	e.handlers["symbol_search"] = tools.SymbolSearch
+	e.handlers["similar_code"] = tools.SimilarCode
+	e.handlers["full_text_search"] = tools.FullTextSearch
+	
+	// Generation 工具
+	e.handlers["generate_mermaid"] = tools.GenerateMermaid
+	e.handlers["generate_diagram"] = tools.GenerateDiagram
+	e.handlers["summarize"] = tools.Summarize
+	
+	// Quality 工具
+	e.handlers["check_links"] = tools.CheckLinks
+	e.handlers["check_formatting"] = tools.CheckFormatting
+	e.handlers["readability_score"] = tools.ReadabilityScore
+	e.handlers["spell_check"] = tools.SpellCheck
 }
 
 // Execute 执行工具调用
@@ -199,5 +237,3 @@ func ValidateCommand(command string) error {
 
 	return nil
 }
-
-
