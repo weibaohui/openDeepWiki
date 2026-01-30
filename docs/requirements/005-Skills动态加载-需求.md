@@ -2,436 +2,380 @@
 
 ## 1. 背景（Why）
 
-当前系统已具备基于 MCP (Model Context Protocol) 的工具调用机制（004号需求），但所有能力（Tools）在编译期静态注册，存在以下问题：
+当前系统的 LLM 调用缺乏领域特定的知识和工作流程指导。为了让 LLM 更好地完成特定任务（如代码分析、文档生成、特定领域处理），需要引入 **Skills（技能）机制**。
 
-- **发布成本高**：新能力上线需要重新编译、发布主服务
-- **无法按需控制**：无法运行时启停能力（如高风险写操作）
-- **扩展性受限**：不利于 AI Agent 能力的扩展与演进
+Skills 是 Agent Skills 规范的实现，允许通过 Markdown 文件定义专业技能，包含：
+- **元数据**：技能名称、描述、使用场景
+- **指令**：详细的步骤说明、示例、最佳实践
+- **资源**：参考文档、可执行脚本、模板文件
 
-因此，需要引入 **Skills 动态加载机制**，使能力模块可以在运行期被加载、卸载、启用和禁用，并可被大模型自动选择和调用。
+当 LLM 处理特定任务时，系统根据任务内容匹配合适的 Skills，将 Skill 的指令注入到 LLM 上下文中，指导 LLM 更好地完成任务。
 
----
+### 目标
 
-## 2. 目标（What，必须可验证）
+- [ ] 实现 Agent Skills 规范兼容的 Skills 框架
+- [ ] 支持从 `SKILL.md` 文件动态加载 Skills
+- [ ] Skills 可在运行时热加载/更新，无需重启服务
+- [ ] 支持智能匹配：根据任务内容自动选择合适的 Skills
+- [ ] Skills 内容可注入 LLM 上下文，指导任务执行
 
-- [ ] **Skills 核心框架**：定义统一的 Skill 接口规范
-- [ ] **动态加载机制**：支持运行时从配置文件加载/卸载 Skills
-- [ ] **Skill Registry**：实现技能注册中心，管理技能生命周期
-- [ ] **HTTP Provider**：支持通过 HTTP 调用外部 Skill 服务
-- [ ] **Builtin Provider**：支持内置 Go 代码实现的 Skills
-- [ ] **LLM 集成**：Skills 可自动转换为 LLM Tools 供模型调用
+### 非目标
 
----
-
-## 3. 非目标（Explicitly Out of Scope）
-
-- [ ] 不实现复杂的 Agent 规划算法
-- [ ] 不强制使用 plugin / wasm 等二进制加载技术
+- [ ] 不实现脚本执行（scripts/ 目录内容由外部处理）
+- [ ] 不实现 Skill 的版本管理
 - [ ] 不涉及前端 UI 实现
-- [ ] 不实现 Skill 版本管理（v1/v2）
-- [ ] 不实现多 Skill 编排（Plan → Execute）
-- [ ] 不实现 RBAC 权限控制（仅预留风险等级标记）
+- [ ] 不实现 Skill 之间的显式依赖
 
 ---
 
-## 4. 核心概念定义
+## 2. 核心概念定义
 
-### 4.1 Skill（技能）
+### 2.1 Skill（技能）
 
-Skill 是系统中的最小"能力单元"，代表一个可被 AI 调用的原子能力。
+Skill 是一个包含专业知识和工作流程的单元，以目录形式组织：
 
-一个 Skill 必须具备：
+```
+skill-name/
+├── SKILL.md          # 必需：元数据 + 指令
+├── scripts/          # 可选：可执行脚本（Python/Bash/JS等）
+├── references/       # 可选：参考文档
+└── assets/           # 可选：静态资源（模板、数据文件）
+```
 
-| 属性 | 说明 |
-|------|------|
-| `name` | 唯一名称（全局唯一） |
-| `description` | 描述信息，供 LLM 理解用途 |
-| `parameters` | 输入参数定义（JSON Schema） |
-| `execute` | 执行逻辑 |
+**SKILL.md 结构**：
+- **YAML Frontmatter**（元数据）：name, description, license, compatibility, metadata
+- **Markdown Body**（指令）：步骤说明、示例、最佳实践
 
-### 4.2 Skill Provider（技能提供者）
+### 2.2 Skill Registry（技能注册中心）
 
-Skill Provider 是 Skill 的加载来源：
-
-| Provider 类型 | 说明 |
-|--------------|------|
-| `builtin` | 内置 Go 实现，编译到主程序中 |
-| `http` | 外部 HTTP 服务，通过 HTTP 调用 |
-
-### 4.3 Skill Registry（技能注册中心）
-
-Skill Registry 负责：
-
-- 维护当前已加载的 Skills
+管理所有已加载的 Skills：
+- 维护 Skills 元数据索引（用于匹配）
 - 管理 Skills 的启用/禁用状态
-- 为 LLM 暴露可用 Skills 列表
+- 提供 Skills 查询和检索能力
 
-### 4.4 Skill 状态模型
+### 2.3 Skill Matcher（技能匹配器）
 
-```
-+--------+    Enable     +---------+
-| loaded | ------------> | enabled |
-+--------+               +---------+
-   |  |                     |  |
-   |  +-- Disable ----+     |  |
-   |                   |     |  |
-   +---- Unregister ---+     +-- Unregister
-                              |
-                              v
-                           +---------+
-                           | removed |
-                           +---------+
-```
+根据任务内容选择合适的 Skills：
+- 分析任务描述、类型、上下文
+- 匹配 Skills 的 description 关键字
+- 返回匹配的 Skills 列表
 
-| 状态 | 说明 |
-|------|------|
-| `loaded` | 已加载到 Registry |
-| `enabled` | 可被 LLM 调用 |
-| `disabled` | 不可调用但仍保留 |
+### 2.4 Progressive Disclosure（渐进式披露）
+
+Skills 内容分层加载策略：
+
+| 层级 | 内容 | 加载时机 | 大小建议 |
+|-----|------|---------|---------|
+| L1 | 元数据（name, description） | 系统启动时 | ~100 tokens |
+| L2 | 指令（SKILL.md body） | Skill 被选中时 | <5000 tokens |
+| L3 | 资源（references/等） | 按需加载 | 根据需求 |
 
 ---
 
-## 5. 功能需求清单（Checklist）
+## 3. 功能需求清单（Checklist）
 
-### 5.1 Skill 接口规范
+### 3.1 Skill 解析
 
-所有 Skills 必须实现统一接口：
+- [ ] 解析 `SKILL.md` 文件的 YAML frontmatter
+- [ ] 提取 Markdown body 作为指令内容
+- [ ] 校验 name 格式（小写字母、数字、连字符，最多64字符）
+- [ ] 校验 description 长度（1-1024字符）
+- [ ] 支持可选字段：license, compatibility, metadata, allowed-tools
+
+### 3.2 Skill 目录结构
+
+- [ ] 加载单个 Skill 目录
+- [ ] 支持 `scripts/` 子目录识别
+- [ ] 支持 `references/` 子目录识别
+- [ ] 支持 `assets/` 子目录识别
+- [ ] 支持相对路径引用其他文件
+
+### 3.3 动态加载机制
+
+- [ ] 默认目录：`./skills`（与可执行文件同级）
+- [ ] 支持环境变量 `SKILLS_DIR` 指定目录
+- [ ] 支持配置文件指定 `skills.dir`
+- [ ] 系统启动时加载所有 Skills 元数据
+- [ ] 监听目录变化，热加载/更新/卸载 Skills
+- [ ] 支持手动刷新 API
+
+### 3.4 Skill Registry
+
+- [ ] `Register(skill)`: 注册 Skill
+- [ ] `Unregister(name)`: 注销 Skill
+- [ ] `Enable(name)`: 启用 Skill
+- [ ] `Disable(name)`: 禁用 Skill
+- [ ] `Get(name)`: 获取指定 Skill
+- [ ] `List()`: 列出所有 Skills（仅元数据）
+- [ ] `ListEnabled()`: 列出启用的 Skills
+- [ ] `GetInstructions(name)`: 获取 Skill 完整指令
+
+### 3.5 Skill Matcher
+
+- [ ] 基于任务描述匹配 Skills
+- [ ] 支持关键词匹配
+- [ ] 支持任务类型匹配
+- [ ] 返回匹配度和排序
+- [ ] 支持强制指定 Skills
+
+### 3.6 LLM 集成
+
+- [ ] 将匹配的 Skills 注入 System Prompt
+- [ ] 支持多个 Skills 组合使用
+- [ ] 支持 Skill 指令与原有 Prompt 融合
+- [ ] 记录使用的 Skills（用于调试）
+
+---
+
+## 4. 数据结构
+
+### 4.1 Skill 结构
 
 ```go
-// Skill 技能接口
-type Skill interface {
-    // Name 返回技能唯一名称
-    Name() string
+// Skill 技能定义
+type Skill struct {
+    // 元数据（始终加载）
+    Name           string            `yaml:"name" json:"name"`
+    Description    string            `yaml:"description" json:"description"`
+    License        string            `yaml:"license,omitempty" json:"license,omitempty"`
+    Compatibility  string            `yaml:"compatibility,omitempty" json:"compatibility,omitempty"`
+    Metadata       map[string]string `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+    AllowedTools   string            `yaml:"allowed-tools,omitempty" json:"allowed_tools,omitempty"`
     
-    // Description 返回技能描述
-    Description() string
+    // 指令（按需加载）
+    Instructions   string            `json:"instructions,omitempty"` // SKILL.md body
     
-    // Parameters 返回参数 JSON Schema
-    Parameters() ParameterSchema
+    // 路径信息
+    Path           string            `json:"path"`           // Skill 目录绝对路径
+    SkillMDPath    string            `json:"skill_md_path"`  // SKILL.md 文件路径
     
-    // Execute 执行技能
-    // ctx: 上下文
-    // args: JSON 格式的参数
-    // 返回: 执行结果（JSON 可序列化）和错误
-    Execute(ctx context.Context, args json.RawMessage) (interface{}, error)
+    // 资源
+    HasScripts     bool              `json:"has_scripts"`
+    HasReferences  bool              `json:"has_references"`
+    HasAssets      bool              `json:"has_assets"`
+    
+    // 状态
+    Enabled        bool              `json:"enabled"`
+    LoadedAt       time.Time         `json:"loaded_at"`
 }
 ```
 
-设计约束：
-- [ ] 参数与返回值必须可 JSON 序列化
-- [ ] Execute 必须是同步接口（异步由上层编排）
-- [ ] Skill 不直接依赖 LLM SDK
+### 4.2 Skill 加载结果
 
-### 5.2 Skill Registry
+```go
+// SkillLoadResult 加载结果
+type SkillLoadResult struct {
+    Skill   *Skill
+    Error   error
+    Action  string // "created", "updated", "unchanged"
+}
+```
 
-#### 5.2.1 基本能力
+---
 
-| 方法 | 说明 |
-|------|------|
-| `Register(skill Skill) error` | 注册 Skill |
-| `Unregister(name string) error` | 注销 Skill |
-| `Enable(name string) error` | 启用 Skill |
-| `Disable(name string) error` | 禁用 Skill |
-| `Get(name string) (Skill, error)` | 获取 Skill |
-| `List() []Skill` | 列出所有 Skills |
-| `ListEnabled() []Skill` | 列出已启用的 Skills |
+## 5. 使用场景
 
-#### 5.2.2 线程安全
+### 场景 1：代码仓库分析
 
-- [ ] Registry 必须线程安全，支持并发访问
-- [ ] 所有操作必须加锁保护
+```
+任务：分析 Go 项目的架构
+    ↓
+Matcher 匹配到 "go-analysis" Skill
+    ↓
+加载 SKILL.md body（Go 项目分析步骤、最佳实践）
+    ↓
+注入 LLM 上下文：
+  - System Prompt 原有内容
+  + "## Go 分析技能\n[SKILL.md body]\n"
+    ↓
+LLM 按照 Skill 指导生成更准确的架构文档
+```
 
-### 5.3 Skill Provider 实现
+### 场景 2：文档生成
 
-#### 5.3.1 Builtin Provider（内置提供者）
+```
+任务：生成 API 文档
+    ↓
+Matcher 匹配到 "api-doc" Skill
+    ↓
+加载 references/OPENAPI.md 作为参考
+    ↓
+LLM 根据 Skill 指令和参考文档生成规范 API 文档
+```
 
-- [ ] 支持 Go 代码直接实现 Skill 接口
-- [ ] 在系统启动或运行期注册
-- [ ] 用于核心、高频、低延迟能力
+### 场景 3：多技能组合
 
-#### 5.3.2 HTTP Provider（外部 HTTP 服务）
+```
+任务：分析 Python 微服务并生成部署文档
+    ↓
+Matcher 匹配到：
+  - "python-analysis" Skill
+  - "microservice-patterns" Skill
+  - "deployment-guide" Skill
+    ↓
+组合多个 Skills 的指令
+    ↓
+LLM 综合多个技能的指导完成任务
+```
 
-- [ ] 通过 HTTP 调用外部 Skill 服务
-- [ ] 支持配置 endpoint、timeout、headers
-- [ ] 便于多语言、多团队扩展
+---
 
-HTTP 调用约定：
+## 6. 接口设计
 
-| 项目 | 说明 |
-|------|------|
-| 方法 | POST |
-| 路径 | 可配置（默认 `/execute`） |
-| 请求 Body | JSON（Skill 参数） |
-| 响应 Body | JSON（执行结果） |
-| 超时 | 可配置（默认 30s） |
+### 6.1 Skill Parser
 
-### 5.4 动态加载机制
+```go
+// Parser Skill 解析器
+type Parser interface {
+    // Parse 解析 Skill 目录
+    Parse(skillPath string) (*Skill, error)
+    
+    // ParseMetadata 仅解析元数据（快速）
+    ParseMetadata(skillPath string) (*Skill, error)
+    
+    // Validate 校验 Skill 有效性
+    Validate(skill *Skill) error
+}
+```
 
-#### 5.4.1 配置目录
+### 6.2 Skill Loader
 
-- [ ] 默认目录：`./skills`（与可执行文件同级目录）
-- [ ] 支持环境变量 `SKILLS_DIR` 指定目录
-- [ ] 支持配置文件 `config.yaml` 中指定 `skills.dir`
+```go
+// Loader Skill 加载器
+type Loader interface {
+    // LoadFromDir 从目录加载所有 Skills
+    LoadFromDir(dir string) ([]*SkillLoadResult, error)
+    
+    // LoadFromPath 加载单个 Skill
+    LoadFromPath(path string) (*Skill, error)
+    
+    // Reload 重新加载 Skill
+    Reload(name string) (*Skill, error)
+    
+    // Unload 卸载 Skill
+    Unload(name string) error
+}
+```
 
-#### 5.4.2 Skill 描述文件
+### 6.3 Skill Matcher
 
-每个 Skill 由一个 YAML 文件描述：
+```go
+// Matcher Skill 匹配器
+type Matcher interface {
+    // Match 根据任务匹配 Skills
+    Match(task Task) ([]*SkillMatch, error)
+    
+    // MatchByDescription 根据描述匹配
+    MatchByDescription(description string) ([]*SkillMatch, error)
+    
+    // GetAllEnabled 获取所有启用的 Skills
+    GetAllEnabled() []*Skill
+}
+
+// SkillMatch 匹配结果
+type SkillMatch struct {
+    Skill      *Skill
+    Score      float64  // 匹配分数 0-1
+    Reason     string   // 匹配原因
+}
+
+// Task 任务定义
+type Task struct {
+    Type        string   // 任务类型
+    Description string   // 任务描述
+    RepoType    string   // 仓库类型（go/python等）
+    Tags        []string // 标签
+}
+```
+
+### 6.4 Skill Injector
+
+```go
+// Injector Skill 注入器
+type Injector interface {
+    // InjectToPrompt 将 Skills 注入到 Prompt
+    InjectToPrompt(systemPrompt string, skills []*Skill) (string, error)
+    
+    // BuildSkillContext 构建 Skills 上下文
+    BuildSkillContext(skills []*Skill) string
+}
+```
+
+---
+
+## 7. 错误处理
+
+| 错误类型 | 说明 | 处理方式 |
+|---------|------|---------|
+| `ErrSkillNotFound` | Skill 不存在 | 返回错误 |
+| `ErrInvalidMetadata` | 元数据无效 | 记录日志，跳过该 Skill |
+| `ErrInvalidName` | name 格式错误 | 记录日志，跳过该 Skill |
+| `ErrSkillLoadFailed` | 加载失败 | 记录日志，继续加载其他 |
+| `ErrSkillDirNotFound` | Skills 目录不存在 | 创建空目录，继续启动 |
+
+---
+
+## 8. 配置
 
 ```yaml
-# skills/search_logs.yaml
-name: search_logs
-description: 搜索 Kubernetes Pod 日志
-provider: http
-endpoint: http://127.0.0.1:8081/execute
-timeout: 30
-headers:
-  Authorization: Bearer ${TOKEN}
-risk_level: read  # read / write / destructive
-parameters:
-  type: object
-  properties:
-    namespace:
-      type: string
-      description: Kubernetes 命名空间
-    pod:
-      type: string
-      description: Pod 名称
-    keyword:
-      type: string
-      description: 搜索关键词
-  required:
-    - namespace
-    - pod
+# config.yaml
+skills:
+  dir: "./skills"              # Skills 目录
+  auto_reload: true            # 自动热加载
+  reload_interval: 5           # 检查间隔（秒）
+  max_skill_tokens: 5000       # 单个 Skill 最大 token 数
+  default_skills:              # 默认启用的 Skills
+    - "code-analysis"
+    - "doc-generation"
 ```
 
-#### 5.4.3 文件监听与热加载
-
-- [ ] 系统启动时加载目录下所有 Skill 配置
-- [ ] 监听目录变更（文件新增/修改/删除）
-- [ ] 变更后自动加载/更新/卸载 Skill
-- [ ] 支持手动触发重新加载（API 或信号）
-
-### 5.5 与 LLM 的集成
-
-#### 5.5.1 Skill → Tool 映射
-
-系统需将 `enabled` 状态的 Skills 转换为 LLM 可识别的 Tools：
-
-| Skill 字段 | Tool 字段 |
-|-----------|----------|
-| `name` | `function.name` |
-| `description` | `function.description` |
-| `parameters` | `function.parameters` |
-
-#### 5.5.2 调用流程
-
-```
-1. 系统向 LLM 发送对话 + Tools 列表（由 enabled Skills 转换）
-2. LLM 返回 tool_calls
-3. Skill Router 根据 name 找到对应 Skill
-4. 调用 Skill.Execute(ctx, args)
-5. 将结果回填给 LLM
-```
-
-### 5.6 错误处理
-
-标准化错误类型：
-
-| 错误类型 | 说明 | HTTP 状态码 |
-|---------|------|------------|
-| `ErrSkillNotFound` | Skill 不存在 | 404 |
-| `ErrSkillDisabled` | Skill 已禁用 | 403 |
-| `ErrInvalidParams` | 参数校验失败 | 400 |
-| `ErrProviderTimeout` | Provider 超时 | 504 |
-| `ErrProviderUnavailable` | Provider 不可达 | 502 |
-| `ErrExecutionFailed` | 执行失败 | 500 |
-
-### 5.7 安全控制（预留）
-
-- [ ] Skill 风险等级标记（`read` / `write` / `destructive`）
-- [ ] 预留调用白名单/黑名单机制接口
-- [ ] 预留 RBAC 集成点
+环境变量：
+- `SKILLS_DIR`: 指定 Skills 目录
+- `SKILLS_AUTO_RELOAD`: 是否自动热加载
 
 ---
 
-## 6. 约束条件
-
-### 6.1 技术约束
-
-- 必须使用 Go 语言实现，符合项目现有编码规范
-- 必须兼容 OpenAI API 格式的 Function Calling 协议
-- Skill 配置文件必须是有效的 YAML 格式
-- 所有输入输出必须可 JSON 序列化
-
-### 6.2 架构约束
-
-- Skill 接口与具体业务解耦
-- Registry 必须线程安全
-- Provider 实现必须可扩展
-- 不得修改现有的 Tool 调用流程（向后兼容）
-
-### 6.3 性能约束
-
-- Skill 注册/注销操作 O(1)
-- Skill 列表查询 O(n)，n 为 Skill 数量
-- HTTP Provider 默认超时 30s，最大 120s
-- 配置文件监听检测间隔 ≤ 5s
-
-### 6.4 安全约束
-
-- Skill 配置文件路径必须是绝对路径或相对于工作目录
-- 禁止加载工作目录外的 Skill 配置文件
-- HTTP Provider 必须验证响应内容类型
-
----
-
-## 7. 可修改 / 不可修改项
-
-| 项目 | 可否修改 | 说明 |
-|------|---------|------|
-| Skill 接口定义 | ❌ 不可修改 | 核心契约 |
-| Registry 方法签名 | ❌ 不可修改 | 公共 API |
-| Skill 配置文件格式 | ✅ 可调整 | 可新增字段 |
-| 风险等级枚举值 | ✅ 可调整 | 可扩展 |
-| HTTP 调用约定 | ✅ 可调整 | 路径、超时等 |
-
----
-
-## 8. 接口与数据约定
-
-### 8.1 Skill 配置结构
-
-```go
-// SkillConfig Skill 配置文件结构
-type SkillConfig struct {
-    Name        string          `yaml:"name" json:"name"`
-    Description string          `yaml:"description" json:"description"`
-    Provider    string          `yaml:"provider" json:"provider"` // builtin / http
-    Endpoint    string          `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
-    Timeout     int             `yaml:"timeout,omitempty" json:"timeout,omitempty"`
-    Headers     map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
-    RiskLevel   string          `yaml:"risk_level,omitempty" json:"risk_level,omitempty"` // read / write / destructive
-    Parameters  ParameterSchema `yaml:"parameters" json:"parameters"`
-}
-```
-
-### 8.2 Registry 接口
-
-```go
-// Registry Skill 注册中心接口
-type Registry interface {
-    Register(skill Skill) error
-    Unregister(name string) error
-    Enable(name string) error
-    Disable(name string) error
-    Get(name string) (Skill, error)
-    List() []Skill
-    ListEnabled() []Skill
-    ToTools() []llm.Tool  // 转换为 LLM Tools
-}
-```
-
-### 8.3 Provider 接口
-
-```go
-// Provider Skill 提供者接口
-type Provider interface {
-    // Load 从配置加载 Skill
-    Load(config SkillConfig) (Skill, error)
-    // Type 返回 Provider 类型
-    Type() string
-}
-```
-
----
-
-## 9. 验收标准（Acceptance Criteria）
+## 9. 验收标准
 
 ### 9.1 功能验收
 
-- [ ] 如果创建 Skill 配置文件，系统应自动加载并注册
-- [ ] 如果修改 Skill 配置文件，系统应自动更新
-- [ ] 如果删除 Skill 配置文件，系统应自动注销
-- [ ] 如果调用 `ListEnabled()`，应返回所有已启用的 Skills
-- [ ] 如果将 Skills 转换为 Tools，应符合 OpenAI Function Calling 格式
-- [ ] 如果调用 HTTP Provider Skill，应正确转发请求到配置的 endpoint
+- [ ] 如果创建 `skills/my-skill/SKILL.md`，系统应自动加载
+- [ ] 如果修改 SKILL.md，系统应在 5 秒内更新
+- [ ] 如果删除 Skill 目录，系统应自动卸载
+- [ ] `List()` 应返回所有已加载 Skills 的元数据
+- [ ] `GetInstructions(name)` 应返回完整的 SKILL.md body
+- [ ] Matcher 应根据任务描述返回匹配的 Skills
+- [ ] Injector 应将 Skills 内容正确注入 Prompt
 
 ### 9.2 性能验收
 
-- [ ] Skill 注册操作应在 10ms 内完成
-- [ ] 100 个 Skill 的列表查询应在 50ms 内完成
-- [ ] 配置文件变更应在 5s 内被检测并加载
+- [ ] 加载 50 个 Skills 的元数据应在 100ms 内完成
+- [ ] 单个 Skill 的完整加载应在 50ms 内完成
+- [ ] 匹配操作应在 10ms 内完成
 
-### 9.3 安全验收
+### 9.3 规范验收
 
-- [ ] 如果 Skill 配置文件位于工作目录外，应拒绝加载
-- [ ] 如果 HTTP Provider 响应非 JSON，应返回错误
-
-### 9.4 稳定性验收
-
-- [ ] Skill 执行失败不应影响主服务稳定性
-- [ ] Registry 操作并发安全，无数据竞争
+- [ ] Skill name 必须符合规范（小写、数字、连字符）
+- [ ] YAML frontmatter 必须正确解析
+- [ ] 目录结构必须符合 Agent Skills 规范
 
 ---
 
-## 10. 风险与已知不确定点
+## 10. 交付物
 
-| 风险 | 影响 | 对策 |
-|------|------|------|
-| 配置文件格式错误导致启动失败 | 高 | 加载失败时记录错误但继续启动；提供配置校验工具 |
-| HTTP Provider 服务不可用 | 中 | 实现健康检查；支持超时和重试 |
-| Skill 名称冲突 | 中 | 后加载的覆盖先加载的；记录警告日志 |
-| 文件监听在某些系统上不工作 | 低 | 支持手动刷新 API；提供定时轮询作为后备 |
-| 动态加载导致运行时行为不一致 | 低 | 提供 Registry 状态查询 API；记录操作日志 |
-
----
-
-## 11. 依赖关系
-
-- **前置依赖**：004-MCP工具支持（已提供 Tool 定义和 LLM 集成基础）
-- **后续可扩展**：Agent 规划算法、多 Skill 编排
-
----
-
-## 12. 交付物
-
-- [ ] Skills 核心接口定义（`pkg/skills/`）
+- [ ] Skills 核心接口定义（parser, loader, matcher, injector）
 - [ ] Skill Registry 实现
-- [ ] HTTP Provider 实现
-- [ ] 配置加载与文件监听实现
-- [ ] Builtin Provider 示例
-- [ ] 示例 Skill 配置（search_logs.yaml）
+- [ ] Skill Parser 实现（YAML frontmatter + Markdown）
+- [ ] Skill Loader 实现（目录扫描、热加载）
+- [ ] Skill Matcher 实现（关键词匹配）
+- [ ] Skill Injector 实现（Prompt 注入）
+- [ ] 示例 Skills（code-analysis, doc-generation）
 - [ ] 单元测试
+- [ ] 使用文档
 
 ---
 
-## 13. 代码目录结构
+## 11. 参考规范
 
-```
-backend/internal/pkg/skills/
-├── registry.go           # Registry 接口与实现
-├── skill.go              # Skill 接口定义
-├── provider.go           # Provider 接口
-├── config.go             # 配置结构定义
-├── loader.go             # 配置文件加载与监听
-├── builtin/
-│   └── provider.go       # Builtin Provider 实现
-└── http/
-    ├── provider.go       # HTTP Provider 实现
-    └── client.go         # HTTP 客户端
-
-# 示例 Skill 配置
-skills/
-└── search_logs.yaml      # 示例 HTTP Skill
-```
-
----
-
-## 14. 后续优化方向
-
-- [ ] Skill 版本管理（v1 / v2）
-- [ ] 多 Skill 编排（Plan → Execute）
-- [ ] Skill 调用观测（Tracing / Metrics）
-- [ ] WASM / Plugin Provider
-- [ ] Skill 调用历史记录和审计
-- [ ] RBAC 权限控制集成
+- [Agent Skills Specification](https://agentskills.io/specification)
+- [Claude Custom Skills](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)
