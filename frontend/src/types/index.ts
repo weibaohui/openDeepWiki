@@ -82,3 +82,17 @@ export interface TemplateDocument {
 export interface TemplateDetail extends DocumentTemplate {
     chapters: TemplateChapter[];
 }
+
+// AI分析任务类型
+export interface AIAnalysisStatus {
+    id: number;
+    repository_id: number;
+    task_id: string;
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    progress: number;
+    output_path: string;
+    error_msg: string;
+    created_at: string;
+    updated_at: string;
+    completed_at: string | null;
+}
