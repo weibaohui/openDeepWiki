@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 // SearchTextArgs search_text 工具参数
@@ -37,9 +39,10 @@ func SearchText(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 检查路径参数是否为绝对路径
-	if filepath.IsAbs(params.Path) {
-		return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
-	}
+	// TODO 改为验证是否在项目的仓库范围内
+	// if filepath.IsAbs(params.Path) {
+	// 	return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
+	// }
 
 	// 编译正则表达式
 	re, err := regexp.Compile(params.Pattern)
@@ -49,18 +52,17 @@ func SearchText(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 搜索路径
-	searchPath := basePath
-	if params.Path != "" {
-		searchPath = filepath.Join(basePath, params.Path)
+	fullPath := filepath.Join(basePath, params.Path)
+	if strings.HasPrefix(params.Path, "/") {
+		fullPath = params.Path
 	}
-
 	// 安全检查
-	if !isPathSafe(basePath, searchPath) {
+	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("path escapes base directory: %s", params.Path)
 	}
 
 	// 执行搜索
-	results, err := searchInDir(searchPath, re, params.Glob)
+	results, err := searchInDir(fullPath, re, params.Glob)
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
 	}
@@ -113,6 +115,18 @@ func searchInDir(root string, re *regexp.Regexp, glob string) ([]SearchResult, e
 		if glob != "" {
 			matched, _ := filepath.Match(glob, filepath.Base(path))
 			if !matched {
+				// 尝试匹配相对路径
+				matched, _ = filepath.Match(glob, relPath)
+			}
+			if !matched && strings.Contains(glob, "**") {
+				// 处理 **/pattern 形式，简单处理为匹配文件名
+				if strings.HasPrefix(glob, "**/") {
+					suffix := strings.TrimPrefix(glob, "**/")
+					matched, _ = filepath.Match(suffix, filepath.Base(path))
+				}
+			}
+
+			if !matched {
 				return nil
 			}
 		}
@@ -129,7 +143,10 @@ func searchInDir(root string, re *regexp.Regexp, glob string) ([]SearchResult, e
 
 		// 限制总结果数
 		if len(searchResults) > 100 {
-			return fmt.Errorf("too many matches")
+			klog.V(6).Infof("搜索到 %d 个匹配项，已截断", len(searchResults))
+			// 截断结果
+			searchResults = searchResults[:100]
+			return nil
 		}
 
 		return nil
@@ -166,4 +183,3 @@ func searchInFile(fullPath, relPath string, re *regexp.Regexp) []SearchResult {
 
 	return results
 }
-

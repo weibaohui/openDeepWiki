@@ -27,14 +27,17 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 		return "", fmt.Errorf("path is required")
 	}
 
-	// 检查路径参数是否为绝对路径
-	if filepath.IsAbs(params.Path) {
-		return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
-	}
+	// // 检查路径参数是否为绝对路径
+	// TODO 改为验证是否在项目的仓库范围内
+	// if filepath.IsAbs(params.Path) {
+	// 	return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
+	// }
 
 	// 构建完整路径
 	fullPath := filepath.Join(basePath, params.Path)
-
+	if strings.HasPrefix(params.Path, "/") {
+		fullPath = params.Path
+	}
 	// 安全检查
 	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("path escapes base directory: %s", params.Path)

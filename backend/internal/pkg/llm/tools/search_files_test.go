@@ -40,6 +40,12 @@ func TestSearchFiles(t *testing.T) {
 		wantErr   bool
 	}{
 		{
+			name:      "search all  files",
+			pattern:   "**/*",
+			wantCount: 7,
+			wantErr:   false,
+		},
+		{
 			name:      "search all go files",
 			pattern:   "**/*.go",
 			wantCount: 5,
@@ -89,7 +95,7 @@ func TestSearchFiles(t *testing.T) {
 			}
 
 			if tt.wantCount == 0 {
-				if result != "No files found matching the pattern." {
+				if result != "No files found matching the pattern in ." {
 					t.Errorf("SearchFiles() expected 'No files found' message, got: %s", result)
 				}
 			} else {

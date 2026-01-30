@@ -70,12 +70,12 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []ChatMessage, tool
 // ChatWithToolExecution 发送对话请求并自动处理 Tool Calls
 // 这个方法会处理多轮工具调用，直到获得最终文本响应
 func (c *Client) ChatWithToolExecution(ctx context.Context, messages []ChatMessage, tools []Tool, basePath string) (string, error) {
-	executor := NewSafeExecutor(basePath, nil)
-	return c.ChatWithToolExecutionAndExecutor(ctx, messages, tools, executor)
+	executor := NewSafeExecutor(&ExecutorConfig{})
+	return c.ChatWithToolExecutionAndExecutor(ctx, messages, tools, executor, basePath)
 }
 
 // ChatWithToolExecutionAndExecutor 使用自定义执行器处理 Tool Calls
-func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages []ChatMessage, tools []Tool, executor ToolExecutor) (string, error) {
+func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages []ChatMessage, tools []Tool, executor ToolExecutor, basePath string) (string, error) {
 	klog.V(6).Infof("开始 ChatWithToolExecution: messages=%d, tools=%d", len(messages), len(tools))
 	maxRounds := 100
 
@@ -106,7 +106,7 @@ func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages 
 		}
 
 		klog.V(6).Infof("LLM 返回工具调用: count=%d", len(message.ToolCalls))
-		klog.V(6).Infof("调用详情%v",message.ToolCalls)
+		klog.V(6).Infof("调用详情%v", message.ToolCalls)
 		// 添加 assistant 的响应到消息历史
 		messages = append(messages, ChatMessage{
 			Role:      "assistant",
@@ -117,13 +117,13 @@ func (c *Client) ChatWithToolExecutionAndExecutor(ctx context.Context, messages 
 		// 执行所有 Tool Calls
 		for _, toolCall := range message.ToolCalls {
 			// 执行工具
-			result, err := executor.Execute(ctx, toolCall)
+			result, err := executor.Execute(ctx, toolCall, basePath)
 			content := result.Content
 			if err != nil {
 				content = fmt.Sprintf("Error executing tool: %v", err)
 				result.IsError = true
 			}
-			klog.V(6).Infof("工具执行结果%s ",content)
+			klog.V(6).Infof("工具执行结果%s ", content)
 
 			// 添加 tool 结果到消息历史
 			messages = append(messages, ChatMessage{
@@ -152,7 +152,8 @@ func (c *Client) GenerateDocumentWithTools(ctx context.Context, systemPrompt, us
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: userPrompt},
 	}
-	return c.ChatWithToolExecution(ctx, messages, tools, basePath)
+	executor := NewSafeExecutor(&ExecutorConfig{})
+	return c.ChatWithToolExecutionAndExecutor(ctx, messages, tools, executor, basePath)
 }
 
 // sendRequest 发送 HTTP 请求到 LLM API

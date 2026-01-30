@@ -8,28 +8,29 @@ import (
 func TestDefaultTools(t *testing.T) {
 	tools := DefaultTools()
 
-	if len(tools) != 5 {
-		t.Errorf("expected 5 default tools, got %d", len(tools))
+	// DefaultTools 现在返回所有 30 个工具（包括基础、Git、Filesystem、Code Analysis、Advanced Search、Generation、Quality）
+	if len(tools) != 30 {
+		t.Errorf("expected 30 default tools, got %d", len(tools))
 	}
 
-	expectedTools := map[string]bool{
-		"search_files":  false,
-		"read_file":     false,
-		"search_text":   false,
-		"execute_bash":  false,
-		"count_lines":   false,
+	// 只检查基础工具是否存在
+	expectedBasicTools := map[string]bool{
+		"search_files": false,
+		"read_file":    false,
+		"search_text":  false,
+		"execute_bash": false,
+		"count_lines":  false,
 	}
 
 	for _, tool := range tools {
-		if _, ok := expectedTools[tool.Function.Name]; !ok {
-			t.Errorf("unexpected tool: %s", tool.Function.Name)
+		if _, ok := expectedBasicTools[tool.Function.Name]; ok {
+			expectedBasicTools[tool.Function.Name] = true
 		}
-		expectedTools[tool.Function.Name] = true
 	}
 
-	for name, found := range expectedTools {
+	for name, found := range expectedBasicTools {
 		if !found {
-			t.Errorf("expected tool not found: %s", name)
+			t.Errorf("expected basic tool not found: %s", name)
 		}
 	}
 }

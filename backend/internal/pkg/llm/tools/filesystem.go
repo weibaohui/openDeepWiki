@@ -42,6 +42,9 @@ func ListDir(args json.RawMessage, basePath string) (string, error) {
 
 	// 安全检查
 	fullPath := filepath.Join(basePath, params.Dir)
+	if strings.HasPrefix(params.Dir, "/") {
+		fullPath = params.Dir
+	}
 	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("dir escapes base directory: %s", params.Dir)
 	}
