@@ -42,8 +42,14 @@ func (w *FileWatcher) Start() error {
 		return err
 	}
 
+	// 验证间隔时间是否有效，如果无效则使用默认值
+	interval := w.interval
+	if interval <= 0 {
+		interval = 1 * time.Second // 使用默认间隔
+	}
+
 	// 定时扫描
-	ticker := time.NewTicker(w.interval)
+	ticker := time.NewTicker(interval)
 	go func() {
 		for {
 			select {
@@ -134,7 +140,12 @@ func (w *FileWatcher) WatchSkillMD(skillPath string, onChange func()) {
 	skillMDPath := filepath.Join(skillPath, "SKILL.md")
 
 	go func() {
-		ticker := time.NewTicker(w.interval)
+		// 验证间隔时间是否有效，如果无效则使用默认值
+		interval := w.interval
+		if interval <= 0 {
+			interval = 1 * time.Second // 使用默认间隔
+		}
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		var lastModTime time.Time
