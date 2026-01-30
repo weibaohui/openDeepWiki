@@ -276,4 +276,3 @@ func getGitInfo(repoPath string) (branch, commit string, err error) {
 
 	return branch, commit, nil
 }
- 
