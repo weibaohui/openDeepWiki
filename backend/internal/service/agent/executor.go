@@ -84,13 +84,7 @@ func (e *Executor) Execute(ctx context.Context, repoPath string, outputPath stri
 	analysis, err := e.executeRepoAnalysisWithAgent(ctx, repoPath)
 	if err != nil {
 		klog.Errorf("代码分析失败: %v", err)
-		// 如果 Agent 执行失败，回退到旧的方法
-		klog.Infof("回退到传统方法执行代码分析...")
-		analysis, err = e.exploreCode(ctx, repoPath)
-		if err != nil {
-			klog.Errorf("传统代码探索失败: %v", err)
-			return fmt.Errorf("代码分析失败: %w", err)
-		}
+		return fmt.Errorf("代码分析失败: %w", err)
 	}
 
 	klog.V(6).Infof("代码分析完成: projectType=%s, language=%s", analysis.ProjectType, analysis.Language)
@@ -138,6 +132,7 @@ func (e *Executor) executeRepoAnalysisWithAgent(ctx context.Context, repoPath st
 			return nil, fmt.Errorf("failed to select agent: %w", err)
 		}
 	}
+	//TODO Agent 如何发起llm对话？
 
 	klog.V(6).Infof("Selected agent: %s", agent.Name)
 	klog.V(6).Infof("System Prompt: %s", agent.SystemPrompt)
@@ -170,44 +165,6 @@ func (e *Executor) executeRepoAnalysisWithAgent(ctx context.Context, repoPath st
 	}
 
 	// 3. 使用LLM分析项目结构（可能集成Agent的能力）
-	analysis, err := e.analyzeWithLLM(ctx, repoPath, result.TreeStructure)
-	if err != nil {
-		klog.Warningf("LLM分析失败: %v", err)
-	} else {
-		result.Summary = analysis.Summary
-		result.KeyFiles = analysis.KeyFiles
-		result.EntryPoints = analysis.EntryPoints
-	}
-
-	return result, nil
-}
-
-// exploreCode 代码探索 - 类似 ExplorerAgent 的功能
-func (e *Executor) exploreCode(ctx context.Context, repoPath string) (*AnalysisResult, error) {
-	result := &AnalysisResult{
-		EntryPoints: []string{},
-		KeyFiles:    []FileAnalysis{},
-	}
-
-	// 1. 获取目录结构
-	treeResult, err := tools.ListDir(json.RawMessage(`{"dir":".","recursive":true}`), repoPath)
-	if err != nil {
-		klog.Warningf("获取目录结构失败: %v", err)
-	} else {
-		result.TreeStructure = treeResult
-	}
-
-	// 2. 检测项目类型和技术栈
-	projectInfo, err := e.detectProjectType(repoPath)
-	if err != nil {
-		klog.Warningf("检测项目类型失败: %v", err)
-	} else {
-		result.ProjectType = projectInfo.Type
-		result.Language = projectInfo.Language
-		result.Framework = projectInfo.Framework
-	}
-
-	// 3. 使用LLM分析项目结构
 	analysis, err := e.analyzeWithLLM(ctx, repoPath, result.TreeStructure)
 	if err != nil {
 		klog.Warningf("LLM分析失败: %v", err)
