@@ -40,8 +40,15 @@ func TestSearchText(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			name:      "search in go files for package keyword",
+			pattern:   "(P|p)ackage",
+			glob:      "**/*.go",
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
 			name:      "search in go files for (M|m)ain keyword",
-			pattern:   "func (M|m)ain",
+			pattern:   "(M|m)ain",
 			glob:      "**/*.go",
 			wantCount: 1,
 			wantErr:   false,

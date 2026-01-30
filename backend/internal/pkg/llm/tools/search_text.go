@@ -50,7 +50,6 @@ func SearchText(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 搜索路径
-	 
 
 	// 安全检查
 	if !isPathSafe(basePath, params.Path) {
@@ -110,6 +109,18 @@ func searchInDir(root string, re *regexp.Regexp, glob string) ([]SearchResult, e
 		// 应用 glob 过滤
 		if glob != "" {
 			matched, _ := filepath.Match(glob, filepath.Base(path))
+			if !matched {
+				// 尝试匹配相对路径
+				matched, _ = filepath.Match(glob, relPath)
+			}
+			if !matched && strings.Contains(glob, "**") {
+				// 处理 **/pattern 形式，简单处理为匹配文件名
+				if strings.HasPrefix(glob, "**/") {
+					suffix := strings.TrimPrefix(glob, "**/")
+					matched, _ = filepath.Match(suffix, filepath.Base(path))
+				}
+			}
+
 			if !matched {
 				return nil
 			}
