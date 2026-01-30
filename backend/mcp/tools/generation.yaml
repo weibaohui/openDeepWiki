@@ -1,0 +1,93 @@
+namespace: generation
+description: 内容生成工具
+version: "1.0"
+
+tools:
+  - name: llm_generate
+    description: 调用 LLM 生成内容
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+      - name: context
+        type: object
+        required: false
+      - name: model
+        type: string
+        required: false
+        default: "default"
+      - name: temperature
+        type: number
+        required: false
+        default: 0.7
+      - name: max_tokens
+        type: integer
+        required: false
+    returns:
+      content: string
+      tokens_used: integer
+      model: string
+
+  - name: generate_mermaid
+    description: 从代码生成 Mermaid 图表
+    parameters:
+      - name: code_snippet
+        type: string
+        required: true
+      - name: diagram_type
+        type: string
+        required: false
+        default: "flowchart"
+        enum: ["flowchart", "sequence", "class", "state", "er", "gantt"]
+      - name: title
+        type: string
+        required: false
+    returns:
+      mermaid_code: string
+      description: string
+
+  - name: generate_diagram
+    description: 从描述生成架构图
+    parameters:
+      - name: description
+        type: string
+        required: true
+      - name: diagram_type
+        type: string
+        required: false
+        default: "architecture"
+    returns:
+      diagram_code: string
+      format: string
+
+  - name: summarize
+    description: 文本摘要
+    parameters:
+      - name: text
+        type: string
+        required: true
+      - name: max_length
+        type: integer
+        required: false
+        default: 200
+      - name: style
+        type: string
+        required: false
+        default: "concise"  # concise, detailed, bullet_points
+    returns:
+      summary: string
+
+  - name: translate
+    description: 翻译文本
+    parameters:
+      - name: text
+        type: string
+        required: true
+      - name: target_language
+        type: string
+        required: true
+      - name: source_language
+        type: string
+        required: false
+    returns:
+      translation: string

@@ -1,0 +1,80 @@
+namespace: quality
+description: 质量检查工具
+version: "1.0"
+
+tools:
+  - name: check_links
+    description: 检查文档中的链接有效性
+    parameters:
+      - name: doc_content
+        type: string
+        required: true
+      - name: base_path
+        type: string
+        required: true
+      - name: check_external
+        type: boolean
+        required: false
+        default: false
+    returns:
+      valid_links: array
+      broken_links: array
+        # link, line, error
+      external_links: array
+
+  - name: plagiarism_check
+    description: 检查文本与代码的重复度
+    parameters:
+      - name: text
+        type: string
+        required: true
+      - name: code_files
+        type: array
+        required: true
+    returns:
+      similarity_score: number
+      matches: array
+        # file, snippet, similarity
+
+  - name: spell_check
+    description: 拼写检查
+    parameters:
+      - name: text
+        type: string
+        required: true
+      - name: language
+        type: string
+        required: false
+        default: "en_US"
+    returns:
+      issues: array
+        # word, position, suggestions
+
+  - name: readability_score
+    description: 计算可读性分数
+    parameters:
+      - name: text
+        type: string
+        required: true
+      - name: metric
+        type: string
+        required: false
+        default: "flesch_kincaid"
+    returns:
+      score: number
+      grade_level: string
+      suggestions: array
+
+  - name: check_formatting
+    description: 检查文档格式
+    parameters:
+      - name: content
+        type: string
+        required: true
+      - name: format
+        type: string
+        required: false
+        default: "markdown"
+    returns:
+      issues: array
+        # type, line, message, suggestion

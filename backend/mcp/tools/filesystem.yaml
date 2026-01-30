@@ -1,0 +1,118 @@
+namespace: filesystem
+description: 文件系统操作工具
+version: "1.0"
+
+tools:
+  - name: ls
+    description: 列出目录结构
+    parameters:
+      - name: dir
+        type: string
+        required: true
+        description: 目录路径
+      - name: recursive
+        type: boolean
+        required: false
+        default: false
+        description: 是否递归列出子目录
+      - name: pattern
+        type: string
+        required: false
+        description: 文件名匹配模式（glob）
+    returns:
+      entries: array
+        # name, type, size, modified
+
+  - name: read
+    description: 读取文件内容
+    parameters:
+      - name: file_path
+        type: string
+        required: true
+      - name: offset
+        type: integer
+        required: false
+        default: 0
+        description: 起始偏移（字节）
+      - name: limit
+        type: integer
+        required: false
+        description: 读取长度限制（字节）
+      - name: encoding
+        type: string
+        required: false
+        default: "utf-8"
+    returns:
+      content: string
+      size: integer
+      is_truncated: boolean
+
+  - name: grep
+    description: 正则搜索文件内容
+    parameters:
+      - name: pattern
+        type: string
+        required: true
+        description: 正则表达式模式
+      - name: path
+        type: string
+        required: true
+        description: 搜索路径
+      - name: recursive
+        type: boolean
+        required: false
+        default: true
+      - name: file_pattern
+        type: string
+        required: false
+        description: 文件匹配模式（如 *.go）
+      - name: context_lines
+        type: integer
+        required: false
+        default: 2
+        description: 匹配行前后的上下文行数
+    returns:
+      matches: array
+        # file, line, content, context
+
+  - name: stat
+    description: 获取文件元信息
+    parameters:
+      - name: file_path
+        type: string
+        required: true
+    returns:
+      name: string
+      type: string  # file, directory
+      size: integer
+      modified: timestamp
+      created: timestamp
+      permissions: string
+
+  - name: exists
+    description: 检查文件或目录是否存在
+    parameters:
+      - name: path
+        type: string
+        required: true
+    returns:
+      exists: boolean
+      type: string  # file, directory, none
+
+  - name: find
+    description: 查找文件
+    parameters:
+      - name: path
+        type: string
+        required: true
+      - name: name_pattern
+        type: string
+        required: false
+      - name: type
+        type: string
+        required: false  # file, directory
+      - name: max_depth
+        type: integer
+        required: false
+    returns:
+      files: array
