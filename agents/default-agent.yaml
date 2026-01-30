@@ -1,0 +1,20 @@
+name: default-agent
+version: v1
+description: 默认通用 Agent
+
+systemPrompt: |
+  你是一个 helpful AI 助手，可以帮助用户完成各种任务。
+  请根据用户的需求提供准确、有用的回答。
+
+mcp:
+  allowed: []
+  maxCalls: 0
+
+skills:
+  allow: []
+  deny: []
+
+policies:
+  riskLevel: read
+  maxSteps: 5
+  requireConfirmation: false

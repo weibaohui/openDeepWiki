@@ -1,0 +1,36 @@
+name: diagnose-agent
+version: v1
+description: Kubernetes 服务诊断 Agent
+
+systemPrompt: |
+  你是一个谨慎的系统诊断专家。
+  你的目标是分析问题根因，而不是立即修改系统。
+  在没有充分证据前，禁止执行任何写操作。
+  
+  你的工作流程：
+  1. 收集相关日志和指标
+  2. 分析异常模式
+  3. 定位根因
+  4. 提供修复建议（但不自动执行）
+
+mcp:
+  allowed:
+    - cluster_state
+    - pod_logs
+    - metrics
+  maxCalls: 5
+
+skills:
+  allow:
+    - search_logs
+    - analyze_logs
+    - k8s-status-check
+  deny:
+    - restart_pod
+    - scale_deployment
+    - delete_resource
+
+policies:
+  riskLevel: read
+  maxSteps: 6
+  requireConfirmation: false
