@@ -68,7 +68,7 @@ func NewExecutor(cfg *config.Config) *Executor {
 		cfg:          cfg,
 		manager:      manager,
 		llmClient:    client,
-		toolExecutor: llm.NewSafeExecutor(".", llm.DefaultExecutorConfig()),
+		toolExecutor: llm.NewSafeExecutor(llm.DefaultExecutorConfig()),
 		defaultTools: llm.DefaultTools(), // 缓存默认 tools
 	}
 }
@@ -77,8 +77,11 @@ func NewExecutor(cfg *config.Config) *Executor {
 func (e *Executor) Execute(ctx context.Context, repoPath string, outputPath string) error {
 	klog.V(6).Infof("开始AI分析: repoPath=%s, outputPath=%s", repoPath, outputPath)
 
+	confg := &ConversationOptions{
+		BasePath: repoPath,
+	}
 	// 执行对话
-	result, err := e.ExecuteConversation(ctx, "orchestrator-agent", fmt.Sprintf("分析仓库 %s", repoPath), &ConversationOptions{})
+	result, err := e.ExecuteConversation(ctx, "orchestrator-agent", fmt.Sprintf("分析仓库 %s", repoPath), confg)
 	if err != nil {
 		klog.Errorf("对话执行失败: %v", err)
 		return fmt.Errorf("对话执行失败: %w", err)

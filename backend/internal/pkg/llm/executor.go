@@ -32,24 +32,22 @@ func DefaultExecutorConfig() *ExecutorConfig {
 
 // ToolExecutor 工具执行器接口
 type ToolExecutor interface {
-	Execute(ctx context.Context, toolCall ToolCall) (ToolResult, error)
+	Execute(ctx context.Context, toolCall ToolCall, basePath string) (ToolResult, error)
 }
 
 // SafeExecutor 安全的工具执行器实现
 type SafeExecutor struct {
-	basePath string
 	config   *ExecutorConfig
 	handlers map[string]ToolHandler
 }
 
 // NewSafeExecutor 创建安全的工具执行器
-func NewSafeExecutor(basePath string, config *ExecutorConfig) *SafeExecutor {
+func NewSafeExecutor(config *ExecutorConfig) *SafeExecutor {
 	if config == nil {
 		config = DefaultExecutorConfig()
 	}
 
 	e := &SafeExecutor{
-		basePath: basePath,
 		config:   config,
 		handlers: make(map[string]ToolHandler),
 	}
@@ -68,38 +66,38 @@ func (e *SafeExecutor) registerDefaultTools() {
 	e.handlers["search_text"] = tools.SearchText
 	e.handlers["execute_bash"] = tools.ExecuteBash
 	e.handlers["count_lines"] = tools.CountLines
-	
+
 	// Git 工具
 	e.handlers["git_clone"] = tools.GitClone
 	e.handlers["git_diff"] = tools.GitDiff
 	e.handlers["git_log"] = tools.GitLog
 	e.handlers["git_status"] = tools.GitStatus
 	e.handlers["git_branch_list"] = tools.GitBranchList
-	
+
 	// Filesystem 扩展工具
 	e.handlers["list_dir"] = tools.ListDir
 	e.handlers["file_stat"] = tools.FileStat
 	e.handlers["file_exists"] = tools.FileExistsTool
 	e.handlers["find_files"] = tools.FindFiles
-	
+
 	// Code Analysis 工具
 	e.handlers["extract_functions"] = tools.ExtractFunctions
 	e.handlers["get_code_snippet"] = tools.GetCodeSnippet
 	e.handlers["get_file_tree"] = tools.GetFileTree
 	e.handlers["calculate_complexity"] = tools.CalculateComplexity
 	e.handlers["find_definitions"] = tools.FindDefinitions
-	
+
 	// Advanced Search 工具
 	e.handlers["semantic_search"] = tools.SemanticSearch
 	e.handlers["symbol_search"] = tools.SymbolSearch
 	e.handlers["similar_code"] = tools.SimilarCode
 	e.handlers["full_text_search"] = tools.FullTextSearch
-	
+
 	// Generation 工具
 	e.handlers["generate_mermaid"] = tools.GenerateMermaid
 	e.handlers["generate_diagram"] = tools.GenerateDiagram
 	e.handlers["summarize"] = tools.Summarize
-	
+
 	// Quality 工具
 	e.handlers["check_links"] = tools.CheckLinks
 	e.handlers["check_formatting"] = tools.CheckFormatting
@@ -108,7 +106,7 @@ func (e *SafeExecutor) registerDefaultTools() {
 }
 
 // Execute 执行工具调用
-func (e *SafeExecutor) Execute(ctx context.Context, toolCall ToolCall) (ToolResult, error) {
+func (e *SafeExecutor) Execute(ctx context.Context, toolCall ToolCall, basePath string) (ToolResult, error) {
 	// 验证工具调用格式
 	if toolCall.Type != "function" {
 		return ToolResult{
@@ -127,7 +125,7 @@ func (e *SafeExecutor) Execute(ctx context.Context, toolCall ToolCall) (ToolResu
 	}
 
 	// 执行工具
-	result, err := handler(json.RawMessage(toolCall.Function.Arguments), e.basePath)
+	result, err := handler(json.RawMessage(toolCall.Function.Arguments), basePath)
 	if err != nil {
 		return ToolResult{
 			Content: err.Error(),
@@ -148,10 +146,10 @@ func (e *SafeExecutor) Execute(ctx context.Context, toolCall ToolCall) (ToolResu
 }
 
 // ExecuteAll 执行多个工具调用
-func (e *SafeExecutor) ExecuteAll(ctx context.Context, toolCalls []ToolCall) []ToolResult {
+func (e *SafeExecutor) ExecuteAll(ctx context.Context, toolCalls []ToolCall, basePath string) []ToolResult {
 	results := make([]ToolResult, len(toolCalls))
 	for i, tc := range toolCalls {
-		results[i], _ = e.Execute(ctx, tc)
+		results[i], _ = e.Execute(ctx, tc, basePath)
 	}
 	return results
 }

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 // SearchFilesArgs search_files 工具参数
@@ -32,6 +34,7 @@ func SearchFiles(args json.RawMessage, basePath string) (string, error) {
 	// 	return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
 	// }
 
+	klog.V(6).Infof("搜索basePath=%s, path=%s, pattern=%s", basePath, params.Path, params.Pattern)
 	// 使用 basePath 或 params.Path 作为搜索路径
 	searchPath := basePath
 	if params.Path != "" {
@@ -44,6 +47,7 @@ func SearchFiles(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 执行搜索
+	klog.V(6).Infof("最终执行搜索路径为:[%s]", searchPath)
 	files, err := globSearch(searchPath, params.Pattern)
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
@@ -57,7 +61,7 @@ func SearchFiles(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	if len(files) == 0 {
-		return "No files found matching the pattern.", nil
+		return fmt.Sprintf("No files found matching the pattern in %s.", params.Path), nil
 	}
 
 	return strings.Join(files, "\n"), nil

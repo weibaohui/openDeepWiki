@@ -100,6 +100,7 @@ func (e *Executor) ExecuteConversation(
 	options *ConversationOptions,
 ) (*ConversationResult, error) {
 	klog.V(6).Infof("Agent conversation started: agent=%s, message=%s", agentName, userMessage)
+	klog.V(6).Infof("Agent conversation options: %s", utils.ToJSON(options))
 
 	// 1. 获取 Agent
 	agent, err := e.manager.Registry.Get(agentName)
@@ -122,6 +123,8 @@ func (e *Executor) ExecuteConversation(
 		basePath:       options.BasePath,
 		totalUsage:     &LLMUsage{},
 	}
+
+	klog.V(6).Infof("execCtx.basePath=%s", execCtx.basePath)
 
 	// 4. 确定 MaxSteps
 	execCtx.maxSteps = agent.RuntimePolicy.MaxSteps
@@ -300,7 +303,7 @@ func (e *Executor) executeToolCalls(
 	toolCalls []llm.ToolCall,
 	basePath string,
 ) []llm.ToolResult {
-	return e.toolExecutor.ExecuteAll(ctx, toolCalls)
+	return e.toolExecutor.ExecuteAll(ctx, toolCalls, basePath)
 }
 
 // trackToolCall 记录工具调用

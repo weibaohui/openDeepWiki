@@ -8,16 +8,13 @@ import (
 )
 
 func TestNewSafeExecutor(t *testing.T) {
-	basePath := "/tmp/test"
-	
+
 	// 测试默认配置
-	executor := NewSafeExecutor(basePath, nil)
+	executor := NewSafeExecutor(&ExecutorConfig{})
 	if executor == nil {
 		t.Fatal("NewSafeExecutor() returned nil")
 	}
-	if executor.basePath != basePath {
-		t.Errorf("expected basePath %s, got %s", basePath, executor.basePath)
-	}
+
 	if executor.config == nil {
 		t.Error("expected default config, got nil")
 	}
@@ -29,15 +26,14 @@ func TestNewSafeExecutor(t *testing.T) {
 		MaxResults:     200,
 		MaxToolRounds:  15,
 	}
-	executor2 := NewSafeExecutor(basePath, customConfig)
+	executor2 := NewSafeExecutor(customConfig)
 	if executor2.config.MaxFileSize != customConfig.MaxFileSize {
 		t.Errorf("expected MaxFileSize %d, got %d", customConfig.MaxFileSize, executor2.config.MaxFileSize)
 	}
 }
 
 func TestSafeExecutorExecute(t *testing.T) {
-	tempDir := t.TempDir()
-	executor := NewSafeExecutor(tempDir, nil)
+	executor := NewSafeExecutor(&ExecutorConfig{})
 
 	tests := []struct {
 		name      string
@@ -95,7 +91,7 @@ func TestSafeExecutorExecute(t *testing.T) {
 	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := executor.Execute(ctx, tt.toolCall)
+			result, err := executor.Execute(ctx, tt.toolCall, "")
 
 			if tt.wantErr && err == nil {
 				t.Error("expected error but got none")
@@ -112,8 +108,7 @@ func TestSafeExecutorExecute(t *testing.T) {
 }
 
 func TestSafeExecutorExecuteAll(t *testing.T) {
-	tempDir := t.TempDir()
-	executor := NewSafeExecutor(tempDir, nil)
+	executor := NewSafeExecutor(&ExecutorConfig{})
 
 	toolCalls := []ToolCall{
 		{
@@ -135,7 +130,7 @@ func TestSafeExecutorExecuteAll(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	results := executor.ExecuteAll(ctx, toolCalls)
+	results := executor.ExecuteAll(ctx, toolCalls, "")
 
 	if len(results) != len(toolCalls) {
 		t.Errorf("expected %d results, got %d", len(toolCalls), len(results))
@@ -143,8 +138,7 @@ func TestSafeExecutorExecuteAll(t *testing.T) {
 }
 
 func TestSafeExecutorValidateToolCalls(t *testing.T) {
-	tempDir := t.TempDir()
-	executor := NewSafeExecutor(tempDir, nil)
+	executor := NewSafeExecutor(&ExecutorConfig{})
 
 	tests := []struct {
 		name      string
@@ -228,8 +222,7 @@ func TestSafeExecutorValidateToolCalls(t *testing.T) {
 }
 
 func TestSafeExecutorGetAvailableTools(t *testing.T) {
-	tempDir := t.TempDir()
-	executor := NewSafeExecutor(tempDir, nil)
+	executor := NewSafeExecutor(&ExecutorConfig{})
 
 	tools := executor.GetAvailableTools()
 
@@ -279,8 +272,7 @@ func TestDefaultExecutorConfig(t *testing.T) {
 }
 
 func TestToolResultTruncation(t *testing.T) {
-	tempDir := t.TempDir()
-	executor := NewSafeExecutor(tempDir, nil)
+	executor := NewSafeExecutor(&ExecutorConfig{})
 
 	// 创建一个结果会被截断的场景
 	toolCall := ToolCall{
@@ -296,7 +288,7 @@ func TestToolResultTruncation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result, _ := executor.Execute(ctx, toolCall)
+	result, _ := executor.Execute(ctx, toolCall, "")
 
 	// 结果应该被截断
 	if len(result.Content) > 11000 {
