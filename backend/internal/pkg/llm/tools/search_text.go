@@ -37,9 +37,10 @@ func SearchText(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 检查路径参数是否为绝对路径
-	if filepath.IsAbs(params.Path) {
-		return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
-	}
+	// TODO 改为验证是否在项目的仓库范围内
+	// if filepath.IsAbs(params.Path) {
+	// 	return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
+	// }
 
 	// 编译正则表达式
 	re, err := regexp.Compile(params.Pattern)
@@ -166,4 +167,3 @@ func searchInFile(fullPath, relPath string, re *regexp.Regexp) []SearchResult {
 
 	return results
 }
-

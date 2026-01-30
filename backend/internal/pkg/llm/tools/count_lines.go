@@ -28,9 +28,10 @@ func CountLines(args json.RawMessage, basePath string) (string, error) {
 	}
 
 	// 检查路径参数是否为绝对路径
-	if filepath.IsAbs(params.Path) {
-		return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
-	}
+	// TODO 改为验证是否在项目的仓库范围内
+	// if filepath.IsAbs(params.Path) {
+	// 	return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
+	// }
 
 	// 构建完整路径
 	fullPath := filepath.Join(basePath, params.Path)
