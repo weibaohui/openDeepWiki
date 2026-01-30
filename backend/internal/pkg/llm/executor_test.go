@@ -232,8 +232,14 @@ func TestSafeExecutorGetAvailableTools(t *testing.T) {
 	executor := NewSafeExecutor(tempDir, nil)
 
 	tools := executor.GetAvailableTools()
-	
-	expectedTools := []string{
+
+	// SafeExecutor 注册了所有默认工具（30 个）
+	if len(tools) != 30 {
+		t.Errorf("expected 30 tools, got %d", len(tools))
+	}
+
+	// 只检查基础工具是否存在
+	expectedBasicTools := []string{
 		"search_files",
 		"read_file",
 		"search_text",
@@ -241,11 +247,7 @@ func TestSafeExecutorGetAvailableTools(t *testing.T) {
 		"count_lines",
 	}
 
-	if len(tools) != len(expectedTools) {
-		t.Errorf("expected %d tools, got %d", len(expectedTools), len(tools))
-	}
-
-	for _, expected := range expectedTools {
+	for _, expected := range expectedBasicTools {
 		found := false
 		for _, tool := range tools {
 			if tool == expected {

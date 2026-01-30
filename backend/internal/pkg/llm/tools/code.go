@@ -485,7 +485,7 @@ func FindDefinitions(args json.RawMessage, basePath string) (string, error) {
 			// 简单匹配：func Symbol, type Symbol, var Symbol, const Symbol
 			patterns := []string{
 				fmt.Sprintf("func %s", params.Symbol),
-				fmt.Sprintf("func (%s) %s", params.Symbol),
+				fmt.Sprintf("func (%s) ", params.Symbol),
 				fmt.Sprintf("type %s ", params.Symbol),
 				fmt.Sprintf("var %s ", params.Symbol),
 				fmt.Sprintf("const %s ", params.Symbol),
