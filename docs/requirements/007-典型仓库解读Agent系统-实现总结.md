@@ -375,3 +375,52 @@ task:
 - **6 个 MCP Tools 命名空间**，包含 30+ 工具定义
 
 所有定义文件遵循项目规范，可直接被 openDeepWiki 系统加载使用。
+ 
+ 
+ 2. Agent 定义（10个）
+
+   Agent                            职责
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   agents/orchestrator-agent.yaml   项目总协调
+   agents/repo-initializer.yaml     仓库初始化
+   agents/architect-agent.yaml      文档架构师
+   agents/explorer-agent.yaml       代码探索者
+   agents/planner-agent.yaml        内容规划师
+   agents/writer-agent.yaml         技术作者
+   agents/reviewer-agent.yaml       质量审查员
+   agents/editor-agent.yaml         编辑
+   agents/qa-agent.yaml             问答助手
+
+  3. Skills（22个）
+
+  按类别组织在 skills/ 目录下：
+
+  • 仓库理解: repo-detection, structure-analysis, dependency-mapping
+  • 内容规划: doc-structure, hierarchy-mapping, code-relevance
+  • 写作: code-explanation, narrative-flow, example-generation, diagram-description
+  • 质量保障: completeness-check, consistency-check, technical-accuracy, style-check
+  • 协调: dependency-management, task-scheduling, state-management, context-management, content-assembly, transition-optimization, summary-generation
+
+  4. MCP Tools（6个命名空间）
+
+  定义在 backend/mcp/tools/：
+
+  • git.yaml - Git 操作
+  • filesystem.yaml - 文件系统
+  • code.yaml - 代码分析
+  • search.yaml - 搜索
+  • generation.yaml - 内容生成
+  • quality.yaml - 质量检查
+
+
+   🏗️ 架构概览
+
+  OrchestratorAgent (协调)
+      ├── RepoInitializer → RepoMeta
+      ├── ArchitectAgent → DocOutline
+      ├── ExplorerAgent → TitleContext
+      ├── PlannerAgent → SectionPlan
+      ├── WriterAgent → SectionDraft
+      ├── ReviewerAgent → ReviewReport
+      ├── EditorAgent → ChapterDocument
+      └── QAAgent → 问答服务
