@@ -18,11 +18,11 @@ import (
 
 // Executor Agent执行器
 type Executor struct {
-	cfg           *config.Config
-	manager       *agents.Manager
-	llmClient     *llm.Client
-	toolExecutor  *llm.SafeExecutor
-	defaultTools  []llm.Tool // 缓存默认 tools
+	cfg          *config.Config
+	manager      *agents.Manager
+	llmClient    *llm.Client
+	toolExecutor *llm.SafeExecutor
+	defaultTools []llm.Tool // 缓存默认 tools
 }
 
 // AnalysisResult 代码分析结果
@@ -72,11 +72,11 @@ func NewExecutor(cfg *config.Config) *Executor {
 	}
 
 	return &Executor{
-		cfg:           cfg,
-		manager:       manager,
-		llmClient:     client,
-		toolExecutor:  llm.NewSafeExecutor(".", llm.DefaultExecutorConfig()),
-		defaultTools:  llm.DefaultTools(), // 缓存默认 tools
+		cfg:          cfg,
+		manager:      manager,
+		llmClient:    client,
+		toolExecutor: llm.NewSafeExecutor(".", llm.DefaultExecutorConfig()),
+		defaultTools: llm.DefaultTools(), // 缓存默认 tools
 	}
 }
 
@@ -598,14 +598,14 @@ func (e *Executor) ExecuteConversation(
 
 	// 7. 返回结果
 	return &ConversationResult{
-		Content:    assistantMessage.Content,
-		Messages:   execCtx.messages,
-		Steps:      execCtx.step,
-		ToolCalls:  toolCallSummaries,
-		Usage:      execCtx.totalUsage,
-		AgentName:  agentName,
-		StartTime:  startTime,
-		EndTime:    endTime,
+		Content:   assistantMessage.Content,
+		Messages:  execCtx.messages,
+		Steps:     execCtx.step,
+		ToolCalls: toolCallSummaries,
+		Usage:     execCtx.totalUsage,
+		AgentName: agentName,
+		StartTime: startTime,
+		EndTime:   endTime,
 	}, nil
 }
 
