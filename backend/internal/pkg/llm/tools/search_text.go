@@ -167,10 +167,3 @@ func searchInFile(fullPath, relPath string, re *regexp.Regexp) []SearchResult {
 	return results
 }
 
-// truncate 截断字符串
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}
