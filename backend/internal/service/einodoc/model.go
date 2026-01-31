@@ -44,7 +44,12 @@ func NewLLMChatModel(apiKey, baseURL, modelName string, maxTokens int) (*LLMChat
 	}
 
 	klog.V(6).Infof("[LLMChatModel] ChatModel 创建成功")
-	return &LLMChatModel{chatModel: chatModel}, nil
+	cm := &LLMChatModel{chatModel: chatModel}
+	if err != nil {
+		klog.Errorf("[LLMChatModel] 设置工具失败: %v", err)
+		return nil, err
+	}
+	return cm, nil
 }
 
 // Generate 生成响应
