@@ -19,6 +19,7 @@ type RepoDocState struct {
 	LocalPath string `json:"local_path"` // 本地克隆路径
 
 	// 仓库分析结果
+	RepoTree  string   `json:"repo_tree"`  // 仓库目录结构
 	RepoType  string   `json:"repo_type"`  // 仓库类型: go / java / python / frontend / mixed
 	TechStack []string `json:"tech_stack"` // 技术栈: gin / spring / react ...
 
@@ -58,6 +59,14 @@ func NewRepoDocState(repoURL, localPath string) *RepoDocState {
 		Outline:         make([]Chapter, 0),
 		TechStack:       make([]string, 0),
 	}
+}
+
+// SetRepoTree 设置仓库目录结构（线程安全）
+func (s *RepoDocState) SetRepoTree(tree string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	klog.V(6).Infof("[RepoDocState] 设置仓库目录结构: length=%d", len(tree))
+	s.RepoTree = tree
 }
 
 // SetRepoInfo 设置仓库基本信息（线程安全）
@@ -154,7 +163,7 @@ func (s *RepoDocState) MoveToNextSection() bool {
 		s.CurrentSectionIdx = 0
 		klog.V(6).Infof("[RepoDocState] 移动到下一个小节: 章节[%d]完成，进入章节[%d]", prevCh, s.CurrentChapterIdx)
 	} else {
-		klog.V(6).Infof("[RepoDocState] 移动到下一个小节: chapter[%d] section[%d] -> section[%d]", 
+		klog.V(6).Infof("[RepoDocState] 移动到下一个小节: chapter[%d] section[%d] -> section[%d]",
 			prevCh, prevSec, s.CurrentSectionIdx)
 	}
 
@@ -200,13 +209,13 @@ func sectionKey(chapterIdx, sectionIdx int) string {
 // RepoDocResult 仓库文档解析结果
 // 作为 Service 的返回结果
 type RepoDocResult struct {
-	RepoURL         string            `json:"repo_url"`          // 仓库 Git URL
-	LocalPath       string            `json:"local_path"`        // 本地克隆路径
-	RepoType        string            `json:"repo_type"`         // 仓库类型
-	TechStack       []string          `json:"tech_stack"`        // 技术栈
-	Outline         []Chapter         `json:"outline"`           // 文档大纲
-	Document        string            `json:"document"`          // 最终文档内容
-	SectionsCount   int               `json:"sections_count"`    // 生成的小节数量
-	Completed       bool              `json:"completed"`         // 是否完成
+	RepoURL         string            `json:"repo_url"`                   // 仓库 Git URL
+	LocalPath       string            `json:"local_path"`                 // 本地克隆路径
+	RepoType        string            `json:"repo_type"`                  // 仓库类型
+	TechStack       []string          `json:"tech_stack"`                 // 技术栈
+	Outline         []Chapter         `json:"outline"`                    // 文档大纲
+	Document        string            `json:"document"`                   // 最终文档内容
+	SectionsCount   int               `json:"sections_count"`             // 生成的小节数量
+	Completed       bool              `json:"completed"`                  // 是否完成
 	SectionsContent map[string]string `json:"sections_content,omitempty"` // 各小节内容
 }

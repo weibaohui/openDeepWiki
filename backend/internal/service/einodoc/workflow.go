@@ -85,7 +85,7 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 		klog.V(6).Infof("[Workflow Step 1] ListDirTool 执行成功: resultLength=%d", len(treeResult))
 
 		// 将 treeResult 存储到 state 中供后续使用
-		_ = treeResult
+		state.SetRepoTree(treeResult)
 
 		klog.V(6).Infof("[Workflow Step 1] 执行完成")
 		return WorkflowOutput{
@@ -106,17 +106,21 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 
 		state := output.State
 
-		// 读取目录结构
-		klog.V(6).Infof("[Workflow Step 2] 调用 ListDirTool 获取目录结构")
-		listTool := NewListDirTool(basePath)
-		listArgs, _ := json.Marshal(map[string]interface{}{
-			"dir":       generateRepoDirName(state.RepoURL),
-			"recursive": true,
-		})
-		treeResult, err := listTool.InvokableRun(ctx, string(listArgs))
-		if err != nil {
-			klog.Warningf("[Workflow Step 2] ListDirTool 执行失败，使用默认值: %v", err)
-			treeResult = "Failed to read directory"
+		// 获取目录结构
+		treeResult := state.RepoTree
+		if treeResult == "" {
+			klog.Warningf("[Workflow Step 2] State 中目录结构为空，尝试重新读取")
+			listTool := NewListDirTool(basePath)
+			listArgs, _ := json.Marshal(map[string]interface{}{
+				"dir":       generateRepoDirName(state.RepoURL),
+				"recursive": true,
+			})
+			var err error
+			treeResult, err = listTool.InvokableRun(ctx, string(listArgs))
+			if err != nil {
+				klog.Warningf("[Workflow Step 2] ListDirTool 执行失败，使用默认值: %v", err)
+				treeResult = "Failed to read directory"
+			}
 		}
 		klog.V(6).Infof("[Workflow Step 2] 获取目录结构成功: length=%d", len(treeResult))
 
@@ -153,7 +157,7 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 				state.SetRepoInfo("unknown", []string{})
 			} else {
 				state.SetRepoInfo(analysis.RepoType, analysis.TechStack)
-				klog.V(6).Infof("[Workflow Step 2] 分析成功: repoType=%s, techStack=%v", 
+				klog.V(6).Infof("[Workflow Step 2] 分析成功: repoType=%s, techStack=%v",
 					analysis.RepoType, analysis.TechStack)
 			}
 		}
