@@ -229,6 +229,7 @@ func (f *AgentFactory) CreateEditorAgent() (adk.Agent, error) {
 - 可直接发布`,
 		Model:         f.chatModel,
 		MaxIterations: 5,
+		Exit:          adk.ExitTool{},
 	})
 
 	if err != nil {
