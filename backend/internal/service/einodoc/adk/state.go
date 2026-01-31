@@ -88,37 +88,6 @@ func (sm *StateManager) GetLocalPath() string {
 	return sm.state.LocalPath
 }
 
-// BuildSystemMessage 构建包含当前状态信息的系统消息
-// 供各个 Agent 使用，使其了解当前 Workflow 的上下文
-func (sm *StateManager) BuildSystemMessage(agentName string) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("你是 %s Agent。\n\n", agentName))
-	sb.WriteString(AgentRoles[agentName].Instruction)
-	sb.WriteString("\n\n=== 当前 Workflow 状态 ===\n")
-	sb.WriteString(fmt.Sprintf("仓库地址: %s\n", sm.state.RepoURL))
-	sb.WriteString(fmt.Sprintf("本地路径: %s\n", sm.state.LocalPath))
-
-	if sm.state.RepoType != "" {
-		sb.WriteString(fmt.Sprintf("仓库类型: %s\n", sm.state.RepoType))
-	}
-
-	if len(sm.state.TechStack) > 0 {
-		sb.WriteString(fmt.Sprintf("技术栈: %v\n", sm.state.TechStack))
-	}
-
-	if len(sm.state.Outline) > 0 {
-		sb.WriteString(fmt.Sprintf("\n文档大纲: %d 个章节\n", len(sm.state.Outline)))
-		for i, ch := range sm.state.Outline {
-			sb.WriteString(fmt.Sprintf("  %d. %s (%d 个小节)\n", i+1, ch.Title, len(ch.Sections)))
-		}
-	}
-
-	sb.WriteString("\n请基于以上信息执行你的任务。")
-
-	return sb.String()
-}
-
 // BuildResult 构建最终结果
 func (sm *StateManager) BuildResult() *einodoc.RepoDocResult {
 	// 组装最终文档

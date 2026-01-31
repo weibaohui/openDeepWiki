@@ -17,6 +17,98 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// AgentName 定义各个子 Agent 的名称常量
+const (
+	// AgentRepoInitializer 仓库初始化 Agent - 负责克隆仓库和基础分析
+	AgentRepoInitializer = "RepoInitializer"
+	// AgentArchitect 架构师 Agent - 负责生成文档大纲
+	AgentArchitect = "Architect"
+	// AgentExplorer 探索者 Agent - 负责深度代码分析
+	AgentExplorer = "Explorer"
+	// AgentWriter 作者 Agent - 负责生成文档内容
+	AgentWriter = "Writer"
+	// AgentEditor 编辑 Agent - 负责组装最终文档
+	AgentEditor = "Editor"
+)
+
+// AgentRole Agent 角色定义
+type AgentRole struct {
+	Name        string   // Agent 名称
+	Description string   // Agent 描述
+	Instruction string   // Agent 指令
+	Tools       []string // Agent 可用工具列表
+}
+
+// AgentRoles 预定义的 Agent 角色配置
+var AgentRoles = map[string]AgentRole{
+	AgentRepoInitializer: {
+		Name:        AgentRepoInitializer,
+		Description: "仓库初始化专员 - 负责克隆代码仓库并进行初步分析",
+		Instruction: `你是仓库初始化专员 RepoInitializer。
+你的职责是：
+1. 使用 git_clone 工具克隆指定的代码仓库
+2. 使用 list_dir 工具读取仓库的目录结构
+3. 识别仓库的基本信息（类型、规模等）
+
+请确保仓库成功克隆并获取完整的目录结构信息。`,
+		Tools: []string{"git_clone", "list_dir"},
+	},
+	AgentArchitect: {
+		Name:        AgentArchitect,
+		Description: "文档架构师 - 负责设计文档的整体结构",
+		Instruction: `你是文档架构师 Architect。
+你的职责是：
+1. 分析仓库的目录结构和技术栈
+2. 设计文档的整体大纲结构
+3. 规划章节和小节的组织方式
+
+请根据仓库类型生成合理的文档结构，确保覆盖核心模块和重要功能。
+你可以按需使用 read_file 工具查看关键文件（如 README.md, go.mod, package.json 等）以辅助分析。`,
+		Tools: []string{"read_file"},
+	},
+	AgentExplorer: {
+		Name:        AgentExplorer,
+		Description: "代码探索者 - 负责深度分析代码结构和依赖关系",
+		Instruction: `你是代码探索者 Explorer。
+你的职责是：
+1. 深入分析代码库的模块结构
+2. 识别核心文件和关键函数
+3. 分析模块间的依赖关系
+4. 为每个章节找到对应的代码证据
+
+请仔细探索代码库，提取关键的技术信息。
+你可以按需使用 read_file 工具深入阅读代码文件。`,
+		Tools: []string{"read_file"},
+	},
+	AgentWriter: {
+		Name:        AgentWriter,
+		Description: "技术作者 - 负责撰写文档内容",
+		Instruction: `你是技术作者 Writer。
+你的职责是：
+1. 根据大纲和代码分析结果撰写文档内容
+2. 为每个小节生成清晰、准确的技术说明
+3. 包含必要的代码示例和解释
+
+请确保文档内容准确、易懂，适合目标读者阅读。
+你可以按需使用 read_file 工具读取代码文件以获取详细信息，确保文档内容的准确性。`,
+		Tools: []string{"read_file"},
+	},
+	AgentEditor: {
+		Name:        AgentEditor,
+		Description: "文档编辑 - 负责组装和优化最终文档",
+		Instruction: `你是文档编辑 Editor。
+你的职责是：
+1. 组装所有章节内容形成完整文档
+2. 优化文档结构和格式
+3. 确保文档的一致性和可读性
+4. 添加必要的导航和链接
+
+请生成格式规范、结构清晰的最终文档。
+你可以按需使用 read_file 工具检查文档中引用的代码或文件内容。`,
+		Tools: []string{"read_file"},
+	},
+}
+
 // AgentFactory 负责创建各种子 Agent
 // 使用 Eino ADK 原生的 ChatModelAgent
 type AgentFactory struct {
@@ -35,14 +127,10 @@ func NewAgentFactory(chatModel model.ToolCallingChatModel, basePath string) *Age
 // CreateRepoInitializerAgent 创建仓库初始化 Agent
 // 负责克隆仓库和获取目录结构
 func (f *AgentFactory) CreateRepoInitializerAgent() (adk.Agent, error) {
-	role := AgentRoles[AgentRepoInitializer]
-
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        role.Name,
-		Description: role.Description,
-		Instruction: role.Instruction + `
-
-你的任务是：
+		Name:        AgentRepoInitializer,
+		Description: "仓库初始化专员 - 负责克隆代码仓库并进行初步分析",
+		Instruction: `你的任务是：
 1. 使用 git_clone 工具克隆指定的代码仓库
 2. 使用 list_dir 工具读取仓库的目录结构
 3. 返回仓库的完整信息，包括：
@@ -68,10 +156,10 @@ func (f *AgentFactory) CreateRepoInitializerAgent() (adk.Agent, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", role.Name, err)
+		return nil, fmt.Errorf("failed to create %s agent: %w", AgentRepoInitializer, err)
 	}
 
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", role.Name)
+	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentRepoInitializer)
 	return agent, nil
 }
 
@@ -82,8 +170,8 @@ func (f *AgentFactory) CreateArchitectAgent() (adk.Agent, error) {
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
 		Name:        role.Name,
-		Description: role.Description,
-		Instruction: role.Instruction + `
+		Description: "文档架构师 - 负责设计文档的整体结构",
+		Instruction: `
 
 你的任务是分析仓库并生成文档大纲：
 1. 分析仓库的目录结构
@@ -135,8 +223,8 @@ func (f *AgentFactory) CreateExplorerAgent() (adk.Agent, error) {
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
 		Name:        role.Name,
-		Description: role.Description,
-		Instruction: role.Instruction + `
+		Description: "代码探索者 - 负责深度分析代码结构和依赖关系",
+		Instruction: `
 
 你的任务是深入探索代码库：
 1. 读取 README 和关键配置文件（go.mod, package.json 等）
@@ -173,8 +261,8 @@ func (f *AgentFactory) CreateWriterAgent() (adk.Agent, error) {
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
 		Name:        role.Name,
-		Description: role.Description,
-		Instruction: role.Instruction + `
+		Description: "技术作者 - 负责撰写文档内容",
+		Instruction: `
 
 你的任务是为文档大纲的每个小节生成内容：
 1. 根据章节和小节标题，撰写技术文档
@@ -209,12 +297,11 @@ func (f *AgentFactory) CreateEditorAgent() (adk.Agent, error) {
 	role := AgentRoles[AgentEditor]
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        role.Name,
-		Description: role.Description,
-		Instruction: role.Instruction + `
-
-你的任务是组装和优化最终文档：
-1. 整合所有章节和小节的内容
+		Name:        AgentEditor,
+		Description: "文档编辑 - 负责组装和优化最终文档",
+		Instruction: `你是文档编辑 Editor。
+你的职责是：
+1. 组装所有章节内容形成完整文档
 2. 优化文档结构和格式
 3. 添加文档头部信息（标题、仓库信息、技术栈）
 4. 确保 Markdown 格式规范
