@@ -35,9 +35,10 @@ const (
 
 // AgentRole 定义 Agent 角色的详细说明
 type AgentRole struct {
-	Name        string // Agent 名称
-	Description string // Agent 描述
-	Instruction string // Agent 系统指令
+	Name        string   // Agent 名称
+	Description string   // Agent 描述
+	Instruction string   // Agent 系统指令
+	Tools       []string // Agent 可用工具列表
 }
 
 // AgentRoles 预定义的 Agent 角色配置
@@ -52,6 +53,7 @@ var AgentRoles = map[string]AgentRole{
 3. 识别仓库的基本信息（类型、规模等）
 
 请确保仓库成功克隆并获取完整的目录结构信息。`,
+		Tools: []string{"git_clone", "list_dir"},
 	},
 	AgentArchitect: {
 		Name:        AgentArchitect,
@@ -63,6 +65,7 @@ var AgentRoles = map[string]AgentRole{
 3. 规划章节和小节的组织方式
 
 请根据仓库类型生成合理的文档结构，确保覆盖核心模块和重要功能。`,
+		Tools: []string{"read_file"},
 	},
 	AgentExplorer: {
 		Name:        AgentExplorer,
@@ -75,6 +78,7 @@ var AgentRoles = map[string]AgentRole{
 4. 为每个章节找到对应的代码证据
 
 请仔细探索代码库，提取关键的技术信息。`,
+		Tools: []string{"read_file"},
 	},
 	AgentWriter: {
 		Name:        AgentWriter,
@@ -86,6 +90,7 @@ var AgentRoles = map[string]AgentRole{
 3. 包含必要的代码示例和解释
 
 请确保文档内容准确、易懂，适合目标读者阅读。`,
+		Tools: []string{"read_file"},
 	},
 	AgentEditor: {
 		Name:        AgentEditor,
@@ -98,6 +103,7 @@ var AgentRoles = map[string]AgentRole{
 4. 添加必要的导航和链接
 
 请生成格式规范、结构清晰的最终文档。`,
+		Tools: []string{"read_file"},
 	},
 }
 

@@ -37,6 +37,7 @@ func (f *AgentFactory) CreateRepoInitializerAgent(state *StateManager) (*ChatMod
 	agent := &ChatModelAgentWrapper{
 		name:        role.Name,
 		description: role.Description,
+		tools:       role.Tools,
 		state:       state,
 		basePath:    f.basePath,
 		chatModel:   f.chatModel,
@@ -55,6 +56,7 @@ func (f *AgentFactory) CreateArchitectAgent(state *StateManager) (*ChatModelAgen
 	agent := &ChatModelAgentWrapper{
 		name:        role.Name,
 		description: role.Description,
+		tools:       role.Tools,
 		state:       state,
 		basePath:    f.basePath,
 		chatModel:   f.chatModel,
@@ -91,6 +93,7 @@ func (f *AgentFactory) CreateWriterAgent(state *StateManager) (*ChatModelAgentWr
 	agent := &ChatModelAgentWrapper{
 		name:        role.Name,
 		description: role.Description,
+		tools:       role.Tools,
 		state:       state,
 		basePath:    f.basePath,
 		chatModel:   f.chatModel,
@@ -109,6 +112,7 @@ func (f *AgentFactory) CreateEditorAgent(state *StateManager) (*ChatModelAgentWr
 	agent := &ChatModelAgentWrapper{
 		name:        role.Name,
 		description: role.Description,
+		tools:       role.Tools,
 		state:       state,
 		basePath:    f.basePath,
 		chatModel:   f.chatModel,

@@ -15,6 +15,7 @@ import (
 type ChatModelAgentWrapper struct {
 	name        string                                                                // Agent 名称
 	description string                                                                // Agent 描述
+	tools       []string                                                              // Agent 可用工具列表
 	state       *StateManager                                                         // 状态管理器
 	basePath    string                                                                // 基础路径
 	chatModel   model.ToolCallingChatModel                                            // ChatModel 实例
@@ -27,6 +28,7 @@ func (w *ChatModelAgentWrapper) Info() AgentInfo {
 	return AgentInfo{
 		Name:        w.name,
 		Description: w.description,
+		Tools:       w.tools,
 	}
 }
 
@@ -62,8 +64,9 @@ func (w *ChatModelAgentWrapper) Execute(ctx context.Context, input *AgentInput) 
 
 // AgentInfo Agent 信息
 type AgentInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Tools       []string `json:"tools,omitempty"`
 }
 
 // AgentInput Agent 输入
