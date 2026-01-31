@@ -182,12 +182,25 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 		return
 	}
 
-	// 记录 Prompt/Messages
+	// 收集 Tools 信息
+	toolCount := len(modelInput.Tools)
+	toolNames := make([]string, 0, toolCount)
+	for _, t := range modelInput.Tools {
+		if t != nil {
+			toolNames = append(toolNames, t.Name)
+		}
+	}
+
+	// 在第一条日志中显示关键信息：Messages 和 Tools 摘要
+	klog.V(6).InfoS("[EinoCallback] Model 输入",
+		"name", info.Name,
+		"message_count", len(modelInput.Messages),
+		"tool_count", toolCount,
+		"tool_names", toolNames,
+	)
+
+	// 记录 Prompt/Messages 详情
 	if len(modelInput.Messages) > 0 {
-		klog.V(6).InfoS("[EinoCallback] Model 输入 Messages",
-			"name", info.Name,
-			"message_count", len(modelInput.Messages),
-		)
 		for i, msg := range modelInput.Messages {
 			if msg != nil {
 				klog.V(6).InfoS("[EinoCallback]   Message",
@@ -204,12 +217,8 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 		}
 	}
 
-	// 记录 Tools
-	if len(modelInput.Tools) > 0 {
-		klog.V(6).InfoS("[EinoCallback] Model 输入 Tools",
-			"name", info.Name,
-			"tool_count", len(modelInput.Tools),
-		)
+	// 记录 Tools 详情
+	if toolCount > 0 {
 		for i, t := range modelInput.Tools {
 			if t != nil {
 				klog.V(6).InfoS("[EinoCallback]   Tool",
