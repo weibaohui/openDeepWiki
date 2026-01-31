@@ -12,6 +12,8 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/opendeepwiki/backend/internal/utils"
 	"k8s.io/klog/v2"
+
+	"github.com/opendeepwiki/backend/internal/service/einodoc/tools"
 )
 
 // WorkflowInput Workflow 输入
@@ -53,10 +55,10 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 
 		// 使用 git_clone 工具克隆仓库
 		klog.V(6).Infof("[Workflow Step 1] 调用 GitCloneTool")
-		cloneTool := NewGitCloneTool(basePath)
+		cloneTool := tools.NewGitCloneTool(basePath)
 		cloneArgs, _ := json.Marshal(map[string]string{
 			"repo_url":   input.RepoURL,
-			"target_dir": generateRepoDirName(input.RepoURL),
+			"target_dir": tools.GenerateRepoDirName(input.RepoURL),
 		})
 		klog.V(6).Infof("[Workflow Step 1] GitCloneTool 参数: %s", string(cloneArgs))
 
@@ -67,14 +69,14 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 		}
 		klog.V(6).Infof("[Workflow Step 1] GitCloneTool 执行成功: 仓库路径=%s, 结果=%s", state.LocalPath, cloneResult)
 
-		state.LocalPath = filepath.Join(basePath, generateRepoDirName(input.RepoURL))
+		state.LocalPath = filepath.Join(basePath, tools.GenerateRepoDirName(input.RepoURL))
 		klog.V(6).Infof("[Workflow Step 1] 设置本地路径: %s", state.LocalPath)
 
 		// 读取目录结构
 		klog.V(6).Infof("[Workflow Step 1] 调用 ListDirTool")
-		listTool := NewListDirTool(basePath)
+		listTool := tools.NewListDirTool(basePath)
 		listArgs, _ := json.Marshal(map[string]interface{}{
-			"dir":       generateRepoDirName(input.RepoURL),
+			"dir":       tools.GenerateRepoDirName(input.RepoURL),
 			"recursive": true,
 		})
 
@@ -111,9 +113,9 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 		treeResult := state.RepoTree
 		if treeResult == "" {
 			klog.Warningf("[Workflow Step 2] State 中目录结构为空，尝试重新读取")
-			listTool := NewListDirTool(basePath)
+			listTool := tools.NewListDirTool(basePath)
 			listArgs, _ := json.Marshal(map[string]interface{}{
-				"dir":       generateRepoDirName(state.RepoURL),
+				"dir":       tools.GenerateRepoDirName(state.RepoURL),
 				"recursive": true,
 			})
 			var err error

@@ -9,6 +9,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/opendeepwiki/backend/internal/pkg/llm"
+	"github.com/opendeepwiki/backend/internal/service/einodoc/tools"
 )
 
 // RepoDocService 仓库文档解析服务接口
@@ -141,7 +142,7 @@ func (s *EinoRepoDocService) GetChatModel() model.ChatModel {
 // 返回: Eino Tools 列表
 func (s *EinoRepoDocService) GetTools() []tool.BaseTool {
 	klog.V(6).Infof("[EinoRepoDocService.GetTools] 获取工具列表")
-	tools := CreateTools(s.basePath)
+	tools := tools.CreateTools(s.basePath)
 	klog.V(6).Infof("[EinoRepoDocService.GetTools] 工具列表: count=%d", len(tools))
 	return tools
 }
