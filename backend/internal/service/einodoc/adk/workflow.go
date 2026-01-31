@@ -56,13 +56,13 @@ func (w *RepoDocWorkflow) Build(ctx context.Context) error {
 
 // Run 执行 Workflow
 // ctx: 上下文
-// repoURL: 仓库 Git URL
+// localPath: 仓库本地路径
 // 返回: RepoDocResult 或错误
-func (w *RepoDocWorkflow) Run(ctx context.Context, repoURL string) (*einodoc.RepoDocResult, error) {
-	klog.V(6).Infof("[RepoDocWorkflow.Run] 开始执行: repoURL=%s", repoURL)
+func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.RepoDocResult, error) {
+	klog.V(6).Infof("[RepoDocWorkflow.Run] 开始执行: localPath=%s", localPath)
 
 	// 初始化状态
-	w.state = einodoc.NewRepoDocState(repoURL, "")
+	w.state = einodoc.NewRepoDocState(localPath, "")
 
 	// 构建 Workflow（如果还没有构建）
 	if w.sequentialAgent == nil {
@@ -82,18 +82,17 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, repoURL string) (*einodoc.Rep
 仓库地址: %s
 
 请按以下步骤执行：
-1. 克隆仓库并获取目录结构
-2. 分析仓库类型和技术栈，生成文档大纲
-3. 深入探索代码结构
-4. 为每个小节生成文档内容
-5. 组装最终文档
+1. 分析仓库类型和技术栈，生成文档大纲
+2. 深入探索代码结构
+3. 为每个小节生成文档内容
+4. 组装最终文档
 
-请确保每个步骤都完整执行。`, repoURL)
+请确保每个步骤都完整执行。`, localPath)
 
 	// 设置会话值，供 Agent 使用
-	adk.AddSessionValue(ctx, "repo_url", repoURL)
+	adk.AddSessionValue(ctx, "local_path", localPath)
 	adk.AddSessionValue(ctx, "base_path", w.basePath)
-	adk.AddSessionValue(ctx, "target_dir", etools.GenerateRepoDirName(repoURL))
+	adk.AddSessionValue(ctx, "target_dir", etools.GenerateRepoDirName(localPath))
 
 	// 执行 Workflow
 	iter := runner.Run(ctx, []adk.Message{
@@ -134,7 +133,7 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, repoURL string) (*einodoc.Rep
 				w.processArchitectOutput(content)
 			case AgentWriter:
 				w.processWriterOutput(content)
-			case EditorAgentName:
+			case AgentEditor:
 				w.processEditorOutput(content)
 			}
 		}
@@ -149,17 +148,17 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, repoURL string) (*einodoc.Rep
 	klog.V(6).Infof("[RepoDocWorkflow.Run] 所有步骤执行完成: steps=%d", stepCount)
 
 	// 构建最终结果
-	result := w.buildResult(repoURL, lastContent)
+	result := w.buildResult(localPath, lastContent)
 	return result, nil
 }
 
 // RunWithProgress 执行 Workflow 并返回进度事件
 // 适用于需要实时展示进度的场景
-func (w *RepoDocWorkflow) RunWithProgress(ctx context.Context, repoURL string) (<-chan *WorkflowProgressEvent, error) {
-	klog.V(6).Infof("[RepoDocWorkflow.RunWithProgress] 开始执行: repoURL=%s", repoURL)
+func (w *RepoDocWorkflow) RunWithProgress(ctx context.Context, localPath string) (<-chan *WorkflowProgressEvent, error) {
+	klog.V(6).Infof("[RepoDocWorkflow.RunWithProgress] 开始执行: localPath=%s", localPath)
 
 	// 初始化状态
-	w.state = einodoc.NewRepoDocState(repoURL, "")
+	w.state = einodoc.NewRepoDocState(localPath, "")
 
 	// 构建 Workflow
 	if w.sequentialAgent == nil {
@@ -181,14 +180,14 @@ func (w *RepoDocWorkflow) RunWithProgress(ctx context.Context, repoURL string) (
 		})
 
 		// 设置会话值
-		adk.AddSessionValue(ctx, "repo_url", repoURL)
+		adk.AddSessionValue(ctx, "repo_path", localPath)
 		adk.AddSessionValue(ctx, "base_path", w.basePath)
-		adk.AddSessionValue(ctx, "target_dir", etools.GenerateRepoDirName(repoURL))
+		adk.AddSessionValue(ctx, "target_dir", etools.GenerateRepoDirName(localPath))
 
 		// 执行 Workflow
 		initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库并生成技术文档。
 
-仓库地址: %s`, repoURL)
+仓库地址: %s`, localPath)
 
 		iter := runner.Run(ctx, []adk.Message{
 			{
@@ -229,6 +228,8 @@ func (w *RepoDocWorkflow) RunWithProgress(ctx context.Context, repoURL string) (
 					w.processArchitectOutput(content)
 				case AgentWriter:
 					w.processWriterOutput(content)
+				case AgentEditor:
+					w.processEditorOutput(content)
 				}
 			}
 
@@ -246,7 +247,7 @@ func (w *RepoDocWorkflow) RunWithProgress(ctx context.Context, repoURL string) (
 		}
 
 		// 发送完成事件
-		result := w.buildResult(repoURL, "")
+		result := w.buildResult(localPath, "")
 		progressCh <- &WorkflowProgressEvent{
 			Step:      stepCount + 1,
 			AgentName: "FinalResult",
@@ -304,7 +305,7 @@ func (w *RepoDocWorkflow) processEditorOutput(content string) {
 }
 
 // buildResult 构建最终结果
-func (w *RepoDocWorkflow) buildResult(repoURL, finalContent string) *einodoc.RepoDocResult {
+func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *einodoc.RepoDocResult {
 	// 如果状态中有大纲但没有小节内容，生成默认内容
 	if len(w.state.Outline) > 0 && len(w.state.SectionsContent) == 0 {
 		for chIdx, chapter := range w.state.Outline {
@@ -322,7 +323,6 @@ func (w *RepoDocWorkflow) buildResult(repoURL, finalContent string) *einodoc.Rep
 	}
 
 	return &einodoc.RepoDocResult{
-		RepoURL:         repoURL,
 		LocalPath:       w.state.LocalPath,
 		RepoType:        w.state.RepoType,
 		TechStack:       w.state.TechStack,
@@ -360,9 +360,6 @@ type WorkflowProgressEvent struct {
 	Error     error                  `json:"error,omitempty"`
 	Result    *einodoc.RepoDocResult `json:"result,omitempty"`
 }
-
-// EditorAgentName Editor Agent 的名称常量
-const EditorAgentName = "Editor"
 
 // ==================== 便捷函数 ====================
 

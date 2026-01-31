@@ -31,84 +31,6 @@ const (
 	AgentEditor = "Editor"
 )
 
-// AgentRole Agent 角色定义
-type AgentRole struct {
-	Name        string   // Agent 名称
-	Description string   // Agent 描述
-	Instruction string   // Agent 指令
-	Tools       []string // Agent 可用工具列表
-}
-
-// AgentRoles 预定义的 Agent 角色配置
-var AgentRoles = map[string]AgentRole{
-	AgentRepoInitializer: {
-		Name:        AgentRepoInitializer,
-		Description: "仓库初始化专员 - 负责克隆代码仓库并进行初步分析",
-		Instruction: `你是仓库初始化专员 RepoInitializer。
-你的职责是：
-1. 使用 git_clone 工具克隆指定的代码仓库
-2. 使用 list_dir 工具读取仓库的目录结构
-3. 识别仓库的基本信息（类型、规模等）
-
-请确保仓库成功克隆并获取完整的目录结构信息。`,
-		Tools: []string{"git_clone", "list_dir"},
-	},
-	AgentArchitect: {
-		Name:        AgentArchitect,
-		Description: "文档架构师 - 负责设计文档的整体结构",
-		Instruction: `你是文档架构师 Architect。
-你的职责是：
-1. 分析仓库的目录结构和技术栈
-2. 设计文档的整体大纲结构
-3. 规划章节和小节的组织方式
-
-请根据仓库类型生成合理的文档结构，确保覆盖核心模块和重要功能。
-你可以按需使用 read_file 工具查看关键文件（如 README.md, go.mod, package.json 等）以辅助分析。`,
-		Tools: []string{"read_file"},
-	},
-	AgentExplorer: {
-		Name:        AgentExplorer,
-		Description: "代码探索者 - 负责深度分析代码结构和依赖关系",
-		Instruction: `你是代码探索者 Explorer。
-你的职责是：
-1. 深入分析代码库的模块结构
-2. 识别核心文件和关键函数
-3. 分析模块间的依赖关系
-4. 为每个章节找到对应的代码证据
-
-请仔细探索代码库，提取关键的技术信息。
-你可以按需使用 read_file 工具深入阅读代码文件。`,
-		Tools: []string{"read_file"},
-	},
-	AgentWriter: {
-		Name:        AgentWriter,
-		Description: "技术作者 - 负责撰写文档内容",
-		Instruction: `你是技术作者 Writer。
-你的职责是：
-1. 根据大纲和代码分析结果撰写文档内容
-2. 为每个小节生成清晰、准确的技术说明
-3. 包含必要的代码示例和解释
-
-请确保文档内容准确、易懂，适合目标读者阅读。
-你可以按需使用 read_file 工具读取代码文件以获取详细信息，确保文档内容的准确性。`,
-		Tools: []string{"read_file"},
-	},
-	AgentEditor: {
-		Name:        AgentEditor,
-		Description: "文档编辑 - 负责组装和优化最终文档",
-		Instruction: `你是文档编辑 Editor。
-你的职责是：
-1. 组装所有章节内容形成完整文档
-2. 优化文档结构和格式
-3. 确保文档的一致性和可读性
-4. 添加必要的导航和链接
-
-请生成格式规范、结构清晰的最终文档。
-你可以按需使用 read_file 工具检查文档中引用的代码或文件内容。`,
-		Tools: []string{"read_file"},
-	},
-}
-
 // AgentFactory 负责创建各种子 Agent
 // 使用 Eino ADK 原生的 ChatModelAgent
 type AgentFactory struct {
@@ -129,25 +51,22 @@ func NewAgentFactory(chatModel model.ToolCallingChatModel, basePath string) *Age
 func (f *AgentFactory) CreateRepoInitializerAgent() (adk.Agent, error) {
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
 		Name:        AgentRepoInitializer,
-		Description: "仓库初始化专员 - 负责克隆代码仓库并进行初步分析",
+		Description: "仓库初始化专员 - 负责对代码仓库进行初步分析",
 		Instruction: `你的任务是：
-1. 使用 git_clone 工具克隆指定的代码仓库
-2. 使用 list_dir 工具读取仓库的目录结构
-3. 返回仓库的完整信息，包括：
+1. 使用 list_dir 工具读取仓库的目录结构
+2. 返回仓库的完整信息，包括：
    - 仓库 URL
    - 本地路径
    - 目录结构概要
 
 
 请确保：
-- 仓库成功克隆
 - 获取完整的目录结构
 - 返回的信息准确完整`,
 		Model: f.chatModel,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{
 				Tools: []tool.BaseTool{
-					tools.NewGitCloneTool(f.basePath),
 					tools.NewListDirTool(f.basePath),
 				},
 			},
@@ -166,10 +85,9 @@ func (f *AgentFactory) CreateRepoInitializerAgent() (adk.Agent, error) {
 // CreateArchitectAgent 创建架构师 Agent
 // 负责分析仓库类型并生成文档大纲
 func (f *AgentFactory) CreateArchitectAgent() (adk.Agent, error) {
-	role := AgentRoles[AgentArchitect]
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        role.Name,
+		Name:        AgentArchitect,
 		Description: "文档架构师 - 负责设计文档的整体结构",
 		Instruction: `
 
@@ -209,20 +127,19 @@ func (f *AgentFactory) CreateArchitectAgent() (adk.Agent, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", role.Name, err)
+		return nil, fmt.Errorf("failed to create %s agent: %w", AgentArchitect, err)
 	}
 
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", role.Name)
+	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentArchitect)
 	return agent, nil
 }
 
 // CreateExplorerAgent 创建探索者 Agent
 // 负责深度分析代码结构
 func (f *AgentFactory) CreateExplorerAgent() (adk.Agent, error) {
-	role := AgentRoles[AgentExplorer]
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        role.Name,
+		Name:        AgentExplorer,
 		Description: "代码探索者 - 负责深度分析代码结构和依赖关系",
 		Instruction: `
 
@@ -247,20 +164,19 @@ func (f *AgentFactory) CreateExplorerAgent() (adk.Agent, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", role.Name, err)
+		return nil, fmt.Errorf("failed to create %s agent: %w", AgentExplorer, err)
 	}
 
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", role.Name)
+	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentExplorer)
 	return agent, nil
 }
 
 // CreateWriterAgent 创建作者 Agent
 // 负责生成文档内容
 func (f *AgentFactory) CreateWriterAgent() (adk.Agent, error) {
-	role := AgentRoles[AgentWriter]
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        role.Name,
+		Name:        AgentWriter,
 		Description: "技术作者 - 负责撰写文档内容",
 		Instruction: `
 
@@ -284,17 +200,16 @@ func (f *AgentFactory) CreateWriterAgent() (adk.Agent, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", role.Name, err)
+		return nil, fmt.Errorf("failed to create %s agent: %w", AgentWriter, err)
 	}
 
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", role.Name)
+	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentWriter)
 	return agent, nil
 }
 
 // CreateEditorAgent 创建编辑 Agent
 // 负责组装最终文档
 func (f *AgentFactory) CreateEditorAgent() (adk.Agent, error) {
-	role := AgentRoles[AgentEditor]
 
 	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
 		Name:        AgentEditor,
@@ -317,10 +232,10 @@ func (f *AgentFactory) CreateEditorAgent() (adk.Agent, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", role.Name, err)
+		return nil, fmt.Errorf("failed to create %s agent: %w", AgentEditor, err)
 	}
 
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", role.Name)
+	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentEditor)
 	return agent, nil
 }
 

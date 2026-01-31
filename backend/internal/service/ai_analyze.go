@@ -167,9 +167,9 @@ func (s *AIAnalyzeService) executeAnalysis(task *model.AIAnalysisTask, repo *mod
 	task.Progress = 30
 	s.taskRepo.Update(task)
 
-	klog.V(6).Infof("调用 Eino RepoDoc Service: repoURL=%s", repo.URL)
+	klog.V(6).Infof("调用 Eino RepoDoc Service: repoPath=%s", repo.LocalPath)
 
-	result, err := s.einoDocService.ParseRepo(ctx, repo.URL)
+	result, err := s.einoDocService.ParseRepo(ctx, repo.LocalPath)
 	if err != nil {
 		klog.Errorf("Eino RepoDoc Service 执行失败: taskID=%s, error=%v", task.TaskID, err)
 		s.failTask(task, err.Error())

@@ -61,11 +61,11 @@ func NewADKRepoDocService(basePath string, llmCfg *LLMConfig) (*ADKRepoDocServic
 // ctx: 上下文，可用于超时控制
 // repoURL: 仓库 Git URL
 // 返回: 解析结果或错误
-func (s *ADKRepoDocService) ParseRepo(ctx context.Context, repoURL string) (*einodoc.RepoDocResult, error) {
-	klog.V(6).Infof("[ADKRepoDocService.ParseRepo] 开始解析仓库: repoURL=%s", repoURL)
+func (s *ADKRepoDocService) ParseRepo(ctx context.Context, localPath string) (*einodoc.RepoDocResult, error) {
+	klog.V(6).Infof("[ADKRepoDocService.ParseRepo] 开始解析仓库: localPath=%s", localPath)
 
 	// 执行 Workflow
-	result, err := s.workflow.Run(ctx, repoURL)
+	result, err := s.workflow.Run(ctx, localPath)
 	if err != nil {
 		klog.Errorf("[ADKRepoDocService.ParseRepo] Workflow 执行失败: %v", err)
 		return nil, fmt.Errorf("workflow execution failed: %w", err)
@@ -81,8 +81,8 @@ func (s *ADKRepoDocService) ParseRepo(ctx context.Context, repoURL string) (*ein
 // ctx: 上下文
 // repoURL: 仓库 Git URL
 // 返回: 进度事件通道或错误
-func (s *ADKRepoDocService) ParseRepoWithProgress(ctx context.Context, repoURL string) (<-chan *WorkflowProgressEvent, error) {
-	klog.V(6).Infof("[ADKRepoDocService.ParseRepoWithProgress] 开始解析仓库: repoURL=%s", repoURL)
+func (s *ADKRepoDocService) ParseRepoWithProgress(ctx context.Context, localPath string) (<-chan *WorkflowProgressEvent, error) {
+	klog.V(6).Infof("[ADKRepoDocService.ParseRepoWithProgress] 开始解析仓库: localPath=%s", localPath)
 
 	// 创建新的 Workflow 实例（避免状态冲突）
 	workflow, err := NewRepoDocWorkflow(s.basePath, s.chatModel)
@@ -91,7 +91,7 @@ func (s *ADKRepoDocService) ParseRepoWithProgress(ctx context.Context, repoURL s
 	}
 
 	// 执行 Workflow 并返回进度通道
-	return workflow.RunWithProgress(ctx, repoURL)
+	return workflow.RunWithProgress(ctx, localPath)
 }
 
 // GetWorkflowInfo 获取 Workflow 信息

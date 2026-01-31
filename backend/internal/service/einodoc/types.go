@@ -53,7 +53,6 @@ type Section struct {
 func NewRepoDocState(repoURL, localPath string) *RepoDocState {
 	klog.V(6).Infof("[RepoDocState] 创建新的状态对象: repoURL=%s, localPath=%s", repoURL, localPath)
 	return &RepoDocState{
-		RepoURL:         repoURL,
 		LocalPath:       localPath,
 		SectionsContent: make(map[string]string),
 		Outline:         make([]Chapter, 0),
