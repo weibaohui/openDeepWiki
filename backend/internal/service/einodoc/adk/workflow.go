@@ -106,7 +106,17 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.R
 	var lastContent string
 	stepCount := 0
 
+	// 循环处理每个 agent 的执行结果
 	for {
+		select {
+		case <-ctx.Done():
+			// 检查上下文是否被取消，避免长时间挂起
+			klog.Warningf("[RepoDocWorkflow.Run] 上下文被取消: %v", ctx.Err())
+			return nil, fmt.Errorf("context cancelled: %w", ctx.Err())
+		default:
+			// 继续正常执行
+		}
+
 		event, ok := iter.Next()
 		if !ok {
 			break
@@ -198,6 +208,20 @@ func (w *RepoDocWorkflow) RunWithProgress(ctx context.Context, localPath string)
 
 		stepCount := 0
 		for {
+			select {
+			case <-ctx.Done():
+				// 检查上下文是否被取消，避免长时间挂起
+				progressCh <- &WorkflowProgressEvent{
+					Step:      stepCount,
+					AgentName: "Cancellation",
+					Status:    WorkflowStatusError,
+					Error:     fmt.Errorf("context cancelled: %w", ctx.Err()),
+				}
+				return
+			default:
+				// 继续正常执行
+			}
+
 			event, ok := iter.Next()
 			if !ok {
 				break
@@ -290,10 +314,14 @@ func (w *RepoDocWorkflow) processArchitectOutput(content string) {
 
 // processWriterOutput 处理 Writer Agent 的输出
 func (w *RepoDocWorkflow) processWriterOutput(content string) {
-	klog.V(6).Infof("[RepoDocWorkflow] 处理 Writer 输出")
+	klog.V(6).Infof("[RepoDocWorkflow] 处理 Writer 输出, 内容长度: %d", len(content))
 
 	// Writer 的输出可能需要解析并保存到对应的小节
 	// 这里简化处理，实际可能需要更复杂的解析逻辑
+	if content != "" {
+		// 如果有内容，则记录或处理它
+		klog.V(6).Infof("[RepoDocWorkflow] Writer 输出内容预览: %.100s", content)
+	}
 }
 
 // processEditorOutput 处理 Editor Agent 的输出
@@ -306,6 +334,11 @@ func (w *RepoDocWorkflow) processEditorOutput(content string) {
 
 // buildResult 构建最终结果
 func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *einodoc.RepoDocResult {
+	// 如果状态中的本地路径为空，使用传入的路径
+	if w.state.LocalPath == "" {
+		w.state.LocalPath = localPath
+	}
+
 	// 如果状态中有大纲但没有小节内容，生成默认内容
 	if len(w.state.Outline) > 0 && len(w.state.SectionsContent) == 0 {
 		for chIdx, chapter := range w.state.Outline {
@@ -364,7 +397,7 @@ type WorkflowProgressEvent struct {
 // ==================== 便捷函数 ====================
 
 // ToJSON 将对象转换为 JSON 字符串
-func ToJSON(v interface{}) string {
+func ToJSON(v any) string {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Sprintf(`{"error": "%s"}`, err.Error())
