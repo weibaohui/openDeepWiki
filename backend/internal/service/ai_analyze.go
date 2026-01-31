@@ -12,6 +12,7 @@ import (
 	"github.com/opendeepwiki/backend/internal/model"
 	"github.com/opendeepwiki/backend/internal/repository"
 	"github.com/opendeepwiki/backend/internal/service/einodoc"
+	"github.com/opendeepwiki/backend/internal/service/einodoc/adk"
 	"github.com/opendeepwiki/backend/internal/service/statemachine"
 	"k8s.io/klog/v2"
 )
@@ -27,7 +28,7 @@ type AIAnalyzeService struct {
 // NewAIAnalyzeService 创建AI分析服务
 func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.AIAnalysisTaskRepository) *AIAnalyzeService {
 	// 准备 LLM 配置
-	llmCfg := &einodoc.LLMConfig{
+	llmCfg := &adk.LLMConfig{
 		APIKey:    cfg.LLM.APIKey,
 		BaseURL:   cfg.LLM.APIURL,
 		Model:     cfg.LLM.Model,
@@ -35,17 +36,23 @@ func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository,
 	}
 
 	// 创建 Eino RepoDoc Service
-	einoDocService, err := einodoc.NewEinoRepoDocService(cfg.Data.RepoDir, llmCfg)
+	einoAdkDocService, err := adk.NewADKRepoDocService(cfg.Data.RepoDir, llmCfg)
 	if err != nil {
 		klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
 		// 如果创建失败，使用 nil，后续会处理错误
 	}
+	// // 创建 Eino RepoDoc Service
+	// einoDocService, err := einodoc.NewEinoRepoDocService(cfg.Data.RepoDir, llmCfg)
+	// if err != nil {
+	// 	klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
+	// 	// 如果创建失败，使用 nil，后续会处理错误
+	// }
 
 	return &AIAnalyzeService{
 		cfg:            cfg,
 		repoRepo:       repoRepo,
 		taskRepo:       taskRepo,
-		einoDocService: einoDocService,
+		einoDocService: einoAdkDocService,
 	}
 }
 

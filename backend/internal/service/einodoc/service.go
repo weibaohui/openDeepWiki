@@ -36,24 +36,13 @@ type EinoRepoDocService struct {
 	llmCfg    *LLMConfig                 // LLM 配置
 	chatModel model.ToolCallingChatModel // Eino ChatModel 实例
 	chain     *RepoDocChain              // Eino Chain 实例
-	callbacks *EinoCallbacks             // Eino 回调处理器
 }
 
-// NewEinoRepoDocService 创建高级服务实例
+// NewEinoRepoDocService 创建带回调的高级服务实例
 // basePath: 仓库存储的基础路径
 // llmCfg: LLM 配置
 // 返回: EinoRepoDocService 实例或错误
 func NewEinoRepoDocService(basePath string, llmCfg *LLMConfig) (*EinoRepoDocService, error) {
-	callbacks := NewEinoCallbacks(true, klog.Level(8))
-	return NewEinoRepoDocServiceWithCallbacks(basePath, llmCfg, callbacks)
-}
-
-// NewEinoRepoDocServiceWithCallbacks 创建带回调的高级服务实例
-// basePath: 仓库存储的基础路径
-// llmCfg: LLM 配置
-// callbacks: Eino 回调处理器，用于观察执行过程（可为 nil）
-// 返回: EinoRepoDocService 实例或错误
-func NewEinoRepoDocServiceWithCallbacks(basePath string, llmCfg *LLMConfig, callbacks *EinoCallbacks) (*EinoRepoDocService, error) {
 	klog.V(6).Infof("[NewEinoRepoDocService] 开始创建高级服务: basePath=%s, model=%s", basePath, llmCfg.Model)
 
 	klog.V(6).Infof("[NewEinoRepoDocService] 创建 ChatModel")
@@ -70,7 +59,7 @@ func NewEinoRepoDocServiceWithCallbacks(basePath string, llmCfg *LLMConfig, call
 	}
 
 	klog.V(6).Infof("[NewEinoRepoDocService] 创建 RepoDocChain")
-	chain, err := NewRepoDocChainWithCallbacks(basePath, tcChatModel, callbacks)
+	chain, err := NewRepoDocChain(basePath, tcChatModel)
 	if err != nil {
 		klog.Errorf("[NewEinoRepoDocService] 创建 RepoDocChain 失败: %v", err)
 		return nil, fmt.Errorf("failed to create chain: %w", err)
@@ -82,7 +71,6 @@ func NewEinoRepoDocServiceWithCallbacks(basePath string, llmCfg *LLMConfig, call
 		llmCfg:    llmCfg,
 		chatModel: chatModel,
 		chain:     chain,
-		callbacks: callbacks,
 	}, nil
 }
 
@@ -115,21 +103,4 @@ func (s *EinoRepoDocService) GetTools() []tool.BaseTool {
 	ts := tools.CreateTools(s.basePath)
 	klog.V(6).Infof("[EinoRepoDocService.GetTools] 工具列表: count=%d", len(ts))
 	return ts
-}
-
-// GetCallbacks 获取回调处理器（用于扩展）
-// 返回: EinoCallbacks 实例或 nil
-func (s *EinoRepoDocService) GetCallbacks() *EinoCallbacks {
-	klog.V(6).Infof("[EinoRepoDocService.GetCallbacks] 获取回调处理器")
-	return s.callbacks
-}
-
-// SetCallbacks 设置回调处理器（用于动态启用/禁用）
-// callbacks: EinoCallbacks 实例（可为 nil）
-func (s *EinoRepoDocService) SetCallbacks(callbacks *EinoCallbacks) {
-	klog.V(6).Infof("[EinoRepoDocService.SetCallbacks] 设置回调处理器: enabled=%v", callbacks != nil && callbacks.IsEnabled())
-	s.callbacks = callbacks
-	if s.chain != nil {
-		s.chain.SetCallbacks(callbacks)
-	}
 }
