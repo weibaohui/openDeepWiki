@@ -64,7 +64,8 @@ var AgentRoles = map[string]AgentRole{
 2. 设计文档的整体大纲结构
 3. 规划章节和小节的组织方式
 
-请根据仓库类型生成合理的文档结构，确保覆盖核心模块和重要功能。`,
+请根据仓库类型生成合理的文档结构，确保覆盖核心模块和重要功能。
+你可以按需使用 read_file 工具查看关键文件（如 README.md, go.mod, package.json 等）以辅助分析。`,
 		Tools: []string{"read_file"},
 	},
 	AgentExplorer: {
@@ -77,7 +78,8 @@ var AgentRoles = map[string]AgentRole{
 3. 分析模块间的依赖关系
 4. 为每个章节找到对应的代码证据
 
-请仔细探索代码库，提取关键的技术信息。`,
+请仔细探索代码库，提取关键的技术信息。
+你可以按需使用 read_file 工具深入阅读代码文件。`,
 		Tools: []string{"read_file"},
 	},
 	AgentWriter: {
@@ -89,7 +91,8 @@ var AgentRoles = map[string]AgentRole{
 2. 为每个小节生成清晰、准确的技术说明
 3. 包含必要的代码示例和解释
 
-请确保文档内容准确、易懂，适合目标读者阅读。`,
+请确保文档内容准确、易懂，适合目标读者阅读。
+你可以按需使用 read_file 工具读取代码文件以获取详细信息，确保文档内容的准确性。`,
 		Tools: []string{"read_file"},
 	},
 	AgentEditor: {
@@ -102,7 +105,8 @@ var AgentRoles = map[string]AgentRole{
 3. 确保文档的一致性和可读性
 4. 添加必要的导航和链接
 
-请生成格式规范、结构清晰的最终文档。`,
+请生成格式规范、结构清晰的最终文档。
+你可以按需使用 read_file 工具检查文档中引用的代码或文件内容。`,
 		Tools: []string{"read_file"},
 	},
 }
