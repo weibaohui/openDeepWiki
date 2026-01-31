@@ -32,8 +32,8 @@ type RepoDocService interface {
 // repoDocService 服务实现
 // 使用 Eino Chain 实现文档解析流程
 type repoDocService struct {
-	basePath string      // 仓库存储的基础路径
-	llmCfg   *LLMConfig  // LLM 配置
+	basePath string        // 仓库存储的基础路径
+	llmCfg   *LLMConfig    // LLM 配置
 	chain    *RepoDocChain // Eino Chain 实例
 }
 
