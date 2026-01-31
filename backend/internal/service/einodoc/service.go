@@ -29,69 +29,6 @@ type RepoDocService interface {
 	ParseRepo(ctx context.Context, repoURL string) (*RepoDocResult, error)
 }
 
-// repoDocService 服务实现
-// 使用 Eino Chain 实现文档解析流程
-type repoDocService struct {
-	basePath string        // 仓库存储的基础路径
-	llmCfg   *LLMConfig    // LLM 配置
-	chain    *RepoDocChain // Eino Chain 实例
-}
-
-// NewRepoDocService 创建新的服务实例
-// basePath: 仓库存储的基础路径
-// llmCfg: LLM 配置
-// 返回: RepoDocService 接口实例或错误
-func NewRepoDocService(basePath string, llmCfg *LLMConfig) (RepoDocService, error) {
-	klog.V(6).Infof("[NewRepoDocService] 开始创建 RepoDocService: basePath=%s, model=%s", basePath, llmCfg.Model)
-
-	// 创建 ChatModel
-	klog.V(6).Infof("[NewRepoDocService] 创建 ChatModel")
-	chatModel, err := NewLLMChatModel(llmCfg.APIKey, llmCfg.BaseURL, llmCfg.Model, llmCfg.MaxTokens)
-	if err != nil {
-		klog.Errorf("[NewRepoDocService] 创建 ChatModel 失败: %v", err)
-		return nil, fmt.Errorf("failed to create chat model: %w", err)
-	}
-
-	// 创建 Chain
-	klog.V(6).Infof("[NewRepoDocService] 创建 RepoDocChain")
-	chain, err := NewRepoDocChain(basePath, chatModel)
-	if err != nil {
-		klog.Errorf("[NewRepoDocService] 创建 RepoDocChain 失败: %v", err)
-		return nil, fmt.Errorf("failed to create chain: %w", err)
-	}
-
-	klog.V(6).Infof("[NewRepoDocService] RepoDocService 创建成功")
-	return &repoDocService{
-		basePath: basePath,
-		llmCfg:   llmCfg,
-		chain:    chain,
-	}, nil
-}
-
-// ParseRepo 解析仓库
-// 调用 Eino Chain 执行完整的文档解析流程
-// ctx: 上下文
-// repoURL: 仓库 Git URL
-// 返回: 解析结果或错误
-func (s *repoDocService) ParseRepo(ctx context.Context, repoURL string) (*RepoDocResult, error) {
-	klog.V(6).Infof("[repoDocService.ParseRepo] 开始解析仓库: repoURL=%s", repoURL)
-
-	input := WorkflowInput{
-		RepoURL: repoURL,
-	}
-	klog.V(6).Infof("[repoDocService.ParseRepo] 构建 WorkflowInput: %+v", input)
-
-	result, err := s.chain.Run(ctx, input)
-	if err != nil {
-		klog.Errorf("[repoDocService.ParseRepo] 解析仓库失败: repoURL=%s, error=%v", repoURL, err)
-		return nil, err
-	}
-
-	klog.V(6).Infof("[repoDocService.ParseRepo] 解析仓库成功: repoURL=%s, documentLength=%d, sections=%d",
-		repoURL, len(result.Document), result.SectionsCount)
-	return result, nil
-}
-
 // EinoRepoDocService 高级服务实现，支持更多配置选项
 // 提供额外的工具获取等方法，便于扩展
 type EinoRepoDocService struct {
@@ -99,6 +36,7 @@ type EinoRepoDocService struct {
 	llmCfg    *LLMConfig                 // LLM 配置
 	chatModel model.ToolCallingChatModel // Eino ChatModel 实例
 	chain     *RepoDocChain              // Eino Chain 实例
+	callbacks *EinoCallbacks             // Eino 回调处理器
 }
 
 // NewEinoRepoDocService 创建高级服务实例
@@ -106,6 +44,16 @@ type EinoRepoDocService struct {
 // llmCfg: LLM 配置
 // 返回: EinoRepoDocService 实例或错误
 func NewEinoRepoDocService(basePath string, llmCfg *LLMConfig) (*EinoRepoDocService, error) {
+	callbacks := NewEinoCallbacks(true, klog.Level(8))
+	return NewEinoRepoDocServiceWithCallbacks(basePath, llmCfg, callbacks)
+}
+
+// NewEinoRepoDocServiceWithCallbacks 创建带回调的高级服务实例
+// basePath: 仓库存储的基础路径
+// llmCfg: LLM 配置
+// callbacks: Eino 回调处理器，用于观察执行过程（可为 nil）
+// 返回: EinoRepoDocService 实例或错误
+func NewEinoRepoDocServiceWithCallbacks(basePath string, llmCfg *LLMConfig, callbacks *EinoCallbacks) (*EinoRepoDocService, error) {
 	klog.V(6).Infof("[NewEinoRepoDocService] 开始创建高级服务: basePath=%s, model=%s", basePath, llmCfg.Model)
 
 	klog.V(6).Infof("[NewEinoRepoDocService] 创建 ChatModel")
@@ -116,7 +64,7 @@ func NewEinoRepoDocService(basePath string, llmCfg *LLMConfig) (*EinoRepoDocServ
 	}
 
 	klog.V(6).Infof("[NewEinoRepoDocService] 创建 RepoDocChain")
-	chain, err := NewRepoDocChain(basePath, chatModel)
+	chain, err := NewRepoDocChainWithCallbacks(basePath, chatModel, callbacks)
 	if err != nil {
 		klog.Errorf("[NewEinoRepoDocService] 创建 RepoDocChain 失败: %v", err)
 		return nil, fmt.Errorf("failed to create chain: %w", err)
@@ -128,6 +76,7 @@ func NewEinoRepoDocService(basePath string, llmCfg *LLMConfig) (*EinoRepoDocServ
 		llmCfg:    llmCfg,
 		chatModel: chatModel,
 		chain:     chain,
+		callbacks: callbacks,
 	}, nil
 }
 
@@ -160,4 +109,21 @@ func (s *EinoRepoDocService) GetTools() []tool.BaseTool {
 	ts := tools.CreateTools(s.basePath)
 	klog.V(6).Infof("[EinoRepoDocService.GetTools] 工具列表: count=%d", len(ts))
 	return ts
+}
+
+// GetCallbacks 获取回调处理器（用于扩展）
+// 返回: EinoCallbacks 实例或 nil
+func (s *EinoRepoDocService) GetCallbacks() *EinoCallbacks {
+	klog.V(6).Infof("[EinoRepoDocService.GetCallbacks] 获取回调处理器")
+	return s.callbacks
+}
+
+// SetCallbacks 设置回调处理器（用于动态启用/禁用）
+// callbacks: EinoCallbacks 实例（可为 nil）
+func (s *EinoRepoDocService) SetCallbacks(callbacks *EinoCallbacks) {
+	klog.V(6).Infof("[EinoRepoDocService.SetCallbacks] 设置回调处理器: enabled=%v", callbacks != nil && callbacks.IsEnabled())
+	s.callbacks = callbacks
+	if s.chain != nil {
+		s.chain.SetCallbacks(callbacks)
+	}
 }

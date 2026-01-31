@@ -18,9 +18,9 @@ import (
 
 // AIAnalyzeService AI分析服务
 type AIAnalyzeService struct {
-	cfg           *config.Config
-	repoRepo      repository.RepoRepository
-	taskRepo      repository.AIAnalysisTaskRepository
+	cfg            *config.Config
+	repoRepo       repository.RepoRepository
+	taskRepo       repository.AIAnalysisTaskRepository
 	einoDocService einodoc.RepoDocService
 }
 
@@ -35,7 +35,7 @@ func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository,
 	}
 
 	// 创建 Eino RepoDoc Service
-	einoDocService, err := einodoc.NewRepoDocService(cfg.Data.RepoDir, llmCfg)
+	einoDocService, err := einodoc.NewEinoRepoDocService(cfg.Data.RepoDir, llmCfg)
 	if err != nil {
 		klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
 		// 如果创建失败，使用 nil，后续会处理错误

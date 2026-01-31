@@ -32,7 +32,8 @@ type WorkflowOutput struct {
 // RepoDocChain 基于 Chain 的简化 Workflow
 // 使用 compose.Chain 编排一系列处理步骤
 type RepoDocChain struct {
-	chain *compose.Chain[WorkflowInput, WorkflowOutput]
+	chain     *compose.Chain[WorkflowInput, WorkflowOutput]
+	callbacks *EinoCallbacks // Eino 回调处理器，用于观察执行过程
 }
 
 // NewRepoDocChain 创建 RepoDoc Chain
@@ -40,6 +41,15 @@ type RepoDocChain struct {
 // chatModel: Eino ChatModel 实例，用于 LLM 调用
 // 返回: 配置好的 Chain 实例或错误
 func NewRepoDocChain(basePath string, chatModel model.ToolCallingChatModel) (*RepoDocChain, error) {
+	return NewRepoDocChainWithCallbacks(basePath, chatModel, nil)
+}
+
+// NewRepoDocChainWithCallbacks 创建带回调的 RepoDoc Chain
+// basePath: 仓库存储的基础路径
+// chatModel: Eino ChatModel 实例，用于 LLM 调用
+// callbacks: Eino 回调处理器，用于观察执行过程（可为 nil）
+// 返回: 配置好的 Chain 实例或错误
+func NewRepoDocChainWithCallbacks(basePath string, chatModel model.ToolCallingChatModel, callbacks *EinoCallbacks) (*RepoDocChain, error) {
 	klog.V(6).Infof("[NewRepoDocChain] 开始创建 RepoDocChain: basePath=%s", basePath)
 
 	chain := compose.NewChain[WorkflowInput, WorkflowOutput]()
@@ -358,7 +368,7 @@ Respond in JSON format:
 	}))
 
 	klog.V(6).Infof("[NewRepoDocChain] RepoDocChain 创建完成")
-	return &RepoDocChain{chain: chain}, nil
+	return &RepoDocChain{chain: chain, callbacks: callbacks}, nil
 }
 
 // Run 执行 Chain
@@ -378,7 +388,14 @@ func (c *RepoDocChain) Run(ctx context.Context, input WorkflowInput) (*RepoDocRe
 	klog.V(6).Infof("[RepoDocChain.Run] Chain 编译成功")
 
 	klog.V(6).Infof("[RepoDocChain.Run] 调用 Chain.Invoke")
-	output, err := runnable.Invoke(ctx, input)
+	// 如果配置了回调，使用 WithCallbacks 选项传入
+	var invokeOpts []compose.Option
+	if c.callbacks != nil && c.callbacks.IsEnabled() {
+		klog.V(6).Infof("[RepoDocChain.Run] 启用 Eino Callbacks 观察执行过程")
+		invokeOpts = append(invokeOpts, compose.WithCallbacks(c.callbacks.Handler()))
+	}
+
+	output, err := runnable.Invoke(ctx, input, invokeOpts...)
 	if err != nil {
 		klog.Errorf("[RepoDocChain.Run] Chain 执行失败: %v", err)
 		return nil, fmt.Errorf("chain execution failed: %w", err)
@@ -388,6 +405,18 @@ func (c *RepoDocChain) Run(ctx context.Context, input WorkflowInput) (*RepoDocRe
 		len(output.Result.Document), output.Result.SectionsCount)
 
 	return output.Result, nil
+}
+
+// GetCallbacks 获取 Chain 的回调处理器
+// 返回: EinoCallbacks 实例或 nil
+func (c *RepoDocChain) GetCallbacks() *EinoCallbacks {
+	return c.callbacks
+}
+
+// SetCallbacks 设置 Chain 的回调处理器
+// callbacks: EinoCallbacks 实例（可为 nil）
+func (c *RepoDocChain) SetCallbacks(callbacks *EinoCallbacks) {
+	c.callbacks = callbacks
 }
 
 // extractJSON 从文本中提取 JSON 部分
