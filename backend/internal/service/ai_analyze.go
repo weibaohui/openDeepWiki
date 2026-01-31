@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/model"
-	"github.com/opendeepwiki/backend/internal/pkg/llm"
 	"github.com/opendeepwiki/backend/internal/repository"
 	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"github.com/opendeepwiki/backend/internal/service/statemachine"
