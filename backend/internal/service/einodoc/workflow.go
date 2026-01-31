@@ -64,26 +64,25 @@ func NewRepoDocChainWithCallbacks(basePath string, chatModel model.ToolCallingCh
 		state := NewRepoDocState(input.RepoURL, "")
 
 		// 使用 git_clone 工具克隆仓库
-		klog.V(6).Infof("[Workflow Step 1] 调用 GitCloneTool")
+		// 注意: 工具调用的详细日志由 EinoCallbacks 处理
 		cloneTool := tools.NewGitCloneTool(basePath)
 		cloneArgs, _ := json.Marshal(map[string]string{
 			"repo_url":   input.RepoURL,
 			"target_dir": tools.GenerateRepoDirName(input.RepoURL),
 		})
-		klog.V(6).Infof("[Workflow Step 1] GitCloneTool 参数: %s", string(cloneArgs))
 
 		cloneResult, err := cloneTool.InvokableRun(ctx, string(cloneArgs))
 		if err != nil {
 			klog.Errorf("[Workflow Step 1] GitCloneTool 执行失败: %v", err)
 			return WorkflowOutput{}, fmt.Errorf("clone failed: %w", err)
 		}
-		klog.V(6).Infof("[Workflow Step 1] GitCloneTool 执行成功: 仓库路径=%s, 结果=%s", state.LocalPath, cloneResult)
+		klog.V(6).Infof("[Workflow Step 1] GitCloneTool 执行成功: %s", cloneResult)
 
 		state.LocalPath = filepath.Join(basePath, tools.GenerateRepoDirName(input.RepoURL))
 		klog.V(6).Infof("[Workflow Step 1] 设置本地路径: %s", state.LocalPath)
 
 		// 读取目录结构
-		klog.V(6).Infof("[Workflow Step 1] 调用 ListDirTool")
+		// 注意: 工具调用的详细日志由 EinoCallbacks 处理
 		listTool := tools.NewListDirTool(basePath)
 		listArgs, _ := json.Marshal(map[string]interface{}{
 			"dir":       tools.GenerateRepoDirName(input.RepoURL),
@@ -95,7 +94,7 @@ func NewRepoDocChainWithCallbacks(basePath string, chatModel model.ToolCallingCh
 			klog.Errorf("[Workflow Step 1] ListDirTool 执行失败: %v", err)
 			return WorkflowOutput{}, fmt.Errorf("list dir failed: %w", err)
 		}
-		klog.V(6).Infof("[Workflow Step 1] ListDirTool 执行成功: 目录结构长度=%d", len(treeResult))
+		klog.V(6).Infof("[Workflow Step 1] 获取目录结构成功: 长度=%d", len(treeResult))
 
 		// 将 treeResult 存储到 state 中供后续使用
 		state.SetRepoTree(treeResult)
@@ -138,7 +137,7 @@ func NewRepoDocChainWithCallbacks(basePath string, chatModel model.ToolCallingCh
 		klog.V(6).Infof("[Workflow Step 2] 获取目录结构成功: 内容长度=%d", len(treeResult))
 
 		// 使用 LLM 分析仓库
-		klog.V(6).Infof("[Workflow Step 2] 调用 LLM 分析仓库")
+		// 注意: LLM 调用的详细日志（Messages、Tools、Token 使用等）由 EinoCallbacks 处理
 		messages := []*schema.Message{
 			{
 				Role: schema.System,
@@ -160,7 +159,6 @@ func NewRepoDocChainWithCallbacks(basePath string, chatModel model.ToolCallingCh
 				Content: fmt.Sprintf("仓库地址: %s\n\n目录结构:\n%s", state.RepoURL, treeResult),
 			},
 		}
-		klog.V(6).Infof("[Workflow Step 2] LLM 请求: messageCount=%d", len(messages))
 
 		chatModel.WithTools(tools.CreateLLMTools(basePath))
 		resp, err := chatModel.Generate(ctx, messages)
@@ -203,6 +201,7 @@ func NewRepoDocChainWithCallbacks(basePath string, chatModel model.ToolCallingCh
 		state := output.State
 		klog.V(6).Infof("[Workflow Step 3] 当前状态: repoType=%s, techStack=%v", state.RepoType, state.TechStack)
 
+		// 注意: LLM 调用的详细日志（Messages、Tools、Token 使用等）由 EinoCallbacks 处理
 		messages := []*schema.Message{
 			{
 				Role: schema.System,
@@ -228,7 +227,6 @@ Respond in JSON format:
 					state.RepoType, state.TechStack),
 			},
 		}
-		klog.V(6).Infof("[Workflow Step 3] LLM 请求: messageCount=%d", len(messages))
 		chatModel.WithTools(tools.CreateLLMTools(basePath))
 		resp, err := chatModel.Generate(ctx, messages)
 		if err != nil {
@@ -292,6 +290,7 @@ Respond in JSON format:
 				klog.V(6).Infof("[Workflow Step 4]   生成 Section[%d/%d]: %s", chIdx, secIdx, section.Title)
 
 				// 使用 LLM 生成内容
+				// 注意: LLM 调用的详细日志（Messages、Token 使用等）由 EinoCallbacks 处理
 				messages := []*schema.Message{
 					{
 						Role:    schema.System,
@@ -303,7 +302,6 @@ Respond in JSON format:
 							chapter.Title, section.Title, section.Hints),
 					},
 				}
-				klog.V(6).Infof("[Workflow Step 4] LLM 请求: messageCount=%d", len(messages))
 				chatModel.WithTools(tools.CreateLLMTools(basePath))
 				resp, err := chatModel.Generate(ctx, messages)
 				if err != nil {
@@ -312,7 +310,7 @@ Respond in JSON format:
 						section.Title, chapter.Title, section.Title))
 				} else {
 					state.SetSectionContent(chIdx, secIdx, resp.Content)
-					klog.V(6).Infof("[Workflow Step 4]   Section 内容生成成功: length=%d", len(resp.Content))
+					// 注意: LLM 响应的详细日志（Content、Token 使用等）由 EinoCallbacks 处理
 				}
 			}
 		}

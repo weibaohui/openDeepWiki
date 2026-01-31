@@ -42,9 +42,10 @@ func (t *SearchFilesTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 
 // InvokableRun 执行工具调用
 // 搜索匹配的文件
+// InvokableRun 执行工具调用
+// 搜索匹配的文件
+// 注意: 工具调用的输入输出日志由 EinoCallbacks 处理，此处仅记录业务相关日志
 func (t *SearchFilesTool) InvokableRun(ctx context.Context, arguments string) (string, error) {
-	klog.V(6).Infof("[SearchFilesTool] 执行文件搜索: arguments=%s", arguments)
-
 	var args struct {
 		Pattern string `json:"pattern"`
 	}
@@ -66,6 +67,5 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, arguments string) (s
 		return "", err
 	}
 
-	klog.V(6).Infof("[SearchFilesTool] 搜索文件成功: 匹配文件数=%d", len(result))
 	return result, nil
 }

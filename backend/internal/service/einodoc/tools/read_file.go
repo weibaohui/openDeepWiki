@@ -46,9 +46,10 @@ func (t *ReadFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 
 // InvokableRun 执行工具调用
 // 读取指定文件的内容
+// InvokableRun 执行工具调用
+// 读取指定文件的内容
+// 注意: 工具调用的输入输出日志由 EinoCallbacks 处理，此处仅记录业务相关日志
 func (t *ReadFileTool) InvokableRun(ctx context.Context, arguments string) (string, error) {
-	klog.V(6).Infof("[ReadFileTool] 执行文件读取: arguments=%s", arguments)
-
 	var args struct {
 		Path  string `json:"path"`
 		Limit int    `json:"limit"`
@@ -76,6 +77,5 @@ func (t *ReadFileTool) InvokableRun(ctx context.Context, arguments string) (stri
 		return "", err
 	}
 
-	klog.V(6).Infof("[ReadFileTool] 读取文件成功: 内容长度=%d", len(result))
 	return result, nil
 }

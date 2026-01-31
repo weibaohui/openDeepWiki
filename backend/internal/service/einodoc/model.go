@@ -58,21 +58,19 @@ func NewLLMChatModel(apiKey, baseURL, modelName string, maxTokens int) (*LLMChat
 // input: 消息列表
 // opts: 可选参数
 // 返回: 生成的消息或错误
+// Generate 生成响应
+// 实现 model.ChatModel 接口，同步生成 LLM 响应
+// ctx: 上下文
+// input: 消息列表
+// opts: 可选参数
+// 返回: 生成的消息或错误
+// 注意: 详细的输入输出日志由 EinoCallbacks 处理，避免重复记录
 func (m *LLMChatModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
-	klog.V(6).Infof("[LLMChatModel] Generate 开始: messageCount=%d", len(input))
-
-	for i, msg := range input {
-		klog.V(6).Infof("[LLMChatModel]   Message[%d]: role=%s, contentLength=%d", i, msg.Role, len(msg.Content))
-		klog.V(8).Infof("[LLMChatModel]   Message[%d]: content=%s", i, msg.Content)
-	}
-
 	resp, err := m.chatModel.Generate(ctx, input, opts...)
 	if err != nil {
 		klog.Errorf("[LLMChatModel] Generate 失败: %v", err)
 		return nil, err
 	}
-
-	klog.V(6).Infof("[LLMChatModel] Generate 完成: responseLength=%d", len(resp.Content))
 	return resp, nil
 }
 
@@ -82,17 +80,20 @@ func (m *LLMChatModel) Generate(ctx context.Context, input []*schema.Message, op
 // input: 消息列表
 // opts: 可选参数
 // 返回: 流读取器或错误
+// Stream 流式生成
+// 实现 model.ChatModel 接口
+// ctx: 上下文
+// input: 消息列表
+// opts: 可选参数
+// 返回: 流读取器或错误
+// 注意: 详细的输入输出日志由 EinoCallbacks 处理，避免重复记录
 func (m *LLMChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (
 	*schema.StreamReader[*schema.Message], error) {
-	klog.V(6).Infof("[LLMChatModel] Stream 开始: messageCount=%d", len(input))
-
 	streamReader, err := m.chatModel.Stream(ctx, input, opts...)
 	if err != nil {
 		klog.Errorf("[LLMChatModel] Stream 失败: %v", err)
 		return nil, err
 	}
-
-	klog.V(6).Infof("[LLMChatModel] Stream 完成")
 	return streamReader, nil
 }
 

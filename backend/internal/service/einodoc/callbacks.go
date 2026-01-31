@@ -59,7 +59,7 @@ func (ec *EinoCallbacks) onStart(ctx context.Context, info *callbacks.RunInfo, i
 	nodeKey := ec.nodeKey(info)
 	ec.startTimes[nodeKey] = time.Now()
 
-	klog.V(ec.logLevel).InfoS("[EinoCallback] 节点开始执行",
+	klog.V(6).InfoS("[EinoCallback] 节点开始执行",
 		"sequence", ec.callSequence,
 		"component", info.Component,
 		"type", info.Type,
@@ -92,7 +92,7 @@ func (ec *EinoCallbacks) onEnd(ctx context.Context, info *callbacks.RunInfo, out
 		duration = 0
 	}
 
-	klog.V(ec.logLevel).InfoS("[EinoCallback] 节点执行完成",
+	klog.V(6).InfoS("[EinoCallback] 节点执行完成",
 		"component", info.Component,
 		"type", info.Type,
 		"name", info.Name,
@@ -143,7 +143,7 @@ func (ec *EinoCallbacks) onStartWithStreamInput(ctx context.Context, info *callb
 		return ctx
 	}
 
-	klog.V(ec.logLevel).InfoS("[EinoCallback] 流式输入开始",
+	klog.V(6).InfoS("[EinoCallback] 流式输入开始",
 		"component", info.Component,
 		"type", info.Type,
 		"name", info.Name,
@@ -159,7 +159,7 @@ func (ec *EinoCallbacks) onEndWithStreamOutput(ctx context.Context, info *callba
 		return ctx
 	}
 
-	klog.V(ec.logLevel).InfoS("[EinoCallback] 流式输出结束",
+	klog.V(6).InfoS("[EinoCallback] 流式输出结束",
 		"component", info.Component,
 		"type", info.Type,
 		"name", info.Name,
@@ -175,7 +175,7 @@ func (ec *EinoCallbacks) onEndWithStreamOutput(ctx context.Context, info *callba
 func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *callbacks.RunInfo) {
 	modelInput := model.ConvCallbackInput(input)
 	if modelInput == nil {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输入转换失败",
+		klog.V(6).InfoS("[EinoCallback] Model 输入转换失败",
 			"name", info.Name,
 			"input_type", fmt.Sprintf("%T", input),
 		)
@@ -184,19 +184,19 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 
 	// 记录 Prompt/Messages
 	if len(modelInput.Messages) > 0 {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输入 Messages",
+		klog.V(6).InfoS("[EinoCallback] Model 输入 Messages",
 			"name", info.Name,
 			"message_count", len(modelInput.Messages),
 		)
 		for i, msg := range modelInput.Messages {
 			if msg != nil {
-				klog.V(ec.logLevel).InfoS("[EinoCallback]   Message",
+				klog.V(6).InfoS("[EinoCallback]   Message",
 					"index", i,
 					"role", msg.Role,
 					"content_length", len(msg.Content),
 				)
 				// 在调试级别下记录完整内容
-				klog.V(ec.logLevel+2).InfoS("[EinoCallback]   Message Content",
+				klog.V(8).InfoS("[EinoCallback]   Message Content",
 					"index", i,
 					"content", msg.Content,
 				)
@@ -206,19 +206,19 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 
 	// 记录 Tools
 	if len(modelInput.Tools) > 0 {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输入 Tools",
+		klog.V(6).InfoS("[EinoCallback] Model 输入 Tools",
 			"name", info.Name,
 			"tool_count", len(modelInput.Tools),
 		)
 		for i, t := range modelInput.Tools {
 			if t != nil {
-				klog.V(ec.logLevel).InfoS("[EinoCallback]   Tool",
+				klog.V(6).InfoS("[EinoCallback]   Tool",
 					"index", i,
 					"name", t.Name,
 					"description", t.Desc,
 				)
 				// 在调试级别下记录完整参数定义
-				klog.V(ec.logLevel+2).InfoS("[EinoCallback]   Tool Params",
+				klog.V(8).InfoS("[EinoCallback]   Tool Params",
 					"index", i,
 					"params", t.ParamsOneOf,
 				)
@@ -229,7 +229,7 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 	// 记录 ToolChoice
 	if modelInput.ToolChoice != nil {
 		toolChoiceJSON, _ := json.Marshal(modelInput.ToolChoice)
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输入 ToolChoice",
+		klog.V(6).InfoS("[EinoCallback] Model 输入 ToolChoice",
 			"name", info.Name,
 			"tool_choice", string(toolChoiceJSON),
 		)
@@ -237,7 +237,7 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 
 	// 记录 Config
 	if modelInput.Config != nil {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输入 Config",
+		klog.V(6).InfoS("[EinoCallback] Model 输入 Config",
 			"name", info.Name,
 			"model", modelInput.Config.Model,
 			"max_tokens", modelInput.Config.MaxTokens,
@@ -249,7 +249,7 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 	// 记录 Extra
 	if len(modelInput.Extra) > 0 {
 		extraJSON, _ := json.Marshal(modelInput.Extra)
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输入 Extra",
+		klog.V(6).InfoS("[EinoCallback] Model 输入 Extra",
 			"name", info.Name,
 			"extra", string(extraJSON),
 		)
@@ -260,7 +260,7 @@ func (ec *EinoCallbacks) logModelInput(input callbacks.CallbackInput, info *call
 func (ec *EinoCallbacks) logModelOutput(output callbacks.CallbackOutput, info *callbacks.RunInfo) {
 	modelOutput := model.ConvCallbackOutput(output)
 	if modelOutput == nil {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输出转换失败",
+		klog.V(6).InfoS("[EinoCallback] Model 输出转换失败",
 			"name", info.Name,
 			"output_type", fmt.Sprintf("%T", output),
 		)
@@ -269,25 +269,25 @@ func (ec *EinoCallbacks) logModelOutput(output callbacks.CallbackOutput, info *c
 
 	// 记录生成的 Message
 	if modelOutput.Message != nil {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输出 Message",
+		klog.V(6).InfoS("[EinoCallback] Model 输出 Message",
 			"name", info.Name,
 			"role", modelOutput.Message.Role,
 			"content_length", len(modelOutput.Message.Content),
 		)
 		// 在调试级别下记录完整内容
-		klog.V(ec.logLevel+2).InfoS("[EinoCallback] Model 输出 Content",
+		klog.V(8).InfoS("[EinoCallback] Model 输出 Content",
 			"name", info.Name,
 			"content", modelOutput.Message.Content,
 		)
 
 		// 记录工具调用
 		if len(modelOutput.Message.ToolCalls) > 0 {
-			klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输出 ToolCalls",
+			klog.V(6).InfoS("[EinoCallback] Model 输出 ToolCalls",
 				"name", info.Name,
 				"tool_call_count", len(modelOutput.Message.ToolCalls),
 			)
 			for i, tc := range modelOutput.Message.ToolCalls {
-				klog.V(ec.logLevel).InfoS("[EinoCallback]   ToolCall",
+				klog.V(6).InfoS("[EinoCallback]   ToolCall",
 					"index", i,
 					"id", tc.ID,
 					"type", tc.Type,
@@ -300,7 +300,7 @@ func (ec *EinoCallbacks) logModelOutput(output callbacks.CallbackOutput, info *c
 
 	// 记录 Token 使用情况 (重点!)
 	if modelOutput.TokenUsage != nil {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model Token 使用情况",
+		klog.V(6).InfoS("[EinoCallback] Model Token 使用情况",
 			"name", info.Name,
 			"prompt_tokens", modelOutput.TokenUsage.PromptTokens,
 			"completion_tokens", modelOutput.TokenUsage.CompletionTokens,
@@ -309,7 +309,7 @@ func (ec *EinoCallbacks) logModelOutput(output callbacks.CallbackOutput, info *c
 			"cached_tokens", modelOutput.TokenUsage.PromptTokenDetails.CachedTokens,
 		)
 	} else {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model Token 使用情况",
+		klog.V(6).InfoS("[EinoCallback] Model Token 使用情况",
 			"name", info.Name,
 			"token_usage", "未返回",
 		)
@@ -318,7 +318,7 @@ func (ec *EinoCallbacks) logModelOutput(output callbacks.CallbackOutput, info *c
 	// 记录 Extra
 	if len(modelOutput.Extra) > 0 {
 		extraJSON, _ := json.Marshal(modelOutput.Extra)
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Model 输出 Extra",
+		klog.V(6).InfoS("[EinoCallback] Model 输出 Extra",
 			"name", info.Name,
 			"extra", string(extraJSON),
 		)
@@ -331,21 +331,21 @@ func (ec *EinoCallbacks) logModelOutput(output callbacks.CallbackOutput, info *c
 func (ec *EinoCallbacks) logToolInput(input callbacks.CallbackInput, info *callbacks.RunInfo) {
 	toolInput := tool.ConvCallbackInput(input)
 	if toolInput == nil {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Tool 输入转换失败",
+		klog.V(6).InfoS("[EinoCallback] Tool 输入转换失败",
 			"name", info.Name,
 			"input_type", fmt.Sprintf("%T", input),
 		)
 		return
 	}
 
-	klog.V(ec.logLevel).InfoS("[EinoCallback] Tool 输入参数",
+	klog.V(6).InfoS("[EinoCallback] Tool 输入参数",
 		"name", info.Name,
 		"arguments", toolInput.ArgumentsInJSON,
 	)
 
 	if len(toolInput.Extra) > 0 {
 		extraJSON, _ := json.Marshal(toolInput.Extra)
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Tool 输入 Extra",
+		klog.V(6).InfoS("[EinoCallback] Tool 输入 Extra",
 			"name", info.Name,
 			"extra", string(extraJSON),
 		)
@@ -356,27 +356,27 @@ func (ec *EinoCallbacks) logToolInput(input callbacks.CallbackInput, info *callb
 func (ec *EinoCallbacks) logToolOutput(output callbacks.CallbackOutput, info *callbacks.RunInfo) {
 	toolOutput := tool.ConvCallbackOutput(output)
 	if toolOutput == nil {
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Tool 输出转换失败",
+		klog.V(6).InfoS("[EinoCallback] Tool 输出转换失败",
 			"name", info.Name,
 			"output_type", fmt.Sprintf("%T", output),
 		)
 		return
 	}
 
-	klog.V(ec.logLevel).InfoS("[EinoCallback] Tool 输出响应",
+	klog.V(6).InfoS("[EinoCallback] Tool 输出响应",
 		"name", info.Name,
 		"response_length", len(toolOutput.Response),
 	)
 
 	// 在调试级别下记录完整响应
-	klog.V(ec.logLevel+2).InfoS("[EinoCallback] Tool 输出响应详情",
+	klog.V(8).InfoS("[EinoCallback] Tool 输出响应详情",
 		"name", info.Name,
 		"response", toolOutput.Response,
 	)
 
 	if len(toolOutput.Extra) > 0 {
 		extraJSON, _ := json.Marshal(toolOutput.Extra)
-		klog.V(ec.logLevel).InfoS("[EinoCallback] Tool 输出 Extra",
+		klog.V(6).InfoS("[EinoCallback] Tool 输出 Extra",
 			"name", info.Name,
 			"extra", string(extraJSON),
 		)
@@ -387,7 +387,7 @@ func (ec *EinoCallbacks) logToolOutput(output callbacks.CallbackOutput, info *ca
 
 // logGenericInput 记录通用输入详情
 func (ec *EinoCallbacks) logGenericInput(input callbacks.CallbackInput, info *callbacks.RunInfo) {
-	klog.V(ec.logLevel+2).InfoS("[EinoCallback] 通用输入",
+	klog.V(8).InfoS("[EinoCallback] 通用输入",
 		"component", info.Component,
 		"name", info.Name,
 		"input_type", fmt.Sprintf("%T", input),
@@ -397,7 +397,7 @@ func (ec *EinoCallbacks) logGenericInput(input callbacks.CallbackInput, info *ca
 
 // logGenericOutput 记录通用输出详情
 func (ec *EinoCallbacks) logGenericOutput(output callbacks.CallbackOutput, info *callbacks.RunInfo) {
-	klog.V(ec.logLevel+2).InfoS("[EinoCallback] 通用输出",
+	klog.V(8).InfoS("[EinoCallback] 通用输出",
 		"component", info.Component,
 		"name", info.Name,
 		"output_type", fmt.Sprintf("%T", output),

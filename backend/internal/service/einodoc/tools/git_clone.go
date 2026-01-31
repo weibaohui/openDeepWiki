@@ -51,9 +51,12 @@ func (t *GitCloneTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 // 实现 tool.BaseTool 接口，执行实际的 Git 克隆操作
 // arguments: JSON 格式的参数字符串
 // 返回: 克隆结果信息或错误
+// InvokableRun 执行工具调用
+// 实现 tool.BaseTool 接口，执行实际的 Git 克隆操作
+// arguments: JSON 格式的参数字符串
+// 返回: 克隆结果信息或错误
+// 注意: 工具调用的输入输出日志由 EinoCallbacks 处理，此处仅记录业务相关日志
 func (t *GitCloneTool) InvokableRun(ctx context.Context, arguments string) (string, error) {
-	klog.V(6).Infof("[GitCloneTool] 执行克隆: arguments=%s", arguments)
-
 	var args struct {
 		RepoURL   string `json:"repo_url"`
 		TargetDir string `json:"target_dir"`
@@ -95,7 +98,6 @@ func (t *GitCloneTool) InvokableRun(ctx context.Context, arguments string) (stri
 		return "", err
 	}
 
-	klog.V(6).Infof("[GitCloneTool] 克隆成功: resultLength=%d", len(result))
 	return result, nil
 }
 

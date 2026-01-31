@@ -46,9 +46,10 @@ func (t *ListDirTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 
 // InvokableRun 执行工具调用
 // 列出指定目录的内容
+// InvokableRun 执行工具调用
+// 列出指定目录的内容
+// 注意: 工具调用的输入输出日志由 EinoCallbacks 处理，此处仅记录业务相关日志
 func (t *ListDirTool) InvokableRun(ctx context.Context, arguments string) (string, error) {
-	klog.V(6).Infof("[ListDirTool] 执行目录列表: arguments=%s", arguments)
-
 	var args struct {
 		Dir       string `json:"dir"`
 		Recursive bool   `json:"recursive"`
@@ -72,6 +73,5 @@ func (t *ListDirTool) InvokableRun(ctx context.Context, arguments string) (strin
 		return "", err
 	}
 
-	klog.V(6).Infof("[ListDirTool] 目录列表成功: 内容长度=%d", len(result))
 	return result, nil
 }
