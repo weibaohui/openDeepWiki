@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
 
@@ -46,10 +47,8 @@ func (t *ListDirTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 
 // InvokableRun 执行工具调用
 // 列出指定目录的内容
-// InvokableRun 执行工具调用
-// 列出指定目录的内容
 // 注意: 工具调用的输入输出日志由 EinoCallbacks 处理，此处仅记录业务相关日志
-func (t *ListDirTool) InvokableRun(ctx context.Context, arguments string) (string, error) {
+func (t *ListDirTool) InvokableRun(ctx context.Context, arguments string, opts ...tool.Option) (string, error) {
 	var args struct {
 		Dir       string `json:"dir"`
 		Recursive bool   `json:"recursive"`

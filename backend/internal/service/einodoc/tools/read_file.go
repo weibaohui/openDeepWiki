@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
 
@@ -46,10 +47,8 @@ func (t *ReadFileTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 
 // InvokableRun 执行工具调用
 // 读取指定文件的内容
-// InvokableRun 执行工具调用
-// 读取指定文件的内容
 // 注意: 工具调用的输入输出日志由 EinoCallbacks 处理，此处仅记录业务相关日志
-func (t *ReadFileTool) InvokableRun(ctx context.Context, arguments string) (string, error) {
+func (t *ReadFileTool) InvokableRun(ctx context.Context, arguments string, opts ...tool.Option) (string, error) {
 	var args struct {
 		Path  string `json:"path"`
 		Limit int    `json:"limit"`
