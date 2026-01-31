@@ -13,11 +13,11 @@ import (
 // ChatModelAgentWrapper 实现了 Eino ADK Agent 接口的包装器
 // 将我们的业务逻辑 Agent 包装成符合 ADK 接口的 Agent
 type ChatModelAgentWrapper struct {
-	name        string                                           // Agent 名称
-	description string                                           // Agent 描述
-	state       *StateManager                                    // 状态管理器
-	basePath    string                                           // 基础路径
-	chatModel   model.ToolCallingChatModel                       // ChatModel 实例
+	name        string                                                                // Agent 名称
+	description string                                                                // Agent 描述
+	state       *StateManager                                                         // 状态管理器
+	basePath    string                                                                // 基础路径
+	chatModel   model.ToolCallingChatModel                                            // ChatModel 实例
 	doExecute   func(context.Context, *StateManager, string) (*schema.Message, error) // 执行函数
 }
 
@@ -68,7 +68,7 @@ type AgentInfo struct {
 
 // AgentInput Agent 输入
 type AgentInput struct {
-	Message *schema.Message `json:"message"`
+	Message *schema.Message        `json:"message"`
 	Context map[string]interface{} `json:"context,omitempty"`
 }
 
@@ -107,9 +107,9 @@ type Agent interface {
 
 // SequentialAgent 顺序执行多个子 Agent
 type SequentialAgent struct {
-	name      string
+	name        string
 	description string
-	subAgents []Agent
+	subAgents   []Agent
 }
 
 // SequentialAgentConfig SequentialAgent 配置
