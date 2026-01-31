@@ -11,26 +11,41 @@ import (
 	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/model"
 	"github.com/opendeepwiki/backend/internal/repository"
-	"github.com/opendeepwiki/backend/internal/service/agent"
+	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"github.com/opendeepwiki/backend/internal/service/statemachine"
 	"k8s.io/klog/v2"
 )
 
 // AIAnalyzeService AI分析服务
 type AIAnalyzeService struct {
-	cfg      *config.Config
-	repoRepo repository.RepoRepository
-	taskRepo repository.AIAnalysisTaskRepository
-	executor *agent.Executor
+	cfg           *config.Config
+	repoRepo      repository.RepoRepository
+	taskRepo      repository.AIAnalysisTaskRepository
+	einoDocService einodoc.RepoDocService
 }
 
 // NewAIAnalyzeService 创建AI分析服务
 func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.AIAnalysisTaskRepository) *AIAnalyzeService {
+	// 准备 LLM 配置
+	llmCfg := &einodoc.LLMConfig{
+		APIKey:    cfg.LLM.APIKey,
+		BaseURL:   cfg.LLM.APIURL,
+		Model:     cfg.LLM.Model,
+		MaxTokens: cfg.LLM.MaxTokens,
+	}
+
+	// 创建 Eino RepoDoc Service
+	einoDocService, err := einodoc.NewRepoDocService(cfg.Data.RepoDir, llmCfg)
+	if err != nil {
+		klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
+		// 如果创建失败，使用 nil，后续会处理错误
+	}
+
 	return &AIAnalyzeService{
-		cfg:      cfg,
-		repoRepo: repoRepo,
-		taskRepo: taskRepo,
-		executor: agent.NewExecutor(cfg),
+		cfg:            cfg,
+		repoRepo:       repoRepo,
+		taskRepo:       taskRepo,
+		einoDocService: einoDocService,
 	}
 }
 
@@ -132,18 +147,53 @@ func (s *AIAnalyzeService) executeAnalysis(task *model.AIAnalysisTask, repo *mod
 		return
 	}
 
-	// 3. 执行Agent分析
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	// 3. 检查 Eino Service 是否可用
+	if s.einoDocService == nil {
+		s.failTask(task, "Eino Doc Service 未初始化")
+		return
+	}
+
+	// 4. 使用 Eino RepoDoc Service 执行分析
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
 	task.Progress = 30
 	s.taskRepo.Update(task)
 
-	err := s.executor.Execute(ctx, repo.LocalPath, task.OutputPath)
+	klog.V(6).Infof("调用 Eino RepoDoc Service: repoURL=%s", repo.URL)
+
+	result, err := s.einoDocService.ParseRepo(ctx, repo.URL)
 	if err != nil {
+		klog.Errorf("Eino RepoDoc Service 执行失败: taskID=%s, error=%v", task.TaskID, err)
 		s.failTask(task, err.Error())
 		return
 	}
+
+	task.Progress = 80
+	s.taskRepo.Update(task)
+
+	// 5. 保存分析结果到文件
+	outputDir := filepath.Dir(task.OutputPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		s.failTask(task, fmt.Sprintf("创建输出目录失败: %v", err))
+		return
+	}
+
+	// 组装完整的分析报告
+	var reportContent string
+	reportContent += fmt.Sprintf("# AI Analysis Report for %s\n\n", repo.Name)
+	reportContent += fmt.Sprintf("**Repository:** %s\n\n", repo.URL)
+	reportContent += fmt.Sprintf("**Type:** %s\n\n", result.RepoType)
+	reportContent += fmt.Sprintf("**Tech Stack:** %v\n\n", result.TechStack)
+	reportContent += "---\n\n"
+	reportContent += result.Document
+
+	if err := os.WriteFile(task.OutputPath, []byte(reportContent), 0644); err != nil {
+		s.failTask(task, fmt.Sprintf("写入分析结果失败: %v", err))
+		return
+	}
+
+	klog.V(6).Infof("AI分析报告已保存: taskID=%s, path=%s", task.TaskID, task.OutputPath)
 
 	task.Progress = 100
 	s.completeTask(task)
