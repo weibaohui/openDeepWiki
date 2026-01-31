@@ -6,7 +6,6 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/opendeepwiki/backend/internal/service/einodoc"
-	"github.com/opendeepwiki/backend/internal/service/einodoc/tools"
 	"k8s.io/klog/v2"
 )
 
@@ -19,11 +18,12 @@ type LLMConfig struct {
 }
 
 // ADKRepoDocService ADK 模式的仓库文档解析服务
-// 对外提供基于 SequentialAgent 的仓库文档生成能力
+// 使用 Eino ADK 原生的 SequentialAgent 和 Runner
 type ADKRepoDocService struct {
 	basePath  string                     // 仓库存储的基础路径
 	llmCfg    *LLMConfig                 // LLM 配置
 	chatModel model.ToolCallingChatModel // Eino ChatModel 实例
+	workflow  *RepoDocWorkflow           // Workflow 实例
 }
 
 // NewADKRepoDocService 创建 ADK 服务实例
@@ -39,14 +39,21 @@ func NewADKRepoDocService(basePath string, llmCfg *LLMConfig) (*ADKRepoDocServic
 		klog.Errorf("[NewADKRepoDocService] 创建 ChatModel 失败: %v", err)
 		return nil, fmt.Errorf("failed to create chat model: %w", err)
 	}
-	tcChatModel, err := chatModel.WithTools(tools.CreateLLMTools(basePath))
+
+	// 创建 Workflow
+	workflow, err := NewRepoDocWorkflow(basePath, chatModel)
+	if err != nil {
+		klog.Errorf("[NewADKRepoDocService] 创建 Workflow 失败: %v", err)
+		return nil, fmt.Errorf("failed to create workflow: %w", err)
+	}
 
 	klog.V(6).Infof("[NewADKRepoDocService] ADK 服务创建成功")
 
 	return &ADKRepoDocService{
 		basePath:  basePath,
 		llmCfg:    llmCfg,
-		chatModel: tcChatModel,
+		chatModel: chatModel,
+		workflow:  workflow,
 	}, nil
 }
 
@@ -57,15 +64,8 @@ func NewADKRepoDocService(basePath string, llmCfg *LLMConfig) (*ADKRepoDocServic
 func (s *ADKRepoDocService) ParseRepo(ctx context.Context, repoURL string) (*einodoc.RepoDocResult, error) {
 	klog.V(6).Infof("[ADKRepoDocService.ParseRepo] 开始解析仓库: repoURL=%s", repoURL)
 
-	// 创建 Workflow
-	workflow, err := NewRepoDocSequentialWorkflow(s.basePath, s.chatModel)
-	if err != nil {
-		klog.Errorf("[ADKRepoDocService.ParseRepo] 创建 Workflow 失败: %v", err)
-		return nil, fmt.Errorf("failed to create workflow: %w", err)
-	}
-
 	// 执行 Workflow
-	result, err := workflow.Run(ctx, repoURL)
+	result, err := s.workflow.Run(ctx, repoURL)
 	if err != nil {
 		klog.Errorf("[ADKRepoDocService.ParseRepo] Workflow 执行失败: %v", err)
 		return nil, fmt.Errorf("workflow execution failed: %w", err)
@@ -84,10 +84,9 @@ func (s *ADKRepoDocService) ParseRepo(ctx context.Context, repoURL string) (*ein
 func (s *ADKRepoDocService) ParseRepoWithProgress(ctx context.Context, repoURL string) (<-chan *WorkflowProgressEvent, error) {
 	klog.V(6).Infof("[ADKRepoDocService.ParseRepoWithProgress] 开始解析仓库: repoURL=%s", repoURL)
 
-	// 创建 Workflow
-	workflow, err := NewRepoDocSequentialWorkflow(s.basePath, s.chatModel)
+	// 创建新的 Workflow 实例（避免状态冲突）
+	workflow, err := NewRepoDocWorkflow(s.basePath, s.chatModel)
 	if err != nil {
-		klog.Errorf("[ADKRepoDocService.ParseRepoWithProgress] 创建 Workflow 失败: %v", err)
 		return nil, fmt.Errorf("failed to create workflow: %w", err)
 	}
 
@@ -98,24 +97,7 @@ func (s *ADKRepoDocService) ParseRepoWithProgress(ctx context.Context, repoURL s
 // GetWorkflowInfo 获取 Workflow 信息
 // 返回 Workflow 的结构信息，用于调试和展示
 func (s *ADKRepoDocService) GetWorkflowInfo() *WorkflowInfo {
-	// 创建一个临时 Workflow 来获取信息
-	workflow, err := NewRepoDocSequentialWorkflow(s.basePath, s.chatModel)
-	if err != nil {
-		klog.Warningf("[ADKRepoDocService.GetWorkflowInfo] 创建临时 Workflow 失败: %v", err)
-		return &WorkflowInfo{
-			Name:        "RepoDocSequentialWorkflow",
-			Description: "基于 SequentialAgent 的仓库文档生成工作流",
-			Agents: []string{
-				AgentRepoInitializer,
-				AgentArchitect,
-				AgentExplorer,
-				AgentWriter,
-				AgentEditor,
-			},
-		}
-	}
-
-	return workflow.GetWorkflowInfo()
+	return s.workflow.GetWorkflowInfo()
 }
 
 // GetChatModel 获取 ChatModel（用于扩展）
@@ -127,9 +109,8 @@ func (s *ADKRepoDocService) GetChatModel() model.ToolCallingChatModel {
 
 // ==================== 便捷构造函数 ====================
 
-// NewADKServiceFromEinoService 从现有的 EinoRepoDocService 配置创建 ADK 服务
-// 这样可以复用相同的 LLM 配置
-func NewADKServiceFromEinoService(basePath string, apiKey, baseURL, modelName string, maxTokens int) (*ADKRepoDocService, error) {
+// NewADKServiceFromConfig 从配置创建 ADK 服务
+func NewADKServiceFromConfig(basePath string, apiKey, baseURL, modelName string, maxTokens int) (*ADKRepoDocService, error) {
 	llmCfg := &LLMConfig{
 		APIKey:    apiKey,
 		BaseURL:   baseURL,
@@ -151,7 +132,7 @@ type ServiceStatus struct {
 // GetStatus 获取服务状态
 func (s *ADKRepoDocService) GetStatus() *ServiceStatus {
 	return &ServiceStatus{
-		Ready:     s.chatModel != nil,
+		Ready:     s.chatModel != nil && s.workflow != nil,
 		BasePath:  s.basePath,
 		ModelName: s.llmCfg.Model,
 	}

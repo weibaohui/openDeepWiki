@@ -1,80 +1,124 @@
-# Eino ADK 模式 - 仓库文档生成服务
+# Eino ADK 原生模式 - 仓库文档生成服务
 
-基于 Eino ADK (Agent Development Kit) 的 SequentialAgent 模式实现的代码仓库文档生成系统。
+基于 Eino ADK (Agent Development Kit) **原生 API** 实现的代码仓库文档生成系统。
+
+## 与自定义实现的区别
+
+本实现严格遵循 Eino ADK 的原生 API：
+
+| 组件 | 原生 ADK API | 说明 |
+|------|-------------|------|
+| ChatModelAgent | `adk.NewChatModelAgent()` | 使用原生 ChatModelAgent |
+| SequentialAgent | `adk.NewSequentialAgent()` | 使用原生 SequentialAgent |
+| Runner | `adk.NewRunner()` | 使用原生 Runner |
+| Agent 接口 | `adk.Agent` | 实现标准 Agent 接口 |
+| ToolsConfig | `adk.ToolsConfig` | 使用原生工具配置 |
 
 ## 架构设计
 
-### 核心概念
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    RepoDocSequentialWorkflow                     │
-│                        (SequentialAgent)                         │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-        ┌──────────────────────┼──────────────────────┐
-        │                      │                      │
-        ▼                      ▼                      ▼
-┌───────────────┐    ┌───────────────┐    ┌───────────────┐
-│ RepoInitializer│ -> │   Architect   │ -> │   Explorer    │
-│   (Agent 1)   │    │   (Agent 2)   │    │   (Agent 3)   │
-└───────────────┘    └───────────────┘    └───────────────┘
-                               │                      │
-                               ▼                      ▼
-                       ┌───────────────┐    ┌───────────────┐
-                       │    Writer     │ -> │    Editor     │
-                       │   (Agent 4)   │    │   (Agent 5)   │
-                       └───────────────┘    └───────────────┘
+RepoDocWorkflow (使用原生 adk.SequentialAgent)
+    │
+    ├── adk.NewSequentialAgent(ctx, &adk.SequentialAgentConfig{
+    │       SubAgents: []adk.Agent{
+    │           ├── adk.NewChatModelAgent() // RepoInitializer
+    │           ├── adk.NewChatModelAgent() // Architect  
+    │           ├── adk.NewChatModelAgent() // Explorer
+    │           ├── adk.NewChatModelAgent() // Writer
+    │           └── adk.NewChatModelAgent() // Editor
+    │       }
+    │   })
+    │
+    └── adk.NewRunner(ctx, adk.RunnerConfig{Agent: sequentialAgent})
+            └── runner.Run(ctx, messages)
 ```
 
-### Agent 职责
+## Agent 职责
 
-| Agent 名称 | 职责描述 | 对应原流程 |
-|------------|----------|------------|
-| **RepoInitializer** | 克隆仓库、获取目录结构 | Step 1: Clone & Read Tree |
-| **Architect** | 分析仓库类型、生成文档大纲 | Step 2: Pre-read Analysis + Step 3: Generate Outline |
-| **Explorer** | 深度探索代码结构、读取关键文件 | （新增）深度分析阶段 |
-| **Writer** | 为每个小节生成文档内容 | Step 4: Generate Section Content |
-| **Editor** | 组装最终文档、优化格式 | Step 5: Finalize Document |
+| Agent 名称 | 原生创建方式 | 职责描述 | 工具 |
+|------------|-------------|----------|------|
+| **RepoInitializer** | `adk.NewChatModelAgent(...)` | 克隆仓库、获取目录结构 | git_clone, list_dir |
+| **Architect** | `adk.NewChatModelAgent(...)` | 分析仓库类型、生成文档大纲 | 无（仅 LLM） |
+| **Explorer** | `adk.NewChatModelAgent(...)` | 深度探索代码结构 | read_file, search_files |
+| **Writer** | `adk.NewChatModelAgent(...)` | 生成文档内容 | read_file |
+| **Editor** | `adk.NewChatModelAgent(...)` | 组装最终文档 | 无（仅 LLM） |
 
-## 与原有 Chain 模式的对比
+## 核心代码示例
 
-### Chain 模式 (原有实现)
+### 创建 ChatModelAgent（原生方式）
 
 ```go
-chain := compose.NewChain[WorkflowInput, WorkflowOutput]()
-chain.AppendLambda(step1)
-chain.AppendLambda(step2)
-...
-chain.Compile(ctx)
-```
+import "github.com/cloudwego/eino/adk"
 
-特点：
-- 基于函数式编程的 Lambda 组合
-- 适合简单的线性流程
-- 代码紧凑，但扩展性有限
-
-### ADK SequentialAgent 模式 (新实现)
-
-```go
-agents := []Agent{
-    CreateRepoInitializerAgent(state),
-    CreateArchitectAgent(state),
-    CreateExplorerAgent(state),
-    CreateWriterAgent(state),
-    CreateEditorAgent(state),
-}
-
-sequentialAgent := NewSequentialAgent(ctx, &SequentialAgentConfig{
-    SubAgents: agents,
+agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+    Name:        "RepoInitializer",
+    Description: "仓库初始化专员",
+    Instruction: `你是仓库初始化专员...`,
+    Model:       chatModel,  // model.ToolCallingChatModel
+    ToolsConfig: adk.ToolsConfig{
+        ToolsNodeConfig: compose.ToolsNodeConfig{
+            Tools: []tool.BaseTool{
+                NewGitCloneToolWrapper(basePath),
+                NewListDirToolWrapper(basePath),
+            },
+        },
+    },
+    MaxIterations: 10,
 })
 ```
 
-特点：
-- 基于 Agent 的抽象，每个 Agent 有明确的角色和职责
-- 支持更复杂的协作模式（Sequential、Parallel、Loop、Supervisor）
-- 易于扩展和替换单个 Agent
-- 更好的可观测性（每个 Agent 的输入输出清晰）
+### 创建 SequentialAgent（原生方式）
+
+```go
+sequentialAgent, err := adk.NewSequentialAgent(ctx, &adk.SequentialAgentConfig{
+    Name:        "RepoDocSequentialAgent",
+    Description: "仓库文档生成顺序执行 Agent",
+    SubAgents: []adk.Agent{
+        initializer,  // adk.Agent 接口
+        architect,
+        explorer,
+        writer,
+        editor,
+    },
+})
+```
+
+### 执行 Workflow（原生方式）
+
+```go
+// 创建 Runner
+runner := adk.NewRunner(ctx, adk.RunnerConfig{
+    Agent: sequentialAgent,
+})
+
+// 设置会话值
+adk.AddSessionValue(ctx, "repo_url", repoURL)
+adk.AddSessionValue(ctx, "base_path", basePath)
+
+// 执行
+iter := runner.Run(ctx, []adk.Message{
+    {Role: schema.User, Content: "请分析这个仓库..."},
+})
+
+// 处理事件
+for {
+    event, ok := iter.Next()
+    if !ok { break }
+    
+    if event.Err != nil {
+        log.Fatal(event.Err)
+    }
+    
+    if event.Output != nil {
+        fmt.Println(event.Output.MessageOutput.Message.Content)
+    }
+    
+    // 检查退出
+    if event.Action != nil && event.Action.Exit {
+        break
+    }
+}
+```
 
 ## 使用方式
 
@@ -112,9 +156,7 @@ func main() {
         log.Fatal(err)
     }
 
-    // 输出结果
     log.Printf("文档生成成功！共 %d 个小节\n", result.SectionsCount)
-    log.Printf("文档长度: %d 字符\n", len(result.Document))
 }
 ```
 
@@ -131,7 +173,7 @@ for event := range progressCh {
     case adk.WorkflowStatusCompleted:
         fmt.Printf("✓ [%s] 完成\n", event.AgentName)
     case adk.WorkflowStatusFinished:
-        fmt.Printf("✓ 全部完成！共 %d 个小节\n", event.Result.SectionsCount)
+        fmt.Printf("✓ 全部完成！\n")
     case adk.WorkflowStatusError:
         fmt.Printf("✗ [%s] 出错: %v\n", event.AgentName, event.Error)
     }
@@ -143,113 +185,88 @@ for event := range progressCh {
 ```
 adk/
 ├── README.md           # 本文档
-├── types.go            # 类型定义（WorkflowInput/Output, AgentRole 等）
+├── types.go            # 类型定义（AgentRole、WorkflowInput/Output 等）
 ├── state.go            # 状态管理器（StateManager）
-├── wrapper.go          # Agent 包装器（SequentialAgent, Runner 等）
-├── agents.go           # 各个子 Agent 的实现
-├── workflow.go         # Sequential Workflow 主逻辑
+├── wrapper.go          # 辅助函数
+├── agents.go           # 使用原生 adk.NewChatModelAgent 创建 Agent
+├── workflow.go         # 使用原生 adk.SequentialAgent 和 adk.Runner
 ├── service.go          # 对外服务接口
 └── example_test.go     # 使用示例和测试
 ```
 
-## 扩展开发
+## 关键改进
 
-### 添加新的 Agent
-
-1. 在 `types.go` 中定义新的 Agent 角色：
+### 1. 使用原生 ChatModelAgent
 
 ```go
-const (
-    AgentNewAgent = "NewAgent"
-)
-
-AgentRoles[AgentNewAgent] = AgentRole{
-    Name:        AgentNewAgent,
-    Description: "新 Agent 描述",
-    Instruction: "Agent 的系统指令...",
-}
-```
-
-2. 在 `AgentFactory` 中添加创建方法：
-
-```go
-func (f *AgentFactory) CreateNewAgent(state *StateManager) (*ChatModelAgentWrapper, error) {
-    role := AgentRoles[AgentNewAgent]
-    return &ChatModelAgentWrapper{
-        name:        role.Name,
-        description: role.Description,
-        state:       state,
-        doExecute:   f.executeNewAgent,
-    }, nil
-}
-
-func (f *AgentFactory) executeNewAgent(ctx context.Context, state *StateManager, input string) (*schema.Message, error) {
-    // 实现 Agent 逻辑
-    return &schema.Message{
-        Role:    schema.Assistant,
-        Content: "执行结果",
-    }, nil
-}
-```
-
-3. 在 `workflow.go` 的 `Build` 方法中添加新 Agent：
-
-```go
-newAgent, err := factory.CreateNewAgent(w.state)
-agents = append(agents, newAgent)
-```
-
-### 使用 ParallelAgent 并行处理
-
-对于可以并行处理的章节，可以使用 ParallelAgent：
-
-```go
-// 创建多个 Writer Agent，每个负责一个章节
-writerAgents := make([]Agent, len(outline))
-for i, chapter := range outline {
-    writerAgents[i] = factory.CreateChapterWriterAgent(state, i, chapter)
-}
-
-// 使用 ParallelAgent 并行执行
-parallelWriter := NewParallelAgent(ctx, &ParallelAgentConfig{
-    Name:        "ParallelWriters",
-    Description: "并行撰写各章节",
-    SubAgents:   writerAgents,
+// 原生方式
+agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+    Name:        "AgentName",
+    Description: "Agent Description",
+    Instruction: "System Prompt...",
+    Model:       chatModel,
+    ToolsConfig: adk.ToolsConfig{...},
+    MaxIterations: 10,
 })
 ```
+
+相比自定义实现：
+- 支持 ReAct 模式（自动 Reasoning + Acting）
+- 支持 `ReturnDirectly` 工具配置
+- 支持 `MaxIterations` 限制
+- 支持 `ModelRetryConfig` 重试配置
+
+### 2. 使用原生 SequentialAgent
+
+```go
+// 原生方式
+sequentialAgent, err := adk.NewSequentialAgent(ctx, &adk.SequentialAgentConfig{
+    Name:        "WorkflowName",
+    Description: "Workflow Description",
+    SubAgents:   []adk.Agent{agent1, agent2, ...},
+})
+```
+
+返回的是 `adk.ResumableAgent` 接口，支持：
+- 顺序执行
+- 断点续跑（Resume）
+- 检查点（Checkpoint）
+
+### 3. 使用原生 Runner
+
+```go
+// 原生方式
+runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent})
+iter := runner.Run(ctx, messages)
+```
+
+支持：
+- `Query()` - 简单查询
+- `Run()` - 完整对话
+- `Resume()` - 断点续跑
+
+## Eino ADK 官方参考
+
+- [Eino ADK Overview](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/)
+- [ChatModelAgent](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/agent_implementation/chat_model/)
+- [Workflow Agents](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/agent_implementation/workflow/)
+- [GitHub Examples](https://github.com/cloudwego/eino-examples/tree/main/adk)
+
+## 注意事项
+
+1. **工具包装器**：由于原工具有不同的接口，需要创建包装器实现 `tool.BaseTool` 接口
+2. **会话值**：使用 `adk.AddSessionValue()` 在 Agent 之间传递上下文
+3. **退出信号**：`event.Action.Exit` 是 `bool` 类型，不是指针
+4. **工具配置**：`ToolsConfig` 嵌入了 `compose.ToolsNodeConfig`，需要通过它设置工具
 
 ## 与原代码的兼容性
 
 ### 复用的组件
 
-ADK 模式复用了原 Chain 模式下的以下组件：
-
-- `einodoc.RepoDocState` - 状态管理（通过 StateManager 包装）
+- `einodoc.RepoDocState` - 状态管理
 - `einodoc.RepoDocResult` - 结果结构
 - `einodoc.Chapter/Section` - 文档大纲结构
-- `tools.GitCloneTool` - Git 克隆工具
-- `tools.ListDirTool` - 目录列表工具
-- `tools.ReadFileTool` - 文件读取工具
+- `tools.GitCloneTool` - Git 克隆工具（通过包装器）
+- `tools.ListDirTool` - 目录列表工具（通过包装器）
+- `tools.ReadFileTool` - 文件读取工具（通过包装器）
 - `einodoc.NewLLMChatModel` - LLM 模型创建
-
-### 服务接口对比
-
-| 功能 | Chain 模式 | ADK 模式 |
-|------|-----------|----------|
-| 创建服务 | `NewEinoRepoDocService(...)` | `NewADKRepoDocService(...)` |
-| 解析仓库 | `ParseRepo(ctx, repoURL)` | `ParseRepo(ctx, repoURL)` |
-| 带进度解析 | 不支持 | `ParseRepoWithProgress(...)` |
-| 获取信息 | `GetCallbacks()` | `GetWorkflowInfo()` |
-
-## 注意事项
-
-1. **API Key**: 需要配置有效的 OpenAI API Key 或其他兼容的 LLM 服务
-2. **存储空间**: 仓库克隆到本地需要足够的磁盘空间
-3. **网络连接**: 需要访问 Git 仓库和 LLM API
-4. **超时控制**: 建议为 `ParseRepo` 设置合理的超时时间
-
-## 参考资料
-
-- [Eino ADK 官方文档](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/)
-- [SequentialAgent 文档](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/agent_implementation/workflow/)
-- 原 Chain 模式实现: `backend/internal/service/einodoc/workflow.go`
