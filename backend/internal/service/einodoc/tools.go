@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -67,6 +68,18 @@ func (t *GitCloneTool) InvokableRun(ctx context.Context, arguments string) (stri
 	if args.TargetDir == "" {
 		args.TargetDir = generateRepoDirName(args.RepoURL)
 		klog.V(6).Infof("[GitCloneTool] 自动生成目标目录名: %s", args.TargetDir)
+	}
+
+	// 检查目标目录是否已存在
+	targetPath := filepath.Join(t.basePath, args.TargetDir)
+	if _, err := os.Stat(targetPath); err == nil {
+		klog.V(6).Infof("[GitCloneTool] 目标目录已存在: %s", targetPath)
+		//删除目标目录
+		if err := os.RemoveAll(targetPath); err != nil {
+			klog.Errorf("[GitCloneTool] 删除目标目录失败: %v", err)
+			return "", fmt.Errorf("failed to remove existing directory: %w", err)
+		}
+		klog.V(6).Infof("[GitCloneTool] 目标目录删除成功: %s", targetPath)
 	}
 
 	klog.V(6).Infof("[GitCloneTool] 开始克隆: repoURL=%s, targetDir=%s", args.RepoURL, args.TargetDir)
@@ -148,7 +161,7 @@ func (t *ListDirTool) InvokableRun(ctx context.Context, arguments string) (strin
 		return "", err
 	}
 
-	klog.V(6).Infof("[ListDirTool] 目录列表成功: resultLength=%d", len(result))
+	klog.V(6).Infof("[ListDirTool] 目录列表成功: 内容长度=%d", len(result))
 	return result, nil
 }
 
@@ -217,7 +230,7 @@ func (t *ReadFileTool) InvokableRun(ctx context.Context, arguments string) (stri
 		return "", err
 	}
 
-	klog.V(6).Infof("[ReadFileTool] 读取文件成功: resultLength=%d", len(result))
+	klog.V(6).Infof("[ReadFileTool] 读取文件成功: 内容长度=%d", len(result))
 	return result, nil
 }
 
@@ -276,7 +289,7 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, arguments string) (s
 		return "", err
 	}
 
-	klog.V(6).Infof("[SearchFilesTool] 搜索文件成功: resultLength=%d", len(result))
+	klog.V(6).Infof("[SearchFilesTool] 搜索文件成功: 匹配文件数=%d", len(result))
 	return result, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+	"github.com/opendeepwiki/backend/internal/utils"
 	"k8s.io/klog/v2"
 )
 
@@ -128,12 +129,23 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 		klog.V(6).Infof("[Workflow Step 2] 调用 LLM 分析仓库")
 		messages := []*schema.Message{
 			{
-				Role:    schema.System,
-				Content: "You are a code repository analyzer. Analyze the repository structure and provide: 1) Repository type (go/java/python/frontend/mixed), 2) Tech stack, 3) Brief summary. Respond in JSON format with fields: repo_type, tech_stack (array), summary",
+				Role: schema.System,
+				Content: `您是代码仓库分析器。
+				请分析仓库结构并提供：
+				1）仓库类型（go/java/python/frontend/mixed），
+				2）技术栈，
+				3）简要总结。
+				请按照下面的 JSON 格式回复。
+				{
+  "repo_type": "go",
+  "tech_stack": ["Go", "Docker", "Kubernetes"],
+  "summary": "这是一个基于 Go 语言的微服务项目，使用 Docker 和 Kubernetes 进行部署。"
+}
+				`,
 			},
 			{
 				Role:    schema.User,
-				Content: fmt.Sprintf("Repository URL: %s\n\nDirectory Structure:\n%s", state.RepoURL, treeResult),
+				Content: fmt.Sprintf("仓库地址: %s\n\n目录结构:\n%s", state.RepoURL, treeResult),
 			},
 		}
 		klog.V(6).Infof("[Workflow Step 2] LLM 请求: messageCount=%d", len(messages))
@@ -171,9 +183,9 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 
 	// ========== Step 3: Generate Outline with LLM ==========
 	// 使用 LLM 生成文档大纲
-	klog.V(6).Infof("[NewRepoDocChain] 添加 Step 3: Generate Outline")
+	klog.V(6).Infof("[NewRepoDocChain] Adding Step 3: 生成文档大纲")
 	chain.AppendLambda(compose.InvokableLambda(func(ctx context.Context, output WorkflowOutput) (WorkflowOutput, error) {
-		klog.V(6).Infof("[Workflow Step 3] 开始执行: Generate Outline with LLM")
+		klog.V(6).Infof("[Workflow Step 3] 开始执行: 用大模型生成文档大纲")
 
 		state := output.State
 		klog.V(6).Infof("[Workflow Step 3] 当前状态: repoType=%s, techStack=%v", state.RepoType, state.TechStack)
@@ -181,15 +193,17 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 		messages := []*schema.Message{
 			{
 				Role: schema.System,
-				Content: `You are a technical documentation expert. Create a documentation outline for the repository.
+				Content: `您是技术文档专家，请为该仓库创建文档大纲。
+				每个章节应包含2-3个段落，每个段落应包含2-3个提示。
+				请根据仓库类型和技术栈，生成一个2-3章节的文档大纲。
 
 Respond in JSON format:
 {
   "chapters": [
     {
-      "title": "Chapter Title",
+      "title": "章节标题",
       "sections": [
-        {"title": "Section Title", "hints": ["hint1", "hint2"]}
+        {"title": "段落标题", "hints": ["提示1", "提示2"]}
       ]
     }
   ]
@@ -197,7 +211,7 @@ Respond in JSON format:
 			},
 			{
 				Role: schema.User,
-				Content: fmt.Sprintf("Repository Type: %s\nTech Stack: %v\n\nGenerate a documentation outline with 2-3 chapters, each with 2-3 sections.",
+				Content: fmt.Sprintf("仓库类型: %s\n技术栈: %v\n\n请根据仓库类型和技术栈，生成一个2-3章节的文档大纲。",
 					state.RepoType, state.TechStack),
 			},
 		}
@@ -208,10 +222,10 @@ Respond in JSON format:
 			klog.Warningf("[Workflow Step 3] LLM 生成大纲失败，使用默认大纲: %v", err)
 			state.SetOutline([]Chapter{
 				{
-					Title: "Overview",
+					Title: "项目总览",
 					Sections: []Section{
-						{Title: "Introduction", Hints: []string{"Project overview"}},
-						{Title: "Architecture", Hints: []string{"System architecture"}},
+						{Title: "项目介绍", Hints: []string{"项目总览"}},
+						{Title: "系统架构", Hints: []string{"系统架构"}},
 					},
 				},
 			})
@@ -226,15 +240,16 @@ Respond in JSON format:
 				klog.Warningf("[Workflow Step 3] JSON 解析失败，使用默认大纲: %v", err)
 				state.SetOutline([]Chapter{
 					{
-						Title: "Overview",
+						Title: "项目概述",
 						Sections: []Section{
-							{Title: "Introduction", Hints: []string{"Project overview"}},
+							{Title: "项目介绍", Hints: []string{"项目概述"}},
 						},
 					},
 				})
 			} else {
 				state.SetOutline(outline.Chapters)
-				klog.V(6).Infof("[Workflow Step 3] 大纲生成成功: chapters=%d", len(outline.Chapters))
+				klog.V(6).Infof("[Workflow Step 3] 大纲生成成功: 章节=%d, 段落=%d",
+					len(outline.Chapters), len(outline.Chapters))
 			}
 		}
 
@@ -267,11 +282,11 @@ Respond in JSON format:
 				messages := []*schema.Message{
 					{
 						Role:    schema.System,
-						Content: "You are a technical writer. Write a brief documentation section in Markdown format.",
+						Content: "您是技术文档撰写者，请以 Markdown 格式撰写一段简短的文档章节。",
 					},
 					{
 						Role: schema.User,
-						Content: fmt.Sprintf("Chapter: %s\nSection: %s\nHints: %v\n\nWrite a short paragraph about this topic.",
+						Content: fmt.Sprintf("章节: %s\n段落: %s\n提示: %v\n\n请撰写一个简短的段落，介绍这个主题。",
 							chapter.Title, section.Title, section.Hints),
 					},
 				}
@@ -279,8 +294,8 @@ Respond in JSON format:
 				resp, err := chatModel.Generate(ctx, messages)
 				if err != nil {
 					klog.Warningf("[Workflow Step 4]   Section 内容生成失败，使用默认内容: %v", err)
-					state.SetSectionContent(chIdx, secIdx, fmt.Sprintf("## %s\n\nContent for %s under %s.\n\n*Generated by Eino Workflow*",
-						section.Title, section.Title, chapter.Title))
+					state.SetSectionContent(chIdx, secIdx, fmt.Sprintf("## %s\n\n%s 下 %s 的内容。\n\n*由 Eino Workflow 生成*",
+						section.Title, chapter.Title, section.Title))
 				} else {
 					state.SetSectionContent(chIdx, secIdx, resp.Content)
 					klog.V(6).Infof("[Workflow Step 4]   Section 内容生成成功: length=%d", len(resp.Content))
@@ -299,20 +314,20 @@ Respond in JSON format:
 		klog.V(6).Infof("[Workflow Step 5] 开始执行: Finalize Document")
 
 		state := output.State
-
+		klog.V(6).Infof("[Workflow Step 5] 当前状态: %s", utils.ToJSON(state))
 		// 组装最终文档
 		klog.V(6).Infof("[Workflow Step 5] 组装文档头部信息")
 		var doc strings.Builder
-		doc.WriteString(fmt.Sprintf("# Project Documentation\n\n"))
-		doc.WriteString(fmt.Sprintf("**Repository:** %s\n\n", state.RepoURL))
-		doc.WriteString(fmt.Sprintf("**Type:** %s\n\n", state.RepoType))
-		doc.WriteString(fmt.Sprintf("**Tech Stack:** %v\n\n", state.TechStack))
+		doc.WriteString(fmt.Sprintf("# 项目文档\n\n"))
+		doc.WriteString(fmt.Sprintf("**仓库:** %s\n\n", state.RepoURL))
+		doc.WriteString(fmt.Sprintf("**类型:** %s\n\n", state.RepoType))
+		doc.WriteString(fmt.Sprintf("**技术栈:** %v\n\n", state.TechStack))
 		doc.WriteString("---\n\n")
 
 		klog.V(6).Infof("[Workflow Step 5] 组装章节内容: chapters=%d", len(state.Outline))
 		for chIdx, chapter := range state.Outline {
 			doc.WriteString(fmt.Sprintf("## %s\n\n", chapter.Title))
-			klog.V(6).Infof("[Workflow Step 5]   Chapter[%d]: %s, sections=%d", chIdx, chapter.Title, len(chapter.Sections))
+			klog.V(6).Infof("[Workflow Step 5]   章节[%d]: %s, 段落=%d", chIdx, chapter.Title, len(chapter.Sections))
 
 			for secIdx, section := range chapter.Sections {
 				doc.WriteString(fmt.Sprintf("### %s\n\n", section.Title))
