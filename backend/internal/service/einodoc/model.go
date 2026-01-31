@@ -40,8 +40,10 @@ func (m *LLMChatModel) Generate(ctx context.Context, input []*schema.Message, op
 			Role:    string(msg.Role),
 			Content: msg.Content,
 		}
-		klog.V(6).Infof("[LLMChatModel]   Message[%d]: role=%s, contentLength=%d", 
+		klog.V(6).Infof("[LLMChatModel]   Message[%d]: role=%s, contentLength=%d",
 			i, msg.Role, len(msg.Content))
+		klog.V(8).Infof("[LLMChatModel]   Message[%d]: role=%s, content=%s",
+			i, msg.Role, msg.Content)
 	}
 
 	// 调用底层的 LLM 客户端
