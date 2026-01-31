@@ -19,9 +19,17 @@ type LLMChatModel struct {
 // NewLLMChatModel 创建 LLM ChatModel
 // client: 项目已有的 llm.Client 实例
 // 返回: 实现了 model.ChatModel 接口的适配器
-func NewLLMChatModel(client *llm.Client) model.ChatModel {
+func NewLLMChatModel(client *llm.Client) model.ToolCallingChatModel {
 	klog.V(6).Infof("[LLMChatModel] 创建 ChatModel 适配器")
 	return &LLMChatModel{client: client}
+}
+
+// WithTools 设置工具
+// 实现 model.ToolCallingChatModel 接口
+// tools: 要使用的工具列表
+func (m *LLMChatModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
+	klog.V(6).Infof("[LLMChatModel] 设置工具: toolCount=%d", len(tools))
+	return m, nil
 }
 
 // Generate 生成响应
@@ -101,7 +109,3 @@ func (m *LLMChatModel) BindTools(tools []*schema.ToolInfo) error {
 	klog.V(6).Infof("[LLMChatModel] 注意: 当前实现不支持动态工具绑定")
 	return nil
 }
-
-// 确保 LLMChatModel 实现了 model.ChatModel 接口
-// 编译时类型检查
-var _ model.ChatModel = (*LLMChatModel)(nil)

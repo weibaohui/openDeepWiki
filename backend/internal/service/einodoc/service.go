@@ -84,10 +84,10 @@ func (s *repoDocService) ParseRepo(ctx context.Context, repoURL string) (*RepoDo
 // EinoRepoDocService 高级服务实现，支持更多配置选项
 // 提供额外的工具获取等方法，便于扩展
 type EinoRepoDocService struct {
-	basePath   string       // 仓库存储的基础路径
-	llmClient  *llm.Client  // LLM 客户端
-	chatModel  model.ChatModel // Eino ChatModel 实例
-	chain      *RepoDocChain    // Eino Chain 实例
+	basePath  string                     // 仓库存储的基础路径
+	llmClient *llm.Client                // LLM 客户端
+	chatModel model.ToolCallingChatModel // Eino ChatModel 实例
+	chain     *RepoDocChain              // Eino Chain 实例
 }
 
 // NewEinoRepoDocService 创建高级服务实例
@@ -133,7 +133,7 @@ func (s *EinoRepoDocService) ParseRepo(ctx context.Context, repoURL string) (*Re
 
 // GetChatModel 获取 ChatModel（用于扩展）
 // 返回: Eino ChatModel 实例
-func (s *EinoRepoDocService) GetChatModel() model.ChatModel {
+func (s *EinoRepoDocService) GetChatModel() model.ToolCallingChatModel {
 	klog.V(6).Infof("[EinoRepoDocService.GetChatModel] 获取 ChatModel")
 	return s.chatModel
 }

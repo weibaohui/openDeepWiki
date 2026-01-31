@@ -39,7 +39,7 @@ type RepoDocChain struct {
 // basePath: 仓库存储的基础路径
 // chatModel: Eino ChatModel 实例，用于 LLM 调用
 // 返回: 配置好的 Chain 实例或错误
-func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain, error) {
+func NewRepoDocChain(basePath string, chatModel model.ToolCallingChatModel) (*RepoDocChain, error) {
 	klog.V(6).Infof("[NewRepoDocChain] 开始创建 RepoDocChain: basePath=%s", basePath)
 
 	chain := compose.NewChain[WorkflowInput, WorkflowOutput]()
