@@ -77,23 +77,6 @@ func (s *ADKRepoDocService) ParseRepo(ctx context.Context, localPath string) (*e
 	return result, nil
 }
 
-// ParseRepoWithProgress 解析仓库并返回进度事件
-// ctx: 上下文
-// repoURL: 仓库 Git URL
-// 返回: 进度事件通道或错误
-func (s *ADKRepoDocService) ParseRepoWithProgress(ctx context.Context, localPath string) (<-chan *WorkflowProgressEvent, error) {
-	klog.V(6).Infof("[ADKRepoDocService.ParseRepoWithProgress] 开始解析仓库: localPath=%s", localPath)
-
-	// 创建新的 Workflow 实例（避免状态冲突）
-	workflow, err := NewRepoDocWorkflow(s.basePath, s.chatModel)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create workflow: %w", err)
-	}
-
-	// 执行 Workflow 并返回进度通道
-	return workflow.RunWithProgress(ctx, localPath)
-}
-
 // GetWorkflowInfo 获取 Workflow 信息
 // 返回 Workflow 的结构信息，用于调试和展示
 func (s *ADKRepoDocService) GetWorkflowInfo() *WorkflowInfo {
