@@ -65,7 +65,7 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 			klog.Errorf("[Workflow Step 1] GitCloneTool 执行失败: %v", err)
 			return WorkflowOutput{}, fmt.Errorf("clone failed: %w", err)
 		}
-		klog.V(6).Infof("[Workflow Step 1] GitCloneTool 执行成功: resultLength=%d", len(cloneResult))
+		klog.V(6).Infof("[Workflow Step 1] GitCloneTool 执行成功: 仓库路径=%s, 结果=%s", state.LocalPath, cloneResult)
 
 		state.LocalPath = filepath.Join(basePath, generateRepoDirName(input.RepoURL))
 		klog.V(6).Infof("[Workflow Step 1] 设置本地路径: %s", state.LocalPath)
@@ -83,7 +83,7 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 			klog.Errorf("[Workflow Step 1] ListDirTool 执行失败: %v", err)
 			return WorkflowOutput{}, fmt.Errorf("list dir failed: %w", err)
 		}
-		klog.V(6).Infof("[Workflow Step 1] ListDirTool 执行成功: resultLength=%d", len(treeResult))
+		klog.V(6).Infof("[Workflow Step 1] ListDirTool 执行成功: 目录结构长度=%d", len(treeResult))
 
 		// 将 treeResult 存储到 state 中供后续使用
 		state.SetRepoTree(treeResult)
@@ -123,7 +123,7 @@ func NewRepoDocChain(basePath string, chatModel model.ChatModel) (*RepoDocChain,
 				treeResult = "Failed to read directory"
 			}
 		}
-		klog.V(6).Infof("[Workflow Step 2] 获取目录结构成功: length=%d", len(treeResult))
+		klog.V(6).Infof("[Workflow Step 2] 获取目录结构成功: 内容长度=%d", len(treeResult))
 
 		// 使用 LLM 分析仓库
 		klog.V(6).Infof("[Workflow Step 2] 调用 LLM 分析仓库")
@@ -248,7 +248,7 @@ Respond in JSON format:
 				})
 			} else {
 				state.SetOutline(outline.Chapters)
-				klog.V(6).Infof("[Workflow Step 3] 大纲生成成功: 章节=%d, 段落=%d",
+				klog.V(6).Infof("[Workflow Step 3] 大纲生成成功: 章节数=%d, 段落数=%d",
 					len(outline.Chapters), len(outline.Chapters))
 			}
 		}
