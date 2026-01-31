@@ -6,7 +6,6 @@
 //	    "context"
 //	    "log"
 //	    "github.com/opendeepwiki/backend/config"
-//	    "github.com/opendeepwiki/backend/internal/pkg/llm"
 //	    "github.com/opendeepwiki/backend/internal/service/einodoc"
 //	)
 //
@@ -14,16 +13,16 @@
 //	    // 加载配置
 //	    cfg := config.GetConfig()
 //
-//	    // 创建 LLM 客户端
-//	    llmClient := llm.NewClient(
-//	        cfg.LLM.APIURL,
-//	        cfg.LLM.APIKey,
-//	        cfg.LLM.Model,
-//	        cfg.LLM.MaxTokens,
-//	    )
+//	    // 准备 LLM 配置
+//	    llmCfg := &einodoc.LLMConfig{
+//	        APIKey:    cfg.LLM.APIKey,
+//	        BaseURL:   cfg.LLM.APIURL,
+//	        Model:     cfg.LLM.Model,
+//	        MaxTokens: cfg.LLM.MaxTokens,
+//	    }
 //
 //	    // 创建服务
-//	    service, err := einodoc.NewRepoDocService(cfg.Data.RepoDir, llmClient)
+//	    service, err := einodoc.NewRepoDocService(cfg.Data.RepoDir, llmCfg)
 //	    if err != nil {
 //	        log.Fatalf("创建服务失败: %v", err)
 //	    }
@@ -47,10 +46,16 @@
 //
 //	func advancedExample() {
 //	    cfg := config.GetConfig()
-//	    llmClient := llm.NewClient(...)
+//
+//	    llmCfg := &einodoc.LLMConfig{
+//	        APIKey:    cfg.LLM.APIKey,
+//	        BaseURL:   cfg.LLM.APIURL,
+//	        Model:     cfg.LLM.Model,
+//	        MaxTokens: cfg.LLM.MaxTokens,
+//	    }
 //
 //	    // 创建高级服务
-//	    service, err := einodoc.NewEinoRepoDocService(cfg.Data.RepoDir, llmClient)
+//	    service, err := einodoc.NewEinoRepoDocService(cfg.Data.RepoDir, llmCfg)
 //	    if err != nil {
 //	        log.Fatal(err)
 //	    }

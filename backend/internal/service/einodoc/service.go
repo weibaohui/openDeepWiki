@@ -8,9 +8,16 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"k8s.io/klog/v2"
 
-	"github.com/opendeepwiki/backend/internal/pkg/llm"
 	"github.com/opendeepwiki/backend/internal/service/einodoc/tools"
 )
+
+// LLMConfig LLM 配置
+type LLMConfig struct {
+	APIKey    string // API Key
+	BaseURL   string // API 基础 URL
+	Model     string // 模型名称
+	MaxTokens int    // 最大生成 token 数
+}
 
 // RepoDocService 仓库文档解析服务接口
 // 对外提供统一的仓库文档生成能力
@@ -25,21 +32,25 @@ type RepoDocService interface {
 // repoDocService 服务实现
 // 使用 Eino Chain 实现文档解析流程
 type repoDocService struct {
-	basePath  string        // 仓库存储的基础路径
-	llmClient *llm.Client   // LLM 客户端
-	chain     *RepoDocChain // Eino Chain 实例
+	basePath string      // 仓库存储的基础路径
+	llmCfg   *LLMConfig  // LLM 配置
+	chain    *RepoDocChain // Eino Chain 实例
 }
 
 // NewRepoDocService 创建新的服务实例
 // basePath: 仓库存储的基础路径
-// llmClient: LLM 客户端实例
+// llmCfg: LLM 配置
 // 返回: RepoDocService 接口实例或错误
-func NewRepoDocService(basePath string, llmClient *llm.Client) (RepoDocService, error) {
-	klog.V(6).Infof("[NewRepoDocService] 开始创建 RepoDocService: basePath=%s", basePath)
+func NewRepoDocService(basePath string, llmCfg *LLMConfig) (RepoDocService, error) {
+	klog.V(6).Infof("[NewRepoDocService] 开始创建 RepoDocService: basePath=%s, model=%s", basePath, llmCfg.Model)
 
 	// 创建 ChatModel
 	klog.V(6).Infof("[NewRepoDocService] 创建 ChatModel")
-	chatModel := NewLLMChatModel(llmClient)
+	chatModel, err := NewLLMChatModel(llmCfg.APIKey, llmCfg.BaseURL, llmCfg.Model, llmCfg.MaxTokens)
+	if err != nil {
+		klog.Errorf("[NewRepoDocService] 创建 ChatModel 失败: %v", err)
+		return nil, fmt.Errorf("failed to create chat model: %w", err)
+	}
 
 	// 创建 Chain
 	klog.V(6).Infof("[NewRepoDocService] 创建 RepoDocChain")
@@ -51,9 +62,9 @@ func NewRepoDocService(basePath string, llmClient *llm.Client) (RepoDocService, 
 
 	klog.V(6).Infof("[NewRepoDocService] RepoDocService 创建成功")
 	return &repoDocService{
-		basePath:  basePath,
-		llmClient: llmClient,
-		chain:     chain,
+		basePath: basePath,
+		llmCfg:   llmCfg,
+		chain:    chain,
 	}, nil
 }
 
@@ -85,20 +96,24 @@ func (s *repoDocService) ParseRepo(ctx context.Context, repoURL string) (*RepoDo
 // 提供额外的工具获取等方法，便于扩展
 type EinoRepoDocService struct {
 	basePath  string                     // 仓库存储的基础路径
-	llmClient *llm.Client                // LLM 客户端
+	llmCfg    *LLMConfig                 // LLM 配置
 	chatModel model.ToolCallingChatModel // Eino ChatModel 实例
 	chain     *RepoDocChain              // Eino Chain 实例
 }
 
 // NewEinoRepoDocService 创建高级服务实例
 // basePath: 仓库存储的基础路径
-// llmClient: LLM 客户端实例
+// llmCfg: LLM 配置
 // 返回: EinoRepoDocService 实例或错误
-func NewEinoRepoDocService(basePath string, llmClient *llm.Client) (*EinoRepoDocService, error) {
-	klog.V(6).Infof("[NewEinoRepoDocService] 开始创建高级服务: basePath=%s", basePath)
+func NewEinoRepoDocService(basePath string, llmCfg *LLMConfig) (*EinoRepoDocService, error) {
+	klog.V(6).Infof("[NewEinoRepoDocService] 开始创建高级服务: basePath=%s, model=%s", basePath, llmCfg.Model)
 
 	klog.V(6).Infof("[NewEinoRepoDocService] 创建 ChatModel")
-	chatModel := NewLLMChatModel(llmClient)
+	chatModel, err := NewLLMChatModel(llmCfg.APIKey, llmCfg.BaseURL, llmCfg.Model, llmCfg.MaxTokens)
+	if err != nil {
+		klog.Errorf("[NewEinoRepoDocService] 创建 ChatModel 失败: %v", err)
+		return nil, fmt.Errorf("failed to create chat model: %w", err)
+	}
 
 	klog.V(6).Infof("[NewEinoRepoDocService] 创建 RepoDocChain")
 	chain, err := NewRepoDocChain(basePath, chatModel)
@@ -110,7 +125,7 @@ func NewEinoRepoDocService(basePath string, llmClient *llm.Client) (*EinoRepoDoc
 	klog.V(6).Infof("[NewEinoRepoDocService] 高级服务创建成功")
 	return &EinoRepoDocService{
 		basePath:  basePath,
-		llmClient: llmClient,
+		llmCfg:    llmCfg,
 		chatModel: chatModel,
 		chain:     chain,
 	}, nil
@@ -142,7 +157,7 @@ func (s *EinoRepoDocService) GetChatModel() model.ToolCallingChatModel {
 // 返回: Eino Tools 列表
 func (s *EinoRepoDocService) GetTools() []tool.BaseTool {
 	klog.V(6).Infof("[EinoRepoDocService.GetTools] 获取工具列表")
-	tools := tools.CreateTools(s.basePath)
-	klog.V(6).Infof("[EinoRepoDocService.GetTools] 工具列表: count=%d", len(tools))
-	return tools
+	ts := tools.CreateTools(s.basePath)
+	klog.V(6).Infof("[EinoRepoDocService.GetTools] 工具列表: count=%d", len(ts))
+	return ts
 }

@@ -27,16 +27,16 @@ type AIAnalyzeService struct {
 
 // NewAIAnalyzeService 创建AI分析服务
 func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.AIAnalysisTaskRepository) *AIAnalyzeService {
-	// 创建 LLM 客户端
-	llmClient := llm.NewClient(
-		cfg.LLM.APIURL,
-		cfg.LLM.APIKey,
-		cfg.LLM.Model,
-		cfg.LLM.MaxTokens,
-	)
+	// 准备 LLM 配置
+	llmCfg := &einodoc.LLMConfig{
+		APIKey:    cfg.LLM.APIKey,
+		BaseURL:   cfg.LLM.APIURL,
+		Model:     cfg.LLM.Model,
+		MaxTokens: cfg.LLM.MaxTokens,
+	}
 
 	// 创建 Eino RepoDoc Service
-	einoDocService, err := einodoc.NewRepoDocService(cfg.Data.RepoDir, llmClient)
+	einoDocService, err := einodoc.NewRepoDocService(cfg.Data.RepoDir, llmCfg)
 	if err != nil {
 		klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
 		// 如果创建失败，使用 nil，后续会处理错误
