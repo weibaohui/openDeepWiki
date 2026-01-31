@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
@@ -123,8 +124,73 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.R
 		}
 
 		if event.Err != nil {
-			klog.Errorf("[RepoDocWorkflow.Run] Agent 执行出错: %v", event.Err)
-			return nil, fmt.Errorf("agent execution failed: %w", event.Err)
+			// 检查是否是迭代次数超限的错误
+			errMsg := event.Err.Error()
+			if strings.Contains(errMsg, "exceeds max iterations") || strings.Contains(errMsg, "max iterations") {
+				klog.Warningf("[RepoDocWorkflow.Run] 检测到迭代次数超限错误，尝试执行Editor Agent进行总结: %v", event.Err)
+
+				// 在迭代次数超限的情况下，尝试执行Editor Agent来汇总已有的内容
+				klog.Info("[RepoDocWorkflow.Run] 创建临时Editor Agent进行最终总结...")
+
+				// 创建Editor Agent来生成最终文档
+				editorAgent, err := w.factory.CreateEditorAgent()
+				if err != nil {
+					klog.Errorf("[RepoDocWorkflow.Run] 创建Editor Agent失败: %v", err)
+					return nil, fmt.Errorf("failed to create editor agent: %w", err)
+				}
+
+				// 准备最终的消息内容，包含当前已有信息
+				summaryMsg := fmt.Sprintf(`你是一个文档编辑助手。基于之前收集到的信息，生成一份完整的项目文档。
+
+现有信息摘要：
+- 已探索的章节：%d
+- 已生成的小节数：%d
+- 当前状态：分析过程因达到最大迭代次数而终止
+
+请根据现有信息和通用知识，生成最终的技术文档。`, len(w.state.Outline), len(w.state.SectionsContent))
+
+				// 运行Editor Agent进行总结
+				runnerForEditor := adk.NewRunner(ctx, adk.RunnerConfig{
+					Agent: editorAgent,
+				})
+
+				editorIter := runnerForEditor.Run(ctx, []adk.Message{
+					{
+						Role:    schema.User,
+						Content: summaryMsg,
+					},
+				})
+
+				// 获取Editor的输出
+				for {
+					editorEvent, editorOk := editorIter.Next()
+					if !editorOk {
+						break
+					}
+
+					if editorEvent.Err != nil {
+						klog.Warningf("[RepoDocWorkflow.Run] Editor Agent执行时出错: %v", editorEvent.Err)
+						break
+					}
+
+					if editorEvent.Output != nil && editorEvent.Output.MessageOutput != nil {
+						content := editorEvent.Output.MessageOutput.Message.Content
+						w.processEditorOutput(content)
+						lastContent = content
+						klog.V(6).Infof("[RepoDocWorkflow.Run] Editor Agent生成最终内容，长度: %d", len(content))
+
+						if editorEvent.Action != nil && editorEvent.Action.Exit {
+							break
+						}
+					}
+				}
+
+				// 跳出主循环，使用已收集的内容构建结果
+				break
+			} else {
+				klog.Errorf("[RepoDocWorkflow.Run] Agent 执行出错: %v", event.Err)
+				return nil, fmt.Errorf("agent execution failed: %w", event.Err)
+			}
 		}
 
 		stepCount++
@@ -230,13 +296,93 @@ func (w *RepoDocWorkflow) RunWithProgress(ctx context.Context, localPath string)
 			stepCount++
 
 			if event.Err != nil {
-				progressCh <- &WorkflowProgressEvent{
-					Step:      stepCount,
-					AgentName: event.AgentName,
-					Status:    WorkflowStatusError,
-					Error:     event.Err,
+				// 检查是否是迭代次数超限的错误
+				errMsg := event.Err.Error()
+				if strings.Contains(errMsg, "exceeds max iterations") || strings.Contains(errMsg, "max iterations") {
+					klog.Warningf("[RepoDocWorkflow.RunWithProgress] 检测到迭代次数超限错误，尝试执行Editor Agent进行总结: %v", event.Err)
+
+					// 在迭代次数超限的情况下，尝试执行Editor Agent来汇总已有的内容
+					klog.Info("[RepoDocWorkflow.RunWithProgress] 创建临时Editor Agent进行最终总结...")
+
+					// 创建Editor Agent来生成最终文档
+					editorAgent, err := w.factory.CreateEditorAgent()
+					if err != nil {
+						klog.Errorf("[RepoDocWorkflow.RunWithProgress] 创建Editor Agent失败: %v", err)
+						progressCh <- &WorkflowProgressEvent{
+							Step:      stepCount,
+							AgentName: "EditorCreationError",
+							Status:    WorkflowStatusError,
+							Error:     fmt.Errorf("failed to create editor agent: %w", err),
+						}
+						return
+					}
+
+					// 准备最终的消息内容，包含当前已有信息
+					summaryMsg := fmt.Sprintf(`你是一个文档编辑助手。基于之前收集到的信息，生成一份完整的项目文档。
+
+现有信息摘要：
+- 已探索的章节：%d
+- 已生成的小节数：%d
+- 当前状态：分析过程因达到最大迭代次数而终止
+
+请根据现有信息和通用知识，生成最终的技术文档。`, len(w.state.Outline), len(w.state.SectionsContent))
+
+					// 运行Editor Agent进行总结
+					runnerForEditor := adk.NewRunner(ctx, adk.RunnerConfig{
+						Agent: editorAgent,
+					})
+
+					editorIter := runnerForEditor.Run(ctx, []adk.Message{
+						{
+							Role:    schema.User,
+							Content: summaryMsg,
+						},
+					})
+
+					// 获取Editor的输出
+					for {
+						editorEvent, editorOk := editorIter.Next()
+						if !editorOk {
+							break
+						}
+
+						if editorEvent.Err != nil {
+							klog.Warningf("[RepoDocWorkflow.RunWithProgress] Editor Agent执行时出错: %v", editorEvent.Err)
+							break
+						}
+
+						if editorEvent.Output != nil && editorEvent.Output.MessageOutput != nil {
+							content := editorEvent.Output.MessageOutput.Message.Content
+
+							// 处理Editor输出
+							w.processEditorOutput(content)
+
+							progressCh <- &WorkflowProgressEvent{
+								Step:      stepCount,
+								AgentName: "EditorSummary",
+								Status:    WorkflowStatusCompleted,
+								Content:   truncate(content, 200),
+							}
+
+							klog.V(6).Infof("[RepoDocWorkflow.RunWithProgress] Editor Agent生成最终内容，长度: %d", len(content))
+
+							if editorEvent.Action != nil && editorEvent.Action.Exit {
+								break
+							}
+						}
+					}
+
+					// 跳出主循环，准备发送完成事件
+					break
+				} else {
+					progressCh <- &WorkflowProgressEvent{
+						Step:      stepCount,
+						AgentName: event.AgentName,
+						Status:    WorkflowStatusError,
+						Error:     event.Err,
+					}
+					return
 				}
-				return
 			}
 
 			status := WorkflowStatusRunning
