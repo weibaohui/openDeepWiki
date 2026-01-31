@@ -36,14 +36,6 @@ type RepoDocChain struct {
 	callbacks *EinoCallbacks // Eino 回调处理器，用于观察执行过程
 }
 
-// NewRepoDocChain 创建 RepoDoc Chain
-// basePath: 仓库存储的基础路径
-// chatModel: Eino ChatModel 实例，用于 LLM 调用
-// 返回: 配置好的 Chain 实例或错误
-func NewRepoDocChain(basePath string, chatModel model.ToolCallingChatModel) (*RepoDocChain, error) {
-	return NewRepoDocChainWithCallbacks(basePath, chatModel, nil)
-}
-
 // NewRepoDocChainWithCallbacks 创建带回调的 RepoDoc Chain
 // basePath: 仓库存储的基础路径
 // chatModel: Eino ChatModel 实例，用于 LLM 调用
@@ -160,7 +152,6 @@ func NewRepoDocChainWithCallbacks(basePath string, chatModel model.ToolCallingCh
 			},
 		}
 
-		chatModel.WithTools(tools.CreateLLMTools(basePath))
 		resp, err := chatModel.Generate(ctx, messages)
 		if err != nil {
 			klog.Warningf("[Workflow Step 2] LLM 分析失败，使用默认值: %v", err)
@@ -227,7 +218,7 @@ Respond in JSON format:
 					state.RepoType, state.TechStack),
 			},
 		}
-		chatModel.WithTools(tools.CreateLLMTools(basePath))
+
 		resp, err := chatModel.Generate(ctx, messages)
 		if err != nil {
 			klog.Warningf("[Workflow Step 3] LLM 生成大纲失败，使用默认大纲: %v", err)
@@ -302,7 +293,6 @@ Respond in JSON format:
 							chapter.Title, section.Title, section.Hints),
 					},
 				}
-				chatModel.WithTools(tools.CreateLLMTools(basePath))
 				resp, err := chatModel.Generate(ctx, messages)
 				if err != nil {
 					klog.Warningf("[Workflow Step 4]   Section 内容生成失败，使用默认内容: %v", err)

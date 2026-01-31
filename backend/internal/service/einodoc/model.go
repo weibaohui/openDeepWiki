@@ -5,7 +5,6 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
 )
 
@@ -21,7 +20,7 @@ type LLMChatModel struct {
 // modelName: 模型名称 (如 "gpt-4o", "gpt-3.5-turbo" 等)
 // maxTokens: 最大生成 token 数
 // 返回: 实现了 model.ToolCallingChatModel 接口的实例
-func NewLLMChatModel(apiKey, baseURL, modelName string, maxTokens int) (*LLMChatModel, error) {
+func NewLLMChatModel(apiKey, baseURL, modelName string, maxTokens int) (*openai.ChatModel, error) {
 	klog.V(6).Infof("[LLMChatModel] 创建 OpenAI ChatModel: model=%s, baseURL=%s", modelName, baseURL)
 
 	config := &openai.ChatModelConfig{
@@ -44,63 +43,6 @@ func NewLLMChatModel(apiKey, baseURL, modelName string, maxTokens int) (*LLMChat
 	}
 
 	klog.V(6).Infof("[LLMChatModel] ChatModel 创建成功")
-	cm := &LLMChatModel{chatModel: chatModel}
-	if err != nil {
-		klog.Errorf("[LLMChatModel] 设置工具失败: %v", err)
-		return nil, err
-	}
-	return cm, nil
-}
 
-// Generate 生成响应
-// 实现 model.ChatModel 接口，同步生成 LLM 响应
-// ctx: 上下文
-// input: 消息列表
-// opts: 可选参数
-// 返回: 生成的消息或错误
-// Generate 生成响应
-// 实现 model.ChatModel 接口，同步生成 LLM 响应
-// ctx: 上下文
-// input: 消息列表
-// opts: 可选参数
-// 返回: 生成的消息或错误
-// 注意: 详细的输入输出日志由 EinoCallbacks 处理，避免重复记录
-func (m *LLMChatModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
-	resp, err := m.chatModel.Generate(ctx, input, opts...)
-	if err != nil {
-		klog.Errorf("[LLMChatModel] Generate 失败: %v", err)
-		return nil, err
-	}
-	return resp, nil
-}
-
-// Stream 流式生成
-// 实现 model.ChatModel 接口
-// ctx: 上下文
-// input: 消息列表
-// opts: 可选参数
-// 返回: 流读取器或错误
-// Stream 流式生成
-// 实现 model.ChatModel 接口
-// ctx: 上下文
-// input: 消息列表
-// opts: 可选参数
-// 返回: 流读取器或错误
-// 注意: 详细的输入输出日志由 EinoCallbacks 处理，避免重复记录
-func (m *LLMChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (
-	*schema.StreamReader[*schema.Message], error) {
-	streamReader, err := m.chatModel.Stream(ctx, input, opts...)
-	if err != nil {
-		klog.Errorf("[LLMChatModel] Stream 失败: %v", err)
-		return nil, err
-	}
-	return streamReader, nil
-}
-
-// WithTools 设置工具并返回新的 ChatModel 实例
-// 实现 model.ToolCallingChatModel 接口
-// tools: 要使用的工具列表
-func (m *LLMChatModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
-	klog.V(6).Infof("[LLMChatModel] WithTools 被调用: toolCount=%d", len(tools))
-	return m.chatModel.WithTools(tools)
+	return chatModel, nil
 }

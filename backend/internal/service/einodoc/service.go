@@ -62,9 +62,15 @@ func NewEinoRepoDocServiceWithCallbacks(basePath string, llmCfg *LLMConfig, call
 		klog.Errorf("[NewEinoRepoDocService] 创建 ChatModel 失败: %v", err)
 		return nil, fmt.Errorf("failed to create chat model: %w", err)
 	}
+	tcChatModel, err := chatModel.WithTools(tools.CreateLLMTools(basePath))
+
+	if err != nil {
+		klog.Errorf("[NewEinoRepoDocService] 设置工具失败: %v", err)
+		return nil, fmt.Errorf("failed to set tools: %w", err)
+	}
 
 	klog.V(6).Infof("[NewEinoRepoDocService] 创建 RepoDocChain")
-	chain, err := NewRepoDocChainWithCallbacks(basePath, chatModel, callbacks)
+	chain, err := NewRepoDocChainWithCallbacks(basePath, tcChatModel, callbacks)
 	if err != nil {
 		klog.Errorf("[NewEinoRepoDocService] 创建 RepoDocChain 失败: %v", err)
 		return nil, fmt.Errorf("failed to create chain: %w", err)
