@@ -152,6 +152,7 @@ func NewRepoDocChain(basePath string, chatModel model.ToolCallingChatModel) (*Re
 		}
 		klog.V(6).Infof("[Workflow Step 2] LLM 请求: messageCount=%d", len(messages))
 
+		chatModel.WithTools(tools.CreateLLMTools(basePath))
 		resp, err := chatModel.Generate(ctx, messages)
 		if err != nil {
 			klog.Warningf("[Workflow Step 2] LLM 分析失败，使用默认值: %v", err)
@@ -218,7 +219,7 @@ Respond in JSON format:
 			},
 		}
 		klog.V(6).Infof("[Workflow Step 3] LLM 请求: messageCount=%d", len(messages))
-
+		chatModel.WithTools(tools.CreateLLMTools(basePath))
 		resp, err := chatModel.Generate(ctx, messages)
 		if err != nil {
 			klog.Warningf("[Workflow Step 3] LLM 生成大纲失败，使用默认大纲: %v", err)
@@ -292,7 +293,8 @@ Respond in JSON format:
 							chapter.Title, section.Title, section.Hints),
 					},
 				}
-
+				klog.V(6).Infof("[Workflow Step 4] LLM 请求: messageCount=%d", len(messages))
+				chatModel.WithTools(tools.CreateLLMTools(basePath))
 				resp, err := chatModel.Generate(ctx, messages)
 				if err != nil {
 					klog.Warningf("[Workflow Step 4]   Section 内容生成失败，使用默认内容: %v", err)
