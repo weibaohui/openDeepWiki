@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
@@ -77,6 +77,18 @@ export default function RepoDetail() {
         } catch (error) {
             console.error('Failed to run all tasks:', error);
             messageApi.error('Failed to start analysis');
+        }
+    };
+
+    const handleAnalyzeDirectory = async () => {
+        if (!id) return;
+        try {
+            await repositoryApi.analyzeDirectory(Number(id));
+            fetchData();
+            messageApi.success(t('repository.directory_analyze_started'));
+        } catch (error) {
+            console.error('Failed to analyze directory:', error);
+            messageApi.error(t('repository.directory_analyze_failed'));
         }
     };
 
@@ -157,6 +169,13 @@ export default function RepoDetail() {
                         <Tooltip title={!screens.md ? t('repository.export_docs') : undefined}>
                             <Button onClick={handleExport} icon={<DownloadOutlined />}>
                                 {screens.md && t('repository.export_docs')}
+                            </Button>
+                        </Tooltip>
+                    )}
+                    {(repository.status === 'ready' || repository.status === 'completed') && (
+                        <Tooltip title={!screens.md ? t('repository.directory_analyze') : undefined}>
+                            <Button onClick={handleAnalyzeDirectory} icon={<FolderOpenOutlined />}>
+                                {screens.md && t('repository.directory_analyze')}
                             </Button>
                         </Tooltip>
                     )}

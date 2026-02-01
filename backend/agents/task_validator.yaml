@@ -61,4 +61,4 @@ tools:
   - list_dir
   - read_file
 
-maxIterations: 5
+maxIterations: 30

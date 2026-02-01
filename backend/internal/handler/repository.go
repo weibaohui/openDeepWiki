@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -88,4 +89,24 @@ func (h *RepositoryHandler) RunAllTasks(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "tasks started"})
+}
+
+func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	ctx := context.Background()
+	tasks, err := h.service.AnalyzeDirectory(ctx, uint(id))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "directory analysis completed",
+		"tasks":   tasks,
+	})
 }

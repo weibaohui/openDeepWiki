@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -28,18 +29,27 @@ type RepositoryService struct {
 
 	// 编排器
 	orchestrator *orchestrator.Orchestrator
+
+	// 目录分析服务
+	directoryAnalyzerService DirectoryAnalyzerService
 }
 
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService) *RepositoryService {
+// DirectoryAnalyzerService 目录分析服务接口
+type DirectoryAnalyzerService interface {
+	AnalyzeAndCreateTasks(ctx context.Context, localPath string, repo *model.Repository) ([]*model.Task, error)
+}
+
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, directoryAnalyzerService DirectoryAnalyzerService) *RepositoryService {
 	return &RepositoryService{
-		cfg:              cfg,
-		repoRepo:         repoRepo,
-		taskRepo:         taskRepo,
-		docRepo:          docRepo,
-		taskService:      taskService,
-		repoStateMachine: statemachine.NewRepositoryStateMachine(),
-		taskStateMachine:  statemachine.NewTaskStateMachine(),
-		orchestrator:     orchestrator.GetGlobalOrchestrator(),
+		cfg:                      cfg,
+		repoRepo:                 repoRepo,
+		taskRepo:                 taskRepo,
+		docRepo:                  docRepo,
+		taskService:              taskService,
+		repoStateMachine:         statemachine.NewRepositoryStateMachine(),
+		taskStateMachine:         statemachine.NewTaskStateMachine(),
+		orchestrator:             orchestrator.GetGlobalOrchestrator(),
+		directoryAnalyzerService: directoryAnalyzerService,
 	}
 }
 
@@ -300,4 +310,31 @@ func (s *RepositoryService) CloneRepository(repoID uint) error {
 	go s.cloneRepository(repoID)
 
 	return nil
+}
+
+// AnalyzeDirectory 分析目录并创建任务
+func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) ([]*model.Task, error) {
+	klog.V(6).Infof("准备分析目录并创建任务: repoID=%d", repoID)
+
+	// 获取仓库基本信息
+	repo, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		return nil, fmt.Errorf("获取仓库失败: %w", err)
+	}
+
+	// 检查仓库状态
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if !statemachine.CanExecuteTasks(currentStatus) {
+		return nil, fmt.Errorf("仓库状态不允许执行目录分析: current=%s", currentStatus)
+	}
+
+	// 调用目录分析服务
+	tasks, err := s.directoryAnalyzerService.AnalyzeAndCreateTasks(ctx, repo.LocalPath, repo)
+	if err != nil {
+		return nil, fmt.Errorf("目录分析失败: %w", err)
+	}
+
+	klog.V(6).Infof("目录分析完成，创建了 %d 个任务: repoID=%d", len(tasks), repoID)
+
+	return tasks, nil
 }

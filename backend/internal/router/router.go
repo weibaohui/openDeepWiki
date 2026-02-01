@@ -40,6 +40,7 @@ func Setup(
 			repos.GET("/:id", repoHandler.Get)
 			repos.DELETE("/:id", repoHandler.Delete)
 			repos.POST("/:id/run-all", repoHandler.RunAllTasks)
+			repos.POST("/:id/directory-analyze", repoHandler.AnalyzeDirectory)
 			repos.POST("/:id/ai-analyze", aiAnalyzeHandler.StartAnalysis)
 			repos.GET("/:id/ai-analysis-status", aiAnalyzeHandler.GetAnalysisStatus)
 			repos.GET("/:id/ai-analysis-result", aiAnalyzeHandler.GetAnalysisResult)

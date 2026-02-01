@@ -15,6 +15,7 @@ import (
 	"github.com/opendeepwiki/backend/internal/repository"
 	"github.com/opendeepwiki/backend/internal/router"
 	"github.com/opendeepwiki/backend/internal/service"
+	"github.com/opendeepwiki/backend/internal/service/directoryanalyzer"
 	"github.com/opendeepwiki/backend/internal/service/orchestrator"
 )
 
@@ -58,6 +59,12 @@ func main() {
 	docTemplateService := service.NewDocTemplateService(docTemplateRepo, chapterRepo)
 	aiAnalyzeService := service.NewAIAnalyzeService(cfg, repoRepo, aiAnalysisTaskRepo)
 
+	// 初始化目录分析服务
+	directoryAnalyzerService, err := directoryanalyzer.NewDirectoryAnalyzerService(cfg, taskRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
+	}
+
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
 	taskExecutor := &taskExecutorAdapter{taskService: taskService}
@@ -66,7 +73,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService, directoryAnalyzerService)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)

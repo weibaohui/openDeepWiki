@@ -53,7 +53,11 @@
         "docs": "Documents",
         "no_docs": "No documents generated yet",
         "no_docs_hint": "Run tasks to see documents here",
-        "not_found": "Repository not found"
+        "not_found": "Repository not found",
+        "directory_analyze": "Directory Analyze",
+        "directory_analyze_started": "Directory analysis started",
+        "directory_analyze_failed": "Directory analysis failed",
+        "rebuild": "Rebuild"
     },
     "task": {
         "title": "Tasks",
