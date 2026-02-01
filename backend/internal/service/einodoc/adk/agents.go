@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+	"github.com/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"github.com/opendeepwiki/backend/internal/service/einodoc/tools"
-	etools "github.com/opendeepwiki/backend/internal/service/einodoc/tools"
 	"k8s.io/klog/v2"
 )
 
@@ -31,251 +31,109 @@ const (
 	AgentEditor = "Editor"
 )
 
-// AgentFactory 负责创建各种子 Agent
-// 使用 Eino ADK 原生的 ChatModelAgent
-type AgentFactory struct {
+// modelProvider 实现 adkagents.ModelProvider
+type modelProvider struct {
 	chatModel model.ToolCallingChatModel
-	basePath  string
+}
+
+// GetModel 获取指定名称的模型，name 为空时返回默认模型
+func (p *modelProvider) GetModel(name string) (model.ToolCallingChatModel, error) {
+	// 目前只支持默认模型
+	return p.chatModel, nil
+}
+
+// DefaultModel 获取默认模型
+func (p *modelProvider) DefaultModel() model.ToolCallingChatModel {
+	return p.chatModel
+}
+
+// toolProvider 实现 adkagents.ToolProvider
+type toolProvider struct {
+	basePath string
+}
+
+// GetTool 获取指定名称的工具
+func (p *toolProvider) GetTool(name string) (tool.BaseTool, error) {
+	switch name {
+	case "list_dir":
+		return tools.NewListDirTool(p.basePath), nil
+	case "read_file":
+		return tools.NewReadFileTool(p.basePath), nil
+	case "search_files":
+		return tools.NewSearchFilesTool(p.basePath), nil
+	default:
+		return nil, fmt.Errorf("unknown tool: %s", name)
+	}
+}
+
+// ListTools 列出所有可用工具名称
+func (p *toolProvider) ListTools() []string {
+	return []string{"list_dir", "read_file", "search_files"}
+}
+
+// AgentFactory 负责创建各种子 Agent
+// 使用 adkagents.Manager 管理基础 Agent 的加载和创建
+type AgentFactory struct {
+	manager  *adkagents.Manager
+	basePath string
 }
 
 // NewAgentFactory 创建 Agent 工厂
-func NewAgentFactory(chatModel model.ToolCallingChatModel, basePath string) *AgentFactory {
+func NewAgentFactory(chatModel model.ToolCallingChatModel, basePath string) (*AgentFactory, error) {
+	// 创建 providers
+	mp := &modelProvider{chatModel: chatModel}
+	tp := &toolProvider{basePath: basePath}
+
+	// 创建 Manager
+	config := &adkagents.Config{
+		Dir:            "./agents",
+		AutoReload:     true,
+		ReloadInterval: 5 * time.Second,
+		ModelProvider:  mp,
+		ToolProvider:   tp,
+	}
+
+	manager, err := adkagents.NewManager(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create adkagents manager: %w", err)
+	}
+
 	return &AgentFactory{
-		chatModel: chatModel,
-		basePath:  basePath,
-	}
+		manager:  manager,
+		basePath: basePath,
+	}, nil
 }
 
-// CreateRepoInitializerAgent 创建仓库初始化 Agent
-// 负责克隆仓库和获取目录结构
-func (f *AgentFactory) CreateRepoInitializerAgent() (adk.Agent, error) {
-	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        AgentRepoInitializer,
-		Description: "仓库初始化专员 - 负责对代码仓库进行初步分析",
-		Instruction: `你的任务是：
-1. 使用 list_dir 工具读取仓库的目录结构
-2. 返回仓库的完整信息，包括：
-   - 仓库 URL
-   - 本地路径
-   - 目录结构概要
-
-
-请确保：
-- 获取完整的目录结构
-- 返回的信息准确完整`,
-		Model: f.chatModel,
-		ToolsConfig: adk.ToolsConfig{
-			ToolsNodeConfig: compose.ToolsNodeConfig{
-				Tools: []tool.BaseTool{
-					tools.NewListDirTool(f.basePath),
-				},
-			},
-		},
-		MaxIterations: 10,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", AgentRepoInitializer, err)
-	}
-
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentRepoInitializer)
-	return agent, nil
-}
-
-// CreateArchitectAgent 创建架构师 Agent
-// 负责分析仓库类型并生成文档大纲
-func (f *AgentFactory) CreateArchitectAgent() (adk.Agent, error) {
-
-	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        AgentArchitect,
-		Description: "文档架构师 - 负责设计文档的整体结构",
-		Instruction: `
-
-你的任务是分析仓库并生成文档大纲：
-1. 分析仓库的目录结构
-2. 识别仓库类型（go/java/python/frontend/mixed）
-3. 识别主要技术栈
-4. 生成 2-3 个章节的文档大纲
-
-输出格式必须是 JSON：
-{
-  "repo_type": "go",
-  "tech_stack": ["Go", "Gin", "GORM"],
-  "summary": "项目简介",
-  "chapters": [
-    {
-      "title": "章节标题",
-      "sections": [
-        {"title": "小节标题", "hints": ["提示1", "提示2"]}
-      ]
-    }
-  ]
-}
-
-请确保输出格式正确，可以被 JSON 解析。`,
-		Model: f.chatModel,
-		ToolsConfig: adk.ToolsConfig{
-			ToolsNodeConfig: compose.ToolsNodeConfig{
-				Tools: []tool.BaseTool{
-					tools.NewSearchFilesTool(f.basePath),
-					tools.NewListDirTool(f.basePath),
-					tools.NewReadFileTool(f.basePath),
-				},
-			},
-		},
-		MaxIterations: 5,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", AgentArchitect, err)
-	}
-
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentArchitect)
-	return agent, nil
-}
-
-// CreateExplorerAgent 创建探索者 Agent
-// 负责深度分析代码结构
-func (f *AgentFactory) CreateExplorerAgent() (adk.Agent, error) {
-
-	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        AgentExplorer,
-		Description: "代码探索者 - 负责深度分析代码结构和依赖关系",
-		Instruction: `
-你的任务是深入探索代码库：
-1. 读取 README 和关键配置文件（go.mod, package.json 等）
-2. 搜索核心代码文件
-3. 分析项目的主要模块和组件
-4. 识别关键的函数、类和接口
-
-每一轮探索完成后，请明确说明：
-- 本轮发现了哪些重要文件
-- 已经分析了哪些模块
-- 是否还需要继续探索更多内容
-- 如果已获得足够信息，请明确表示"探索完成"
-
-请使用 read_file 和 search_files 工具来获取代码信息。
-
-重要：当认为探索任务已经完成或信息已足够时，请明确表示"探索完成"，以帮助系统判断是否需要继续迭代。`,
-		Model: f.chatModel,
-		ToolsConfig: adk.ToolsConfig{
-			ToolsNodeConfig: compose.ToolsNodeConfig{
-				Tools: []tool.BaseTool{
-					tools.NewSearchFilesTool(f.basePath),
-					tools.NewListDirTool(f.basePath),
-					tools.NewReadFileTool(f.basePath),
-				},
-			},
-		},
-		MaxIterations: 15,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", AgentExplorer, err)
-	}
-
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentExplorer)
-	return agent, nil
-}
-
-// CreateWriterAgent 创建作者 Agent
-// 负责生成文档内容
-func (f *AgentFactory) CreateWriterAgent() (adk.Agent, error) {
-
-	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        AgentWriter,
-		Description: "技术作者 - 负责撰写文档内容",
-		Instruction: `
-
-你的任务是为文档大纲的每个小节生成内容：
-1. 根据章节和小节标题，撰写技术文档
-2. 内容应包含：概念说明、代码示例、使用场景
-3. 使用 Markdown 格式
-4. 确保内容准确、清晰、专业
-
-你可以使用 read_file 工具读取代码文件作为参考。
-请为每个小节生成完整、独立的内容。`,
-		Model: f.chatModel,
-		ToolsConfig: adk.ToolsConfig{
-			ToolsNodeConfig: compose.ToolsNodeConfig{
-				Tools: []tool.BaseTool{
-					tools.NewReadFileTool(f.basePath),
-				},
-			},
-		},
-		MaxIterations: 20,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", AgentWriter, err)
-	}
-
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentWriter)
-	return agent, nil
-}
-
-// CreateEditorAgent 创建编辑 Agent
-// 负责组装最终文档
-func (f *AgentFactory) CreateEditorAgent() (adk.Agent, error) {
-
-	agent, err := adk.NewChatModelAgent(context.Background(), &adk.ChatModelAgentConfig{
-		Name:        AgentEditor,
-		Description: "文档编辑 - 负责组装和优化最终文档",
-		Instruction: `你是文档编辑 Editor。
-你的职责是：
-1. 组装所有章节内容形成完整文档
-2. 优化文档结构和格式
-3. 添加文档头部信息（标题、仓库信息、技术栈）
-4. 确保 Markdown 格式规范
-5. 添加目录和导航链接
-
-输出要求：
-- 完整的 Markdown 文档
-- 格式规范
-- 结构清晰
-- 可直接发布`,
-		Model:         f.chatModel,
-		MaxIterations: 5,
-		Exit:          adk.ExitTool{},
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create %s agent: %w", AgentEditor, err)
-	}
-
-	klog.V(6).Infof("[AgentFactory] 创建 %s Agent 成功", AgentEditor)
-	return agent, nil
+// GetAgent 获取指定名称的基础 Agent
+// 这是获取基础 Agent 的推荐方式
+func (f *AgentFactory) GetAgent(name string) (adk.Agent, error) {
+	return f.manager.GetAgent(name)
 }
 
 // CreateSequentialAgent 创建顺序执行的 SequentialAgent
 // 将所有子 Agent 按顺序组合
+// 注意：此方法保持既有逻辑，不由 adkagents.Manager 直接管理
 func (f *AgentFactory) CreateSequentialAgent() (adk.ResumableAgent, error) {
 	ctx := context.Background()
 
-	// 创建各个子 Agent
-	initializer, err := f.CreateRepoInitializerAgent()
+	architect, err := f.manager.GetAgent(AgentArchitect)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get %s agent: %w", AgentArchitect, err)
 	}
 
-	architect, err := f.CreateArchitectAgent()
+	explorer, err := f.manager.GetAgent(AgentExplorer)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get %s agent: %w", AgentExplorer, err)
 	}
 
-	explorer, err := f.CreateExplorerAgent()
+	writer, err := f.manager.GetAgent(AgentWriter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get %s agent: %w", AgentWriter, err)
 	}
 
-	writer, err := f.CreateWriterAgent()
+	editor, err := f.manager.GetAgent(AgentEditor)
 	if err != nil {
-		return nil, err
-	}
-
-	editor, err := f.CreateEditorAgent()
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get %s agent: %w", AgentEditor, err)
 	}
 
 	// 创建 SequentialAgent
@@ -283,7 +141,6 @@ func (f *AgentFactory) CreateSequentialAgent() (adk.ResumableAgent, error) {
 		Name:        "RepoDocSequentialAgent",
 		Description: "仓库文档生成顺序执行 Agent - 按顺序执行初始化、分析、探索、撰写、编辑",
 		SubAgents: []adk.Agent{
-			initializer,
 			architect,
 			explorer,
 			writer,
@@ -298,6 +155,13 @@ func (f *AgentFactory) CreateSequentialAgent() (adk.ResumableAgent, error) {
 
 	klog.V(6).Infof("[AgentFactory] 创建 SequentialAgent 成功")
 	return sequentialAgent, nil
+}
+
+// Stop 停止 AgentFactory，释放资源
+func (f *AgentFactory) Stop() {
+	if f.manager != nil {
+		f.manager.Stop()
+	}
 }
 
 // ==================== Workflow 辅助函数 ====================
@@ -392,5 +256,5 @@ func truncate(s string, maxLen int) string {
 
 // GetLocalPathFromRepoURL 根据仓库 URL 获取本地路径
 func GetLocalPathFromRepoURL(basePath, repoURL string) string {
-	return filepath.Join(basePath, etools.GenerateRepoDirName(repoURL))
+	return filepath.Join(basePath, tools.GenerateRepoDirName(repoURL))
 }

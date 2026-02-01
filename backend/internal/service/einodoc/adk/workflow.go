@@ -30,10 +30,14 @@ type RepoDocWorkflow struct {
 func NewRepoDocWorkflow(basePath string, chatModel model.ToolCallingChatModel) (*RepoDocWorkflow, error) {
 	klog.V(6).Infof("[NewRepoDocWorkflow] 创建 Workflow: basePath=%s", basePath)
 
+	factory, err := NewAgentFactory(chatModel, basePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create agent factory: %w", err)
+	}
 	return &RepoDocWorkflow{
 		basePath:  basePath,
 		chatModel: chatModel,
-		factory:   NewAgentFactory(chatModel, basePath),
+		factory:   factory,
 	}, nil
 }
 
@@ -130,7 +134,7 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.R
 				klog.Warningf("[RepoDocWorkflow.Run] 检测到迭代次数超限错误，执行Editor Agent进行最终总结: %v", event.Err)
 
 				// 创建Editor Agent来生成最终文档
-				editorAgent, err := w.factory.CreateEditorAgent()
+				editorAgent, err := w.factory.GetAgent(AgentEditor)
 				if err != nil {
 					klog.Errorf("[RepoDocWorkflow.Run] 创建Editor Agent失败: %v", err)
 					return nil, fmt.Errorf("failed to create editor agent: %w", err)
