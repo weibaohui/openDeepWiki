@@ -23,7 +23,7 @@ func ExtractRepoInfoFromContent(content string) (*einodoc.RepoDocState, error) {
 		return nil, fmt.Errorf("failed to parse repo info: %w", err)
 	}
 
-	state := einodoc.NewRepoDocState("", result.LocalPath)
+	state := einodoc.NewRepoDocState(result.LocalPath)
 	state.SetRepoInfo(result.RepoType, result.TechStack)
 	state.SetOutline(result.Chapters)
 

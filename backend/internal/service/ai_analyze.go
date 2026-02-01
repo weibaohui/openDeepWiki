@@ -28,7 +28,7 @@ type AIAnalyzeService struct {
 func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.AIAnalysisTaskRepository) *AIAnalyzeService {
 
 	// 创建 Eino RepoDoc Service
-	einoAdkDocService, err := adk.NewADKRepoDocService(cfg, cfg.Data.RepoDir)
+	einoAdkDocService, err := adk.NewADKRepoDocService(cfg)
 	if err != nil {
 		klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
 		// 如果创建失败，使用 nil，后续会处理错误

@@ -21,10 +21,10 @@ type ADKRepoDocService struct {
 // basePath: 仓库存储的基础路径
 // llmCfg: LLM 配置
 // 返回: ADKRepoDocService 实例或错误
-func NewADKRepoDocService(cfg *config.Config, basePath string) (*ADKRepoDocService, error) {
-	klog.V(6).Infof("[NewADKRepoDocService] 开始创建 ADK 服务: basePath=%s, ", basePath)
+func NewADKRepoDocService(cfg *config.Config) (*ADKRepoDocService, error) {
+	klog.V(6).Infof("[NewADKRepoDocService] 开始创建 ADK 服务 ")
 	// 创建 Workflow
-	workflow, err := NewRepoDocWorkflow(cfg, basePath)
+	workflow, err := NewRepoDocWorkflow(cfg)
 	if err != nil {
 		klog.Errorf("[NewADKRepoDocService] 创建 Workflow 失败: %v", err)
 		return nil, fmt.Errorf("failed to create workflow: %w", err)
@@ -34,7 +34,6 @@ func NewADKRepoDocService(cfg *config.Config, basePath string) (*ADKRepoDocServi
 
 	return &ADKRepoDocService{
 		cfg:      cfg,
-		basePath: basePath,
 		workflow: workflow,
 	}, nil
 }

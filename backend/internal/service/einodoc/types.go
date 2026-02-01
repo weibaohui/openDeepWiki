@@ -48,10 +48,9 @@ type Section struct {
 }
 
 // NewRepoDocState 创建新的状态对象
-// repoURL: 仓库 Git 地址
 // localPath: 本地存储路径
-func NewRepoDocState(repoURL, localPath string) *RepoDocState {
-	klog.V(6).Infof("[RepoDocState] 创建新的状态对象: repoURL=%s, localPath=%s", repoURL, localPath)
+func NewRepoDocState(localPath string) *RepoDocState {
+	klog.V(6).Infof("[RepoDocState] 创建新的状态对象: localPath=%s", localPath)
 	return &RepoDocState{
 		LocalPath:       localPath,
 		SectionsContent: make(map[string]string),

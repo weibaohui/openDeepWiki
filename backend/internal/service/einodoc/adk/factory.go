@@ -16,7 +16,7 @@ type AgentFactory struct {
 }
 
 // NewAgentFactory 创建 Agent 工厂
-func NewAgentFactory(cfg *config.Config, basePath string) (*AgentFactory, error) {
+func NewAgentFactory(cfg *config.Config) (*AgentFactory, error) {
 
 	manager, err := adkagents.GetOrCreateInstance(cfg)
 	if err != nil {
@@ -24,8 +24,7 @@ func NewAgentFactory(cfg *config.Config, basePath string) (*AgentFactory, error)
 	}
 
 	return &AgentFactory{
-		manager:  manager,
-		basePath: basePath,
+		manager: manager,
 	}, nil
 }
 

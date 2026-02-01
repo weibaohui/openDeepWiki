@@ -31,25 +31,25 @@ const (
 // RepoDocWorkflow 基于 Eino ADK 的仓库文档生成工作流
 // 使用原生的 SequentialAgent 和 Runner
 type RepoDocWorkflow struct {
+	cfg             *config.Config
 	sequentialAgent adk.ResumableAgent // 使用原生的 SequentialAgent
 	state           *einodoc.RepoDocState
-	basePath        string
 	factory         *AgentFactory
 }
 
 // NewRepoDocWorkflow 创建新的 ADK Workflow
 // basePath: 仓库存储的基础路径
 // chatModel: Eino ChatModel 实例
-func NewRepoDocWorkflow(cfg *config.Config, basePath string) (*RepoDocWorkflow, error) {
-	klog.V(6).Infof("[NewRepoDocWorkflow] 创建 Workflow: basePath=%s", basePath)
+func NewRepoDocWorkflow(cfg *config.Config) (*RepoDocWorkflow, error) {
+	klog.V(6).Infof("[NewRepoDocWorkflow] 创建 Workflow")
 
-	factory, err := NewAgentFactory(cfg, basePath)
+	factory, err := NewAgentFactory(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent factory: %w", err)
 	}
 	return &RepoDocWorkflow{
-		basePath: basePath,
-		factory:  factory,
+		cfg:     cfg,
+		factory: factory,
 	}, nil
 }
 
@@ -124,7 +124,7 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.R
 	klog.V(6).Infof("[RepoDocWorkflow.Run] 开始执行: localPath=%s", localPath)
 
 	// 初始化状态
-	w.state = einodoc.NewRepoDocState(localPath, "")
+	w.state = einodoc.NewRepoDocState(localPath)
 
 	// 构建 Workflow（如果还没有构建）
 	if w.sequentialAgent == nil {
@@ -153,7 +153,7 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.R
 
 	// 设置会话值，供 Agent 使用
 	adk.AddSessionValue(ctx, "local_path", localPath)
-	adk.AddSessionValue(ctx, "base_path", w.basePath)
+	adk.AddSessionValue(ctx, "base_path", w.cfg.Data.RepoDir)
 	adk.AddSessionValue(ctx, "target_dir", etools.GenerateRepoDirName(localPath))
 
 	// 执行 Workflow
