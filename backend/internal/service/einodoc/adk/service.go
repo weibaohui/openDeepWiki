@@ -76,16 +76,3 @@ func (s *ADKRepoDocService) ParseRepo(ctx context.Context, localPath string) (*e
 
 	return result, nil
 }
-
-// GetWorkflowInfo 获取 Workflow 信息
-// 返回 Workflow 的结构信息，用于调试和展示
-func (s *ADKRepoDocService) GetWorkflowInfo() *WorkflowInfo {
-	return s.workflow.GetWorkflowInfo()
-}
-
-// GetChatModel 获取 ChatModel（用于扩展）
-// 返回: Eino ChatModel 实例
-func (s *ADKRepoDocService) GetChatModel() model.ToolCallingChatModel {
-	klog.V(6).Infof("[ADKRepoDocService.GetChatModel] 获取 ChatModel")
-	return s.chatModel
-}

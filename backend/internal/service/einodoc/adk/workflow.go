@@ -319,18 +319,3 @@ func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *einodoc.R
 func (w *RepoDocWorkflow) GetState() *einodoc.RepoDocState {
 	return w.state
 }
-
-// GetWorkflowInfo 获取 Workflow 信息
-func (w *RepoDocWorkflow) GetWorkflowInfo() *WorkflowInfo {
-	return &WorkflowInfo{
-		Name:        "RepoDocWorkflow",
-		Description: "基于 Eino ADK SequentialAgent 的仓库文档生成工作流",
-		Agents: []string{
-			AgentRepoInitializer,
-			AgentArchitect,
-			AgentExplorer,
-			AgentWriter,
-			AgentEditor,
-		},
-	}
-}
