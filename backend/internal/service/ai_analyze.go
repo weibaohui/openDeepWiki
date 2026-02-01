@@ -11,7 +11,6 @@ import (
 	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/model"
 	"github.com/opendeepwiki/backend/internal/repository"
-	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"github.com/opendeepwiki/backend/internal/service/einodoc/adk"
 	"github.com/opendeepwiki/backend/internal/service/statemachine"
 	"k8s.io/klog/v2"
@@ -22,7 +21,7 @@ type AIAnalyzeService struct {
 	cfg            *config.Config
 	repoRepo       repository.RepoRepository
 	taskRepo       repository.AIAnalysisTaskRepository
-	einoDocService einodoc.RepoDocService
+	einoDocService *adk.ADKRepoDocService
 }
 
 // NewAIAnalyzeService 创建AI分析服务
