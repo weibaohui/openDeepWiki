@@ -3,10 +3,9 @@ package adk
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/components/model"
+	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/pkg/adkagents"
 	"k8s.io/klog/v2"
 )
@@ -33,20 +32,9 @@ type AgentFactory struct {
 }
 
 // NewAgentFactory 创建 Agent 工厂
-func NewAgentFactory(chatModel model.ToolCallingChatModel, basePath string) (*AgentFactory, error) {
-	// 创建 providers
-	mp := &modelProvider{chatModel: chatModel}
-	tp := &toolProvider{basePath: basePath}
+func NewAgentFactory(cfg *config.Config, basePath string) (*AgentFactory, error) {
 
-	// 创建 Manager
-	config := &adkagents.Config{
-		Dir:            "../agents",
-		ReloadInterval: 5 * time.Second,
-		ModelProvider:  mp,
-		ToolProvider:   tp,
-	}
-
-	manager, err := adkagents.GetOrCreateInstance(config)
+	manager, err := adkagents.GetOrCreateInstance(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create adkagents manager: %w", err)
 	}
@@ -87,10 +75,6 @@ func (f *AgentFactory) CreateSequentialAgent() (adk.ResumableAgent, error) {
 	editor, err := f.manager.GetAgent(AgentEditor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %s agent: %w", AgentEditor, err)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create skill middleware: %w", err)
 	}
 
 	// 创建 SequentialAgent

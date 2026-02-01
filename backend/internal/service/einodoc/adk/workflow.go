@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	etools "github.com/opendeepwiki/backend/internal/service/einodoc/tools"
 	"k8s.io/klog/v2"
@@ -22,24 +22,22 @@ type RepoDocWorkflow struct {
 	sequentialAgent adk.ResumableAgent // 使用原生的 SequentialAgent
 	state           *einodoc.RepoDocState
 	basePath        string
-	chatModel       model.ToolCallingChatModel
 	factory         *AgentFactory
 }
 
 // NewRepoDocWorkflow 创建新的 ADK Workflow
 // basePath: 仓库存储的基础路径
 // chatModel: Eino ChatModel 实例
-func NewRepoDocWorkflow(basePath string, chatModel model.ToolCallingChatModel) (*RepoDocWorkflow, error) {
+func NewRepoDocWorkflow(cfg *config.Config, basePath string) (*RepoDocWorkflow, error) {
 	klog.V(6).Infof("[NewRepoDocWorkflow] 创建 Workflow: basePath=%s", basePath)
 
-	factory, err := NewAgentFactory(chatModel, basePath)
+	factory, err := NewAgentFactory(cfg, basePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent factory: %w", err)
 	}
 	return &RepoDocWorkflow{
-		basePath:  basePath,
-		chatModel: chatModel,
-		factory:   factory,
+		basePath: basePath,
+		factory:  factory,
 	}, nil
 }
 

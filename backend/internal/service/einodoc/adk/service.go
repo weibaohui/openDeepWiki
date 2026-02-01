@@ -23,16 +23,8 @@ type ADKRepoDocService struct {
 // 返回: ADKRepoDocService 实例或错误
 func NewADKRepoDocService(cfg *config.Config, basePath string) (*ADKRepoDocService, error) {
 	klog.V(6).Infof("[NewADKRepoDocService] 开始创建 ADK 服务: basePath=%s, ", basePath)
-
-	// 创建 ChatModel
-	chatModel, err := einodoc.NewLLMChatModel(cfg)
-	if err != nil {
-		klog.Errorf("[NewADKRepoDocService] 创建 ChatModel 失败: %v", err)
-		return nil, fmt.Errorf("failed to create chat model: %w", err)
-	}
-
 	// 创建 Workflow
-	workflow, err := NewRepoDocWorkflow(basePath, chatModel)
+	workflow, err := NewRepoDocWorkflow(cfg, basePath)
 	if err != nil {
 		klog.Errorf("[NewADKRepoDocService] 创建 Workflow 失败: %v", err)
 		return nil, fmt.Errorf("failed to create workflow: %w", err)

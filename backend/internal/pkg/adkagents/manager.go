@@ -3,39 +3,21 @@ package adkagents
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
+	"github.com/opendeepwiki/backend/config"
+	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"k8s.io/klog/v2"
 )
 
-// Config Manager 配置
-type Config struct {
-	Dir            string
-	ReloadInterval time.Duration
-
-	// 依赖注入
-	ModelProvider ModelProvider
-	ToolProvider  ToolProvider
-}
-
-// DefaultConfig 默认配置
-func DefaultConfig() *Config {
-	return &Config{
-		Dir:            "./agents",
-		ReloadInterval: 5 * time.Second,
-	}
-}
-
 // Manager ADK Agent 管理器
 type Manager struct {
-	config   *Config
+	cfg      *config.Config
 	registry *Registry
 	cache    map[string]adk.Agent // ADK Agent 实例缓存
 	cacheMu  sync.RWMutex
@@ -51,9 +33,9 @@ var (
 )
 
 // GetOrCreateInstance 获取或创建 Manager 单例
-func GetOrCreateInstance(config *Config) (*Manager, error) {
+func GetOrCreateInstance(cfg *config.Config) (*Manager, error) {
 	managerInstanceOnce.Do(func() {
-		instance, err := newManagerInternal(config)
+		instance, err := newManagerInternal(cfg)
 		if err != nil {
 			klog.Fatalf("[Manager] Failed to create manager: %v", err)
 		}
@@ -64,27 +46,7 @@ func GetOrCreateInstance(config *Config) (*Manager, error) {
 }
 
 // newManagerInternal 创建 Manager 实例（内部构造）
-func newManagerInternal(config *Config) (*Manager, error) {
-	if config == nil {
-		config = DefaultConfig()
-	}
-
-	// 检查依赖
-	if config.ModelProvider == nil {
-		return nil, fmt.Errorf("ModelProvider is required")
-	}
-	if config.ToolProvider == nil {
-		return nil, fmt.Errorf("ToolProvider is required")
-	}
-
-	// 解析目录
-	dir, err := resolveAgentsDir(config.Dir)
-	if err != nil {
-		return nil, err
-	}
-	config.Dir = dir
-
-	klog.V(6).Infof("[Manager] ADK Agents directory: %s", dir)
+func newManagerInternal(cfg *config.Config) (*Manager, error) {
 
 	// 创建组件
 	registry := NewRegistry()
@@ -92,7 +54,7 @@ func newManagerInternal(config *Config) (*Manager, error) {
 	loader := NewLoader(parser, registry)
 
 	m := &Manager{
-		config:   config,
+		cfg:      cfg,
 		registry: registry,
 		cache:    make(map[string]adk.Agent),
 		parser:   parser,
@@ -100,7 +62,7 @@ func newManagerInternal(config *Config) (*Manager, error) {
 	}
 
 	// 初始加载
-	_, _ = loader.LoadFromDir(dir)
+	_, _ = loader.LoadFromDir(cfg.Agent.Dir)
 
 	// 启动热加载
 	m.startWatcher()
@@ -110,7 +72,7 @@ func newManagerInternal(config *Config) (*Manager, error) {
 
 // startWatcher 启动文件监听
 func (m *Manager) startWatcher() {
-	m.watcher = NewFileWatcher(m.config.Dir, m.config.ReloadInterval, func(event FileEvent) {
+	m.watcher = NewFileWatcher(m.cfg.Agent.Dir, m.cfg.Agent.ReloadInterval, func(event FileEvent) {
 		switch event.Type {
 		case "create":
 			klog.V(6).Infof("[Manager] Loading new agent from %s", event.Path)
@@ -192,17 +154,18 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	ctx := context.Background()
 
 	// 获取模型
-	chatModel, err := m.config.ModelProvider.GetModel(def.Model)
+	chatModel, err := einodoc.NewLLMChatModel(m.cfg)
 	if err != nil {
 		klog.V(6).Infof("[Manager] Failed to get model '%s', using default: %v", def.Model, err)
-		chatModel = m.config.ModelProvider.DefaultModel()
 	}
 
+	//将Tools进行包装为Adk可用的模式
+	toolProvider := einodoc.ToolProvider{BasePath: m.cfg.Data.RepoDir}
 	// 获取工具（仅包含常规工具，不包含技能）
 	tools := make([]tool.BaseTool, 0, len(def.Tools))
 	for _, toolName := range def.Tools {
-		t, err := m.config.ToolProvider.GetTool(toolName)
-		if err != nil {
+		t, tErr := toolProvider.GetTool(toolName)
+		if tErr != nil {
 			klog.V(6).Infof("[Manager] Warning: tool '%s' not found, skipping: %v", toolName, err)
 			continue
 		}
@@ -284,26 +247,6 @@ func (m *Manager) clearCache(name string) {
 	m.cacheMu.Lock()
 	delete(m.cache, name)
 	m.cacheMu.Unlock()
-}
-
-// resolveAgentsDir 解析 Agents 目录
-func resolveAgentsDir(configDir string) (string, error) {
-	// 1. 环境变量
-	if dir := os.Getenv("AGENTS_DIR"); dir != "" {
-		return filepath.Abs(dir)
-	}
-
-	// 2. 配置
-	if configDir != "" {
-		return filepath.Abs(configDir)
-	}
-
-	// 3. 默认（当前工作目录）
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "./agents", nil
-	}
-	return filepath.Join(cwd, "agents"), nil
 }
 
 // guessAgentNameFromPath 从路径猜测 Agent name

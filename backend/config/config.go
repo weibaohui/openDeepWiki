@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,6 +15,7 @@ type Config struct {
 	LLM      LLMConfig      `yaml:"llm"`
 	GitHub   GitHubConfig   `yaml:"github"`
 	Data     DataConfig     `yaml:"data"`
+	Agent    AgentConfig    `yaml:"agent"`
 }
 
 type ServerConfig struct {
@@ -40,6 +42,10 @@ type GitHubConfig struct {
 type DataConfig struct {
 	Dir     string `yaml:"dir"`
 	RepoDir string `yaml:"repo_dir"`
+}
+type AgentConfig struct {
+	Dir            string
+	ReloadInterval time.Duration
 }
 
 var (
@@ -72,6 +78,10 @@ func loadConfig() *Config {
 		Data: DataConfig{
 			Dir:     "./data",
 			RepoDir: "./data/repos",
+		},
+		Agent: AgentConfig{
+			Dir:            "./agents",
+			ReloadInterval: 5 * time.Second,
 		},
 	}
 
