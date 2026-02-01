@@ -4,39 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/schema"
 	"github.com/opendeepwiki/backend/internal/service/einodoc"
 )
-
-// BuildWorkflowInput 构建 Workflow 输入
-func BuildWorkflowInput(repoURL string) *adk.AgentInput {
-	return &adk.AgentInput{
-		Messages: []adk.Message{
-			{
-				Role:    schema.User,
-				Content: fmt.Sprintf(`{"repo_url": "%s"}`, repoURL),
-			},
-		},
-	}
-}
-
-// ParseAgentEvent 解析 Agent 事件，提取文本内容
-func ParseAgentEvent(event *adk.AgentEvent) string {
-	if event == nil {
-		return ""
-	}
-
-	if event.Err != nil {
-		return fmt.Sprintf("Error: %v", event.Err)
-	}
-
-	if event.Output != nil && event.Output.MessageOutput != nil {
-		return event.Output.MessageOutput.Message.Content
-	}
-
-	return ""
-}
 
 // ExtractRepoInfoFromContent 从 Agent 输出内容提取仓库信息
 func ExtractRepoInfoFromContent(content string) (*einodoc.RepoDocState, error) {

@@ -89,39 +89,3 @@ func (s *ADKRepoDocService) GetChatModel() model.ToolCallingChatModel {
 	klog.V(6).Infof("[ADKRepoDocService.GetChatModel] 获取 ChatModel")
 	return s.chatModel
 }
-
-// ==================== 便捷构造函数 ====================
-
-// NewADKServiceFromConfig 从配置创建 ADK 服务
-func NewADKServiceFromConfig(basePath string, apiKey, baseURL, modelName string, maxTokens int) (*ADKRepoDocService, error) {
-	llmCfg := &LLMConfig{
-		APIKey:    apiKey,
-		BaseURL:   baseURL,
-		Model:     modelName,
-		MaxTokens: maxTokens,
-	}
-	return NewADKRepoDocService(basePath, llmCfg)
-}
-
-// ==================== 服务状态 ====================
-
-// ServiceStatus 服务状态
-type ServiceStatus struct {
-	Ready     bool   `json:"ready"`
-	BasePath  string `json:"base_path"`
-	ModelName string `json:"model_name"`
-}
-
-// GetStatus 获取服务状态
-func (s *ADKRepoDocService) GetStatus() *ServiceStatus {
-	return &ServiceStatus{
-		Ready:     s.chatModel != nil && s.workflow != nil,
-		BasePath:  s.basePath,
-		ModelName: s.llmCfg.Model,
-	}
-}
-
-// ToJSON 将服务状态转换为 JSON
-func (s *ServiceStatus) ToJSON() string {
-	return ToJSON(s)
-}
