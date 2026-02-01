@@ -26,16 +26,9 @@ type AIAnalyzeService struct {
 
 // NewAIAnalyzeService 创建AI分析服务
 func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.AIAnalysisTaskRepository) *AIAnalyzeService {
-	// 准备 LLM 配置
-	llmCfg := &adk.LLMConfig{
-		APIKey:    cfg.LLM.APIKey,
-		BaseURL:   cfg.LLM.APIURL,
-		Model:     cfg.LLM.Model,
-		MaxTokens: cfg.LLM.MaxTokens,
-	}
 
 	// 创建 Eino RepoDoc Service
-	einoAdkDocService, err := adk.NewADKRepoDocService(cfg.Data.RepoDir, llmCfg)
+	einoAdkDocService, err := adk.NewADKRepoDocService(cfg, cfg.Data.RepoDir)
 	if err != nil {
 		klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
 		// 如果创建失败，使用 nil，后续会处理错误

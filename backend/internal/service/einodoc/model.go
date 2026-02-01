@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
 
@@ -20,20 +21,12 @@ type LLMChatModel struct {
 // modelName: 模型名称 (如 "gpt-4o", "gpt-3.5-turbo" 等)
 // maxTokens: 最大生成 token 数
 // 返回: 实现了 model.ToolCallingChatModel 接口的实例
-func NewLLMChatModel(apiKey, baseURL, modelName string, maxTokens int) (*openai.ChatModel, error) {
-	klog.V(6).Infof("[LLMChatModel] 创建 OpenAI ChatModel: model=%s, baseURL=%s", modelName, baseURL)
-
+func NewLLMChatModel(cfg *config.Config) (*openai.ChatModel, error) {
 	config := &openai.ChatModelConfig{
-		APIKey: apiKey,
-		Model:  modelName,
-	}
-
-	if baseURL != "" {
-		config.BaseURL = baseURL
-	}
-
-	if maxTokens > 0 {
-		config.MaxTokens = &maxTokens
+		BaseURL:   cfg.LLM.APIURL,
+		APIKey:    cfg.LLM.APIKey,
+		Model:     cfg.LLM.Model,
+		MaxTokens: &cfg.LLM.MaxTokens,
 	}
 
 	chatModel, err := openai.NewChatModel(context.Background(), config)
