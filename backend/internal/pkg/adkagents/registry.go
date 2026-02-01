@@ -2,6 +2,7 @@ package adkagents
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -18,6 +19,10 @@ func NewRegistry() *Registry {
 	}
 }
 
+func (r *Registry) id(name string) string {
+	return fmt.Sprintf("%s", strings.ToLower(name))
+}
+
 // Register 注册 Agent 定义
 // 如果 Agent 已存在，返回 ErrAgentAlreadyExists
 func (r *Registry) Register(def *AgentDefinition) error {
@@ -32,7 +37,7 @@ func (r *Registry) Register(def *AgentDefinition) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	r.agents[def.Name] = def
+	r.agents[r.id(def.Name)] = def
 	return nil
 }
 
@@ -42,11 +47,11 @@ func (r *Registry) Unregister(name string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if _, exists := r.agents[name]; !exists {
+	if _, exists := r.agents[r.id(name)]; !exists {
 		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 
-	delete(r.agents, name)
+	delete(r.agents, r.id(name))
 	return nil
 }
 
@@ -56,7 +61,7 @@ func (r *Registry) Get(name string) (*AgentDefinition, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	agent, exists := r.agents[name]
+	agent, exists := r.agents[r.id(name)]
 	if !exists {
 		return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
@@ -83,7 +88,7 @@ func (r *Registry) Exists(name string) bool {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	_, exists := r.agents[name]
+	_, exists := r.agents[r.id(name)]
 	return exists
 }
 
