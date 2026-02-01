@@ -38,26 +38,6 @@ type SectionContent struct {
 	Content    string `json:"content"`     // 内容
 }
 
-// WorkflowStatus 工作流状态
-type WorkflowStatus string
-
-const (
-	WorkflowStatusRunning   WorkflowStatus = "running"
-	WorkflowStatusCompleted WorkflowStatus = "completed"
-	WorkflowStatusError     WorkflowStatus = "error"
-	WorkflowStatusFinished  WorkflowStatus = "finished"
-)
-
-// WorkflowProgressEvent 工作流进度事件
-type WorkflowProgressEvent struct {
-	Step      int                    `json:"step"`
-	AgentName string                 `json:"agent_name"`
-	Status    WorkflowStatus         `json:"status"`
-	Content   string                 `json:"content"`
-	Error     error                  `json:"error,omitempty"`
-	Result    *einodoc.RepoDocResult `json:"result,omitempty"`
-}
-
 // WorkflowInfo Workflow 信息
 type WorkflowInfo struct {
 	Name        string   `json:"name"`
