@@ -16,6 +16,7 @@ type Config struct {
 	GitHub   GitHubConfig   `yaml:"github"`
 	Data     DataConfig     `yaml:"data"`
 	Agent    AgentConfig    `yaml:"agent"`
+	Skill    SkillConfig    `yaml:"skill"`
 }
 
 type ServerConfig struct {
@@ -46,6 +47,9 @@ type DataConfig struct {
 type AgentConfig struct {
 	Dir            string
 	ReloadInterval time.Duration
+}
+type SkillConfig struct {
+	Dir string
 }
 
 var (
@@ -82,6 +86,9 @@ func loadConfig() *Config {
 		Agent: AgentConfig{
 			Dir:            "./agents",
 			ReloadInterval: 5 * time.Second,
+		},
+		Skill: SkillConfig{
+			Dir: "./skills",
 		},
 	}
 
@@ -124,6 +131,13 @@ func loadConfig() *Config {
 
 	if config.Data.RepoDir == "" {
 		config.Data.RepoDir = filepath.Join(config.Data.Dir, "repos")
+	}
+
+	if agentDir := os.Getenv("AGENT_DIR"); agentDir != "" {
+		config.Agent.Dir = agentDir
+	}
+	if skillDir := os.Getenv("SKILL_DIR"); skillDir != "" {
+		config.Skill.Dir = skillDir
 	}
 
 	return config

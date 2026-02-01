@@ -173,7 +173,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	}
 
 	// 获取技能中间件
-	skillMiddleware, err := m.GetOrCreateSkillMiddleware()
+	skillMiddleware, err := m.GetOrCreateSkillMiddleware(m.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create skill middleware: %w", err)
 	}

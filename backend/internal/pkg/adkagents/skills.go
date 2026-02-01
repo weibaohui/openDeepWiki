@@ -2,11 +2,11 @@ package adkagents
 
 import (
 	"context"
-	"os"
 	"sync"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/middlewares/skill"
+	"github.com/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
 
@@ -14,16 +14,11 @@ var skmOnce sync.Once
 var skillMiddleware adk.AgentMiddleware
 var skillBackend *skill.LocalBackend
 
-func (m *Manager) GetOrCreateSkillMiddleware() (adk.AgentMiddleware, error) {
+func (m *Manager) GetOrCreateSkillMiddleware(cfg *config.Config) (adk.AgentMiddleware, error) {
 	skmOnce.Do(func() {
-		//TODO 增加，改成Config
-		skillPath := os.Getenv("SKILL_PATH")
-		if skillPath == "" {
-			skillPath = "../skills"
-		}
 		//处理Skills
 		sb, err := skill.NewLocalBackend(&skill.LocalBackendConfig{
-			BaseDir: skillPath,
+			BaseDir: cfg.Skill.Dir,
 		})
 		if err != nil {
 			klog.Errorf("failed to create skill backend: %v", err)
