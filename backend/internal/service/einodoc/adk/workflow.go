@@ -14,6 +14,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// ==================== RepoDocWorkflow ====================
+
 // RepoDocWorkflow 基于 Eino ADK 的仓库文档生成工作流
 // 使用原生的 SequentialAgent 和 Runner
 type RepoDocWorkflow struct {
@@ -316,46 +318,6 @@ func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *einodoc.R
 // GetState 获取当前状态
 func (w *RepoDocWorkflow) GetState() *einodoc.RepoDocState {
 	return w.state
-}
-
-// ==================== Workflow 进度事件 ====================
-
-// WorkflowStatus 工作流状态
-type WorkflowStatus string
-
-const (
-	WorkflowStatusRunning   WorkflowStatus = "running"
-	WorkflowStatusCompleted WorkflowStatus = "completed"
-	WorkflowStatusError     WorkflowStatus = "error"
-	WorkflowStatusFinished  WorkflowStatus = "finished"
-)
-
-// WorkflowProgressEvent 工作流进度事件
-type WorkflowProgressEvent struct {
-	Step      int                    `json:"step"`
-	AgentName string                 `json:"agent_name"`
-	Status    WorkflowStatus         `json:"status"`
-	Content   string                 `json:"content"`
-	Error     error                  `json:"error,omitempty"`
-	Result    *einodoc.RepoDocResult `json:"result,omitempty"`
-}
-
-// ==================== 便捷函数 ====================
-
-// ToJSON 将对象转换为 JSON 字符串
-func ToJSON(v any) string {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return fmt.Sprintf(`{"error": "%s"}`, err.Error())
-	}
-	return string(data)
-}
-
-// WorkflowInfo Workflow 信息
-type WorkflowInfo struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Agents      []string `json:"agents"`
 }
 
 // GetWorkflowInfo 获取 Workflow 信息
