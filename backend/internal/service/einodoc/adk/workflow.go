@@ -14,7 +14,19 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// ==================== RepoDocWorkflow ====================
+// AgentName 定义各个子 Agent 的名称常量
+const (
+	// AgentRepoInitializer 仓库初始化 Agent - 负责克隆仓库和基础分析
+	AgentRepoInitializer = "RepoInitializer"
+	// AgentArchitect 架构师 Agent - 负责生成文档大纲
+	AgentArchitect = "Architect"
+	// AgentExplorer 探索者 Agent - 负责深度代码分析
+	AgentExplorer = "Explorer"
+	// AgentWriter 作者 Agent - 负责生成文档内容
+	AgentWriter = "Writer"
+	// AgentEditor 编辑 Agent - 负责组装最终文档
+	AgentEditor = "Editor"
+)
 
 // RepoDocWorkflow 基于 Eino ADK 的仓库文档生成工作流
 // 使用原生的 SequentialAgent 和 Runner
@@ -41,13 +53,58 @@ func NewRepoDocWorkflow(cfg *config.Config, basePath string) (*RepoDocWorkflow, 
 	}, nil
 }
 
+// createSequentialAgent 创建顺序执行的 SequentialAgent
+// 将所有子 Agent 按顺序组合
+func (w *RepoDocWorkflow) createSequentialAgent() (adk.ResumableAgent, error) {
+	ctx := context.Background()
+
+	architect, err := w.factory.manager.GetAgent(AgentArchitect)
+	if err != nil {
+		return nil, err
+	}
+
+	explorer, err := w.factory.manager.GetAgent(AgentExplorer)
+	if err != nil {
+		return nil, err
+	}
+
+	writer, err := w.factory.manager.GetAgent(AgentWriter)
+	if err != nil {
+		return nil, err
+	}
+
+	editor, err := w.factory.manager.GetAgent(AgentEditor)
+	if err != nil {
+		return nil, err
+	}
+
+	// 创建 SequentialAgent
+	config := &adk.SequentialAgentConfig{
+
+		Name:        "RepoDocSequentialAgent",
+		Description: "仓库文档生成顺序执行 Agent - 按顺序执行初始化、分析、探索、撰写、编辑",
+		SubAgents: []adk.Agent{
+			architect,
+			explorer,
+			writer,
+			editor,
+		},
+	}
+
+	sequentialAgent, err := adk.NewSequentialAgent(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	return sequentialAgent, nil
+}
+
 // Build 构建 SequentialAgent
 // 创建所有子 Agent 并组装成 SequentialAgent
 func (w *RepoDocWorkflow) Build(ctx context.Context) error {
 	klog.V(6).Infof("[RepoDocWorkflow.Build] 开始构建 Workflow")
 
 	// 使用工厂创建 SequentialAgent
-	sequentialAgent, err := w.factory.CreateSequentialAgent()
+	sequentialAgent, err := w.createSequentialAgent()
 	if err != nil {
 		klog.Errorf("[RepoDocWorkflow.Build] 创建 SequentialAgent 失败: %v", err)
 		return fmt.Errorf("failed to create sequential agent: %w", err)
