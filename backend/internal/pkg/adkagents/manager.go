@@ -111,9 +111,36 @@ func newManagerInternal(config *Config) (*Manager, error) {
 // startWatcher 启动文件监听
 func (m *Manager) startWatcher() {
 	m.watcher = NewFileWatcher(m.config.Dir, m.config.ReloadInterval, func(event FileEvent) {
-		//TODO 全部重新加载
-		if _, err := m.loader.LoadFromDir(m.config.Dir); err != nil {
-			klog.V(6).Infof("[Manager] Failed to load agents from directory: %v", err)
+		switch event.Type {
+		case "create":
+			klog.V(6).Infof("[Manager] Loading new agent from %s", event.Path)
+			if _, err := m.loader.LoadFromPath(event.Path); err != nil {
+				klog.V(6).Infof("[Manager] Failed to load agent: %v", err)
+			} else {
+				klog.V(6).Infof("[Manager] Successfully loaded agent from %s", event.Path)
+			}
+
+		case "modify":
+			agentName := guessAgentNameFromPath(event.Path)
+			klog.V(6).Infof("[Manager] Reloading agent: %s", agentName)
+			if _, err := m.loader.Reload(agentName); err != nil {
+				klog.V(6).Infof("[Manager] Failed to reload agent: %v", err)
+			} else {
+				klog.V(6).Infof("[Manager] Successfully reloaded agent: %s", agentName)
+				// 清除缓存
+				m.clearCache(agentName)
+			}
+
+		case "delete":
+			agentName := guessAgentNameFromPath(event.Path)
+			klog.V(6).Infof("[Manager] Unloading agent: %s", agentName)
+			if err := m.loader.Unload(agentName); err != nil {
+				klog.V(6).Infof("[Manager] Failed to unload agent: %v", err)
+			} else {
+				klog.V(6).Infof("[Manager] Successfully unloaded agent: %s", agentName)
+				// 清除缓存
+				m.clearCache(agentName)
+			}
 		}
 	})
 
