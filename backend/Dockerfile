@@ -7,6 +7,8 @@ RUN cd /app/backend && go mod download && CGO_ENABLED=0  go build -ldflags "-s -
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/server /app/server
+COPY  skills /app/skills
+COPY  agents /app/agents
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
     && apk upgrade && apk add --no-cache git tzdata   ca-certificates  \
     && apk del alpine-conf && rm -rf /var/cache/* && chmod +x server
