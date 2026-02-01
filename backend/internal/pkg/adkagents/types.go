@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/tool"
 )
 
 // ExitConfig 退出条件配置
@@ -31,14 +30,6 @@ type ModelProvider interface {
 	GetModel(name string) (model.ToolCallingChatModel, error)
 	// DefaultModel 获取默认模型
 	DefaultModel() model.ToolCallingChatModel
-}
-
-// ToolProvider 工具提供者接口
-type ToolProvider interface {
-	// GetTool 获取指定名称的工具
-	GetTool(name string) (tool.BaseTool, error)
-	// ListTools 列出所有可用工具名称
-	ListTools() []string
 }
 
 // Now 返回当前时间（用于测试）

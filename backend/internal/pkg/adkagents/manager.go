@@ -11,7 +11,6 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"k8s.io/klog/v2"
 )
 
@@ -154,13 +153,13 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	ctx := context.Background()
 
 	// 获取模型
-	chatModel, err := einodoc.NewLLMChatModel(m.cfg)
+	chatModel, err := NewLLMChatModel(m.cfg)
 	if err != nil {
 		klog.V(6).Infof("[Manager] Failed to get model '%s', using default: %v", def.Model, err)
 	}
 
 	//将Tools进行包装为Adk可用的模式
-	toolProvider := einodoc.ToolProvider{BasePath: m.cfg.Data.RepoDir}
+	toolProvider := ToolProvider{BasePath: m.cfg.Data.RepoDir}
 	// 获取工具（仅包含常规工具，不包含技能）
 	tools := make([]tool.BaseTool, 0, len(def.Tools))
 	for _, toolName := range def.Tools {

@@ -11,7 +11,7 @@ import (
 	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/model"
 	"github.com/opendeepwiki/backend/internal/repository"
-	"github.com/opendeepwiki/backend/internal/service/einodoc/adk"
+	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"github.com/opendeepwiki/backend/internal/service/statemachine"
 	"k8s.io/klog/v2"
 )
@@ -21,14 +21,14 @@ type AIAnalyzeService struct {
 	cfg            *config.Config
 	repoRepo       repository.RepoRepository
 	taskRepo       repository.AIAnalysisTaskRepository
-	einoDocService *adk.RepoDocService
+	einoDocService *einodoc.RepoDocService
 }
 
 // NewAIAnalyzeService 创建AI分析服务
 func NewAIAnalyzeService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.AIAnalysisTaskRepository) *AIAnalyzeService {
 
 	// 创建 Eino RepoDoc Service
-	einoAdkDocService, err := adk.NewRepoDocService(cfg)
+	einoAdkDocService, err := einodoc.NewRepoDocService(cfg)
 	if err != nil {
 		klog.Errorf("创建 Eino RepoDoc Service 失败: %v", err)
 		// 如果创建失败，使用 nil，后续会处理错误

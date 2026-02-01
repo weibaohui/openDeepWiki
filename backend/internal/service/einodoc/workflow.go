@@ -1,4 +1,4 @@
-package adk
+package einodoc
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
 	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/internal/service/einodoc"
-	etools "github.com/opendeepwiki/backend/internal/service/einodoc/tools"
+	"github.com/opendeepwiki/backend/internal/pkg/adkagents"
+	"github.com/opendeepwiki/backend/internal/utils"
 	"k8s.io/klog/v2"
 )
 
@@ -33,8 +33,57 @@ const (
 type RepoDocWorkflow struct {
 	cfg             *config.Config
 	sequentialAgent adk.ResumableAgent // 使用原生的 SequentialAgent
-	state           *einodoc.RepoDocState
-	factory         *AgentFactory
+	state           *RepoDocState
+	factory         *adkagents.AgentFactory
+}
+
+// RepoDocService ADK 模式的仓库文档解析服务
+// 使用 Eino ADK 原生的 SequentialAgent 和 Runner
+type RepoDocService struct {
+	cfg      *config.Config
+	basePath string           // 仓库存储的基础路径
+	workflow *RepoDocWorkflow // Workflow 实例
+}
+
+// NewRepoDocService 创建 ADK 服务实例
+// basePath: 仓库存储的基础路径
+// llmCfg: LLM 配置
+// 返回: ADKRepoDocService 实例或错误
+func NewRepoDocService(cfg *config.Config) (*RepoDocService, error) {
+	klog.V(6).Infof("[NewADKRepoDocService] 开始创建 ADK 服务 ")
+	// 创建 Workflow
+	workflow, err := NewRepoDocWorkflow(cfg)
+	if err != nil {
+		klog.Errorf("[NewADKRepoDocService] 创建 Workflow 失败: %v", err)
+		return nil, fmt.Errorf("failed to create workflow: %w", err)
+	}
+
+	klog.V(6).Infof("[NewADKRepoDocService] ADK 服务创建成功")
+
+	return &RepoDocService{
+		cfg:      cfg,
+		workflow: workflow,
+	}, nil
+}
+
+// ParseRepo 解析仓库，生成文档
+// ctx: 上下文，可用于超时控制
+// repoURL: 仓库 Git URL
+// 返回: 解析结果或错误
+func (s *RepoDocService) ParseRepo(ctx context.Context, localPath string) (*RepoDocResult, error) {
+	klog.V(6).Infof("[ADKRepoDocService.ParseRepo] 开始解析仓库: localPath=%s", localPath)
+
+	// 执行 Workflow
+	result, err := s.workflow.Run(ctx, localPath)
+	if err != nil {
+		klog.Errorf("[ADKRepoDocService.ParseRepo] Workflow 执行失败: %v", err)
+		return nil, fmt.Errorf("workflow execution failed: %w", err)
+	}
+
+	klog.V(6).Infof("[ADKRepoDocService.ParseRepo] 解析成功: sections=%d, document_length=%d",
+		result.SectionsCount, len(result.Document))
+
+	return result, nil
 }
 
 // NewRepoDocWorkflow 创建新的 ADK Workflow
@@ -43,7 +92,7 @@ type RepoDocWorkflow struct {
 func NewRepoDocWorkflow(cfg *config.Config) (*RepoDocWorkflow, error) {
 	klog.V(6).Infof("[NewRepoDocWorkflow] 创建 Workflow")
 
-	factory, err := NewAgentFactory(cfg)
+	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent factory: %w", err)
 	}
@@ -58,22 +107,22 @@ func NewRepoDocWorkflow(cfg *config.Config) (*RepoDocWorkflow, error) {
 func (w *RepoDocWorkflow) createSequentialAgent() (adk.ResumableAgent, error) {
 	ctx := context.Background()
 
-	architect, err := w.factory.manager.GetAgent(AgentArchitect)
+	architect, err := w.factory.Manager.GetAgent(AgentArchitect)
 	if err != nil {
 		return nil, err
 	}
 
-	explorer, err := w.factory.manager.GetAgent(AgentExplorer)
+	explorer, err := w.factory.Manager.GetAgent(AgentExplorer)
 	if err != nil {
 		return nil, err
 	}
 
-	writer, err := w.factory.manager.GetAgent(AgentWriter)
+	writer, err := w.factory.Manager.GetAgent(AgentWriter)
 	if err != nil {
 		return nil, err
 	}
 
-	editor, err := w.factory.manager.GetAgent(AgentEditor)
+	editor, err := w.factory.Manager.GetAgent(AgentEditor)
 	if err != nil {
 		return nil, err
 	}
@@ -120,11 +169,11 @@ func (w *RepoDocWorkflow) Build(ctx context.Context) error {
 // ctx: 上下文
 // localPath: 仓库本地路径
 // 返回: RepoDocResult 或错误
-func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.RepoDocResult, error) {
+func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*RepoDocResult, error) {
 	klog.V(6).Infof("[RepoDocWorkflow.Run] 开始执行: localPath=%s", localPath)
 
 	// 初始化状态
-	w.state = einodoc.NewRepoDocState(localPath)
+	w.state = NewRepoDocState(localPath)
 
 	// 构建 Workflow（如果还没有构建）
 	if w.sequentialAgent == nil {
@@ -154,7 +203,6 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*einodoc.R
 	// 设置会话值，供 Agent 使用
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	adk.AddSessionValue(ctx, "base_path", w.cfg.Data.RepoDir)
-	adk.AddSessionValue(ctx, "target_dir", etools.GenerateRepoDirName(localPath))
 
 	// 执行 Workflow
 	iter := runner.Run(ctx, []adk.Message{
@@ -293,13 +341,13 @@ func (w *RepoDocWorkflow) processArchitectOutput(content string) {
 	klog.V(6).Infof("[RepoDocWorkflow] 处理 Architect 输出")
 
 	// 尝试从输出中提取 JSON
-	jsonStr := extractJSON(content)
+	jsonStr := utils.ExtractJSON(content)
 
 	var result struct {
-		RepoType  string            `json:"repo_type"`
-		TechStack []string          `json:"tech_stack"`
-		Summary   string            `json:"summary"`
-		Chapters  []einodoc.Chapter `json:"chapters"`
+		RepoType  string    `json:"repo_type"`
+		TechStack []string  `json:"tech_stack"`
+		Summary   string    `json:"summary"`
+		Chapters  []Chapter `json:"chapters"`
 	}
 
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
@@ -336,7 +384,7 @@ func (w *RepoDocWorkflow) processEditorOutput(content string) {
 }
 
 // buildResult 构建最终结果
-func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *einodoc.RepoDocResult {
+func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *RepoDocResult {
 	// 如果状态中的本地路径为空，使用传入的路径
 	if w.state.LocalPath == "" {
 		w.state.LocalPath = localPath
@@ -358,7 +406,7 @@ func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *einodoc.R
 		w.state.SetFinalDocument(finalContent)
 	}
 
-	return &einodoc.RepoDocResult{
+	return &RepoDocResult{
 		LocalPath:       w.state.LocalPath,
 		RepoType:        w.state.RepoType,
 		TechStack:       w.state.TechStack,
@@ -371,6 +419,6 @@ func (w *RepoDocWorkflow) buildResult(localPath, finalContent string) *einodoc.R
 }
 
 // GetState 获取当前状态
-func (w *RepoDocWorkflow) GetState() *einodoc.RepoDocState {
+func (w *RepoDocWorkflow) GetState() *RepoDocState {
 	return w.state
 }
