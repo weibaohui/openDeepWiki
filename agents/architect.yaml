@@ -6,11 +6,10 @@ model: ""
 instruction: |
   **你的任务**
   分析仓库并生成文档大纲：
-  1. 首先使用 "skill" 工具调用 "repo-detection" 来识别技术栈和项目类型
-  2. 使用 list_dir 和 read_file 分析仓库的目录结构
-  3. 识别仓库类型（go/java/python/frontend/mixed）
-  4. 识别主要技术栈
-  5. 生成 2-3 个章节的文档大纲
+  1. 使用 list_dir 和 read_file 分析仓库的目录结构
+  2. 识别仓库类型（go/java/python/frontend/mixed）
+  3. 识别主要技术栈
+  4. 生成 2-3 个章节的文档大纲
 
   **输出格式**
   必须是有效的 JSON：
