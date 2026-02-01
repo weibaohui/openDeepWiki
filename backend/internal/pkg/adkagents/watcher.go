@@ -1,12 +1,13 @@
 package adkagents
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 // FileWatcher 文件变更监听器
@@ -48,7 +49,7 @@ func (w *FileWatcher) Start() error {
 	w.wg.Add(1)
 	go w.run()
 
-	log.Printf("[FileWatcher] Started watching directory: %s (interval: %v)", w.dir, w.interval)
+	klog.V(6).Infof("[FileWatcher] Started watching directory: %s (interval: %v)", w.dir, w.interval)
 	return nil
 }
 
@@ -56,7 +57,7 @@ func (w *FileWatcher) Start() error {
 func (w *FileWatcher) Stop() {
 	close(w.stopCh)
 	w.wg.Wait()
-	log.Printf("[FileWatcher] Stopped watching directory: %s", w.dir)
+	klog.V(6).Infof("[FileWatcher] Stopped watching directory: %s", w.dir)
 }
 
 // run 主循环
@@ -72,7 +73,7 @@ func (w *FileWatcher) run() {
 			return
 		case <-ticker.C:
 			if err := w.scan(); err != nil {
-				log.Printf("[FileWatcher] Scan error: %v", err)
+				klog.V(6).Infof("[FileWatcher] Scan error: %v", err)
 			}
 		}
 	}

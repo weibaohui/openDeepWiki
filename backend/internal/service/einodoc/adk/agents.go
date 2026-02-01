@@ -86,7 +86,7 @@ func NewAgentFactory(chatModel model.ToolCallingChatModel, basePath string) (*Ag
 
 	// 创建 Manager
 	config := &adkagents.Config{
-		Dir:            "./agents",
+		Dir:            "../agents",
 		AutoReload:     true,
 		ReloadInterval: 5 * time.Second,
 		ModelProvider:  mp,

@@ -2,10 +2,11 @@ package adkagents
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 // Loader ADK Agent 配置加载器
@@ -56,10 +57,10 @@ func (l *Loader) LoadFromDir(dir string) ([]*LoadResult, error) {
 		if err != nil {
 			result.Error = err
 			result.Action = "failed"
-			log.Printf("[Loader] Failed to load agent from %s: %v", path, err)
+			klog.V(6).Infof("[Loader] Failed to load agent from %s: %v", path, err)
 		} else {
 			result.Agent = agent
-			log.Printf("[Loader] Successfully loaded agent: %s from %s", agent.Name, path)
+			klog.V(6).Infof("[Loader] Successfully loaded agent: %s from %s", agent.Name, path)
 		}
 
 		results = append(results, result)
@@ -85,7 +86,7 @@ func (l *Loader) LoadFromPath(path string) (*AgentDefinition, error) {
 	}
 
 	if exists {
-		log.Printf("[Loader] Updated agent: %s", agent.Name)
+		klog.V(6).Infof("[Loader] Updated agent: %s", agent.Name)
 	}
 
 	return agent, nil

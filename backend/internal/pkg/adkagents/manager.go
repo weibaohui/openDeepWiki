@@ -3,7 +3,6 @@ package adkagents
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
+	"k8s.io/klog/v2"
 )
 
 // Config Manager 配置
@@ -68,7 +68,7 @@ func NewManager(config *Config) (*Manager, error) {
 	}
 	config.Dir = dir
 
-	log.Printf("[Manager] ADK Agents directory: %s", dir)
+	klog.V(6).Infof("[Manager] ADK Agents directory: %s", dir)
 
 	// 确保目录存在
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -91,7 +91,7 @@ func NewManager(config *Config) (*Manager, error) {
 	// 初始加载
 	results, err := loader.LoadFromDir(dir)
 	if err != nil {
-		log.Printf("[Manager] Warning: failed to load agents: %v", err)
+		klog.V(6).Infof("[Manager] Warning: failed to load agents: %v", err)
 	} else {
 		loaded := 0
 		failed := 0
@@ -102,17 +102,17 @@ func NewManager(config *Config) (*Manager, error) {
 			case "failed":
 				failed++
 				if r.Agent != nil && r.Agent.Path != "" {
-					log.Printf("[Manager] Failed to load agent from %s: %v", r.Agent.Path, r.Error)
+					klog.V(6).Infof("[Manager] Failed to load agent from %s: %v", r.Agent.Path, r.Error)
 				} else {
-					log.Printf("[Manager] Failed to load agent: %v", r.Error)
+					klog.V(6).Infof("[Manager] Failed to load agent: %v", r.Error)
 				}
 			}
 		}
 		if loaded > 0 {
-			log.Printf("[Manager] Loaded %d agents", loaded)
+			klog.V(6).Infof("[Manager] Loaded %d agents", loaded)
 		}
 		if failed > 0 {
-			log.Printf("[Manager] Failed to load %d agents", failed)
+			klog.V(6).Infof("[Manager] Failed to load %d agents", failed)
 		}
 	}
 
@@ -129,31 +129,31 @@ func (m *Manager) startWatcher() {
 	m.watcher = NewFileWatcher(m.config.Dir, m.config.ReloadInterval, func(event FileEvent) {
 		switch event.Type {
 		case "create":
-			log.Printf("[Manager] Loading new agent from %s", event.Path)
+			klog.V(6).Infof("[Manager] Loading new agent from %s", event.Path)
 			if _, err := m.loader.LoadFromPath(event.Path); err != nil {
-				log.Printf("[Manager] Failed to load agent: %v", err)
+				klog.V(6).Infof("[Manager] Failed to load agent: %v", err)
 			} else {
-				log.Printf("[Manager] Successfully loaded agent from %s", event.Path)
+				klog.V(6).Infof("[Manager] Successfully loaded agent from %s", event.Path)
 			}
 
 		case "modify":
 			agentName := guessAgentNameFromPath(event.Path)
-			log.Printf("[Manager] Reloading agent: %s", agentName)
+			klog.V(6).Infof("[Manager] Reloading agent: %s", agentName)
 			if _, err := m.loader.Reload(agentName); err != nil {
-				log.Printf("[Manager] Failed to reload agent: %v", err)
+				klog.V(6).Infof("[Manager] Failed to reload agent: %v", err)
 			} else {
-				log.Printf("[Manager] Successfully reloaded agent: %s", agentName)
+				klog.V(6).Infof("[Manager] Successfully reloaded agent: %s", agentName)
 				// 清除缓存
 				m.clearCache(agentName)
 			}
 
 		case "delete":
 			agentName := guessAgentNameFromPath(event.Path)
-			log.Printf("[Manager] Unloading agent: %s", agentName)
+			klog.V(6).Infof("[Manager] Unloading agent: %s", agentName)
 			if err := m.loader.Unload(agentName); err != nil {
-				log.Printf("[Manager] Failed to unload agent: %v", err)
+				klog.V(6).Infof("[Manager] Failed to unload agent: %v", err)
 			} else {
-				log.Printf("[Manager] Successfully unloaded agent: %s", agentName)
+				klog.V(6).Infof("[Manager] Successfully unloaded agent: %s", agentName)
 				// 清除缓存
 				m.clearCache(agentName)
 			}
@@ -161,7 +161,7 @@ func (m *Manager) startWatcher() {
 	})
 
 	if err := m.watcher.Start(); err != nil {
-		log.Printf("[Manager] Warning: failed to start file watcher: %v", err)
+		klog.V(6).Infof("[Manager] Warning: failed to start file watcher: %v", err)
 	}
 }
 
@@ -210,7 +210,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	// 获取模型
 	chatModel, err := m.config.ModelProvider.GetModel(def.Model)
 	if err != nil {
-		log.Printf("[Manager] Failed to get model '%s', using default: %v", def.Model, err)
+		klog.V(6).Infof("[Manager] Failed to get model '%s', using default: %v", def.Model, err)
 		chatModel = m.config.ModelProvider.DefaultModel()
 	}
 
@@ -219,7 +219,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	for _, toolName := range def.Tools {
 		t, err := m.config.ToolProvider.GetTool(toolName)
 		if err != nil {
-			log.Printf("[Manager] Warning: tool '%s' not found, skipping: %v", toolName, err)
+			klog.V(6).Infof("[Manager] Warning: tool '%s' not found, skipping: %v", toolName, err)
 			continue
 		}
 		tools = append(tools, t)
@@ -227,10 +227,10 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 
 	// 构造配置
 	config := &adk.ChatModelAgentConfig{
-		Name:         def.Name,
-		Description:  def.Description,
-		Instruction:  def.Instruction,
-		Model:        chatModel,
+		Name:          def.Name,
+		Description:   def.Description,
+		Instruction:   def.Instruction,
+		Model:         chatModel,
 		MaxIterations: def.MaxIterations,
 	}
 
