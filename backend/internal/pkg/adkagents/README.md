@@ -93,8 +93,7 @@ result, err := agent.Run(ctx, input)
 
 ## 环境变量
 
-- `ADK_AGENTS_DIR`: 指定 Agent 配置目录
-- `ADK_AGENTS_AUTO_RELOAD`: 是否启用热加载（true/false）
+- `AGENTS_DIR`: 指定 Agent 配置目录
 
 ## 接口说明
 

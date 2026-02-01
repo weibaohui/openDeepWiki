@@ -135,8 +135,13 @@ func (f *AgentFactory) CreateSequentialAgent() (adk.ResumableAgent, error) {
 		return nil, fmt.Errorf("failed to get %s agent: %w", AgentEditor, err)
 	}
 
+	if err != nil {
+		return nil, fmt.Errorf("failed to create skill middleware: %w", err)
+	}
+
 	// 创建 SequentialAgent
 	config := &adk.SequentialAgentConfig{
+
 		Name:        "RepoDocSequentialAgent",
 		Description: "仓库文档生成顺序执行 Agent - 按顺序执行初始化、分析、探索、撰写、编辑",
 		SubAgents: []adk.Agent{

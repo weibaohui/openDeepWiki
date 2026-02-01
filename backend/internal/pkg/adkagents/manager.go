@@ -208,7 +208,10 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		}
 		tools = append(tools, t)
 	}
-
+	skillMiddleware, err := m.GetOrCreateSkillMiddleware()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create skill middleware: %w", err)
+	}
 	// 构造配置
 	config := &adk.ChatModelAgentConfig{
 		Name:          def.Name,
@@ -216,6 +219,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		Instruction:   def.Instruction,
 		Model:         chatModel,
 		MaxIterations: def.MaxIterations,
+		Middlewares:   []adk.AgentMiddleware{skillMiddleware},
 	}
 
 	// 如果有工具，添加 ToolsConfig
@@ -266,7 +270,7 @@ func (m *Manager) clearCache(name string) {
 // resolveAgentsDir 解析 Agents 目录
 func resolveAgentsDir(configDir string) (string, error) {
 	// 1. 环境变量
-	if dir := os.Getenv("ADK_AGENTS_DIR"); dir != "" {
+	if dir := os.Getenv("AGENTS_DIR"); dir != "" {
 		return filepath.Abs(dir)
 	}
 
@@ -284,6 +288,8 @@ func resolveAgentsDir(configDir string) (string, error) {
 }
 
 // guessAgentNameFromPath 从路径猜测 Agent name
+// 从文件名提取（去掉扩展名）
+// Agent文件的命名必须跟yaml定义中的Agent.Name字段一致
 func guessAgentNameFromPath(path string) string {
 	base := filepath.Base(path)
 	ext := filepath.Ext(base)
