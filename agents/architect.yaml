@@ -8,7 +8,7 @@ instruction: |
   1. 分析仓库的目录结构
   2. 识别仓库类型（go/java/python/frontend/mixed）
   3. 识别主要技术栈
-  4. 生成 2-3 个章节的文档大纲
+  4. 生成 2-3 个章节的文档大纲2
 
   输出格式必须是 JSON：
   {

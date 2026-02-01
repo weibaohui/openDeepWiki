@@ -87,13 +87,12 @@ func NewAgentFactory(chatModel model.ToolCallingChatModel, basePath string) (*Ag
 	// 创建 Manager
 	config := &adkagents.Config{
 		Dir:            "../agents",
-		AutoReload:     true,
 		ReloadInterval: 5 * time.Second,
 		ModelProvider:  mp,
 		ToolProvider:   tp,
 	}
 
-	manager, err := adkagents.NewManager(config)
+	manager, err := adkagents.GetOrCreateInstance(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create adkagents manager: %w", err)
 	}

@@ -18,7 +18,6 @@ import (
 // Config Manager 配置
 type Config struct {
 	Dir            string
-	AutoReload     bool
 	ReloadInterval time.Duration
 
 	// 依赖注入
@@ -30,7 +29,6 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Dir:            "./agents",
-		AutoReload:     true,
 		ReloadInterval: 5 * time.Second,
 	}
 }
@@ -47,8 +45,26 @@ type Manager struct {
 	watcher *FileWatcher
 }
 
-// NewManager 创建 Manager
-func NewManager(config *Config) (*Manager, error) {
+var (
+	managerInstance     *Manager
+	managerInstanceOnce sync.Once
+)
+
+// GetOrCreateInstance 获取或创建 Manager 单例
+func GetOrCreateInstance(config *Config) (*Manager, error) {
+	managerInstanceOnce.Do(func() {
+		instance, err := newManagerInternal(config)
+		if err != nil {
+			klog.Fatalf("[Manager] Failed to create manager: %v", err)
+		}
+		managerInstance = instance
+	})
+
+	return managerInstance, nil
+}
+
+// newManagerInternal 创建 Manager 实例（内部构造）
+func newManagerInternal(config *Config) (*Manager, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
@@ -70,11 +86,6 @@ func NewManager(config *Config) (*Manager, error) {
 
 	klog.V(6).Infof("[Manager] ADK Agents directory: %s", dir)
 
-	// 确保目录存在
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create agents directory: %w", err)
-	}
-
 	// 创建组件
 	registry := NewRegistry()
 	parser := NewParser()
@@ -89,37 +100,10 @@ func NewManager(config *Config) (*Manager, error) {
 	}
 
 	// 初始加载
-	results, err := loader.LoadFromDir(dir)
-	if err != nil {
-		klog.V(6).Infof("[Manager] Warning: failed to load agents: %v", err)
-	} else {
-		loaded := 0
-		failed := 0
-		for _, r := range results {
-			switch r.Action {
-			case "created":
-				loaded++
-			case "failed":
-				failed++
-				if r.Agent != nil && r.Agent.Path != "" {
-					klog.V(6).Infof("[Manager] Failed to load agent from %s: %v", r.Agent.Path, r.Error)
-				} else {
-					klog.V(6).Infof("[Manager] Failed to load agent: %v", r.Error)
-				}
-			}
-		}
-		if loaded > 0 {
-			klog.V(6).Infof("[Manager] Loaded %d agents", loaded)
-		}
-		if failed > 0 {
-			klog.V(6).Infof("[Manager] Failed to load %d agents", failed)
-		}
-	}
+	_, _ = loader.LoadFromDir(dir)
 
 	// 启动热加载
-	if config.AutoReload {
-		m.startWatcher()
-	}
+	m.startWatcher()
 
 	return m, nil
 }
