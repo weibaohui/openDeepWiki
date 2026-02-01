@@ -198,7 +198,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		chatModel = m.config.ModelProvider.DefaultModel()
 	}
 
-	// 获取工具
+	// 获取工具（仅包含常规工具，不包含技能）
 	tools := make([]tool.BaseTool, 0, len(def.Tools))
 	for _, toolName := range def.Tools {
 		t, err := m.config.ToolProvider.GetTool(toolName)
@@ -208,10 +208,16 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		}
 		tools = append(tools, t)
 	}
+
+	// 获取技能中间件
 	skillMiddleware, err := m.GetOrCreateSkillMiddleware()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create skill middleware: %w", err)
 	}
+
+	// 注意：不要将技能添加到 ToolsNode 的工具列表中
+	// 技能由 skill middleware 自动处理，它会拦截技能调用并执行
+
 	// 构造配置
 	config := &adk.ChatModelAgentConfig{
 		Name:          def.Name,
@@ -222,7 +228,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		Middlewares:   []adk.AgentMiddleware{skillMiddleware},
 	}
 
-	// 如果有工具，添加 ToolsConfig
+	// 如果有工具或技能，添加 ToolsConfig
 	if len(tools) > 0 {
 		config.ToolsConfig = adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{

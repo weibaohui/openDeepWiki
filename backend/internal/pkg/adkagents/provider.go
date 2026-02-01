@@ -48,10 +48,10 @@ func (p *SimpleToolProvider) RegisterTool(name string, t tool.BaseTool) {
 // GetTool 获取指定名称的工具
 func (p *SimpleToolProvider) GetTool(name string) (tool.BaseTool, error) {
 	t, exists := p.tools[name]
-	if !exists {
-		return nil, ErrToolNotFound
+	if exists {
+		return t, nil
 	}
-	return t, nil
+	return nil, ErrToolNotFound
 }
 
 // ListTools 列出所有可用工具名称

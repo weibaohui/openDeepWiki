@@ -24,21 +24,29 @@ func (m *Manager) GetOrCreateSkillMiddleware() (adk.AgentMiddleware, error) {
 		skillBackend, err := skill.NewLocalBackend(&skill.LocalBackendConfig{
 			BaseDir: skillPath,
 		})
+		if err != nil {
+			klog.Errorf("failed to create skill backend: %v", err)
+			return
+		}
 
 		skills, err := skillBackend.List(context.Background())
 		if err != nil {
-			klog.Errorf("failed to list skills: %w", err)
+			klog.Errorf("failed to list skills: %v", err)
 		}
-		for _, skill := range skills {
-			klog.V(6).Infof("[Manager] Skill: %s, Description: %s", skill.Name, skill.Description)
-		}
+
 		klog.V(6).Infof("[Manager] 创建Skill中间件,加载 %d 个技能", len(skills))
+		for _, skillDef := range skills {
+			klog.V(6).Infof("[Manager] Skill: %s, Description: %s", skillDef.Name, skillDef.Description)
+		}
+
+		// 创建 skill middleware，它会自动提供一个 "skill" 工具
+		// 不需要为每个 skill 创建单独的工具，middleware 会处理所有 skill 调用
 		sm, err := skill.New(context.Background(), &skill.Config{
 			Backend:    skillBackend,
 			UseChinese: true,
 		})
 		if err != nil {
-			klog.Errorf("failed to create skill middleware: %w", err)
+			klog.Errorf("failed to create skill middleware: %v", err)
 		}
 		skillMiddleware = sm
 	})
