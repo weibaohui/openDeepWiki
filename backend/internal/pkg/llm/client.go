@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
 
@@ -22,12 +23,12 @@ type Client struct {
 }
 
 // NewClient 创建新的 LLM 客户端
-func NewClient(baseURL, apiKey, model string, maxTokens int) *Client {
+func NewClient(cfg *config.Config) *Client {
 	return &Client{
-		BaseURL:   baseURL,
-		APIKey:    apiKey,
-		Model:     model,
-		MaxTokens: maxTokens,
+		BaseURL:   cfg.LLM.APIURL,
+		APIKey:    cfg.LLM.APIKey,
+		Model:     cfg.LLM.Model,
+		MaxTokens: cfg.LLM.MaxTokens,
 		Client: &http.Client{
 			Timeout: 5 * time.Minute,
 		},

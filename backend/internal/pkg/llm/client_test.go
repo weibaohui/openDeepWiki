@@ -7,10 +7,20 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/opendeepwiki/backend/config"
 )
 
 func TestNewClient(t *testing.T) {
-	client := NewClient("https://api.example.com", "test-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
 
 	if client.BaseURL != "https://api.example.com" {
 		t.Errorf("expected BaseURL https://api.example.com, got %s", client.BaseURL)
@@ -86,7 +96,15 @@ func TestClientChat(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
 	messages := []ChatMessage{
 		{Role: "user", Content: "Hello"},
 	}
@@ -149,7 +167,15 @@ func TestClientChatWithTools(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
 	messages := []ChatMessage{
 		{Role: "user", Content: "Search for Go files"},
 	}
@@ -176,11 +202,11 @@ func TestClientChatWithTools(t *testing.T) {
 
 func TestClientChatWithToolExecution(t *testing.T) {
 	callCount := 0
-	
+
 	// 创建模拟服务器
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		
+
 		var request ChatRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Errorf("failed to decode request: %v", err)
@@ -189,7 +215,7 @@ func TestClientChatWithToolExecution(t *testing.T) {
 		}
 
 		var response ChatResponse
-		
+
 		// 第一次调用：返回 tool_calls
 		if callCount == 1 {
 			response = ChatResponse{
@@ -269,7 +295,15 @@ func TestClientChatWithToolExecution(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
 	messages := []ChatMessage{
 		{Role: "user", Content: "Run a command"},
 	}
@@ -320,7 +354,15 @@ func TestClientGenerateDocument(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
 	response, err := client.GenerateDocument(context.Background(), "You are a doc generator", "Generate docs")
 	if err != nil {
 		t.Fatalf("GenerateDocument() unexpected error: %v", err)
@@ -350,7 +392,15 @@ func TestClientAPIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "invalid-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
 	messages := []ChatMessage{
 		{Role: "user", Content: "Hello"},
 	}
@@ -384,7 +434,16 @@ func TestClientNoChoices(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
+
 	messages := []ChatMessage{
 		{Role: "user", Content: "Hello"},
 	}
@@ -442,7 +501,16 @@ func TestClientChatWithToolExecutionMaxRounds(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key", "gpt-4", 2000)
+	cfg := &config.Config{
+		LLM: config.LLMConfig{
+			APIURL:    "https://api.example.com",
+			APIKey:    "test-key",
+			Model:     "gpt-4",
+			MaxTokens: 2000,
+		},
+	}
+	client := NewClient(cfg)
+
 	messages := []ChatMessage{
 		{Role: "user", Content: "Test"},
 	}

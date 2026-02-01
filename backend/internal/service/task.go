@@ -183,12 +183,7 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	// 初始化LLM客户端
 	klog.V(6).Infof("初始化 LLM 客户端: apiURL=%s, model=%s, maxTokens=%d",
 		s.cfg.LLM.APIURL, s.cfg.LLM.Model, s.cfg.LLM.MaxTokens)
-	llmClient := llm.NewClient(
-		s.cfg.LLM.APIURL,
-		s.cfg.LLM.APIKey,
-		s.cfg.LLM.Model,
-		s.cfg.LLM.MaxTokens,
-	)
+	llmClient := llm.NewClient(s.cfg)
 
 	llmAnalyzer := analyzer.NewLLMAnalyzer(llmClient)
 
