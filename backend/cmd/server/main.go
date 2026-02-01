@@ -10,11 +10,11 @@ import (
 
 	"github.com/opendeepwiki/backend/config"
 	"github.com/opendeepwiki/backend/internal/handler"
+	"github.com/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/opendeepwiki/backend/internal/pkg/database"
 	"github.com/opendeepwiki/backend/internal/repository"
 	"github.com/opendeepwiki/backend/internal/router"
 	"github.com/opendeepwiki/backend/internal/service"
-	"github.com/opendeepwiki/backend/internal/service/einodoc"
 	"github.com/opendeepwiki/backend/internal/service/orchestrator"
 )
 
@@ -88,7 +88,7 @@ func main() {
 	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler, aiAnalyzeHandler)
 
 	//eino callbacks注册
-	callbacks := einodoc.NewEinoCallbacks(true, 8)
+	callbacks := adkagents.NewEinoCallbacks(true, 8)
 	callbacks.AppendGlobalHandlers(callbacks.Handler())
 
 	log.Printf("Server starting on port %s...", cfg.Server.Port)
