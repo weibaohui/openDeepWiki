@@ -63,7 +63,8 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, arguments string, op
 	result, err := tools.SearchFiles(searchArgs, t.basePath)
 	if err != nil {
 		klog.Errorf("[SearchFilesTool] 搜索文件失败: %v", err)
-		return "", err
+		// 将错误信息作为字符串返回给大模型，而不是返回 error 中断节点执行
+		return fmt.Sprintf("Error: %v", err), nil
 	}
 
 	return result, nil

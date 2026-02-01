@@ -92,7 +92,8 @@ func (t *GitCloneTool) InvokableRun(ctx context.Context, arguments string, opts 
 	result, err := tools.GitClone(gitArgs, t.basePath)
 	if err != nil {
 		klog.Errorf("[GitCloneTool] 克隆失败: %v", err)
-		return "", err
+		// 将错误信息作为字符串返回给大模型，而不是返回 error 中断节点执行
+		return fmt.Sprintf("Error: %v", err), nil
 	}
 
 	return result, nil
