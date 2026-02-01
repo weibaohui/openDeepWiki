@@ -12,6 +12,7 @@ import (
 
 var skmOnce sync.Once
 var skillMiddleware adk.AgentMiddleware
+var skillBackend *skill.LocalBackend
 
 func (m *Manager) GetOrCreateSkillMiddleware() (adk.AgentMiddleware, error) {
 	skmOnce.Do(func() {
@@ -21,13 +22,14 @@ func (m *Manager) GetOrCreateSkillMiddleware() (adk.AgentMiddleware, error) {
 			skillPath = "../skills"
 		}
 		//处理Skills
-		skillBackend, err := skill.NewLocalBackend(&skill.LocalBackendConfig{
+		sb, err := skill.NewLocalBackend(&skill.LocalBackendConfig{
 			BaseDir: skillPath,
 		})
 		if err != nil {
 			klog.Errorf("failed to create skill backend: %v", err)
 			return
 		}
+		skillBackend = sb
 
 		skills, err := skillBackend.List(context.Background())
 		if err != nil {
@@ -51,4 +53,12 @@ func (m *Manager) GetOrCreateSkillMiddleware() (adk.AgentMiddleware, error) {
 		skillMiddleware = sm
 	})
 	return skillMiddleware, nil
+}
+
+func (m *Manager) skillMiddlewareHaveSkills() bool {
+	skills, err := skillBackend.List(context.Background())
+	if err != nil {
+		klog.Errorf("failed to list skills: %v", err)
+	}
+	return len(skills) > 0
 }

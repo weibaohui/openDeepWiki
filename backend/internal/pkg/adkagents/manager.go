@@ -215,7 +215,6 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		return nil, fmt.Errorf("failed to create skill middleware: %w", err)
 	}
 
-	// 注意：不要将技能添加到 ToolsNode 的工具列表中
 	// 技能由 skill middleware 自动处理，它会拦截技能调用并执行
 
 	// 构造配置
@@ -226,6 +225,20 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		Model:         chatModel,
 		MaxIterations: def.MaxIterations,
 		Middlewares:   []adk.AgentMiddleware{skillMiddleware},
+	}
+
+	//Skill 要单独加使用提示
+	if m.skillMiddlewareHaveSkills() {
+		var sn = `**重要：如何使用 Skills**
+  系统提供了一个 "skill" 工具，用于调用各种专业技能。使用规则：
+  - 当需要使用某个 skill 时，必须调用工具名为 "skill" 的工具
+  - 参数格式：{"skill": "skill-name"}
+  - 例如：要使用 repo-detection skill，调用工具名为 "skill"，参数为 {"skill": "repo-detection"}
+  - 绝对不要直接调用 skill 名称（如 "repo-detection"）作为工具名
+  - 可用的 skills 会在 "skill" 工具的描述中列出`
+		if !strings.Contains(config.Instruction, `系统提供了一个 "skill" 工具，用于调用各种专业技能。使用规则`) {
+			config.Instruction = sn + config.Instruction
+		}
 	}
 
 	// 如果有工具或技能，添加 ToolsConfig
