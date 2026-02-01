@@ -160,7 +160,6 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 
 	//将Tools进行包装为Adk可用的模式
 	toolProvider := ToolProvider{BasePath: m.cfg.Data.RepoDir}
-	// 获取工具（仅包含常规工具，不包含技能）
 	tools := make([]tool.BaseTool, 0, len(def.Tools))
 	for _, toolName := range def.Tools {
 		t, tErr := toolProvider.GetTool(toolName)
@@ -186,7 +185,6 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		Instruction:   def.Instruction,
 		Model:         chatModel,
 		MaxIterations: def.MaxIterations,
-		Middlewares:   []adk.AgentMiddleware{skillMiddleware},
 	}
 
 	//Skill 要单独加使用提示
@@ -201,6 +199,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		if !strings.Contains(config.Instruction, `系统提供了一个 "skill" 工具，用于调用各种专业技能。使用规则`) {
 			config.Instruction = sn + config.Instruction
 		}
+		config.Middlewares = []adk.AgentMiddleware{skillMiddleware}
 	}
 
 	// 如果有工具或技能，添加 ToolsConfig
