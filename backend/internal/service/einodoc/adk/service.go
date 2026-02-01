@@ -9,19 +9,19 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// ADKRepoDocService ADK 模式的仓库文档解析服务
+// RepoDocService ADK 模式的仓库文档解析服务
 // 使用 Eino ADK 原生的 SequentialAgent 和 Runner
-type ADKRepoDocService struct {
+type RepoDocService struct {
 	cfg      *config.Config
 	basePath string           // 仓库存储的基础路径
 	workflow *RepoDocWorkflow // Workflow 实例
 }
 
-// NewADKRepoDocService 创建 ADK 服务实例
+// NewRepoDocService 创建 ADK 服务实例
 // basePath: 仓库存储的基础路径
 // llmCfg: LLM 配置
 // 返回: ADKRepoDocService 实例或错误
-func NewADKRepoDocService(cfg *config.Config) (*ADKRepoDocService, error) {
+func NewRepoDocService(cfg *config.Config) (*RepoDocService, error) {
 	klog.V(6).Infof("[NewADKRepoDocService] 开始创建 ADK 服务 ")
 	// 创建 Workflow
 	workflow, err := NewRepoDocWorkflow(cfg)
@@ -32,7 +32,7 @@ func NewADKRepoDocService(cfg *config.Config) (*ADKRepoDocService, error) {
 
 	klog.V(6).Infof("[NewADKRepoDocService] ADK 服务创建成功")
 
-	return &ADKRepoDocService{
+	return &RepoDocService{
 		cfg:      cfg,
 		workflow: workflow,
 	}, nil
@@ -42,7 +42,7 @@ func NewADKRepoDocService(cfg *config.Config) (*ADKRepoDocService, error) {
 // ctx: 上下文，可用于超时控制
 // repoURL: 仓库 Git URL
 // 返回: 解析结果或错误
-func (s *ADKRepoDocService) ParseRepo(ctx context.Context, localPath string) (*einodoc.RepoDocResult, error) {
+func (s *RepoDocService) ParseRepo(ctx context.Context, localPath string) (*einodoc.RepoDocResult, error) {
 	klog.V(6).Infof("[ADKRepoDocService.ParseRepo] 开始解析仓库: localPath=%s", localPath)
 
 	// 执行 Workflow
