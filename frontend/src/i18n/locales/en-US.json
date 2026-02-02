@@ -83,7 +83,12 @@
         "delete_confirm_title": "Confirm Delete Task",
         "delete_confirm_content": "Are you sure you want to delete this task? This action cannot be undone.",
         "delete_success": "Task has been deleted",
-        "delete_failed": "Failed to delete task"
+        "delete_failed": "Failed to delete task",
+        "updated_at": "Updated {{time}}",
+        "updated_just_now": "just now",
+        "updated_minutes_ago": "{{minutes}} minutes ago",
+        "updated_hours_ago": "{{hours}} hours ago",
+        "updated_days_ago": "{{days}} days ago"
     },
     "settings": {
         "title": "Settings",

@@ -185,6 +185,15 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		Instruction:   def.Instruction,
 		Model:         chatModel,
 		MaxIterations: def.MaxIterations,
+		Middlewares: []adk.AgentMiddleware{
+			{
+				AdditionalInstruction: `
+                    任务执行原则：
+                    1. 如果多次尝试后仍无法完成，请总结当前进度并退出
+                    2. 优先返回已完成的中间结果
+                `,
+			},
+		},
 	}
 
 	//Skill 要单独加使用提示
@@ -199,7 +208,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		if !strings.Contains(config.Instruction, `系统提供了一个 "skill" 工具，用于调用各种专业技能。使用规则`) {
 			config.Instruction = sn + config.Instruction
 		}
-		config.Middlewares = []adk.AgentMiddleware{skillMiddleware}
+		config.Middlewares = append(config.Middlewares, skillMiddleware)
 	}
 
 	// 如果有工具或技能，添加 ToolsConfig

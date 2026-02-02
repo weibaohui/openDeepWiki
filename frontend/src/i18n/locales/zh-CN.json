@@ -83,7 +83,12 @@
         "delete_confirm_title": "确认删除任务",
         "delete_confirm_content": "确定要删除这个任务吗？删除后将无法恢复。",
         "delete_success": "任务已删除",
-        "delete_failed": "删除任务失败"
+        "delete_failed": "删除任务失败",
+        "updated_at": "更新于 {{time}}",
+        "updated_just_now": "刚刚",
+        "updated_minutes_ago": "{{minutes}} 分钟前",
+        "updated_hours_ago": "{{hours}} 小时前",
+        "updated_days_ago": "{{days}} 天前"
     },
     "settings": {
         "title": "设置",

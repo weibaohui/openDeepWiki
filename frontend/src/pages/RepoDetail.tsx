@@ -159,6 +159,29 @@ export default function RepoDetail() {
         return documents.find((doc) => doc.task_id === taskId);
     };
 
+    const formatDateTime = (dateStr: string) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now.getTime() - date.getTime();
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (seconds < 60) {
+            return t('task.updated_just_now');
+        } else if (minutes < 60) {
+            return t('task.updated_minutes_ago').replace('{{minutes}}', minutes.toString());
+        } else if (hours < 24) {
+            return t('task.updated_hours_ago').replace('{{hours}}', hours.toString());
+        } else if (days < 7) {
+            return t('task.updated_days_ago').replace('{{days}}', days.toString());
+        } else {
+            return date.toLocaleDateString();
+        }
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -321,6 +344,9 @@ export default function RepoDetail() {
                                                 <div>
                                                     <div>{t(`task.status.${task.status}`)}</div>
                                                     {task.error_msg && <Text type="danger">{task.error_msg}</Text>}
+                                                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                        {t('task.updated_at').replace('{{time}}', formatDateTime(task.updated_at))}
+                                                    </Text>
                                                 </div>
                                             }
                                         />
