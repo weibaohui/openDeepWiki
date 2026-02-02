@@ -16,6 +16,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/router"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/directoryanalyzer"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 )
 
@@ -53,7 +54,14 @@ func main() {
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
-	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
+
+	// 初始化文档生成服务
+	docGeneratorService, err := documentgenerator.NewDocumentGeneratorService(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize document generator service: %v", err)
+	}
+
+	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService, docGeneratorService)
 	templateService := service.NewTemplateService(templateRepo)
 	chapterService := service.NewChapterService(chapterRepo, templateRepo)
 	docTemplateService := service.NewDocTemplateService(docTemplateRepo, chapterRepo)

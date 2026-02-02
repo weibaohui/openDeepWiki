@@ -9,9 +9,8 @@ import (
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/analyzer"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 )
@@ -21,17 +20,19 @@ type TaskService struct {
 	taskRepo         repository.TaskRepository
 	repoRepo         repository.RepoRepository
 	docService       *DocumentService
+	docGenerator     *documentgenerator.DocumentGeneratorService
 	taskStateMachine *statemachine.TaskStateMachine
 	repoAggregator   *statemachine.RepositoryStatusAggregator
 	orchestrator     *orchestrator.Orchestrator
 }
 
-func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService) *TaskService {
+func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService, docGenerator *documentgenerator.DocumentGeneratorService) *TaskService {
 	return &TaskService{
 		cfg:              cfg,
 		taskRepo:         taskRepo,
 		repoRepo:         repoRepo,
 		docService:       docService,
+		docGenerator:     docGenerator,
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		repoAggregator:   statemachine.NewRepositoryStatusAggregator(),
 	}
@@ -170,35 +171,14 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	}
 	klog.V(6).Infof("仓库信息: repoID=%d, name=%s, localPath=%s", repo.ID, repo.Name, repo.LocalPath)
 
-	// 静态分析
-	klog.V(6).Infof("开始静态分析: repoPath=%s", repo.LocalPath)
-	projectInfo, err := analyzer.Analyze(repo.LocalPath)
+	// 使用 DocumentGeneratorService 生成文档
+	klog.V(6).Infof("开始生成文档: taskType=%s, repoPath=%s", task.Type, repo.LocalPath)
+	content, err := s.docGenerator.Generate(ctx, repo.LocalPath, task.Type)
 	if err != nil {
-		klog.V(6).Infof("静态分析失败: error=%v", err)
-		return fmt.Errorf("静态分析失败: %w", err)
+		klog.Errorf("生成文档失败: taskType=%s, error=%v", task.Type, err)
+		return fmt.Errorf("生成文档失败: %w", err)
 	}
-	klog.V(6).Infof("静态分析完成: projectType=%s, totalFiles=%d, totalLines=%d",
-		projectInfo.Type, projectInfo.TotalFiles, projectInfo.TotalLines)
-
-	// 初始化LLM客户端
-	klog.V(6).Infof("初始化 LLM 客户端: apiURL=%s, model=%s, maxTokens=%d",
-		s.cfg.LLM.APIURL, s.cfg.LLM.Model, s.cfg.LLM.MaxTokens)
-	llmClient := llm.NewClient(s.cfg)
-
-	llmAnalyzer := analyzer.NewLLMAnalyzer(llmClient)
-
-	// LLM分析
-	klog.V(6).Infof("开始 LLM 分析: taskType=%s", task.Type)
-	content, err := llmAnalyzer.Analyze(ctx, analyzer.AnalyzeRequest{
-		TaskType:    task.Type,
-		ProjectInfo: projectInfo,
-	})
-
-	if err != nil {
-		klog.V(6).Infof("LLM 分析失败: error=%v", err)
-		return fmt.Errorf("LLM 分析失败: %w", err)
-	}
-	klog.V(6).Infof("LLM 分析完成: contentLength=%d", len(content))
+	klog.V(6).Infof("文档生成完成: taskType=%s, contentLength=%d", task.Type, len(content))
 
 	// 保存文档
 	taskDef := getTaskDefinition(task.Type)

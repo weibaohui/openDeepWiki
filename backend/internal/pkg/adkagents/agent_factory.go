@@ -80,7 +80,6 @@ func BuildSequentialAgent(
 		Description: description,
 		SubAgents:   subAgents,
 	}
-
 	sequentialAgent, err := adk.NewSequentialAgent(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("创建 SequentialAgent 失败: %w", err)
