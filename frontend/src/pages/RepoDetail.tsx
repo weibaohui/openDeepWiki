@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
@@ -92,6 +92,18 @@ export default function RepoDetail() {
         }
     };
 
+    const handleSetReady = async () => {
+        if (!id) return;
+        try {
+            await repositoryApi.setReady(Number(id));
+            fetchData();
+            messageApi.success(t('repository.set_ready_success'));
+        } catch (error) {
+            console.error('Failed to set ready:', error);
+            messageApi.error(t('repository.set_ready_failed'));
+        }
+    };
+
     const handleExport = async () => {
         if (!id) return;
         try {
@@ -172,14 +184,21 @@ export default function RepoDetail() {
                             </Button>
                         </Tooltip>
                     )}
-                    {(repository.status === 'ready' || repository.status === 'completed') && (
+                    {(1 == 1) && (
                         <Tooltip title={!screens.md ? t('repository.directory_analyze') : undefined}>
                             <Button onClick={handleAnalyzeDirectory} icon={<FolderOpenOutlined />}>
                                 {screens.md && t('repository.directory_analyze')}
                             </Button>
                         </Tooltip>
                     )}
-                    {(repository.status === 'ready' || repository.status === 'completed') && (
+                    {(1 == 1) && (
+                        <Tooltip title={!screens.md ? t('repository.set_ready') : undefined}>
+                            <Button onClick={handleSetReady} icon={<CheckOutlined />}>
+                                {screens.md && t('repository.set_ready')}
+                            </Button>
+                        </Tooltip>
+                    )}
+                    {(1 == 1) && (
                         <Tooltip title={!screens.md ? t('repository.rebuild') : undefined}>
                             <Button type="primary" onClick={handleRunAll} icon={<ReloadOutlined />}>
                                 {screens.md && t('repository.rebuild', '重新分析')}

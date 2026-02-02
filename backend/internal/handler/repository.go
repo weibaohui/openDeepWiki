@@ -110,3 +110,18 @@ func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
 		"tasks":   tasks,
 	})
 }
+
+func (h *RepositoryHandler) SetReady(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := h.service.SetReady(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "仓库状态已设置为就绪"})
+}

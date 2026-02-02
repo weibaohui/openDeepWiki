@@ -57,7 +57,10 @@
         "directory_analyze": "Directory Analyze",
         "directory_analyze_started": "Directory analysis started",
         "directory_analyze_failed": "Directory analysis failed",
-        "rebuild": "Rebuild"
+        "rebuild": "Rebuild",
+        "set_ready": "Set Ready",
+        "set_ready_success": "Repository status has been set to ready",
+        "set_ready_failed": "Failed to set repository status"
     },
     "task": {
         "title": "Tasks",

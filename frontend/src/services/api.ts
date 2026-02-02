@@ -18,6 +18,7 @@ export const repositoryApi = {
     delete: (id: number) => api.delete(`/repositories/${id}`),
     runAll: (id: number) => api.post(`/repositories/${id}/run-all`),
     analyzeDirectory: (id: number) => api.post<{ tasks: Task[]; message: string }>(`/repositories/${id}/directory-analyze`),
+    setReady: (id: number) => api.post(`/repositories/${id}/set-ready`),
 };
 
 // Task APIs

@@ -338,3 +338,27 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 
 	return tasks, nil
 }
+
+// SetReady 将仓库状态设置为就绪（用于调试或特殊场景）
+func (s *RepositoryService) SetReady(repoID uint) error {
+	klog.V(6).Infof("准备将仓库状态设置为就绪: repoID=%d", repoID)
+
+	// 获取仓库
+	repo, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		return fmt.Errorf("获取仓库失败: %w", err)
+	}
+
+	// 直接将状态设置为 ready，不进行状态机验证
+	// 注意：此功能仅用于调试或特殊场景，可能导致状态不一致
+	repo.Status = string(statemachine.RepoStatusReady)
+	repo.ErrorMsg = ""
+
+	if err := s.repoRepo.Save(repo); err != nil {
+		klog.Errorf("更新仓库状态失败: repoID=%d, error=%v", repoID, err)
+		return fmt.Errorf("更新仓库状态失败: %w", err)
+	}
+
+	klog.V(6).Infof("仓库状态已设置为 ready: repoID=%d", repoID)
+	return nil
+}
