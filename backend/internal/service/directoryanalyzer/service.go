@@ -140,26 +140,3 @@ func (s *DirectoryAnalyzerService) validateLocalPath(localPath string) error {
 
 	return nil
 }
-
-// AnalyzeOnly 仅分析目录，不创建任务
-// 用于预览或测试
-func (s *DirectoryAnalyzerService) AnalyzeOnly(
-	ctx context.Context,
-	localPath string,
-) (*TaskGenerationResult, error) {
-	klog.V(6).Infof("[DirectoryAnalyzerService.AnalyzeOnly] 开始分析: localPath=%s", localPath)
-
-	// 校验本地路径
-	if err := s.validateLocalPath(localPath); err != nil {
-		return nil, err
-	}
-
-	// 执行 Workflow 分析
-	result, err := s.workflow.Run(ctx, localPath)
-	if err != nil {
-		klog.Errorf("[DirectoryAnalyzerService.AnalyzeOnly] Workflow 执行失败: %v", err)
-		return nil, fmt.Errorf("%w: %v", ErrAgentExecutionFailed, err)
-	}
-
-	return result, nil
-}
