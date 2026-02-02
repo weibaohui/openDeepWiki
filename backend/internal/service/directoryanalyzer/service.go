@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
@@ -46,9 +45,6 @@ func NewDirectoryAnalyzerService(
 		klog.Errorf("[NewDirectoryAnalyzerService] 创建 Workflow 失败: %v", err)
 		return nil, fmt.Errorf("failed to create workflow: %w", err)
 	}
-
-	klog.V(6).Infof("[NewDirectoryAnalyzerService] 服务创建成功")
-
 	return &DirectoryAnalyzerService{
 		cfg:      cfg,
 		workflow: workflow,
@@ -66,18 +62,10 @@ func (s *DirectoryAnalyzerService) AnalyzeAndCreateTasks(
 	localPath string,
 	repo *model.Repository,
 ) ([]*model.Task, error) {
-	klog.V(6).Infof("[DirectoryAnalyzerService.AnalyzeAndCreateTasks] 开始分析: localPath=%s, repoID=%d", localPath, repo.ID)
-
-	// 1. 校验本地路径
-	if err := s.validateLocalPath(localPath); err != nil {
-		klog.Warningf("[DirectoryAnalyzerService.AnalyzeAndCreateTasks] 路径校验失败: %v", err)
-		return nil, err
-	}
 
 	// 2. 执行 Workflow 分析
 	result, err := s.workflow.Run(ctx, localPath)
 	if err != nil {
-		klog.Errorf("[DirectoryAnalyzerService.AnalyzeAndCreateTasks] Workflow 执行失败: %v", err)
 		return nil, fmt.Errorf("%w: %v", ErrAgentExecutionFailed, err)
 	}
 
@@ -118,25 +106,4 @@ func (s *DirectoryAnalyzerService) AnalyzeAndCreateTasks(
 
 	klog.V(6).Infof("[DirectoryAnalyzerService.AnalyzeAndCreateTasks] 全部完成，成功创建任务数: %d", len(createdTasks))
 	return createdTasks, nil
-}
-
-// validateLocalPath 校验本地路径是否有效
-func (s *DirectoryAnalyzerService) validateLocalPath(localPath string) error {
-	if localPath == "" {
-		return fmt.Errorf("%w: 路径为空", ErrInvalidLocalPath)
-	}
-
-	info, err := os.Stat(localPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("%w: 路径不存在: %s", ErrInvalidLocalPath, localPath)
-		}
-		return fmt.Errorf("%w: 无法访问路径: %s, error: %v", ErrInvalidLocalPath, localPath, err)
-	}
-
-	if !info.IsDir() {
-		return fmt.Errorf("%w: 路径不是目录: %s", ErrInvalidLocalPath, localPath)
-	}
-
-	return nil
 }

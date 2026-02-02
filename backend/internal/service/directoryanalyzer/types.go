@@ -116,24 +116,4 @@ func (r *TaskGenerationResult) Validate() error {
 
 	return nil
 }
-
-// SortTasks 按 SortOrder 对任务排序
-func (r *TaskGenerationResult) SortTasks() {
-	// 使用冒泡排序（任务数通常较少）
-	n := len(r.Tasks)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if r.Tasks[j].SortOrder > r.Tasks[j+1].SortOrder {
-				r.Tasks[j], r.Tasks[j+1] = r.Tasks[j+1], r.Tasks[j]
-			}
-		}
-	}
-}
-
-// NormalizeSortOrder 规范化排序顺序，确保从 1 开始连续递增
-func (r *TaskGenerationResult) NormalizeSortOrder() {
-	r.SortTasks()
-	for i := range r.Tasks {
-		r.Tasks[i].SortOrder = i + 1
-	}
-}
+ 

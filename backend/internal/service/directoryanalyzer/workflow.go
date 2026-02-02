@@ -27,46 +27,30 @@ type TaskGeneratorWorkflow struct {
 
 // NewTaskGeneratorWorkflow 创建新的任务生成工作流
 func NewTaskGeneratorWorkflow(cfg *config.Config) (*TaskGeneratorWorkflow, error) {
-	klog.V(6).Infof("[NewTaskGeneratorWorkflow] 开始创建工作流")
-
 	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent factory: %w", err)
 	}
-
 	return &TaskGeneratorWorkflow{
 		cfg:     cfg,
 		factory: factory,
 	}, nil
 }
 
-// createSequentialAgent 创建顺序执行的 SequentialAgent
-// 将 TaskGenerator 和 TaskValidator 按顺序组合
-func (w *TaskGeneratorWorkflow) createSequentialAgent() (adk.ResumableAgent, error) {
-	return adkagents.BuildSequentialAgent(
-		context.Background(),
+// Build 构建 SequentialAgent
+func (w *TaskGeneratorWorkflow) Build(ctx context.Context) error {
+	sequentialAgent, err := adkagents.BuildSequentialAgent(
+		ctx,
 		w.factory,
 		"TaskGeneratorSequentialAgent",
 		"任务生成顺序执行 Agent - 先生成任务列表，再校验修正",
 		AgentTaskGenerator,
 		AgentTaskValidator,
 	)
-}
-
-// Build 构建 SequentialAgent
-func (w *TaskGeneratorWorkflow) Build(ctx context.Context) error {
-	klog.V(6).Infof("[TaskGeneratorWorkflow.Build] 开始构建 Workflow")
-
-	// 使用工厂创建 SequentialAgent
-	sequentialAgent, err := w.createSequentialAgent()
 	if err != nil {
-		klog.Errorf("[TaskGeneratorWorkflow.Build] 创建 SequentialAgent 失败: %v", err)
 		return fmt.Errorf("failed to create sequential agent: %w", err)
 	}
-
 	w.sequentialAgent = sequentialAgent
-
-	klog.V(6).Infof("[TaskGeneratorWorkflow.Build] Workflow 构建完成")
 	return nil
 }
 
@@ -138,7 +122,6 @@ func (w *TaskGeneratorWorkflow) Run(ctx context.Context, localPath string) (*Tas
 				if lastContent != "" {
 					result, err := ParseTaskGenerationResult(lastContent)
 					if err == nil {
-						result.NormalizeSortOrder()
 						return result, nil
 					}
 				}
@@ -177,9 +160,6 @@ func (w *TaskGeneratorWorkflow) Run(ctx context.Context, localPath string) (*Tas
 		klog.Errorf("[TaskGeneratorWorkflow.Run] 解析结果失败: %v", err)
 		return nil, err
 	}
-
-	// 规范化排序
-	result.NormalizeSortOrder()
 
 	klog.V(6).Infof("[TaskGeneratorWorkflow.Run] 执行成功，生成任务数: %d", len(result.Tasks))
 	return result, nil
