@@ -10,7 +10,7 @@ import (
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
-	"github.com/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
 

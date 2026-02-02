@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/internal/model"
-	"github.com/opendeepwiki/backend/internal/repository"
-	"github.com/opendeepwiki/backend/internal/service/statemachine"
+	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 	"k8s.io/klog/v2"
 )
 

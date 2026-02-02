@@ -2,7 +2,7 @@ package database
 
 import (
 	"github.com/glebarez/sqlite"
-	"github.com/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

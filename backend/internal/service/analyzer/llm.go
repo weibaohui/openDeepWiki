@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opendeepwiki/backend/internal/pkg/llm"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm"
 	"k8s.io/klog/v2"
 )
 

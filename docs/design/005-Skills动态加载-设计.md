@@ -151,7 +151,7 @@ import (
     "path/filepath"
     "strings"
 
-    "github.com/opendeepwiki/backend/internal/pkg/llm"
+    "github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm"
     "gopkg.in/yaml.v3"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/eino/components/tool"
-	"github.com/opendeepwiki/backend/internal/pkg/adkagents/tools"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents/tools"
 )
 
 // toolProvider 实现 adkagents.ToolProvider

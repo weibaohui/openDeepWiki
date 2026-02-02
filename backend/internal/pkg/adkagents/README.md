@@ -31,7 +31,7 @@ maxIterations: 10
 ### 2. 创建 Manager
 
 ```go
-import "github.com/opendeepwiki/backend/internal/pkg/adkagents"
+import "github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 
 // 创建 Provider
 modelProvider := adkagents.NewSimpleModelProvider(chatModel)

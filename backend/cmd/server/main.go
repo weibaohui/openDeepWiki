@@ -8,15 +8,15 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/internal/handler"
-	"github.com/opendeepwiki/backend/internal/pkg/adkagents"
-	"github.com/opendeepwiki/backend/internal/pkg/database"
-	"github.com/opendeepwiki/backend/internal/repository"
-	"github.com/opendeepwiki/backend/internal/router"
-	"github.com/opendeepwiki/backend/internal/service"
-	"github.com/opendeepwiki/backend/internal/service/directoryanalyzer"
-	"github.com/opendeepwiki/backend/internal/service/orchestrator"
+	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/database"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
+	"github.com/weibaohui/opendeepwiki/backend/internal/router"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/directoryanalyzer"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 )
 
 func main() {

@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"gorm.io/gorm"
 )
 

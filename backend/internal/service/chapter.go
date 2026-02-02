@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/opendeepwiki/backend/internal/model"
-	"github.com/opendeepwiki/backend/internal/repository"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 )
 
 var (

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/opendeepwiki/backend/internal/service"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 )
 
 // taskExecutorAdapter 将TaskService适配为TaskExecutor接口

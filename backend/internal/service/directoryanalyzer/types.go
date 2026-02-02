@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/opendeepwiki/backend/internal/utils"
+	"github.com/weibaohui/opendeepwiki/backend/internal/utils"
 	"k8s.io/klog/v2"
 )
 

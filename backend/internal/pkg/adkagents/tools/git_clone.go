@@ -12,7 +12,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
 
-	"github.com/opendeepwiki/backend/internal/pkg/llm/tools"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm/tools"
 )
 
 // GitCloneTool Git 克隆工具

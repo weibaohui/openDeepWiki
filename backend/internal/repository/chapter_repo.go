@@ -3,7 +3,7 @@ package repository
 import (
 	"errors"
 
-	"github.com/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"gorm.io/gorm"
 )
 

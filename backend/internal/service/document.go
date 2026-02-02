@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/internal/model"
-	"github.com/opendeepwiki/backend/internal/repository"
+	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 )
 
 type DocumentService struct {

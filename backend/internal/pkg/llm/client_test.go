@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/config"
 )
 
 func TestNewClient(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
 

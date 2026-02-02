@@ -6,7 +6,7 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/middlewares/skill"
-	"github.com/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
 

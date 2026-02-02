@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
-	"github.com/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
 

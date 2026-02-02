@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/opendeepwiki/backend/internal/model"
-	"github.com/opendeepwiki/backend/internal/repository"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 )
 
 var (
@@ -18,14 +18,14 @@ var (
 
 // TemplateDTO 模板数据传输对象
 type TemplateDTO struct {
-	ID          uint      `json:"id"`
-	Key         string    `json:"key"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	IsSystem    bool      `json:"is_system"`
-	SortOrder   int       `json:"sort_order"`
-	CreatedAt   string    `json:"created_at"`
-	UpdatedAt   string    `json:"updated_at"`
+	ID          uint   `json:"id"`
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IsSystem    bool   `json:"is_system"`
+	SortOrder   int    `json:"sort_order"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 // TemplateDetailDTO 模板详情（含章节和文档）

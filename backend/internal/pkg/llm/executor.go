@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opendeepwiki/backend/internal/pkg/llm/tools"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm/tools"
 )
 
 // ExecutorConfig 执行器配置

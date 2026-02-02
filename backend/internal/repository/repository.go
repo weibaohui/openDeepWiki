@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 )
 
 // ErrNotFound 记录不存在错误

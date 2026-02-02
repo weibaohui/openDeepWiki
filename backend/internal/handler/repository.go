@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/opendeepwiki/backend/internal/service"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 )
 
 type RepositoryHandler struct {

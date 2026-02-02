@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/eino/adk"
-	"github.com/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/config"
 )
 
 // AgentFactory 负责创建各种子 Agent

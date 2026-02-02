@@ -7,8 +7,8 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/internal/pkg/adkagents"
+	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"k8s.io/klog/v2"
 )
 

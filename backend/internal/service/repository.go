@@ -8,12 +8,12 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/opendeepwiki/backend/config"
-	"github.com/opendeepwiki/backend/internal/model"
-	"github.com/opendeepwiki/backend/internal/pkg/git"
-	"github.com/opendeepwiki/backend/internal/repository"
-	"github.com/opendeepwiki/backend/internal/service/orchestrator"
-	"github.com/opendeepwiki/backend/internal/service/statemachine"
+	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/git"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 )
 
 type RepositoryService struct {
@@ -24,7 +24,7 @@ type RepositoryService struct {
 	taskService *TaskService
 
 	// 状态机
-	repoStateMachine  *statemachine.RepositoryStateMachine
+	repoStateMachine *statemachine.RepositoryStateMachine
 	taskStateMachine *statemachine.TaskStateMachine
 
 	// 编排器

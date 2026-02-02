@@ -1,4 +1,4 @@
-module github.com/opendeepwiki/backend
+module github.com/weibaohui/opendeepwiki/backend
 
 go 1.25.0
 
