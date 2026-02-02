@@ -98,7 +98,7 @@ func TestClientChat(t *testing.T) {
 
 	cfg := &config.Config{
 		LLM: config.LLMConfig{
-			APIURL:    "https://api.example.com",
+			APIURL:    server.URL,
 			APIKey:    "test-key",
 			Model:     "gpt-4",
 			MaxTokens: 2000,
@@ -169,7 +169,7 @@ func TestClientChatWithTools(t *testing.T) {
 
 	cfg := &config.Config{
 		LLM: config.LLMConfig{
-			APIURL:    "https://api.example.com",
+			APIURL:    server.URL,
 			APIKey:    "test-key",
 			Model:     "gpt-4",
 			MaxTokens: 2000,
@@ -297,7 +297,7 @@ func TestClientChatWithToolExecution(t *testing.T) {
 
 	cfg := &config.Config{
 		LLM: config.LLMConfig{
-			APIURL:    "https://api.example.com",
+			APIURL:    server.URL,
 			APIKey:    "test-key",
 			Model:     "gpt-4",
 			MaxTokens: 2000,
@@ -356,7 +356,7 @@ func TestClientGenerateDocument(t *testing.T) {
 
 	cfg := &config.Config{
 		LLM: config.LLMConfig{
-			APIURL:    "https://api.example.com",
+			APIURL:    server.URL,
 			APIKey:    "test-key",
 			Model:     "gpt-4",
 			MaxTokens: 2000,
@@ -394,7 +394,7 @@ func TestClientAPIError(t *testing.T) {
 
 	cfg := &config.Config{
 		LLM: config.LLMConfig{
-			APIURL:    "https://api.example.com",
+			APIURL:    server.URL,
 			APIKey:    "test-key",
 			Model:     "gpt-4",
 			MaxTokens: 2000,
@@ -436,7 +436,7 @@ func TestClientNoChoices(t *testing.T) {
 
 	cfg := &config.Config{
 		LLM: config.LLMConfig{
-			APIURL:    "https://api.example.com",
+			APIURL:    server.URL,
 			APIKey:    "test-key",
 			Model:     "gpt-4",
 			MaxTokens: 2000,
@@ -503,7 +503,7 @@ func TestClientChatWithToolExecutionMaxRounds(t *testing.T) {
 
 	cfg := &config.Config{
 		LLM: config.LLMConfig{
-			APIURL:    "https://api.example.com",
+			APIURL:    server.URL,
 			APIKey:    "test-key",
 			Model:     "gpt-4",
 			MaxTokens: 2000,

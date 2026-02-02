@@ -3,7 +3,6 @@ package directoryanalyzer
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
@@ -44,36 +43,14 @@ func NewTaskGeneratorWorkflow(cfg *config.Config) (*TaskGeneratorWorkflow, error
 // createSequentialAgent 创建顺序执行的 SequentialAgent
 // 将 TaskGenerator 和 TaskValidator 按顺序组合
 func (w *TaskGeneratorWorkflow) createSequentialAgent() (adk.ResumableAgent, error) {
-	ctx := context.Background()
-
-	// 获取 TaskGenerator Agent
-	generator, err := w.factory.Manager.GetAgent(AgentTaskGenerator)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %s agent: %w", AgentTaskGenerator, err)
-	}
-
-	// 获取 TaskValidator Agent
-	validator, err := w.factory.Manager.GetAgent(AgentTaskValidator)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %s agent: %w", AgentTaskValidator, err)
-	}
-
-	// 创建 SequentialAgent
-	config := &adk.SequentialAgentConfig{
-		Name:        "TaskGeneratorSequentialAgent",
-		Description: "任务生成顺序执行 Agent - 先生成任务列表，再校验修正",
-		SubAgents: []adk.Agent{
-			generator,
-			validator,
-		},
-	}
-
-	sequentialAgent, err := adk.NewSequentialAgent(ctx, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create sequential agent: %w", err)
-	}
-
-	return sequentialAgent, nil
+	return adkagents.BuildSequentialAgent(
+		context.Background(),
+		w.factory,
+		"TaskGeneratorSequentialAgent",
+		"任务生成顺序执行 Agent - 先生成任务列表，再校验修正",
+		AgentTaskGenerator,
+		AgentTaskValidator,
+	)
 }
 
 // Build 构建 SequentialAgent
@@ -155,8 +132,7 @@ func (w *TaskGeneratorWorkflow) Run(ctx context.Context, localPath string) (*Tas
 
 		if event.Err != nil {
 			// 检查是否是迭代次数超限的错误
-			errMsg := event.Err.Error()
-			if strings.Contains(errMsg, "exceeds max iterations") || strings.Contains(errMsg, "max iterations") {
+			if adkagents.IsMaxIterationsError(event.Err) {
 				klog.Warningf("[TaskGeneratorWorkflow.Run] 检测到迭代次数超限错误，尝试使用最后的内容: %v", event.Err)
 				// 尝试使用 lastContent 解析结果
 				if lastContent != "" {

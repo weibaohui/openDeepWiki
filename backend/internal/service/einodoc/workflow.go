@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
@@ -105,46 +104,16 @@ func NewRepoDocWorkflow(cfg *config.Config) (*RepoDocWorkflow, error) {
 // createSequentialAgent 创建顺序执行的 SequentialAgent
 // 将所有子 Agent 按顺序组合
 func (w *RepoDocWorkflow) createSequentialAgent() (adk.ResumableAgent, error) {
-	ctx := context.Background()
-
-	architect, err := w.factory.Manager.GetAgent(AgentArchitect)
-	if err != nil {
-		return nil, err
-	}
-
-	explorer, err := w.factory.Manager.GetAgent(AgentExplorer)
-	if err != nil {
-		return nil, err
-	}
-
-	writer, err := w.factory.Manager.GetAgent(AgentWriter)
-	if err != nil {
-		return nil, err
-	}
-
-	editor, err := w.factory.Manager.GetAgent(AgentEditor)
-	if err != nil {
-		return nil, err
-	}
-
-	// 创建 SequentialAgent
-	config := &adk.SequentialAgentConfig{
-
-		Name:        "RepoDocSequentialAgent",
-		Description: "仓库文档生成顺序执行 Agent - 按顺序执行初始化、分析、探索、撰写、编辑",
-		SubAgents: []adk.Agent{
-			architect,
-			explorer,
-			writer,
-			editor,
-		},
-	}
-
-	sequentialAgent, err := adk.NewSequentialAgent(ctx, config)
-	if err != nil {
-		return nil, err
-	}
-	return sequentialAgent, nil
+	return adkagents.BuildSequentialAgent(
+		context.Background(),
+		w.factory,
+		"RepoDocSequentialAgent",
+		"仓库文档生成顺序执行 Agent - 按顺序执行初始化、分析、探索、撰写、编辑",
+		AgentArchitect,
+		AgentExplorer,
+		AgentWriter,
+		AgentEditor,
+	)
 }
 
 // Build 构建 SequentialAgent
@@ -234,8 +203,7 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*RepoDocRe
 
 		if event.Err != nil {
 			// 检查是否是迭代次数超限的错误
-			errMsg := event.Err.Error()
-			if strings.Contains(errMsg, "exceeds max iterations") || strings.Contains(errMsg, "max iterations") {
+			if adkagents.IsMaxIterationsError(event.Err) {
 				klog.Warningf("[RepoDocWorkflow.Run] 检测到迭代次数超限错误，执行Editor Agent进行最终总结: %v", event.Err)
 
 				// 创建Editor Agent来生成最终文档
@@ -255,40 +223,19 @@ func (w *RepoDocWorkflow) Run(ctx context.Context, localPath string) (*RepoDocRe
 
 请根据现有信息和通用知识，生成最终的技术文档。`
 
-				// 运行Editor Agent进行总结
-				runnerForEditor := adk.NewRunner(ctx, adk.RunnerConfig{
-					Agent: editorAgent,
-				})
-
-				editorIter := runnerForEditor.Run(ctx, []adk.Message{
+				editorContent, editorErr := adkagents.RunAgentToLastContent(ctx, editorAgent, []adk.Message{
 					{
 						Role:    schema.User,
 						Content: summaryMsg,
 					},
 				})
-
-				// 获取Editor的输出
-				for {
-					editorEvent, editorOk := editorIter.Next()
-					if !editorOk {
-						break
-					}
-
-					if editorEvent.Err != nil {
-						klog.Warningf("[RepoDocWorkflow.Run] Editor Agent执行时出错: %v", editorEvent.Err)
-						break
-					}
-
-					if editorEvent.Output != nil && editorEvent.Output.MessageOutput != nil {
-						content := editorEvent.Output.MessageOutput.Message.Content
-						w.processEditorOutput(content)
-						lastContent = content
-						klog.V(6).Infof("[RepoDocWorkflow.Run] Editor Agent生成最终内容，长度: %d", len(content))
-
-						if editorEvent.Action != nil && editorEvent.Action.Exit {
-							break
-						}
-					}
+				if editorErr != nil {
+					klog.Warningf("[RepoDocWorkflow.Run] Editor Agent执行时出错: %v", editorErr)
+				}
+				if editorContent != "" {
+					w.processEditorOutput(editorContent)
+					lastContent = editorContent
+					klog.V(6).Infof("[RepoDocWorkflow.Run] Editor Agent生成最终内容，长度: %d", len(editorContent))
 				}
 
 				// 跳出主循环，使用已收集的内容构建结果
