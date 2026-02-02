@@ -75,3 +75,7 @@ func (r *taskRepository) GetStuckTasks(timeout time.Duration) ([]model.Task, err
 func (r *taskRepository) DeleteByRepositoryID(repoID uint) error {
 	return r.db.Where("repository_id = ?", repoID).Delete(&model.Task{}).Error
 }
+
+func (r *taskRepository) Delete(id uint) error {
+	return r.db.Delete(&model.Task{}, id).Error
+}

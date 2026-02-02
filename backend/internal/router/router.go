@@ -61,6 +61,7 @@ func Setup(
 			tasks.POST("/:id/enqueue", taskHandler.Enqueue) // 新增：提交任务到队列
 			tasks.POST("/:id/reset", taskHandler.Reset)
 			tasks.POST("/:id/force-reset", taskHandler.ForceReset) // 强制重置
+			tasks.DELETE("/:id", taskHandler.Delete)                 // 删除任务（新增）
 		}
 
 		docs := api.Group("/documents")

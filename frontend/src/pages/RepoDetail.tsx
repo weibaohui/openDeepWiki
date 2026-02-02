@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip } from 'antd';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -22,6 +22,7 @@ export default function RepoDetail() {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [messageApi, contextHolder] = message.useMessage();
+    const [drawerVisible, setDrawerVisible] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!id) return;
@@ -98,10 +99,30 @@ export default function RepoDetail() {
             await repositoryApi.setReady(Number(id));
             fetchData();
             messageApi.success(t('repository.set_ready_success'));
+            setDrawerVisible(false);
         } catch (error) {
             console.error('Failed to set ready:', error);
             messageApi.error(t('repository.set_ready_failed'));
         }
+    };
+
+    const handleDeleteTask = async (taskId: number) => {
+        Modal.confirm({
+            title: t('task.delete_confirm_title'),
+            content: t('task.delete_confirm_content'),
+            okText: t('common.confirm'),
+            cancelText: t('common.cancel'),
+            onOk: async () => {
+                try {
+                    await taskApi.delete(taskId);
+                    fetchData();
+                    messageApi.success(t('task.delete_success'));
+                } catch (error) {
+                    console.error('Failed to delete task:', error);
+                    messageApi.error(t('task.delete_failed'));
+                }
+            },
+        });
     };
 
     const handleExport = async () => {
@@ -177,36 +198,74 @@ export default function RepoDetail() {
                 <Space size={screens.md ? 'middle' : 'small'}>
                     {screens.md && <LanguageSwitcher />}
                     {screens.md && <ThemeSwitcher />}
-                    {documents.length > 0 && (
-                        <Tooltip title={!screens.md ? t('repository.export_docs') : undefined}>
-                            <Button onClick={handleExport} icon={<DownloadOutlined />}>
-                                {screens.md && t('repository.export_docs')}
-                            </Button>
-                        </Tooltip>
-                    )}
-                    {(1 == 1) && (
-                        <Tooltip title={!screens.md ? t('repository.directory_analyze') : undefined}>
-                            <Button onClick={handleAnalyzeDirectory} icon={<FolderOpenOutlined />}>
-                                {screens.md && t('repository.directory_analyze')}
-                            </Button>
-                        </Tooltip>
-                    )}
-                    {(1 == 1) && (
-                        <Tooltip title={!screens.md ? t('repository.set_ready') : undefined}>
-                            <Button onClick={handleSetReady} icon={<CheckOutlined />}>
-                                {screens.md && t('repository.set_ready')}
-                            </Button>
-                        </Tooltip>
-                    )}
-                    {(1 == 1) && (
-                        <Tooltip title={!screens.md ? t('repository.rebuild') : undefined}>
-                            <Button type="primary" onClick={handleRunAll} icon={<ReloadOutlined />}>
-                                {screens.md && t('repository.rebuild', '重新分析')}
-                            </Button>
-                        </Tooltip>
-                    )}
+                    <Tooltip title={t('repository.more_actions')}>
+                        <Button onClick={() => setDrawerVisible(true)} icon={<MoreOutlined />} />
+                    </Tooltip>
                 </Space>
             </Header>
+
+            <Drawer
+                title={t('repository.more_actions')}
+                placement="right"
+                open={drawerVisible}
+                onClose={() => setDrawerVisible(false)}
+                width={320}
+            >
+                <Space direction="vertical" style={{ width: '100%' }} size="large">
+                    <div>
+                        <Title level={5}>{t('repository.document_management')}</Title>
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                            {documents.length > 0 && (
+                                <Button
+                                    block
+                                    onClick={handleExport}
+                                    icon={<DownloadOutlined />}
+                                >
+                                    {t('repository.export_docs')}
+                                </Button>
+                            )}
+                        </Space>
+                    </div>
+
+                    <Divider />
+
+                    <div>
+                        <Title level={5}>{t('repository.task_management')}</Title>
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                            <Button
+                                block
+                                onClick={handleAnalyzeDirectory}
+                                icon={<FolderOpenOutlined />}
+                            >
+                                {t('repository.directory_analyze')}
+                            </Button>
+                            <Button
+                                type="primary"
+                                block
+                                onClick={handleRunAll}
+                                icon={<ReloadOutlined />}
+                            >
+                                {t('repository.rebuild')}
+                            </Button>
+                        </Space>
+                    </div>
+
+                    <Divider />
+
+                    <div>
+                        <Title level={5}>{t('repository.status_management')}</Title>
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                            <Button
+                                block
+                                onClick={handleSetReady}
+                                icon={<CheckOutlined />}
+                            >
+                                {t('repository.set_ready')}
+                            </Button>
+                        </Space>
+                    </div>
+                </Space>
+            </Drawer>
 
             <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
                 <Row gutter={[screens.md ? 24 : 12, screens.md ? 24 : 12]}>
@@ -219,7 +278,7 @@ export default function RepoDetail() {
                                     <List.Item
                                         style={{ padding: '16px' }}
                                         actions={[
-                                            task.status !== 'running' && (
+                                            task.status !== 'running' && task.status !== 'queued' && (
                                                 <Button
                                                     type="text"
                                                     icon={<PlayCircleOutlined />}
@@ -227,12 +286,21 @@ export default function RepoDetail() {
                                                     title={t('task.run')}
                                                 />
                                             ),
-                                            (task.status === 'completed' || task.status === 'failed') && (
+                                            (task.status === 'completed' || task.status === 'failed' || task.status === 'canceled') && (
                                                 <Button
                                                     type="text"
                                                     icon={<ReloadOutlined />}
                                                     onClick={() => handleResetTask(task.id)}
                                                     title={t('task.reset')}
+                                                />
+                                            ),
+                                            task.status !== 'running' && task.status !== 'queued' && (
+                                                <Button
+                                                    type="text"
+                                                    danger
+                                                    icon={<DeleteOutlined />}
+                                                    onClick={() => handleDeleteTask(task.id)}
+                                                    title={t('task.delete')}
                                                 />
                                             ),
                                             getDocumentForTask(task.id) && (

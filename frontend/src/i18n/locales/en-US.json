@@ -60,7 +60,11 @@
         "rebuild": "Rebuild",
         "set_ready": "Set Ready",
         "set_ready_success": "Repository status has been set to ready",
-        "set_ready_failed": "Failed to set repository status"
+        "set_ready_failed": "Failed to set repository status",
+        "more_actions": "More Actions",
+        "document_management": "Document Management",
+        "task_management": "Task Management",
+        "status_management": "Status Management"
     },
     "task": {
         "title": "Tasks",
@@ -74,7 +78,12 @@
             "queued": "Queued",
             "succeeded": "Succeeded",
             "canceled": "Canceled"
-        }
+        },
+        "delete": "Delete",
+        "delete_confirm_title": "Confirm Delete Task",
+        "delete_confirm_content": "Are you sure you want to delete this task? This action cannot be undone.",
+        "delete_success": "Task has been deleted",
+        "delete_failed": "Failed to delete task"
     },
     "settings": {
         "title": "Settings",

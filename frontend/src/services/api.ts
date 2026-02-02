@@ -27,6 +27,7 @@ export const taskApi = {
     get: (id: number) => api.get<Task>(`/tasks/${id}`),
     run: (id: number) => api.post(`/tasks/${id}/run`),
     reset: (id: number) => api.post(`/tasks/${id}/reset`),
+    delete: (id: number) => api.delete(`/tasks/${id}`),
 };
 
 // Document APIs

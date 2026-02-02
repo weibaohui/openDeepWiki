@@ -378,6 +378,43 @@ func (s *TaskService) ForceReset(taskID uint) error {
 	return nil
 }
 
+// Delete 删除任务（删除单个任务）
+// 注意：删除任务也会删除关联的文档
+func (s *TaskService) Delete(taskID uint) error {
+	klog.V(6).Infof("删除任务: taskID=%d", taskID)
+
+	// 获取任务
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	repoID := task.RepositoryID
+
+	// 检查任务状态，运行中的任务不允许删除
+	currentStatus := statemachine.TaskStatus(task.Status)
+	if currentStatus == statemachine.TaskStatusRunning || currentStatus == statemachine.TaskStatusQueued {
+		return fmt.Errorf("运行中或已入队的任务不允许删除: current=%s", currentStatus)
+	}
+
+	// 删除关联的文档
+	if err := s.docService.DeleteByTaskID(taskID); err != nil {
+		return fmt.Errorf("删除关联文档失败: %w", err)
+	}
+
+	// 删除任务
+	if err := s.taskRepo.Delete(taskID); err != nil {
+		return fmt.Errorf("删除任务失败: %w", err)
+	}
+
+	klog.V(6).Infof("任务已删除: taskID=%d", taskID)
+
+	// 更新仓库状态
+	_ = s.UpdateRepositoryStatus(repoID)
+
+	return nil
+}
+
 // CleanupStuckTasks 清理卡住的任务（运行超过指定时间的任务）
 // 状态迁移: running -> failed (超时)
 func (s *TaskService) CleanupStuckTasks(timeout time.Duration) (int64, error) {

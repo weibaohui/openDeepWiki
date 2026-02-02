@@ -27,6 +27,7 @@ type TaskRepository interface {
 	CleanupStuckTasks(timeout time.Duration) (int64, error)
 	GetStuckTasks(timeout time.Duration) ([]model.Task, error)
 	DeleteByRepositoryID(repoID uint) error
+	Delete(id uint) error
 }
 
 type DocumentRepository interface {

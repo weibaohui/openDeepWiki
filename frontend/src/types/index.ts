@@ -17,7 +17,7 @@ export interface Task {
     repository_id: number;
     type: string;
     title: string;
-    status: 'pending' | 'running' | 'completed' | 'failed';
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'queued' | 'canceled';
     error_msg: string;
     sort_order: number;
     started_at: string | null;

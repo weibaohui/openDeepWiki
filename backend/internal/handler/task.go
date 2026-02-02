@@ -206,3 +206,21 @@ func (h *TaskHandler) GetOrchestratorStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, status)
 }
+
+// Delete 删除任务（删除单个任务）
+func (h *TaskHandler) Delete(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	if err := h.service.Delete(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task deleted",
+	})
+}
