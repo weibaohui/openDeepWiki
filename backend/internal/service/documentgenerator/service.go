@@ -30,10 +30,10 @@ func NewDocumentGeneratorService(cfg *config.Config) (*DocumentGeneratorService,
 // localPath: 仓库本地路径
 // taskType: 任务/文档类型
 // 返回: 生成的文档内容
-func (s *DocumentGeneratorService) Generate(ctx context.Context, localPath string, taskType string) (string, error) {
-	klog.V(6).Infof("[DocumentGeneratorService.Generate] 开始生成文档: localPath=%s, taskType=%s", localPath, taskType)
+func (s *DocumentGeneratorService) Generate(ctx context.Context, localPath string, title string) (string, error) {
+	klog.V(6).Infof("[DocumentGeneratorService.Generate] 开始生成文档: localPath=%s, title=%s", localPath, title)
 
-	result, err := s.workflow.Run(ctx, localPath, taskType)
+	result, err := s.workflow.Run(ctx, localPath, title)
 	if err != nil {
 		klog.Errorf("[DocumentGeneratorService.Generate] 生成失败: %v", err)
 		return "", err

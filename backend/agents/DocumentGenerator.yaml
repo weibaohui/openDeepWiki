@@ -9,15 +9,12 @@ instruction: |
 
   **输入信息**：
   - 仓库地址 (local_path)
-  - 文档类型 (task_type): 例如 "overview", "api", "architecture", "security" 等
+  - 文档标题 (title)
 
   **执行步骤**：
   1. 使用 `list_dir` 浏览仓库结构，定位关键文件。
-  2. 根据文档类型，使用 `search_files` 或 `read_file` 深入阅读相关代码。
-     - 如果是 "overview"，关注 README, go.mod, main.go, 目录结构。
-     - 如果是 "api"，关注 handler, router, proto, swagger 定义。
-     - 如果是 "architecture"，关注 main.go, wire.go, internal 目录分层。
-     - 等等。
+  2. 根据文档标题，使用 `search_files` 或 `read_file` 深入阅读相关代码。
+    请你结合你对文档标题的理解，定位与标题相关的代码文件。
   3. 分析代码逻辑，提取关键信息。
   4. 编写 Markdown 格式的文档。
   5. 返回 JSON 格式的结果。

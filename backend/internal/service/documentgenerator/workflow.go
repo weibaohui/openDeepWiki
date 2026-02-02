@@ -18,9 +18,9 @@ const (
 
 // DocumentGeneratorWorkflow 文档生成工作流
 type DocumentGeneratorWorkflow struct {
-	cfg             *config.Config
-	agent           adk.ResumableAgent
-	factory         *adkagents.AgentFactory
+	cfg     *config.Config
+	agent   adk.ResumableAgent
+	factory *adkagents.AgentFactory
 }
 
 // NewDocumentGeneratorWorkflow 创建新的文档生成工作流
@@ -53,8 +53,8 @@ func (w *DocumentGeneratorWorkflow) Build(ctx context.Context) error {
 }
 
 // Run 执行 Workflow
-func (w *DocumentGeneratorWorkflow) Run(ctx context.Context, localPath string, taskType string) (*DocumentGenerationResult, error) {
-	klog.V(6).Infof("[DocumentGeneratorWorkflow.Run] 开始执行: localPath=%s, taskType=%s", localPath, taskType)
+func (w *DocumentGeneratorWorkflow) Run(ctx context.Context, localPath string, title string) (*DocumentGenerationResult, error) {
+	klog.V(6).Infof("[DocumentGeneratorWorkflow.Run] 开始执行: localPath=%s, title=%s", localPath, title)
 
 	if w.agent == nil {
 		if err := w.Build(ctx); err != nil {
@@ -69,7 +69,7 @@ func (w *DocumentGeneratorWorkflow) Run(ctx context.Context, localPath string, t
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成一份技术文档。
 
 仓库地址: %s
-文档类型: %s
+文档标题: %s
 
 请按以下步骤执行：
 1. 分析仓库代码，关注与文档类型相关的模块
@@ -79,7 +79,7 @@ func (w *DocumentGeneratorWorkflow) Run(ctx context.Context, localPath string, t
   "content": "生成的 Markdown 内容",
   "analysis_summary": "分析过程摘要"
 }
-`, localPath, taskType)
+`, localPath, title)
 
 	adk.AddSessionValue(ctx, "local_path", localPath)
 
