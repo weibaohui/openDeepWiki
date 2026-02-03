@@ -22,7 +22,7 @@ exclude_regex = ["_test.go"]
 # 排除不变的文件
 exclude_unchanged = false
 # 监听以下扩展名文件
-include_ext = ["go", "tpl", "tmpl", "html", "yaml", "yml"]
+include_ext = ["go", "tpl", "tmpl", "html"]
 # 监听的目录
 include_dir = []
 # 监听的文件
