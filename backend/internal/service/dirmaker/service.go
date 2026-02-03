@@ -124,7 +124,6 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*mo
 // generateTaskPlan 执行任务生成链路，返回解析后的任务列表结果。
 func (s *Service) genDirList(ctx context.Context, localPath string) (*generationResult, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
-	adk.AddSessionValue(ctx, "session_prompt", "ttttttttttt")
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
 		s.factory,
@@ -171,21 +170,21 @@ func (s *Service) genDirList(ctx context.Context, localPath string) (*generation
 
 // parseDirList 从 Agent 输出解析目录生成结果。
 func parseDirList(content string) (*generationResult, error) {
-	klog.V(6).Infof("[dirmaker.parseDirList] 开始解析 Agent 输出，内容长度: %d", len(content))
+	klog.V(6).Infof("[dm.parseList] parsing agent output, content length: %d", len(content))
 
 	// 尝试从内容中提取 JSON
 	jsonStr := utils.ExtractJSON(content)
 	if jsonStr == "" {
-		klog.Warningf("[dirmaker.parseDirList] 未能从内容中提取 JSON")
-		return nil, fmt.Errorf("%w: 未能从 Agent 输出中提取有效 JSON", ErrJSONParseFailed)
+		klog.Warningf("[dm.parseList] failed to extract json from content")
+		return nil, fmt.Errorf("%w: extract json from content failed", ErrJSONParseFailed)
 	}
 
 	var result generationResult
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		klog.Errorf("[dirmaker.parseDirList] JSON 解析失败: %v", err)
+		klog.Errorf("[dm.parseList] json parse failed: %v", err)
 		return nil, fmt.Errorf("%w: %v", ErrJSONParseFailed, err)
 	}
 
-	klog.V(6).Infof("[dirmaker.parseDirList] 解析成功，目录数: %d", len(result.Dirs))
+	klog.V(6).Infof("[dm.parseList] parse success, dirs: %d", len(result.Dirs))
 	return &result, nil
 }

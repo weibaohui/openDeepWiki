@@ -15,15 +15,15 @@ import (
 
 // Agent 名称常量
 const (
-	agentDocumentGenerator = "document_generator" // 文档生成 Agent
+	agentGen = "document_generator" // 文档生成 Agent
 )
 
 // 错误定义
 var (
-	ErrInvalidLocalPath     = errors.New("无效的本地路径")
-	ErrAgentExecutionFailed = errors.New("Agent 执行失败")
-	ErrEmptyDocumentContent  = errors.New("文档内容为空")
-	ErrNoAgentOutput        = errors.New("Agent 未产生任何输出内容")
+	ErrInvalidLocalPath     = errors.New("invalid local path")
+	ErrAgentExecutionFailed = errors.New("agent execution failed")
+	ErrEmptyContent         = errors.New("empty content")
+	ErrNoAgentOutput        = errors.New("no agent output")
 )
 
 // generationResult 表示 Agent 输出的文档生成结果（仅包内使用）。
@@ -40,12 +40,12 @@ type Service struct {
 
 // New 创建文档生成服务实例。
 func New(cfg *config.Config) (*Service, error) {
-	klog.V(6).Infof("[documentgenerator.New] 开始创建文档生成服务")
+	klog.V(6).Infof("[dgen.New] creating document generator service")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
-		klog.Errorf("[documentgenerator.New] 创建 AgentFactory 失败: %v", err)
-		return nil, fmt.Errorf("创建 AgentFactory 失败: %w", err)
+		klog.Errorf("[dgen.New] create AgentFactory failed: %v", err)
+		return nil, fmt.Errorf("create AgentFactory failed: %w", err)
 	}
 
 	return &Service{
@@ -56,21 +56,21 @@ func New(cfg *config.Config) (*Service, error) {
 // Generate 分析仓库代码并生成文档。
 func (s *Service) Generate(ctx context.Context, localPath string, title string) (string, error) {
 	if localPath == "" {
-		return "", fmt.Errorf("%w: localPath 为空", ErrInvalidLocalPath)
+		return "", fmt.Errorf("%w: local path is empty", ErrInvalidLocalPath)
 	}
 	if title == "" {
-		return "", fmt.Errorf("%w: title 为空", ErrInvalidLocalPath)
+		return "", fmt.Errorf("%w: title is empty", ErrInvalidLocalPath)
 	}
 
-	klog.V(6).Infof("[documentgenerator.Generate] 开始生成文档: localPath=%s, title=%s", localPath, title)
+	klog.V(6).Infof("[dgen.Generate] generating document: localPath=%s, title=%s", localPath, title)
 
 	result, err := s.genDocument(ctx, localPath, title)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
 	}
 
-	klog.V(6).Infof("[documentgenerator.Generate] 生成完成，文档内容长度: %d", len(result.Content))
-	klog.V(6).Infof("[documentgenerator.Generate] 分析摘要: %s", result.AnalysisSummary)
+	klog.V(6).Infof("[dgen.Generate] generation complete, content length: %d", len(result.Content))
+	klog.V(6).Infof("[dgen.Generate] analysis summary: %s", result.AnalysisSummary)
 
 	return result.Content, nil
 }
@@ -84,12 +84,12 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		ctx,
 		s.factory,
 		"document_generator_sequential_agent",
-		"文档生成顺序执行 Agent - 分析代码并生成技术文档",
-		agentDocumentGenerator,
+		"document generator sequential agent - analyze code and generate documentation",
+		agentGen,
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("创建 Agent 失败: %w", err)
+		return nil, fmt.Errorf("create agent failed: %w", err)
 	}
 
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成一份技术文档。
@@ -111,46 +111,46 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("Agent 执行出错: %w", err)
+		return nil, fmt.Errorf("agent execution error: %w", err)
 	}
 
 	if lastContent == "" {
 		return nil, ErrNoAgentOutput
 	}
 
-	klog.V(6).Infof("[documentgenerator.genDocument] Agent 输出原文: \n%s\n", lastContent)
+	klog.V(6).Infof("[dgen.genDoc] agent output: \n%s\n", lastContent)
 
 	result, err := parseDocument(lastContent)
 	if err != nil {
-		klog.Errorf("[documentgenerator.genDocument] 解析文档生成结果失败: %v", err)
+		klog.Errorf("[dgen.genDoc] parse document result failed: %v", err)
 		return nil, err
 	}
 
-	klog.V(6).Infof("[documentgenerator.genDocument] 执行成功，生成文档内容长度: %d", len(result.Content))
+	klog.V(6).Infof("[dgen.genDoc] execution success, content length: %d", len(result.Content))
 	return result, nil
 }
 
 // parseDocument 从 Agent 输出解析文档生成结果。
 func parseDocument(content string) (*generationResult, error) {
-	klog.V(6).Infof("[documentgenerator.parseDocument] 开始解析 Agent 输出，内容长度: %d", len(content))
+	klog.V(6).Infof("[dgen.parseDoc] parsing agent output, content length: %d", len(content))
 
 	// 从内容中提取 Markdown
-	markdownContent := utils.ExtractMarkdown(content)
-	if markdownContent == "" {
-		klog.Warningf("[documentgenerator.parseDocument] 未能从内容中提取 Markdown")
-		return nil, fmt.Errorf("%w: 未能从 Agent 输出中提取有效 Markdown", ErrEmptyDocumentContent)
+	markdown := utils.ExtractMarkdown(content)
+	if markdown == "" {
+		klog.Warningf("[dgen.parseDoc] failed to extract markdown from content")
+		return nil, fmt.Errorf("%w: extract markdown from agent output failed", ErrEmptyContent)
 	}
 
 	// 校验结果
-	if len(markdownContent) < 10 {
-		return nil, fmt.Errorf("%w: 提取的 Markdown 内容过短", ErrEmptyDocumentContent)
+	if len(markdown) < 10 {
+		return nil, fmt.Errorf("%w: extracted markdown too short", ErrEmptyContent)
 	}
 
 	result := &generationResult{
-		Content:         markdownContent,
-		AnalysisSummary: "文档生成完成",
+		Content:         markdown,
+		AnalysisSummary: "document generation complete",
 	}
 
-	klog.V(6).Infof("[documentgenerator.parseDocument] 解析成功，内容长度: %d", len(result.Content))
+	klog.V(6).Infof("[dgen.parseDoc] parse success, content length: %d", len(result.Content))
 	return result, nil
 }
