@@ -35,15 +35,15 @@ var (
 
 // generationResult 表示 Agent 输出的任务生成结果（仅包内使用）。
 type generationResult struct {
-	Tasks           []taskSpec `json:"tasks"`
-	AnalysisSummary string     `json:"analysis_summary"`
+	Dirs            []dirSpec `json:"dirs"`
+	AnalysisSummary string    `json:"analysis_summary"`
 }
 
 // taskSpec 表示 Agent 生成的单个任务定义（仅包内使用）。
 // Type 字段不局限于预定义值，Agent 可根据项目特征自由定义。
-type taskSpec struct {
-	Type      string `json:"type"`       // 任务类型标识，如 "security", "performance", "data-model"
-	Title     string `json:"title"`      // 任务标题，如 "安全分析"
+type dirSpec struct {
+	Type      string `json:"type"`       // 目录类型标识，如 "security", "performance", "data-model"
+	Title     string `json:"title"`      // 目录标题，如 "安全分析"
 	SortOrder int    `json:"sort_order"` // 排序顺序
 }
 
@@ -70,8 +70,8 @@ func New(cfg *config.Config, taskRepo repository.TaskRepository) (*Service, erro
 	}, nil
 }
 
-// CreateTasks 分析仓库目录并创建任务。
-func (s *Service) CreateTasks(ctx context.Context, repo *model.Repository) ([]*model.Task, error) {
+// CreateDirs 分析仓库目录并创建目录。
+func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*model.Task, error) {
 	if repo == nil {
 		return nil, fmt.Errorf("%w: repo 为空", ErrInvalidLocalPath)
 	}
@@ -82,18 +82,18 @@ func (s *Service) CreateTasks(ctx context.Context, repo *model.Repository) ([]*m
 		return nil, fmt.Errorf("%w: %v", ErrInvalidLocalPath, err)
 	}
 
-	result, err := s.generateTaskCatalog(ctx, repo.LocalPath)
+	result, err := s.genDirList(ctx, repo.LocalPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
 	}
 
-	klog.V(6).Infof("[directoryanalyzer.CreateTasks] 分析完成，生成任务数: %d", len(result.Tasks))
-	klog.V(6).Infof("[directoryanalyzer.CreateTasks] 分析摘要: %s", result.AnalysisSummary)
+	klog.V(6).Infof("[dirmaker.CreateTasks] 分析完成，生成目录数: %d", len(result.Dirs))
+	klog.V(6).Infof("[dirmaker.CreateTasks] 分析摘要: %s", result.AnalysisSummary)
 
-	createdTasks := make([]*model.Task, 0, len(result.Tasks))
+	createdTasks := make([]*model.Task, 0, len(result.Dirs))
 	var creationErrors []error
 
-	for _, spec := range result.Tasks {
+	for _, spec := range result.Dirs {
 		task := &model.Task{
 			RepositoryID: repo.ID,
 			Type:         spec.Type,
@@ -103,34 +103,32 @@ func (s *Service) CreateTasks(ctx context.Context, repo *model.Repository) ([]*m
 		}
 
 		if err := s.taskRepo.Create(task); err != nil {
-			klog.Errorf("[directoryanalyzer.CreateTasks] 创建任务失败: type=%s, error=%v", spec.Type, err)
 			creationErrors = append(creationErrors, fmt.Errorf("创建任务 %s 失败: %w", spec.Type, err))
 			continue
 		}
 
-		klog.V(6).Infof("[directoryanalyzer.CreateTasks] 任务创建成功: id=%d, type=%s, title=%s", task.ID, task.Type, task.Title)
 		createdTasks = append(createdTasks, task)
 	}
 
 	if len(creationErrors) > 0 {
-		klog.Warningf("[directoryanalyzer.CreateTasks] 部分任务创建失败: 成功=%d, 失败=%d", len(createdTasks), len(creationErrors))
+		klog.Warningf("[dirmaker.CreateTasks] 部分任务创建失败: 成功=%d, 失败=%d", len(createdTasks), len(creationErrors))
 		if len(createdTasks) == 0 {
 			return nil, fmt.Errorf("%w: %w", ErrTaskCreationFailed, creationErrors[0])
 		}
 	}
 
-	klog.V(6).Infof("[directoryanalyzer.CreateTasks] 全部完成，成功创建任务数: %d", len(createdTasks))
+	klog.V(6).Infof("[dirmaker.CreateTasks] 全部完成，成功创建目录数: %d", len(createdTasks))
 	return createdTasks, nil
 }
 
 // generateTaskPlan 执行任务生成链路，返回解析后的任务列表结果。
-func (s *Service) generateTaskCatalog(ctx context.Context, localPath string) (*generationResult, error) {
+func (s *Service) genDirList(ctx context.Context, localPath string) (*generationResult, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
 		s.factory,
-		"TaskGeneratorSequentialAgent",
-		"任务生成顺序执行 Agent - 先生成任务列表，再校验修正",
+		"toc_generator_sequential_agent",
+		"目录制定者顺序执行 Agent - 先生成目录，再校验修正",
 		agentTocEditor,
 		agentTocChecker,
 	)
@@ -152,14 +150,6 @@ func (s *Service) generateTaskCatalog(ctx context.Context, localPath string) (*g
 		},
 	})
 	if err != nil {
-		if adkagents.IsMaxIterationsError(err) {
-			if lastContent != "" {
-				result, parseErr := parseTaskPlan(lastContent)
-				if parseErr == nil {
-					return result, nil
-				}
-			}
-		}
 		return nil, fmt.Errorf("Agent 执行出错: %w", err)
 	}
 
@@ -167,33 +157,33 @@ func (s *Service) generateTaskCatalog(ctx context.Context, localPath string) (*g
 		return nil, ErrNoAgentOutput
 	}
 
-	result, err := parseTaskPlan(lastContent)
+	result, err := parseDirList(lastContent)
 	if err != nil {
-		klog.Errorf("[directoryanalyzer.generateTaskPlan] 解析任务生成结果失败: %v", err)
+		klog.Errorf("[dirmaker.generateDirList] 解析目录生成结果失败: %v", err)
 		return nil, err
 	}
 
-	klog.V(6).Infof("[directoryanalyzer.generateTaskPlan] 执行成功，生成任务数: %d", len(result.Tasks))
+	klog.V(6).Infof("[dirmaker.generateDirList] 执行成功，生成目录数: %d", len(result.Dirs))
 	return result, nil
 }
 
-// parseTaskPlan 从 Agent 输出解析任务生成结果。
-func parseTaskPlan(content string) (*generationResult, error) {
-	klog.V(6).Infof("[directoryanalyzer.parseTaskPlan] 开始解析 Agent 输出，内容长度: %d", len(content))
+// parseDirList 从 Agent 输出解析目录生成结果。
+func parseDirList(content string) (*generationResult, error) {
+	klog.V(6).Infof("[dirmaker.parseDirList] 开始解析 Agent 输出，内容长度: %d", len(content))
 
 	// 尝试从内容中提取 JSON
 	jsonStr := utils.ExtractJSON(content)
 	if jsonStr == "" {
-		klog.Warningf("[directoryanalyzer.parseTaskPlan] 未能从内容中提取 JSON")
+		klog.Warningf("[dirmaker.parseDirList] 未能从内容中提取 JSON")
 		return nil, fmt.Errorf("%w: 未能从 Agent 输出中提取有效 JSON", ErrJSONParseFailed)
 	}
 
 	var result generationResult
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		klog.Errorf("[directoryanalyzer.parseTaskPlan] JSON 解析失败: %v", err)
+		klog.Errorf("[dirmaker.parseDirList] JSON 解析失败: %v", err)
 		return nil, fmt.Errorf("%w: %v", ErrJSONParseFailed, err)
 	}
 
-	klog.V(6).Infof("[directoryanalyzer.parseTaskPlan] 解析成功，任务数: %d", len(result.Tasks))
+	klog.V(6).Infof("[dirmaker.parseDirList] 解析成功，目录数: %d", len(result.Dirs))
 	return &result, nil
 }

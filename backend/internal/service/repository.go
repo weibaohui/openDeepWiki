@@ -31,26 +31,26 @@ type RepositoryService struct {
 	orchestrator *orchestrator.Orchestrator
 
 	// 目录分析服务
-	directoryAnalyzer DirectoryAnalyzer
+	dirMakerService DirMakerService
 }
 
-// DirectoryAnalyzer 目录分析服务接口。
-type DirectoryAnalyzer interface {
-	CreateTasks(ctx context.Context, repo *model.Repository) ([]*model.Task, error)
+// DirMakerService 目录分析服务接口。
+type DirMakerService interface {
+	CreateDirs(ctx context.Context, repo *model.Repository) ([]*model.Task, error)
 }
 
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, directoryAnalyzer DirectoryAnalyzer) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, dirMakerService DirMakerService) *RepositoryService {
 	return &RepositoryService{
-		cfg:               cfg,
-		repoRepo:          repoRepo,
-		taskRepo:          taskRepo,
-		docRepo:           docRepo,
-		taskService:       taskService,
-		repoStateMachine:  statemachine.NewRepositoryStateMachine(),
-		taskStateMachine:  statemachine.NewTaskStateMachine(),
-		orchestrator:      orchestrator.GetGlobalOrchestrator(),
-		directoryAnalyzer: directoryAnalyzer,
+		cfg:              cfg,
+		repoRepo:         repoRepo,
+		taskRepo:         taskRepo,
+		docRepo:          docRepo,
+		taskService:      taskService,
+		repoStateMachine: statemachine.NewRepositoryStateMachine(),
+		taskStateMachine: statemachine.NewTaskStateMachine(),
+		orchestrator:     orchestrator.GetGlobalOrchestrator(),
+		dirMakerService:  dirMakerService,
 	}
 }
 
@@ -330,14 +330,14 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 	}
 
 	// 调用目录分析服务
-	tasks, err := s.directoryAnalyzer.CreateTasks(ctx, repo)
+	dirs, err := s.dirMakerService.CreateDirs(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("目录分析失败: %w", err)
 	}
 
-	klog.V(6).Infof("目录分析完成，创建了 %d 个任务: repoID=%d", len(tasks), repoID)
+	klog.V(6).Infof("目录分析完成，创建了 %d 个目录: repoID=%d", len(dirs), repoID)
 
-	return tasks, nil
+	return dirs, nil
 }
 
 // SetReady 将仓库状态设置为就绪（用于调试或特殊场景）

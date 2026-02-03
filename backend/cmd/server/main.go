@@ -68,7 +68,7 @@ func main() {
 	aiAnalyzeService := service.NewAIAnalyzeService(cfg, repoRepo, aiAnalysisTaskRepo)
 
 	// 初始化目录分析服务
-	directoryAnalyzerService, err := dirmaker.New(cfg, taskRepo)
+	dirMakerService, err := dirmaker.New(cfg, taskRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}
@@ -81,7 +81,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService, directoryAnalyzerService)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService, dirMakerService)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)
