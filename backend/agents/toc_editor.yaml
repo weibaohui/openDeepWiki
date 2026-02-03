@@ -1,5 +1,5 @@
-name: TaskGenerator
-description: 任务生成器 - 分析代码目录并初步决定需要哪些分析任务
+name: toc_editor
+description: 目录制定者 - 分析代码目录并初步决定需要哪些分析任务
 
 model: ""
 

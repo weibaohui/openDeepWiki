@@ -20,8 +20,8 @@ import (
 
 // Agent 名称常量
 const (
-	agentTaskGenerator = "TaskGenerator" // 任务生成 Agent
-	agentTaskValidator = "TaskValidator" // 任务校验 Agent
+	agentTocEditor  = "toc_editor"  // 目录制定者
+	agentTocChecker = "toc_checker" // 目录校验 Agent
 )
 
 // 错误定义
@@ -131,8 +131,8 @@ func (s *Service) generateTaskCatalog(ctx context.Context, localPath string) (*g
 		s.factory,
 		"TaskGeneratorSequentialAgent",
 		"任务生成顺序执行 Agent - 先生成任务列表，再校验修正",
-		agentTaskGenerator,
-		agentTaskValidator,
+		agentTocEditor,
+		agentTocChecker,
 	)
 
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成需要的技术分析任务列表。
