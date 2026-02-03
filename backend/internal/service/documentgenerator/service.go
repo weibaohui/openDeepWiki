@@ -26,12 +26,6 @@ var (
 	ErrNoAgentOutput        = errors.New("no agent output")
 )
 
-// generationResult 表示 Agent 输出的文档生成结果（仅包内使用）。
-type generationResult struct {
-	Content         string `json:"content"`          // 生成的文档内容
-	AnalysisSummary string `json:"analysis_summary"` // 分析摘要
-}
-
 // Service 文档生成服务。
 // 基于 Eino ADK 实现，用于分析代码并生成技术文档。
 type Service struct {
@@ -64,19 +58,18 @@ func (s *Service) Generate(ctx context.Context, localPath string, title string) 
 
 	klog.V(6).Infof("[dgen.Generate] generating document: localPath=%s, title=%s", localPath, title)
 
-	result, err := s.genDocument(ctx, localPath, title)
+	markdown, err := s.genDocument(ctx, localPath, title)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
 	}
 
-	klog.V(6).Infof("[dgen.Generate] generation complete, content length: %d", len(result.Content))
-	klog.V(6).Infof("[dgen.Generate] analysis summary: %s", result.AnalysisSummary)
+	klog.V(6).Infof("[dgen.Generate] generation complete, content length: %d", len(markdown))
 
-	return result.Content, nil
+	return markdown, nil
 }
 
 // genDocument 执行文档生成链路，返回解析后的文档内容。
-func (s *Service) genDocument(ctx context.Context, localPath string, title string) (*generationResult, error) {
+func (s *Service) genDocument(ctx context.Context, localPath string, title string) (string, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	adk.AddSessionValue(ctx, "document_title", title)
 
@@ -89,7 +82,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("create agent failed: %w", err)
+		return "", fmt.Errorf("create agent failed: %w", err)
 	}
 
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成一份技术文档。
@@ -111,46 +104,41 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("agent execution error: %w", err)
+		return "", fmt.Errorf("agent execution error: %w", err)
 	}
 
 	if lastContent == "" {
-		return nil, ErrNoAgentOutput
+		return "", ErrNoAgentOutput
 	}
 
 	klog.V(6).Infof("[dgen.genDoc] agent output: \n%s\n", lastContent)
 
-	result, err := parseDocument(lastContent)
+	markdown, err := parseDocument(lastContent)
 	if err != nil {
 		klog.Errorf("[dgen.genDoc] parse document result failed: %v", err)
-		return nil, err
+		return "", err
 	}
 
-	klog.V(6).Infof("[dgen.genDoc] execution success, content length: %d", len(result.Content))
-	return result, nil
+	klog.V(6).Infof("[dgen.genDoc] execution success, content length: %d", len(markdown))
+	return markdown, nil
 }
 
-// parseDocument 从 Agent 输出解析文档生成结果。
-func parseDocument(content string) (*generationResult, error) {
+// parseDocument 从 Agent 输出解析文档内容。
+func parseDocument(content string) (string, error) {
 	klog.V(6).Infof("[dgen.parseDoc] parsing agent output, content length: %d", len(content))
 
 	// 从内容中提取 Markdown
 	markdown := utils.ExtractMarkdown(content)
 	if markdown == "" {
 		klog.Warningf("[dgen.parseDoc] failed to extract markdown from content")
-		return nil, fmt.Errorf("%w: extract markdown from agent output failed", ErrEmptyContent)
+		return "", fmt.Errorf("%w: extract markdown from agent output failed", ErrEmptyContent)
 	}
 
 	// 校验结果
 	if len(markdown) < 10 {
-		return nil, fmt.Errorf("%w: extracted markdown too short", ErrEmptyContent)
+		return "", fmt.Errorf("%w: extracted markdown too short", ErrEmptyContent)
 	}
 
-	result := &generationResult{
-		Content:         markdown,
-		AnalysisSummary: "document generation complete",
-	}
-
-	klog.V(6).Infof("[dgen.parseDoc] parse success, content length: %d", len(result.Content))
-	return result, nil
+	klog.V(6).Infof("[dgen.parseDoc] parse success, content length: %d", len(markdown))
+	return markdown, nil
 }
