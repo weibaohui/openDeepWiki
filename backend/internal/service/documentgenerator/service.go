@@ -9,7 +9,6 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
-	"github.com/weibaohui/opendeepwiki/backend/internal/utils"
 	"k8s.io/klog/v2"
 )
 
@@ -94,10 +93,9 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 文档标题: %s
 
 请按以下步骤执行：
-1. 分析仓库代码，关注与文档类型相关的模块
+1. 分析仓库代码，关注可能与标题所示含义相关的内容
 2. 编写详细的技术文档，使用 Markdown 格式
-
-请确保最终输出为有效的 Markdown 格式。`, localPath, title)
+`, localPath, title)
 
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
@@ -114,34 +112,6 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", ErrNoAgentOutput
 	}
 
-	klog.V(6).Infof("[dgen.genDoc] agent output: \n%s\n", lastContent)
-
-	markdown, err := parseDocument(lastContent)
-	if err != nil {
-		klog.Errorf("[dgen.genDoc] parse document result failed: %v", err)
-		return "", err
-	}
-
-	klog.V(6).Infof("[dgen.genDoc] execution success, content length: %d", len(markdown))
-	return markdown, nil
-}
-
-// parseDocument 从 Agent 输出解析文档内容。
-func parseDocument(content string) (string, error) {
-	klog.V(6).Infof("[dgen.parseDoc] parsing agent output, content length: %d", len(content))
-
-	// 从内容中提取 Markdown
-	markdown := utils.ExtractMarkdown(content)
-	if markdown == "" {
-		klog.Warningf("[dgen.parseDoc] failed to extract markdown from content")
-		return "", fmt.Errorf("%w: extract markdown from agent output failed", ErrEmptyContent)
-	}
-
-	// 校验结果
-	if len(markdown) < 10 {
-		return "", fmt.Errorf("%w: extracted markdown too short", ErrEmptyContent)
-	}
-
-	klog.V(6).Infof("[dgen.parseDoc] parse success, content length: %d", len(markdown))
-	return markdown, nil
+	klog.V(8).Infof("[dgen.genDoc] agent output: \n%s\n", lastContent)
+	return lastContent, nil
 }
