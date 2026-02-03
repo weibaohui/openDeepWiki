@@ -188,7 +188,6 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 			MaxRetries: 3,
 			IsRetryAble: func(ctx context.Context, err error) bool {
 				klog.V(6).Infof("[Manager] IsRetryAble: %v", err)
-
 				return false
 			},
 		},

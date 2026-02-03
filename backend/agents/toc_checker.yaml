@@ -39,7 +39,7 @@ instruction: |
 
    **输出格式**（必须是有效的 JSON）：
    {
-     "tasks": [
+     "dirs": [
        {"type": "overview", "title": "项目概览", "sort_order": 1},
        {"type": "architecture", "title": "架构分析", "sort_order": 2},
        {"type": "security", "title": "安全分析", "sort_order": 3}

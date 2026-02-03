@@ -56,11 +56,11 @@ type Service struct {
 
 // New 创建目录分析服务实例。
 func New(cfg *config.Config, taskRepo repository.TaskRepository) (*Service, error) {
-	klog.V(6).Infof("[directoryanalyzer.New] 开始创建目录分析服务")
+	klog.V(6).Infof("[dirmaker.New] 开始创建目录分析服务")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
-		klog.Errorf("[directoryanalyzer.New] 创建 AgentFactory 失败: %v", err)
+		klog.Errorf("[dirmaker.New] 创建 AgentFactory 失败: %v", err)
 		return nil, fmt.Errorf("创建 AgentFactory 失败: %w", err)
 	}
 
@@ -124,6 +124,7 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*mo
 // generateTaskPlan 执行任务生成链路，返回解析后的任务列表结果。
 func (s *Service) genDirList(ctx context.Context, localPath string) (*generationResult, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
+	adk.AddSessionValue(ctx, "session_prompt", "ttttttttttt")
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
 		s.factory,
