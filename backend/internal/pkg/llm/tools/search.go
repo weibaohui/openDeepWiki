@@ -179,7 +179,7 @@ func SymbolSearch(args json.RawMessage, basePath string) (string, error) {
 
 	// 构建搜索模式
 	var patterns []*regexp.Regexp
-	
+
 	switch params.SymbolType {
 	case "function":
 		patterns = append(patterns, regexp.MustCompile(fmt.Sprintf(`\bfunc\s+(\([^)]*\)\s+)?%s\b`, regexp.QuoteMeta(params.SymbolName))))
@@ -235,7 +235,7 @@ func SymbolSearch(args json.RawMessage, basePath string) (string, error) {
 		return fmt.Sprintf("Symbol '%s' not found.", params.SymbolName), nil
 	}
 
-	return fmt.Sprintf("Found %d occurrences of '%s':\n%s", 
+	return fmt.Sprintf("Found %d occurrences of '%s':\n%s",
 		len(results), params.SymbolName, strings.Join(results, "\n")), nil
 }
 
@@ -273,9 +273,9 @@ func SimilarCode(args json.RawMessage, basePath string) (string, error) {
 	queryFeatures := extractCodeFeatures(params.CodeSnippet)
 
 	type matchResult struct {
-		file      string
+		file       string
 		similarity float64
-		snippet   string
+		snippet    string
 	}
 	var matches []matchResult
 
@@ -412,7 +412,7 @@ func FullTextSearch(args json.RawMessage, basePath string) (string, error) {
 			if !params.CaseSensitive {
 				checkLine = strings.ToLower(line)
 			}
-			
+
 			if strings.Contains(checkLine, pattern) {
 				relPath, _ := filepath.Rel(basePath, path)
 				results = append(results, fmt.Sprintf("%s:%d: %s", relPath, i+1, strings.TrimSpace(line)))
@@ -447,9 +447,9 @@ func extractKeywords(query string) []string {
 	// 简单分词
 	words := strings.Fields(strings.ToLower(query))
 	var keywords []string
-	
+
 	stopWords := map[string]bool{
-		"the": true, "a": true, "an": true, "is": true, "are": true, 
+		"the": true, "a": true, "an": true, "is": true, "are": true,
 		"was": true, "were": true, "be": true, "been": true, "being": true,
 		"have": true, "has": true, "had": true, "do": true, "does": true,
 		"did": true, "will": true, "would": true, "could": true, "should": true,
@@ -476,7 +476,7 @@ func calculateRelevance(content string, keywords []string) (float64, string) {
 
 	contentLower := strings.ToLower(content)
 	matches := 0
-	
+
 	for _, kw := range keywords {
 		if strings.Contains(contentLower, kw) {
 			matches++
@@ -484,7 +484,7 @@ func calculateRelevance(content string, keywords []string) (float64, string) {
 	}
 
 	score := float64(matches) / float64(len(keywords))
-	
+
 	// 提取片段
 	var snippet string
 	if score > 0 {
@@ -514,14 +514,14 @@ func extractCodeFeatures(code string) []string {
 	// 提取代码中的关键token
 	re := regexp.MustCompile(`\b[a-zA-Z_][a-zA-Z0-9_]*\b`)
 	tokens := re.FindAllString(code, -1)
-	
+
 	var features []string
 	for _, t := range tokens {
 		if len(t) > 2 && !isCommonKeyword(t) {
 			features = append(features, strings.ToLower(t))
 		}
 	}
-	
+
 	return features
 }
 
@@ -551,7 +551,7 @@ func findSimilarSnippet(content string, queryFeatures []string) (float64, string
 	for i := 0; i < len(lines)-windowSize; i++ {
 		window := strings.Join(lines[i:i+windowSize], "\n")
 		windowFeatures := extractCodeFeatures(window)
-		
+
 		// 计算Jaccard相似度
 		common := 0
 		for _, f1 := range queryFeatures {
@@ -562,12 +562,12 @@ func findSimilarSnippet(content string, queryFeatures []string) (float64, string
 				}
 			}
 		}
-		
+
 		union := len(queryFeatures) + len(windowFeatures) - common
 		if union == 0 {
 			continue
 		}
-		
+
 		similarity := float64(common) / float64(union)
 		if similarity > bestScore {
 			bestScore = similarity
@@ -581,4 +581,3 @@ func findSimilarSnippet(content string, queryFeatures []string) (float64, string
 
 	return bestScore, bestSnippet
 }
- 

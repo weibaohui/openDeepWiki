@@ -2,14 +2,6 @@
 // 基于 Eino ADK 实现，用于分析代码目录并动态生成分析任务
 package directoryanalyzer
 
-import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/weibaohui/opendeepwiki/backend/internal/utils"
-	"k8s.io/klog/v2"
-)
-
 // TaskGenerationResult 任务生成结果
 type TaskGenerationResult struct {
 	Tasks           []GeneratedTask `json:"tasks"`
@@ -45,75 +37,3 @@ const (
 	TaskTypeEventDriven  = "event-driven"  // 事件驱动
 	TaskTypeScalability  = "scalability"   // 可扩展性
 )
-
-// ParseTaskGenerationResult 从 Agent 输出解析任务生成结果
-// content: Agent 返回的原始内容
-// 返回: 解析后的结果或错误
-func ParseTaskGenerationResult(content string) (*TaskGenerationResult, error) {
-	klog.V(6).Infof("[ParseTaskGenerationResult] 开始解析 Agent 输出，内容长度: %d", len(content))
-
-	// 尝试从内容中提取 JSON
-	jsonStr := utils.ExtractJSON(content)
-	if jsonStr == "" {
-		klog.Warningf("[ParseTaskGenerationResult] 未能从内容中提取 JSON")
-		return nil, fmt.Errorf("未能从 Agent 输出中提取有效 JSON")
-	}
-
-	var result TaskGenerationResult
-	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		klog.Errorf("[ParseTaskGenerationResult] JSON 解析失败: %v", err)
-		return nil, fmt.Errorf("JSON 解析失败: %w", err)
-	}
-
-	// 校验结果
-	if err := result.Validate(); err != nil {
-		klog.Warningf("[ParseTaskGenerationResult] 结果校验失败: %v", err)
-		return nil, err
-	}
-
-	klog.V(6).Infof("[ParseTaskGenerationResult] 解析成功，任务数: %d", len(result.Tasks))
-	return &result, nil
-}
-
-// Validate 验证任务生成结果的有效性
-func (r *TaskGenerationResult) Validate() error {
-	if len(r.Tasks) == 0 {
-		return fmt.Errorf("任务列表为空")
-	}
-
-	// 检查是否包含 overview
-	hasOverview := false
-	seenTypes := make(map[string]bool)
-	seenOrders := make(map[int]bool)
-
-	for i, task := range r.Tasks {
-		// 检查 type 是否为空
-		if task.Type == "" {
-			return fmt.Errorf("第 %d 个任务 type 为空", i+1)
-		}
-
-		// 检查 type 是否唯一
-		if seenTypes[task.Type] {
-			return fmt.Errorf("任务 type 重复: %s", task.Type)
-		}
-		seenTypes[task.Type] = true
-
-		// 检查 sort_order 是否冲突
-		if seenOrders[task.SortOrder] {
-			return fmt.Errorf("sort_order 重复: %d", task.SortOrder)
-		}
-		seenOrders[task.SortOrder] = true
-
-		// 检查 overview
-		if task.Type == TaskTypeOverview {
-			hasOverview = true
-		}
-	}
-
-	if !hasOverview {
-		return fmt.Errorf("缺少必需的 overview 任务")
-	}
-
-	return nil
-}
- 

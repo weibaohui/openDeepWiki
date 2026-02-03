@@ -22,8 +22,8 @@ type AgentDefinition struct {
 	Exit ExitConfig `yaml:"exit,omitempty" json:"exit,omitempty"` // 退出条件
 
 	// 路径信息（运行时填充）
-	Path     string    `json:"path"`       // 配置文件路径
-	LoadedAt time.Time `json:"loaded_at"`  // 加载时间
+	Path     string    `json:"path"`      // 配置文件路径
+	LoadedAt time.Time `json:"loaded_at"` // 加载时间
 }
 
 // HasTool 检查 Agent 是否配置了指定工具

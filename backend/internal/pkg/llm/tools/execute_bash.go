@@ -20,26 +20,26 @@ type ExecuteBashArgs struct {
 // 危险命令黑名单模式
 var dangerousPatterns = []string{
 	`\brm\s+-[rf]*[rf]`, // rm -rf, rm -f, rm -r
-	`\brm\s+\/`,          // rm /
-	`>\s*\/`,             // 重定向到根目录
-	`>>\s*\/`,            // 追加重定向到根目录
-	`;`,                  // 命令分隔符
-	`\|\s*rm`,            // 管道到 rm
-	`\|\s*sh`,            // 管道到 sh
-	`\$\(`,                // 命令替换 $()
-	"`",                  // 反引号命令替换
-	`&&\s*rm`,            // && rm
-	`\bdd\s`,              // dd 命令
-	`\bmv\s+.*\/`,         // mv 到系统目录
-	`\bchmod\s+.*\/`,      // chmod 系统目录
-	`\bchown\s+.*\/`,      // chown 系统目录
-	`curl.*\|`,            // curl | sh
-	`wget.*\|`,            // wget | sh
-	`eval\s*\(`,           // eval
-	`exec\s*\(`,           // exec
-	`system\s*\(`,         // system
-	`>.*\.env`,            // 覆盖环境文件
-	`>.*config`,           // 覆盖配置文件
+	`\brm\s+\/`,         // rm /
+	`>\s*\/`,            // 重定向到根目录
+	`>>\s*\/`,           // 追加重定向到根目录
+	`;`,                 // 命令分隔符
+	`\|\s*rm`,           // 管道到 rm
+	`\|\s*sh`,           // 管道到 sh
+	`\$\(`,              // 命令替换 $()
+	"`",                 // 反引号命令替换
+	`&&\s*rm`,           // && rm
+	`\bdd\s`,            // dd 命令
+	`\bmv\s+.*\/`,       // mv 到系统目录
+	`\bchmod\s+.*\/`,    // chmod 系统目录
+	`\bchown\s+.*\/`,    // chown 系统目录
+	`curl.*\|`,          // curl | sh
+	`wget.*\|`,          // wget | sh
+	`eval\s*\(`,         // eval
+	`exec\s*\(`,         // exec
+	`system\s*\(`,       // system
+	`>.*\.env`,          // 覆盖环境文件
+	`>.*config`,         // 覆盖配置文件
 }
 
 // 允许的命令白名单（可选使用更严格的策略）

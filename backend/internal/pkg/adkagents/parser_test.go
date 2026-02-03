@@ -12,7 +12,7 @@ func TestParser_Parse(t *testing.T) {
 	// 创建临时测试文件
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "test-agent.yaml")
-	
+
 	configContent := `name: TestAgent
 description: 测试 Agent
 

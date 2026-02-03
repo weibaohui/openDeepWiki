@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/gzip"
+	"github.com/gin-gonic/gin"
 )
 
 //go:embed ui/dist/*
