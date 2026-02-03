@@ -56,7 +56,7 @@ func main() {
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
 
 	// 初始化文档生成服务
-	docGeneratorService, err := documentgenerator.NewDocumentGeneratorService(cfg)
+	docGeneratorService, err := documentgenerator.New(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize document generator service: %v", err)
 	}

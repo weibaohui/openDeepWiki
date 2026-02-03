@@ -20,13 +20,13 @@ type TaskService struct {
 	taskRepo         repository.TaskRepository
 	repoRepo         repository.RepoRepository
 	docService       *DocumentService
-	docGenerator     *documentgenerator.DocumentGeneratorService
+	docGenerator     *documentgenerator.Service
 	taskStateMachine *statemachine.TaskStateMachine
 	repoAggregator   *statemachine.RepositoryStatusAggregator
 	orchestrator     *orchestrator.Orchestrator
 }
 
-func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService, docGenerator *documentgenerator.DocumentGeneratorService) *TaskService {
+func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService, docGenerator *documentgenerator.Service) *TaskService {
 	return &TaskService{
 		cfg:              cfg,
 		taskRepo:         taskRepo,

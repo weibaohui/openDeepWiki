@@ -2,6 +2,7 @@ package documentgenerator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cloudwego/eino/adk"
@@ -13,58 +14,58 @@ import (
 
 // Agent 名称常量
 const (
-	AgentDocumentGenerator = "DocumentGenerator" // 文档生成 Agent
+	agentDocumentGenerator = "DocumentGenerator" // 文档生成 Agent
+)
+
+// 错误定义
+var (
+	ErrAgentExecutionFailed = errors.New("Agent 执行失败")
+	ErrNoAgentOutput        = errors.New("Agent 未产生任何输出内容")
 )
 
 // DocumentGeneratorWorkflow 文档生成工作流
 type DocumentGeneratorWorkflow struct {
 	cfg     *config.Config
-	agent   adk.ResumableAgent
 	factory *adkagents.AgentFactory
 }
 
 // NewDocumentGeneratorWorkflow 创建新的文档生成工作流
 func NewDocumentGeneratorWorkflow(cfg *config.Config) (*DocumentGeneratorWorkflow, error) {
+	klog.V(6).Infof("[DocumentGeneratorWorkflow.New] 开始创建文档生成工作流")
+
 	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create agent factory: %w", err)
+		klog.Errorf("[DocumentGeneratorWorkflow.New] 创建 AgentFactory 失败: %v", err)
+		return nil, fmt.Errorf("创建 AgentFactory 失败: %w", err)
 	}
+
 	return &DocumentGeneratorWorkflow{
 		cfg:     cfg,
 		factory: factory,
 	}, nil
 }
 
-// Build 构建 Agent
-func (w *DocumentGeneratorWorkflow) Build(ctx context.Context) error {
-	// 使用 SequentialAgent 包装，即使只有一个 Agent，也方便未来扩展
-	agent, err := adkagents.BuildSequentialAgent(
-		ctx,
-		w.factory,
-		"DocumentGeneratorSequentialAgent",
-		"文档生成 Agent - 分析代码并生成技术文档",
-		AgentDocumentGenerator,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create agent: %w", err)
-	}
-	w.agent = agent
-	return nil
-}
-
-// Run 执行 Workflow
+// Run 执行 Workflow，返回解析后的文档生成结果
 func (w *DocumentGeneratorWorkflow) Run(ctx context.Context, localPath string, title string) (*DocumentGenerationResult, error) {
 	klog.V(6).Infof("[DocumentGeneratorWorkflow.Run] 开始执行: localPath=%s, title=%s", localPath, title)
 
-	if w.agent == nil {
-		if err := w.Build(ctx); err != nil {
-			return nil, err
-		}
-	}
+	// 添加会话值
+	adk.AddSessionValue(ctx, "local_path", localPath)
+	adk.AddSessionValue(ctx, "document_title", title)
 
-	runner := adk.NewRunner(ctx, adk.RunnerConfig{
-		Agent: w.agent,
-	})
+	// 构建顺序执行 Agent
+	agent, err := adkagents.BuildSequentialAgent(
+		ctx,
+		w.factory,
+		"document_generator_sequential_agent",
+		"文档生成顺序执行 Agent - 分析代码并生成技术文档",
+		agentDocumentGenerator,
+	)
+
+	if err != nil {
+		klog.Errorf("[DocumentGeneratorWorkflow.Run] 创建 Agent 失败: %v", err)
+		return nil, fmt.Errorf("创建 Agent 失败: %w", err)
+	}
 
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成一份技术文档。
 
@@ -74,68 +75,32 @@ func (w *DocumentGeneratorWorkflow) Run(ctx context.Context, localPath string, t
 请按以下步骤执行：
 1. 分析仓库代码，关注与文档类型相关的模块
 2. 编写详细的技术文档，使用 Markdown 格式
-3. 将结果封装在 JSON 中返回，格式如下：
-{
-  "content": "生成的 Markdown 内容",
-  "analysis_summary": "分析过程摘要"
-}
-`, localPath, title)
 
-	adk.AddSessionValue(ctx, "local_path", localPath)
+请确保最终输出为有效的 Markdown 格式。`, localPath, title)
 
-	iter := runner.Run(ctx, []adk.Message{
+	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
 			Role:    schema.User,
 			Content: initialMessage,
 		},
 	})
 
-	var lastContent string
-	stepCount := 0
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("context cancelled: %w", ctx.Err())
-		default:
-		}
-
-		event, ok := iter.Next()
-		if !ok {
-			break
-		}
-
-		if event.Err != nil {
-			if adkagents.IsMaxIterationsError(event.Err) {
-				klog.Warningf("[DocumentGeneratorWorkflow.Run] 检测到迭代次数超限错误，尝试使用最后的内容: %v", event.Err)
-				if lastContent != "" {
-					result, err := ParseDocumentGenerationResult(lastContent)
-					if err == nil {
-						return result, nil
-					}
-				}
-			}
-			klog.Errorf("[DocumentGeneratorWorkflow.Run] Agent 执行出错: %v", event.Err)
-			return nil, fmt.Errorf("agent execution failed: %w", event.Err)
-		}
-
-		stepCount++
-
-		if event.Output != nil && event.Output.MessageOutput != nil {
-			content := event.Output.MessageOutput.Message.Content
-			lastContent = content
-			klog.V(6).Infof("[DocumentGeneratorWorkflow.Run] 步骤 %d [%s] 完成, 内容长度: %d",
-				stepCount, event.AgentName, len(content))
-		}
-
-		if event.Action != nil && event.Action.Exit {
-			break
-		}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
 	}
 
 	if lastContent == "" {
-		return nil, fmt.Errorf("no content generated from workflow")
+		return nil, ErrNoAgentOutput
 	}
 
-	return ParseDocumentGenerationResult(lastContent)
+	klog.V(6).Infof("[DocumentGeneratorWorkflow.Run] Agent 输出原文: \n%s\n", lastContent)
+
+	result, err := ParseDocumentGenerationResult(lastContent)
+	if err != nil {
+		klog.Errorf("[DocumentGeneratorWorkflow.Run] 解析文档生成结果失败: %v", err)
+		return nil, err
+	}
+
+	klog.V(6).Infof("[DocumentGeneratorWorkflow.Run] 执行成功，生成文档内容长度: %d", len(result.Content))
+	return result, nil
 }
