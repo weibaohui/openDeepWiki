@@ -175,30 +175,24 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	klog.V(6).Infof("开始生成文档: taskType=%s, repoPath=%s", task.Type, repo.LocalPath)
 	content, err := s.docGenerator.Generate(ctx, repo.LocalPath, task.Title)
 	if err != nil {
-		klog.Errorf("生成文档失败: taskType=%s, error=%v", task.Type, err)
+		klog.Errorf("生成文档失败: taskTitle=%s, error=%v", task.Title, err)
 		return fmt.Errorf("生成文档失败: %w", err)
 	}
-	klog.V(6).Infof("文档生成完成: taskType=%s, contentLength=%d", task.Type, len(content))
+	klog.V(6).Infof("文档生成完成: taskTitle=%s, contentLength=%d", task.Title, len(content))
 
-	// 保存文档
-	taskDef := getTaskDefinition(task.Type)
-
-	klog.V(6).Infof("保存文档: title=%s, filename=%s", taskDef.Title, taskDef.Filename)
 	_, err = s.docService.Create(CreateDocumentRequest{
 		RepositoryID: task.RepositoryID,
 		TaskID:       task.ID,
-		Title:        taskDef.Title,
-		Filename:     taskDef.Filename,
+		Title:        task.Title,
+		Filename:     task.Title + ".md",
 		Content:      content,
-		SortOrder:    taskDef.SortOrder,
+		SortOrder:    task.SortOrder,
 	})
 
 	if err != nil {
 		klog.V(6).Infof("保存文档失败: error=%v", err)
 		return fmt.Errorf("保存文档失败: %w", err)
 	}
-	klog.V(6).Infof("文档保存成功")
-
 	return nil
 }
 
