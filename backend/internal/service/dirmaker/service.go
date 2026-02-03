@@ -1,4 +1,4 @@
-package directoryanalyzer
+package dirmaker
 
 import (
 	"context"

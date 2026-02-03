@@ -15,7 +15,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/router"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/directoryanalyzer"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/dirmaker"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 )
@@ -68,7 +68,7 @@ func main() {
 	aiAnalyzeService := service.NewAIAnalyzeService(cfg, repoRepo, aiAnalysisTaskRepo)
 
 	// 初始化目录分析服务
-	directoryAnalyzerService, err := directoryanalyzer.New(cfg, taskRepo)
+	directoryAnalyzerService, err := dirmaker.New(cfg, taskRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}
