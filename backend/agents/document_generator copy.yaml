@@ -1,4 +1,4 @@
-name: DocumentGenerator
+name: document_generator
 description: 文档生成器 - 分析代码并生成特定类型的技术文档
 
 model: ""
@@ -16,14 +16,8 @@ instruction: |
   2. 根据文档标题，使用 `search_files` 或 `read_file` 深入阅读相关代码。
     请你结合你对文档标题的理解，定位与标题相关的代码文件。
   3. 分析代码逻辑，提取关键信息。
-  4. 编写 Markdown 格式的文档。
-  5. 返回 JSON 格式的结果。
+  4. 返回 Markdown 格式的文档。
 
-  **输出格式**（必须是有效的 JSON）：
-  {
-    "content": "# 项目概览\n\n## 简介\n...\n",
-    "analysis_summary": "已分析 README.md 和 go.mod，识别出项目为 Go 后端服务..."
-  }
 
   **文档编写要求**：
   - 结构清晰，使用合适的标题层级。
@@ -31,6 +25,18 @@ instruction: |
   - 语言专业，易于理解。
   - 如果是代码示例，请使用 Markdown 代码块。
 
+
+   **输出格式**（必须是有效的 Markdown,必须用代码块包裹）：
+  ```markdown
+  # 项目概览
+
+  ## 简介
+  ...
+
+  ## 功能
+  ...
+
+  ```
 tools:
   - list_dir
   - read_file

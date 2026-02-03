@@ -15,7 +15,8 @@ import (
 
 // Agent 名称常量
 const (
-	agentGen = "document_generator" // 文档生成 Agent
+	agentGen   = "document_generator" // 文档生成 Agent
+	agentCheck = "markdown_checker"   // Markdown 校验 Agent
 )
 
 // 错误定义
@@ -64,6 +65,7 @@ func (s *Service) Generate(ctx context.Context, localPath string, title string) 
 	}
 
 	klog.V(6).Infof("[dgen.Generate] generation complete, content length: %d", len(markdown))
+	klog.V(6).Infof("[dgen.Generate] generation complete, markdown: %s", markdown)
 
 	return markdown, nil
 }
@@ -79,6 +81,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		"document_generator_sequential_agent",
 		"document generator sequential agent - analyze code and generate documentation",
 		agentGen,
+		agentCheck,
 	)
 
 	if err != nil {
