@@ -14,9 +14,9 @@ bin = "./bin/server -v 8"
 # 监听文件变化的延迟时间
 delay = 1000
 # 排除的目录
-exclude_dir = ["assets", "tmp", "vendor", "node_modules", "data"]
+exclude_dir = ["assets", "tmp", "vendor", "node_modules", "data","agents","skills"]
 # 排除的文件
-exclude_file = []
+exclude_file = ["*.yaml"]
 # 排除正则匹配
 exclude_regex = ["_test.go"]
 # 排除不变的文件
