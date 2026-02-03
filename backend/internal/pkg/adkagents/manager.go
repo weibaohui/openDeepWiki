@@ -180,10 +180,18 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 
 	// 构造配置
 	config := &adk.ChatModelAgentConfig{
-		Name:          def.Name,
-		Description:   def.Description,
-		Instruction:   def.Instruction,
-		Model:         chatModel,
+		Name:        def.Name,
+		Description: def.Description,
+		Instruction: def.Instruction,
+		Model:       chatModel,
+		ModelRetryConfig: &adk.ModelRetryConfig{
+			MaxRetries: 3,
+			IsRetryAble: func(ctx context.Context, err error) bool {
+				klog.V(6).Infof("[Manager] IsRetryAble: %v", err)
+
+				return false
+			},
+		},
 		MaxIterations: def.MaxIterations,
 		Middlewares: []adk.AgentMiddleware{
 			{
