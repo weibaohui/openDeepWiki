@@ -52,8 +52,8 @@ func (s *Service) Generate(ctx context.Context, localPath string, title string) 
 		return "", err
 	}
 
-	klog.V(6).Infof("[documentgenerator.Generate] 生成成功，文档内容长度: %d", len(result.Content))
-	klog.V(6).Infof("[documentgenerator.Generate] 分析摘要: %s", result.AnalysisSummary)
+	klog.V(6).Infof("[documentgenerator.Generate] 生成成功，文档内容长度: %d", len(result))
+	klog.V(6).Infof("[documentgenerator.Generate] 分析摘要: %s", result)
 
-	return result.Content, nil
+	return result, nil
 }
