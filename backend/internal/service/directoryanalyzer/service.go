@@ -33,6 +33,20 @@ var (
 	ErrNoAgentOutput        = errors.New("Agent 未产生任何输出内容")
 )
 
+// generationResult 表示 Agent 输出的任务生成结果（仅包内使用）。
+type generationResult struct {
+	Tasks           []taskSpec `json:"tasks"`
+	AnalysisSummary string     `json:"analysis_summary"`
+}
+
+// taskSpec 表示 Agent 生成的单个任务定义（仅包内使用）。
+// Type 字段不局限于预定义值，Agent 可根据项目特征自由定义。
+type taskSpec struct {
+	Type      string `json:"type"`       // 任务类型标识，如 "security", "performance", "data-model"
+	Title     string `json:"title"`      // 任务标题，如 "安全分析"
+	SortOrder int    `json:"sort_order"` // 排序顺序
+}
+
 // Service 目录分析任务生成服务。
 // 基于 Eino ADK 实现，用于分析代码目录并动态生成分析任务。
 type Service struct {
@@ -68,7 +82,7 @@ func (s *Service) CreateTasks(ctx context.Context, repo *model.Repository) ([]*m
 		return nil, fmt.Errorf("%w: %v", ErrInvalidLocalPath, err)
 	}
 
-	result, err := s.generateTaskPlan(ctx, repo.LocalPath)
+	result, err := s.generateTaskCatalog(ctx, repo.LocalPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
 	}
@@ -110,7 +124,7 @@ func (s *Service) CreateTasks(ctx context.Context, repo *model.Repository) ([]*m
 }
 
 // generateTaskPlan 执行任务生成链路，返回解析后的任务列表结果。
-func (s *Service) generateTaskPlan(ctx context.Context, localPath string) (*generationResult, error) {
+func (s *Service) generateTaskCatalog(ctx context.Context, localPath string) (*generationResult, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
