@@ -156,6 +156,7 @@ func (s *Service) genDirList(ctx context.Context, localPath string) (*generation
 	if lastContent == "" {
 		return nil, ErrNoAgentOutput
 	}
+	klog.V(6).Infof("[dirmaker.generateDirList] 最后 Agent 输出 原文: \n%s\n", lastContent)
 
 	result, err := parseDirList(lastContent)
 	if err != nil {

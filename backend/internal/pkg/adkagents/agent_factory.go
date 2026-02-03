@@ -79,6 +79,7 @@ func BuildSequentialAgent(
 		Name:        name,
 		Description: description,
 		SubAgents:   subAgents,
+		
 	}
 	sequentialAgent, err := adk.NewSequentialAgent(ctx, cfg)
 	if err != nil {
