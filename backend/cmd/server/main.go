@@ -68,7 +68,7 @@ func main() {
 	aiAnalyzeService := service.NewAIAnalyzeService(cfg, repoRepo, aiAnalysisTaskRepo)
 
 	// 初始化目录分析服务
-	directoryAnalyzerService, err := directoryanalyzer.NewDirectoryAnalyzerService(cfg, taskRepo)
+	directoryAnalyzerService, err := directoryanalyzer.New(cfg, taskRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}

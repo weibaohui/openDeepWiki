@@ -31,25 +31,26 @@ type RepositoryService struct {
 	orchestrator *orchestrator.Orchestrator
 
 	// 目录分析服务
-	directoryAnalyzerService DirectoryAnalyzerService
+	directoryAnalyzer DirectoryAnalyzer
 }
 
-// DirectoryAnalyzerService 目录分析服务接口
-type DirectoryAnalyzerService interface {
-	AnalyzeAndCreateTasks(ctx context.Context, localPath string, repo *model.Repository) ([]*model.Task, error)
+// DirectoryAnalyzer 目录分析服务接口。
+type DirectoryAnalyzer interface {
+	CreateTasks(ctx context.Context, repo *model.Repository) ([]*model.Task, error)
 }
 
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, directoryAnalyzerService DirectoryAnalyzerService) *RepositoryService {
+// NewRepositoryService 创建仓库服务实例。
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, directoryAnalyzer DirectoryAnalyzer) *RepositoryService {
 	return &RepositoryService{
-		cfg:                      cfg,
-		repoRepo:                 repoRepo,
-		taskRepo:                 taskRepo,
-		docRepo:                  docRepo,
-		taskService:              taskService,
-		repoStateMachine:         statemachine.NewRepositoryStateMachine(),
-		taskStateMachine:         statemachine.NewTaskStateMachine(),
-		orchestrator:             orchestrator.GetGlobalOrchestrator(),
-		directoryAnalyzerService: directoryAnalyzerService,
+		cfg:               cfg,
+		repoRepo:          repoRepo,
+		taskRepo:          taskRepo,
+		docRepo:           docRepo,
+		taskService:       taskService,
+		repoStateMachine:  statemachine.NewRepositoryStateMachine(),
+		taskStateMachine:  statemachine.NewTaskStateMachine(),
+		orchestrator:      orchestrator.GetGlobalOrchestrator(),
+		directoryAnalyzer: directoryAnalyzer,
 	}
 }
 
@@ -329,7 +330,7 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 	}
 
 	// 调用目录分析服务
-	tasks, err := s.directoryAnalyzerService.AnalyzeAndCreateTasks(ctx, repo.LocalPath, repo)
+	tasks, err := s.directoryAnalyzer.CreateTasks(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("目录分析失败: %w", err)
 	}
