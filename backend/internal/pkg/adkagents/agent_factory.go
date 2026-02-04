@@ -68,9 +68,14 @@ func BuildSequentialAgent(
 
 	subAgents := make([]adk.Agent, 0, len(agentNames))
 	for _, agentName := range agentNames {
-		agent, err := factory.GetAgent(agentName)
+		// 每次都创建全新的 Agent 实例，不使用缓存
+		// 因为 ADK Agent 运行后会被冻结，不能复用
+		agent, err := factory.Manager.CreateAgent(agentName)
 		if err != nil {
 			return nil, fmt.Errorf("获取 Agent 失败: name=%s, err=%w", agentName, err)
+		}
+		if agent == nil {
+			return nil, fmt.Errorf("创建的 Agent 为空: name=%s", agentName)
 		}
 		subAgents = append(subAgents, agent)
 	}
@@ -79,7 +84,7 @@ func BuildSequentialAgent(
 		Name:        name,
 		Description: description,
 		SubAgents:   subAgents,
-		
+
 	}
 	sequentialAgent, err := adk.NewSequentialAgent(ctx, cfg)
 	if err != nil {

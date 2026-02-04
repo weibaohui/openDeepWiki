@@ -119,6 +119,7 @@ func (m *Manager) Stop() {
 
 // GetAgent 获取指定名称的 ADK Agent 实例
 // 如果缓存中不存在，根据 AgentDefinition 创建并缓存
+// 注意：返回的 Agent 实例可能被复用，如果需要全新实例请使用 CreateAgent
 func (m *Manager) GetAgent(name string) (adk.Agent, error) {
 	// 先检查缓存
 	m.cacheMu.RLock()
@@ -144,6 +145,25 @@ func (m *Manager) GetAgent(name string) (adk.Agent, error) {
 	m.cacheMu.Lock()
 	m.cache[name] = agent
 	m.cacheMu.Unlock()
+
+	return agent, nil
+}
+
+// CreateAgent 创建指定名称的全新 ADK Agent 实例（不使用缓存）
+// 每次调用都会创建新的 Agent 实例，适用于需要独立执行场景
+// 注意：创建的实例不会被缓存，需要调用者管理其生命周期
+func (m *Manager) CreateAgent(name string) (adk.Agent, error) {
+	// 从注册表获取定义
+	def, err := m.registry.Get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	// 创建 ADK Agent（不使用缓存）
+	agent, err := m.createADKAgent(def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ADK agent: %w", err)
+	}
 
 	return agent, nil
 }
