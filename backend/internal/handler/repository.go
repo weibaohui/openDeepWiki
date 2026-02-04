@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
+	"k8s.io/klog/v2"
 )
 
 type RepositoryHandler struct {
@@ -101,6 +102,7 @@ func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
 	ctx := context.Background()
 	tasks, err := h.service.AnalyzeDirectory(ctx, uint(id))
 	if err != nil {
+		klog.Errorf("AnalyzeDirectory failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

@@ -214,7 +214,9 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
   - 参数格式：{"skill": "skill-name"}
   - 例如：要使用 repo-detection skill，调用工具名为 "skill"，参数为 {"skill": "repo-detection"}
   - 绝对不要直接调用 skill 名称（如 "repo-detection"）作为工具名
-  - 可用的 skills 会在 "skill" 工具的描述中列出`
+  - 可用的 skills 会在 "skill" 工具的描述中列出
+  
+  `
 		if !strings.Contains(config.Instruction, `系统提供了一个 "skill" 工具，用于调用各种专业技能。使用规则`) {
 			config.Instruction = sn + config.Instruction
 		}

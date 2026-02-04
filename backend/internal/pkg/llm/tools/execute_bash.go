@@ -44,7 +44,7 @@ var dangerousPatterns = []string{
 
 // 允许的命令白名单（可选使用更严格的策略）
 var allowedCommands = []string{
-	"find", "grep", "wc", "cat", "echo", "ls", "pwd", "head", "tail",
+	"find", "grep", "tree", "wc", "cat", "echo", "ls", "pwd", "head", "tail",
 	"sort", "uniq", "cut", "awk", "sed", "tr", "dirname", "basename",
 	"git", "go", "npm", "yarn", "node", "sleep", "yes",
 }

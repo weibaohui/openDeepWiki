@@ -37,6 +37,8 @@ instruction: |
       - 任务过少（<2）：分析是否遗漏重要方面（如安全性、性能）
       - 重复任务：合并或移除
 
+   6. 出现大于3次执行失败、读取失败、无内容等异常情况应终止调查
+
    **输出格式**（必须是有效的 JSON）：
    {
      "dirs": [
@@ -54,7 +56,9 @@ instruction: |
    - 支持自定义 type，但需确保命名规范、语义清晰
 
 tools:
-   - list_dir
-   - read_file
-
+   - list_dir # 核心基础工具：获取仓库目录结构
+   - read_file # 精准读取工具：读取配置/说明类关键文件
+   - search_files # 特征检索工具：搜索仓库内特征性文件/依赖
+   - list_skills # 技能列表工具：获取所有已注册技能
+   - run_terminal_command # 终端命令执行工具：执行shell命令，如uv run <script>、python3 <script>、ls、cat、grep等
 maxIterations: 30

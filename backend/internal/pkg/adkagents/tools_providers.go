@@ -24,6 +24,8 @@ func (p *ToolProvider) GetTool(name string) (tool.BaseTool, error) {
 		return tools.NewSearchFilesTool(p.BasePath), nil
 	case "list_skills":
 		return tools.NewListSkillsTool(p.SkillDir), nil
+	case "run_terminal_command":
+		return tools.NewRunTerminalCommandTool(p.BasePath), nil
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
