@@ -36,11 +36,11 @@ func NewRunTerminalCommandTool(workingDir string) *RunTerminalCommandTool {
 	return &RunTerminalCommandTool{
 		WorkingDir: workingDir,
 		Timeout:    30 * time.Second,
-		AllowedCommands: []string{
-			"cd", "file", "find", "grep", "tree", "wc", "cat", "echo", "ls", "pwd", "head", "tail",
-			"sort", "uniq", "cut", "awk", "sed", "tr", "dirname", "basename",
-			"git", "go", "npm", "yarn", "node", "sleep", "yes",
-		},
+		// AllowedCommands: []string{
+		// 	"uv", "python", "cd", "file", "find", "grep", "tree", "wc", "cat", "echo", "ls", "pwd", "head", "tail",
+		// 	"sort", "uniq", "cut", "awk", "sed", "tr", "dirname", "basename",
+		// 	"git", "go", "npm", "yarn", "node", "sleep", "yes",
+		// },
 	}
 }
 
