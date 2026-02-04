@@ -159,7 +159,10 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	}
 
 	//将Tools进行包装为Adk可用的模式
-	toolProvider := ToolProvider{BasePath: m.cfg.Data.RepoDir}
+	toolProvider := ToolProvider{
+		BasePath: m.cfg.Data.RepoDir,
+		SkillDir: m.cfg.Skill.Dir,
+	}
 	tools := make([]tool.BaseTool, 0, len(def.Tools))
 	for _, toolName := range def.Tools {
 		t, tErr := toolProvider.GetTool(toolName)
