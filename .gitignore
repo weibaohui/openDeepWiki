@@ -14,7 +14,7 @@ frontend/package-lock.json
 tmp/
 .qoder/
 .claude/
-
+.trae/
 # IDE
 .idea/
 .vscode/
