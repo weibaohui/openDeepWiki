@@ -15,6 +15,7 @@ import {
     WarningOutlined,
     FileTextOutlined,
     RobotOutlined,
+    KeyOutlined
 } from '@ant-design/icons';
 import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid, message, Tooltip } from 'antd';
 import type { Repository } from '../types';
@@ -66,7 +67,7 @@ export default function Home() {
         try {
             const response = await aiAnalyzeApi.getStatus(repoId);
             const status = response.data;
-            
+
             setAiAnalyzeStates(prev => ({
                 ...prev,
                 [repoId]: {
@@ -152,7 +153,7 @@ export default function Home() {
 
     const handleAIAnalyze = async (repoId: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        
+
         // 检查是否已有进行中的分析
         const currentState = aiAnalyzeStates[repoId];
         if (currentState?.status === 'running' || currentState?.status === 'pending') {
@@ -167,14 +168,14 @@ export default function Home() {
             }));
 
             await aiAnalyzeApi.start(repoId);
-            
+
             setAiAnalyzeStates(prev => ({
                 ...prev,
                 [repoId]: { status: 'running', progress: 10 }
             }));
 
             messageApi.success(t('repository.ai_analyze_started', 'AI分析已启动'));
-            
+
             // 开始轮询状态
             pollAIAnalysisStatus(repoId);
         } catch (error: any) {
@@ -201,10 +202,10 @@ export default function Home() {
 
     const getAIAnalyzeButtonProps = (repo: Repository) => {
         const state = aiAnalyzeStates[repo.id];
-        
+
         // 只有ready或completed状态的仓库才能进行AI分析
         const canAnalyze = repo.status === 'ready' || repo.status === 'completed';
-        
+
         if (!canAnalyze) {
             return {
                 disabled: true,
@@ -268,6 +269,9 @@ export default function Home() {
                         </Button>
                         <LanguageSwitcher />
                         <ThemeSwitcher />
+                        <Tooltip title={t('apiKey.title', 'API Key Management')}>
+                            <Button type="text" icon={<KeyOutlined />} onClick={() => navigate('/api-keys')} />
+                        </Tooltip>
                         <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/config')} />
                     </Space>
                 </Header>

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, Config, DocumentTemplate, TemplateDetail, TemplateChapter, TemplateDocument, AIAnalysisStatus } from '../types';
+import type { Repository, Task, Document, Config, DocumentTemplate, TemplateDetail, TemplateChapter, TemplateDocument, AIAnalysisStatus, APIKey, APIKeyStats } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -73,6 +73,17 @@ export const templateApi = {
     updateDocument: (id: number, data: { title: string; filename: string; content_prompt?: string; sort_order?: number }) =>
         api.put<{ data: TemplateDocument }>(`/template-documents/${id}`, data),
     deleteDocument: (id: number) => api.delete(`/template-documents/${id}`),
+};
+
+// API Key APIs
+export const apiKeyApi = {
+    list: () => api.get<{ data: APIKey[]; total: number }>('/api-keys'),
+    get: (id: number) => api.get<APIKey>(`/api-keys/${id}`),
+    create: (data: Partial<APIKey>) => api.post<APIKey>('/api-keys', data),
+    update: (id: number, data: Partial<APIKey>) => api.put<APIKey>(`/api-keys/${id}`, data),
+    delete: (id: number) => api.delete(`/api-keys/${id}`),
+    updateStatus: (id: number, status: string) => api.patch(`/api-keys/${id}/status`, { status }),
+    getStats: () => api.get<APIKeyStats>('/api-keys/stats'),
 };
 
 export default api;

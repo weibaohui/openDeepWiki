@@ -168,5 +168,44 @@
     "banner": {
         "title": "本项目为开源项目",
         "description": "如果你觉得好用，请点亮小星星支持一下！"
+    },
+    "apiKey": {
+        "title": "API Key 管理",
+        "list": "配置列表",
+        "add": "添加配置",
+        "edit": "编辑配置",
+        "name": "名称",
+        "provider": "提供商",
+        "base_url": "Base URL",
+        "api_key": "API Key",
+        "model": "模型",
+        "priority": "优先级",
+        "status": "状态",
+        "last_used": "最后使用",
+        "actions": "操作",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "unavailable": "不可用",
+        "stats": {
+            "total": "总配置数",
+            "enabled": "启用中",
+            "requests": "总请求数",
+            "errors": "总错误数"
+        },
+        "form": {
+            "name_placeholder": "例如：openai-primary",
+            "provider_placeholder": "选择提供商",
+            "base_url_placeholder": "例如：https://api.openai.com/v1",
+            "api_key_placeholder": "输入 API Key",
+            "model_placeholder": "例如：gpt-4o",
+            "priority_help": "数字越小优先级越高"
+        },
+        "messages": {
+            "created": "创建成功",
+            "updated": "更新成功",
+            "deleted": "删除成功",
+            "status_updated": "状态已更新",
+            "delete_confirm": "确定要删除这个配置吗？"
+        }
     }
 }

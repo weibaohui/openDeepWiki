@@ -96,3 +96,29 @@ export interface AIAnalysisStatus {
     updated_at: string;
     completed_at: string | null;
 }
+
+export interface APIKey {
+    id: number;
+    name: string;
+    provider: string;
+    base_url: string;
+    api_key: string;
+    model: string;
+    priority: number;
+    status: 'enabled' | 'disabled' | 'unavailable';
+    request_count: number;
+    error_count: number;
+    last_used_at: string | null;
+    rate_limit_reset_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface APIKeyStats {
+    total_count: number;
+    enabled_count: number;
+    disabled_count: number;
+    unavailable_count: number;
+    total_requests: number;
+    total_errors: number;
+}
