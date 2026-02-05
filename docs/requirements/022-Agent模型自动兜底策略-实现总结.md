@@ -56,6 +56,25 @@ func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, er
 }
 ```
 
+### 3.3 Agent 管理层 (`Manager`)
+
+修复了 `Manager.createADKAgent` 中当 Agent 未指定模型时的处理逻辑，确保调用 `EnhancedModelProvider` 进行自动兜底，而不是直接使用 Env 默认模型。
+
+```go
+// internal/pkg/adkagents/manager.go
+} else {
+    // 模型未指定，尝试使用增强提供者获取自动兜底模型
+    if m.enhancedModelProvider != nil {
+        model, err := m.enhancedModelProvider.GetModel("")
+        // ... 成功则使用 model，失败则降级到 Env
+    } else {
+        // 没有增强提供者，直接使用默认模型
+        chatModel, err = NewLLMChatModel(m.cfg)
+        // ...
+    }
+}
+```
+
 ## 4. 验证结果
 
 - **单元测试**: `internal/repository/api_key_repo_test.go` 中新增了对 `GetHighestPriority` 的测试，验证了按优先级排序和状态过滤的正确性。
