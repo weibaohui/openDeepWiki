@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document } from '../types';
@@ -131,17 +131,7 @@ export default function DocViewer() {
                 items={documents.map(doc => ({
                     key: String(doc.id),
                     icon: <FileTextOutlined />,
-                    label: (
-                        <div>
-                            <div>{doc.title}</div>
-                            {doc.updated_at && (
-                                <div style={{ display: 'flex', alignItems: 'center', fontSize: '11px', color: 'var(--ant-color-text-tertiary)' }}>
-                                    <ClockCircleOutlined style={{ marginRight: 4, fontSize: '10px' }} />
-                                    {formatDateTime(doc.updated_at)}
-                                </div>
-                            )}
-                        </div>
-                    ),
+                    label: doc.title,
                     onClick: () => {
                         navigate(`/repo/${id}/doc/${doc.id}`);
                         setMobileMenuOpen(false);
@@ -191,6 +181,18 @@ export default function DocViewer() {
                         <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {document.title}
                         </Title>
+                        <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
+                            <Space split style={{ width: screens.md ? '100%' : 'auto' }}>
+                                <Space size={4}>
+                                    <CalendarOutlined style={{ fontSize: '12px', color: 'var(--ant-color-text-tertiary)' }} />
+                                </Space>
+                                <span>{t('document.created_at')}: {formatDateTime(document.created_at)}</span>
+                                <Space size={4}>
+                                    <ClockCircleOutlined style={{ fontSize: '12px', color: 'var(--ant-color-text-tertiary)' }} />
+                                </Space>
+                                <span>{t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
+                            </Space>
+                        </div>
                     </div>
                     <Space size="small">
                         <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>

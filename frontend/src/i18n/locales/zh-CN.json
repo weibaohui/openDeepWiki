@@ -165,6 +165,11 @@
             "cloned": "克隆成功"
         }
     },
+    "document": {
+        "filename": "文件名",
+        "created_at": "创建于",
+        "updated_at": "更新于"
+    },
     "banner": {
         "title": "本项目为开源项目",
         "description": "如果你觉得好用，请点亮小星星支持一下！"
