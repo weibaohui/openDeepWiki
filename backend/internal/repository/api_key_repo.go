@@ -36,6 +36,9 @@ type APIKeyRepository interface {
 	// ListByNames 按名称列表获取配置（按优先级排序）
 	ListByNames(ctx context.Context, names []string) ([]*model.APIKey, error)
 
+	// GetHighestPriority 获取优先级最高的可用配置
+	GetHighestPriority(ctx context.Context) (*model.APIKey, error)
+
 	// UpdateStatus 更新状态
 	UpdateStatus(ctx context.Context, id uint, status string) error
 
@@ -136,6 +139,22 @@ func (r *apiKeyRepository) ListByNames(ctx context.Context, names []string) ([]*
 	return apiKeys, err
 }
 
+// GetHighestPriority 获取优先级最高的可用配置
+func (r *apiKeyRepository) GetHighestPriority(ctx context.Context) (*model.APIKey, error) {
+	var apiKey model.APIKey
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND deleted_at IS NULL", "enabled").
+		Order("priority ASC, id ASC").
+		First(&apiKey).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAPIKeyNotFound
+		}
+		return nil, err
+	}
+	return &apiKey, nil
+}
+
 // UpdateStatus 更新状态
 func (r *apiKeyRepository) UpdateStatus(ctx context.Context, id uint, status string) error {
 	return r.db.WithContext(ctx).
@@ -169,7 +188,7 @@ func (r *apiKeyRepository) SetRateLimitReset(ctx context.Context, id uint, reset
 		Model(&model.APIKey{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":             "unavailable",
+			"status":              "unavailable",
 			"rate_limit_reset_at": resetTime,
 		}).Error
 }
@@ -204,12 +223,12 @@ func (r *apiKeyRepository) GetStats(ctx context.Context) (map[string]interface{}
 	}
 
 	return map[string]interface{}{
-		"total_count":        result.TotalCount,
-		"enabled_count":      result.EnabledCount,
-		"disabled_count":     result.DisabledCount,
-		"unavailable_count":  result.UnavailableCount,
-		"total_requests":     result.TotalRequests,
-		"total_errors":       result.TotalErrors,
+		"total_count":       result.TotalCount,
+		"enabled_count":     result.EnabledCount,
+		"disabled_count":    result.DisabledCount,
+		"unavailable_count": result.UnavailableCount,
+		"total_requests":    result.TotalRequests,
+		"total_errors":      result.TotalErrors,
 	}, nil
 }
 

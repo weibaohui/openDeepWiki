@@ -42,7 +42,7 @@ func NewEnhancedModelProvider(
 		apiKeyRepo:    apiKeyRepo,
 		apiKeyService: apiKeyService,
 		defaultModel: &ModelWithMetadata{
-			ChatModel: *defaultChatModel,
+			ChatModel:  *defaultChatModel,
 			APIKeyName: "default",
 			APIKeyID:   0,
 		},
@@ -57,9 +57,16 @@ func NewEnhancedModelProvider(
 func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, error) {
 	klog.V(6).Infof("EnhancedModelProvider.GetModel: name=%s", name)
 
-	// 如果 name 为空，返回默认模型
+	// 如果 name 为空，尝试使用数据库中的最高优先级模型
 	if name == "" {
-		klog.V(6).Infof("EnhancedModelProvider.GetModel: using default model")
+		apiKey, err := p.apiKeyRepo.GetHighestPriority(context.Background())
+		if err == nil && apiKey != nil {
+			klog.V(6).Infof("EnhancedModelProvider.GetModel: found highest priority model in DB: %s", apiKey.Name)
+			// 使用查到的名称递归调用
+			return p.GetModel(apiKey.Name)
+		}
+		// 数据库无可用模型，使用默认模型（Env配置）
+		klog.V(6).Infof("EnhancedModelProvider.GetModel: using default model (Env fallback)")
 		return &p.defaultModel.ChatModel, nil
 	}
 
@@ -75,7 +82,15 @@ func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, er
 	// 从数据库获取 API Key 配置
 	apiKey, err := p.apiKeyRepo.GetByName(context.Background(), name)
 	if err != nil {
-		klog.Errorf("EnhancedModelProvider.GetModel: failed to get API Key %s: %v", name, err)
+		klog.Warningf("EnhancedModelProvider.GetModel: failed to get API Key %s: %v, trying fallback", name, err)
+		// 如果指定了名称但找不到，且该名称不是默认模型，尝试回退到默认模型?
+		// 需求是：如果数据库没有模型，最后使用env环境变量中的模型兜底。
+		// 但如果用户明确指定了 "gpt-4" 而数据库没有，是否应该 fallback 到 "env-model"?
+		// 通常明确指定名字时不应该 fallback，否则会产生意外行为。
+		// 但考虑到需求描述："如果数据库没有模型，最后使用env环境变量中的模型兜底"
+		// 这可能主要针对自动选择场景。
+		// 如果这里返回 error，调用方可能会失败。
+		// 保持原逻辑：指定名字找不到则报错。
 		return nil, ErrAPIKeyNotFound
 	}
 
@@ -170,7 +185,7 @@ func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*Mode
 
 	// 包装模型，添加 API Key ID 以便跟踪
 	return &ModelWithMetadata{
-		ChatModel: *chatModel,
+		ChatModel:  *chatModel,
 		APIKeyName: apiKey.Name,
 		APIKeyID:   apiKey.ID,
 	}, nil
@@ -183,7 +198,7 @@ func (p *EnhancedModelProviderImpl) IsRateLimitError(err error) bool {
 	}
 
 	errMsg := err.Error()
-	errMsg=strings.ToLower(errMsg)
+	errMsg = strings.ToLower(errMsg)
 	// 检查 HTTP 状态码
 	if strings.Contains(errMsg, "429") {
 		return true

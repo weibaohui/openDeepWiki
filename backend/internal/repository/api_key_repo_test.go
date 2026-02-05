@@ -56,4 +56,13 @@ func TestAPIKeyRepository_List(t *testing.T) {
 	if len(listByNames) > 0 && listByNames[0].Name != "key1" {
 		t.Errorf("ListByNames expected key1, got %s", listByNames[0].Name)
 	}
+
+	// Test GetHighestPriority
+	highest, err := repo.GetHighestPriority(ctx)
+	if err != nil {
+		t.Fatalf("GetHighestPriority failed: %v", err)
+	}
+	if highest.Name != "key1" {
+		t.Errorf("GetHighestPriority should return key1 (priority 1), got %s", highest.Name)
+	}
 }

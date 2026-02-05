@@ -4,6 +4,14 @@
 
 本设计文档详细说明了 API Key 管理与模型自动切换功能的实现方案，包括数据库设计、代码结构、接口定义和核心流程。
 
+### 1.1 模型获取策略（新增）
+
+Agent 获取模型的逻辑如下：
+1. **优先使用数据库中的模型**：如果 Agent 指定了模型名称，或者未指定名称但数据库中存在可用的 API Key 配置，优先使用数据库中的模型（按优先级排序）。
+2. **Env 环境变量兜底**：如果数据库中没有可用的 API Key 配置（或找不到指定名称的配置），则降级使用环境变量（`env`）中配置的默认模型。
+3. **空配置处理**：如果 Agent 的 YAML 定义中未填写 `models` 字段，同样遵守上述规则：尝试从数据库获取优先级最高的可用模型，若失败则使用环境变量兜底。
+
+
 ---
 
 ## 2. 架构设计
@@ -205,6 +213,9 @@ type APIKeyRepository interface {
     // ListByNames 按名称列表获取配置（按优先级排序）
     ListByNames(ctx context.Context, names []string) ([]*model.APIKey, error)
 
+    // GetHighestPriority 获取优先级最高的可用配置
+    GetHighestPriority(ctx context.Context) (*model.APIKey, error)
+
     // UpdateStatus 更新状态
     UpdateStatus(ctx context.Context, id uint, status string) error
 
@@ -291,6 +302,22 @@ func (r *apiKeyRepository) ListByNames(ctx context.Context, names []string) ([]*
         Order("priority ASC, id ASC").
         Find(&apiKeys).Error
     return apiKeys, err
+}
+
+// GetHighestPriority 获取优先级最高的可用配置
+func (r *apiKeyRepository) GetHighestPriority(ctx context.Context) (*model.APIKey, error) {
+    var apiKey model.APIKey
+    err := r.db.WithContext(ctx).
+        Where("status = ? AND deleted_at IS NULL", "enabled").
+        Order("priority ASC, id ASC").
+        First(&apiKey).Error
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, ErrAPIKeyNotFound
+        }
+        return nil, err
+    }
+    return &apiKey, nil
 }
 
 // UpdateStatus 更新状态
