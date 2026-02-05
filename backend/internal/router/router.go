@@ -70,6 +70,7 @@ func Setup(
 		docs := api.Group("/documents")
 		{
 			docs.GET("/:id", docHandler.Get)
+			docs.GET("/:id/versions", docHandler.GetVersions)
 			docs.PUT("/:id", docHandler.Update)
 		}
 

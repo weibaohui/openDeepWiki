@@ -19,6 +19,7 @@ type mockDocumentRepo struct {
 	CreateVersionedFunc        func(doc *model.Document) error
 	GetLatestVersionByTaskFunc func(taskID uint) (int, error)
 	ClearLatestByTaskIDFunc    func(taskID uint) error
+	GetByTaskIDFunc            func(taskID uint) ([]model.Document, error)
 }
 
 func (m *mockDocumentRepo) Create(doc *model.Document) error {
@@ -91,6 +92,13 @@ func (m *mockDocumentRepo) ClearLatestByTaskID(taskID uint) error {
 	return nil
 }
 
+func (m *mockDocumentRepo) GetByTaskID(taskID uint) ([]model.Document, error) {
+	if m.GetByTaskIDFunc != nil {
+		return m.GetByTaskIDFunc(taskID)
+	}
+	return nil, nil
+}
+
 func TestDocumentServiceCreateVersioned(t *testing.T) {
 	var captured *model.Document
 	repo := &mockDocumentRepo{
@@ -143,5 +151,28 @@ func TestDocumentServiceCreateVersionedError(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestDocumentServiceGetVersions(t *testing.T) {
+	repo := &mockDocumentRepo{
+		GetFunc: func(id uint) (*model.Document, error) {
+			return &model.Document{ID: id, TaskID: 9}, nil
+		},
+		GetByTaskIDFunc: func(taskID uint) ([]model.Document, error) {
+			return []model.Document{
+				{ID: 3, TaskID: taskID, Version: 2},
+				{ID: 2, TaskID: taskID, Version: 1},
+			}, nil
+		},
+	}
+	service := NewDocumentService(&config.Config{}, repo, nil)
+
+	versions, err := service.GetVersions(3)
+	if err != nil {
+		t.Fatalf("GetVersions() error = %v", err)
+	}
+	if len(versions) != 2 {
+		t.Fatalf("expected 2 versions, got %d", len(versions))
 	}
 }

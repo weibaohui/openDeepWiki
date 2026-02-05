@@ -172,7 +172,11 @@
     "document": {
         "filename": "文件名",
         "created_at": "创建于",
-        "updated_at": "更新于"
+        "updated_at": "更新于",
+        "versions": "版本",
+        "no_versions": "暂无其他版本",
+        "versions_failed": "加载版本失败",
+        "version_label": "版本 {{version}}"
     },
     "banner": {
         "title": "本项目为开源项目",

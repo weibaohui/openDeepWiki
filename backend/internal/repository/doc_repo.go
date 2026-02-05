@@ -105,3 +105,11 @@ func (r *documentRepository) ClearLatestByTaskID(taskID uint) error {
 			"updated_at": time.Now(),
 		}).Error
 }
+
+func (r *documentRepository) GetByTaskID(taskID uint) ([]model.Document, error) {
+	var docs []model.Document
+	err := r.db.Where("task_id = ?", taskID).
+		Order("version DESC, id DESC").
+		Find(&docs).Error
+	return docs, err
+}

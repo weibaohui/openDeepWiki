@@ -50,6 +50,22 @@ func (h *DocumentHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, doc)
 }
 
+func (h *DocumentHandler) GetVersions(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	docs, err := h.service.GetVersions(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, docs)
+}
+
 func (h *DocumentHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

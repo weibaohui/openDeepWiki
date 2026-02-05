@@ -60,6 +60,14 @@ func (s *DocumentService) Get(id uint) (*model.Document, error) {
 	return s.docRepo.Get(id)
 }
 
+func (s *DocumentService) GetVersions(docID uint) ([]model.Document, error) {
+	doc, err := s.docRepo.Get(docID)
+	if err != nil {
+		return nil, err
+	}
+	return s.docRepo.GetByTaskID(doc.TaskID)
+}
+
 func (s *DocumentService) Update(id uint, content string) (*model.Document, error) {
 	doc, err := s.docRepo.Get(id)
 	if err != nil {

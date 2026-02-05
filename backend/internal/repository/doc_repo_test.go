@@ -76,3 +76,40 @@ func TestDocumentRepositoryCreateVersioned(t *testing.T) {
 		}
 	}
 }
+
+func TestDocumentRepositoryGetByTaskID(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db error: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Document{}); err != nil {
+		t.Fatalf("migrate error: %v", err)
+	}
+
+	repo := NewDocumentRepository(db)
+
+	for _, v := range []int{1, 3, 2} {
+		doc := &model.Document{
+			RepositoryID: 1,
+			TaskID:       5,
+			Title:        "概览",
+			Filename:     "overview.md",
+			Version:      v,
+			IsLatest:     v == 3,
+		}
+		if err := db.Create(doc).Error; err != nil {
+			t.Fatalf("create doc error: %v", err)
+		}
+	}
+
+	docs, err := repo.GetByTaskID(5)
+	if err != nil {
+		t.Fatalf("GetByTaskID error: %v", err)
+	}
+	if len(docs) != 3 {
+		t.Fatalf("expected 3 docs, got %d", len(docs))
+	}
+	if docs[0].Version != 3 || docs[1].Version != 2 || docs[2].Version != 1 {
+		t.Fatalf("unexpected order: %v %v %v", docs[0].Version, docs[1].Version, docs[2].Version)
+	}
+}

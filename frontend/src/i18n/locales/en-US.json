@@ -169,6 +169,15 @@
             "cloned": "Cloned successfully"
         }
     },
+    "document": {
+        "filename": "Filename",
+        "created_at": "Created at",
+        "updated_at": "Updated at",
+        "versions": "Versions",
+        "no_versions": "No other versions",
+        "versions_failed": "Failed to load versions",
+        "version_label": "Version {{version}}"
+    },
     "banner": {
         "title": "This is an open source project",
         "description": "If you find it useful, please give us a star!"

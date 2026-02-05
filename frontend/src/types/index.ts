@@ -34,6 +34,8 @@ export interface Document {
     filename: string;
     content: string;
     sort_order: number;
+    version: number;
+    is_latest: boolean;
     created_at: string;
     updated_at: string;
 }

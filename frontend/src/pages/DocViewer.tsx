@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer } from 'antd';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined } from '@ant-design/icons';
+import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document } from '../types';
 import { documentApi } from '../services/api';
@@ -18,11 +18,13 @@ export default function DocViewer() {
     const screens = useBreakpoint();
     const [document, setDocument] = useState<Document | null>(null);
     const [documents, setDocuments] = useState<Document[]>([]);
+    const [versions, setVersions] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
     const [messageApi, contextHolder] = message.useMessage();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [versionDrawerOpen, setVersionDrawerOpen] = useState(false);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -68,6 +70,20 @@ export default function DocViewer() {
         fetchData();
     }, [id, docId, messageApi]);
 
+    useEffect(() => {
+        const fetchVersions = async () => {
+            if (!docId || !versionDrawerOpen) return;
+            try {
+                const { data } = await documentApi.getVersions(Number(docId));
+                setVersions(data);
+            } catch (error) {
+                console.error('Failed to fetch versions:', error);
+                messageApi.error(t('document.versions_failed', 'Failed to load versions'));
+            }
+        };
+        fetchVersions();
+    }, [docId, messageApi, t, versionDrawerOpen]);
+
     const handleSave = async () => {
         if (!docId) return;
         try {
@@ -91,6 +107,14 @@ export default function DocViewer() {
         a.click();
         window.URL.revokeObjectURL(url);
     };
+
+    const handleOpenVersions = () => {
+        setVersionDrawerOpen(true);
+    };
+
+    const otherVersions = document
+        ? versions.filter((item) => item.id !== document.id).sort((a, b) => b.version - a.version)
+        : [];
 
     if (loading) {
         return (
@@ -209,11 +233,19 @@ export default function DocViewer() {
                                 <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} size={screens.md ? 'middle' : 'small'}>
                                     {screens.md && t('common.save')}
                                 </Button>
+                                <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
+                                    {screens.md && t('document.versions')}
+                                </Button>
                             </>
                         ) : (
-                            <Button type="text" icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
-                                {screens.md && t('common.edit')}
-                            </Button>
+                            <>
+                                <Button type="text" icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
+                                    {screens.md && t('common.edit')}
+                                </Button>
+                                <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
+                                    {screens.md && t('document.versions')}
+                                </Button>
+                            </>
                         )}
                     </Space>
                 </Header>
@@ -237,6 +269,36 @@ export default function DocViewer() {
                     </div>
                 </Content>
             </Layout>
+            <Drawer
+                title={t('document.versions')}
+                placement="right"
+                open={versionDrawerOpen}
+                onClose={() => setVersionDrawerOpen(false)}
+                width={260}
+            >
+                {otherVersions.length === 0 ? (
+                    <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={t('document.no_versions')}
+                    />
+                ) : (
+                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                        {otherVersions.map((item) => (
+                            <Button
+                                key={item.id}
+                                type="link"
+                                onClick={() => {
+                                    navigate(`/repo/${id}/doc/${item.id}`);
+                                    setVersionDrawerOpen(false);
+                                }}
+                                style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                            >
+                                {t('document.version_label').replace('{{version}}', String(item.version))}
+                            </Button>
+                        ))}
+                    </Space>
+                )}
+            </Drawer>
         </Layout>
     );
 }

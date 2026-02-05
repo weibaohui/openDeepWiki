@@ -37,6 +37,7 @@ export const taskApi = {
 export const documentApi = {
     getByRepository: (repoId: number) => api.get<Document[]>(`/repositories/${repoId}/documents`),
     get: (id: number) => api.get<Document>(`/documents/${id}`),
+    getVersions: (id: number) => api.get<Document[]>(`/documents/${id}/versions`),
     update: (id: number, content: string) => api.put<Document>(`/documents/${id}`, { content }),
     getIndex: (repoId: number) => api.get<{ content: string }>(`/repositories/${repoId}/documents/index`),
     export: (repoId: number) => api.get(`/repositories/${repoId}/documents/export`, { responseType: 'blob' }),

@@ -42,4 +42,5 @@ type DocumentRepository interface {
 	CreateVersioned(doc *model.Document) error
 	GetLatestVersionByTaskID(taskID uint) (int, error)
 	ClearLatestByTaskID(taskID uint) error
+	GetByTaskID(taskID uint) ([]model.Document, error)
 }
