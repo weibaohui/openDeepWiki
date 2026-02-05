@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
@@ -59,13 +59,25 @@ export default function RepoDetail() {
         }
     };
 
-    const handleResetTask = async (taskId: number) => {
+    const handleRetryTask = async (taskId: number) => {
         try {
-            await taskApi.reset(taskId);
+            await taskApi.retry(taskId);
             fetchData();
+            messageApi.success(t('task.retry_started', 'Task retry started'));
         } catch (error) {
-            console.error('Failed to reset task:', error);
-            messageApi.error('Failed to reset task');
+            console.error('Failed to retry task:', error);
+            messageApi.error(t('task.retry_failed', 'Failed to retry task'));
+        }
+    };
+
+    const handleCancelTask = async (taskId: number) => {
+        try {
+            await taskApi.cancel(taskId);
+            fetchData();
+            messageApi.success(t('task.cancel_success', 'Task canceled'));
+        } catch (error) {
+            console.error('Failed to cancel task:', error);
+            messageApi.error(t('task.cancel_failed', 'Failed to cancel task'));
         }
     };
 
@@ -301,7 +313,7 @@ export default function RepoDetail() {
                                     <List.Item
                                         style={{ padding: '16px' }}
                                         actions={[
-                                            task.status !== 'running' && task.status !== 'queued' && (
+                                            task.status === 'pending' && (
                                                 <Button
                                                     type="text"
                                                     icon={<PlayCircleOutlined />}
@@ -309,12 +321,21 @@ export default function RepoDetail() {
                                                     title={t('task.run')}
                                                 />
                                             ),
+                                            (task.status === 'running' || task.status === 'queued') && (
+                                                <Button
+                                                    type="text"
+                                                    danger
+                                                    icon={<StopOutlined />}
+                                                    onClick={() => handleCancelTask(task.id)}
+                                                    title={t('task.cancel', 'Cancel')}
+                                                />
+                                            ),
                                             (task.status === 'completed' || task.status === 'failed' || task.status === 'canceled') && (
                                                 <Button
                                                     type="text"
                                                     icon={<ReloadOutlined />}
-                                                    onClick={() => handleResetTask(task.id)}
-                                                    title={t('task.reset')}
+                                                    onClick={() => handleRetryTask(task.id)}
+                                                    title={t('task.retry', 'Retry')}
                                                 />
                                             ),
                                             task.status !== 'running' && task.status !== 'queued' && (

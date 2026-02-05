@@ -47,6 +47,10 @@ type Orchestrator struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	stopOnce sync.Once
+
+	// 任务取消管理
+	activeCancellations map[uint]context.CancelFunc
+	cancelMutex         sync.Mutex
 }
 
 // NewOrchestrator 创建新的任务编排器
@@ -56,14 +60,15 @@ func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Orchestrator{
-		jobQueue:        make(chan *Job, 100), // 普通任务队列，缓冲100
-		priorityQueue:   make(chan *Job, 20),  // 高优先级队列，缓冲20
-		maxWorkers:      maxWorkers,
-		workers:         make([]*worker, 0, maxWorkers),
-		repoConcurrency: make(map[uint]bool),
-		executor:        executor,
-		ctx:             ctx,
-		cancel:          cancel,
+		jobQueue:            make(chan *Job, 100), // 普通任务队列，缓冲100
+		priorityQueue:       make(chan *Job, 20),  // 高优先级队列，缓冲20
+		maxWorkers:          maxWorkers,
+		workers:             make([]*worker, 0, maxWorkers),
+		repoConcurrency:     make(map[uint]bool),
+		activeCancellations: make(map[uint]context.CancelFunc),
+		executor:            executor,
+		ctx:                 ctx,
+		cancel:              cancel,
 	}
 }
 
@@ -157,6 +162,36 @@ func (o *Orchestrator) EnqueueBatch(jobs []*Job) error {
 	return nil
 }
 
+// CancelTask 取消指定任务
+// 如果任务正在运行，调用其 CancelFunc
+// 返回 true 表示成功找到并取消了运行中的任务
+func (o *Orchestrator) CancelTask(taskID uint) bool {
+	o.cancelMutex.Lock()
+	defer o.cancelMutex.Unlock()
+
+	if cancel, ok := o.activeCancellations[taskID]; ok {
+		klog.V(6).Infof("正在取消运行中的任务: taskID=%d", taskID)
+		cancel()
+		return true
+	}
+
+	return false
+}
+
+// registerCancel 注册任务的取消函数
+func (o *Orchestrator) registerCancel(taskID uint, cancel context.CancelFunc) {
+	o.cancelMutex.Lock()
+	defer o.cancelMutex.Unlock()
+	o.activeCancellations[taskID] = cancel
+}
+
+// unregisterCancel 注销任务的取消函数
+func (o *Orchestrator) unregisterCancel(taskID uint) {
+	o.cancelMutex.Lock()
+	defer o.cancelMutex.Unlock()
+	delete(o.activeCancellations, taskID)
+}
+
 // GetQueueStatus 获取队列状态信息
 func (o *Orchestrator) GetQueueStatus() *QueueStatus {
 	o.repoMutex.Lock()
@@ -231,11 +266,20 @@ func (w *worker) processJob(job *Job) {
 	defer w.releaseRepoLock(job.RepositoryID)
 
 	// 创建任务上下文
+	// 增加手动取消的支持
 	ctx, cancel := context.WithTimeout(w.orchestrator.ctx, 10*time.Minute)
 	defer cancel()
 
+	// 包装一个可取消的上下文，用于手动取消
+	runCtx, manualCancel := context.WithCancel(ctx)
+	defer manualCancel()
+
+	// 注册取消函数
+	w.orchestrator.registerCancel(job.TaskID, manualCancel)
+	defer w.orchestrator.unregisterCancel(job.TaskID)
+
 	// 执行任务
-	err := w.orchestrator.executor.ExecuteTask(ctx, job.TaskID)
+	err := w.orchestrator.executor.ExecuteTask(runCtx, job.TaskID)
 
 	if err != nil {
 		klog.Errorf("任务执行失败: workerID=%d, taskID=%d, repoID=%d, error=%v",

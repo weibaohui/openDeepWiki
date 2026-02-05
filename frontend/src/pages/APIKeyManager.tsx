@@ -7,13 +7,12 @@ import {
     ArrowLeftOutlined,
     ReloadOutlined,
     CheckCircleOutlined,
-    CloseCircleOutlined,
     StopOutlined,
     KeyOutlined
 } from '@ant-design/icons';
 import {
     Layout, Typography, Button, Table, Tag, Space, Modal, Form, Input,
-    InputNumber, Select, Switch, message, Card, Tooltip, Badge, Grid, Row, Col, Statistic
+    InputNumber, Select, Switch, message, Card, Tooltip, Grid, Row, Col, Statistic
 } from 'antd';
 import { apiKeyApi } from '../services/api';
 import type { APIKey, APIKeyStats } from '../types';
@@ -76,7 +75,7 @@ export default function APIKeyManager() {
         form.setFieldsValue({
             ...record,
             // API Key 不回显，除非用户想修改
-            api_key: undefined 
+            api_key: undefined
         });
         setIsModalVisible(true);
     };
@@ -157,8 +156,8 @@ export default function APIKeyManager() {
             key: 'status',
             render: (status: string, record: APIKey) => (
                 <Space>
-                    <Switch 
-                        checked={status === 'enabled'} 
+                    <Switch
+                        checked={status === 'enabled'}
                         onChange={(checked) => handleStatusChange(record.id, checked)}
                         disabled={status === 'unavailable'} // 不可用状态可能由后端控制，暂时允许手动启用？需求说"unavailable"是自动设置的
                     />
@@ -183,16 +182,16 @@ export default function APIKeyManager() {
             render: (_: any, record: APIKey) => (
                 <Space>
                     <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-                    <Button 
-                        type="text" 
-                        danger 
-                        icon={<DeleteOutlined />} 
+                    <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
                         onClick={() => {
                             Modal.confirm({
                                 title: t('apiKey.messages.delete_confirm', 'Are you sure?'),
                                 onOk: () => handleDelete(record.id)
                             });
-                        }} 
+                        }}
                     />
                 </Space>
             )
@@ -223,7 +222,7 @@ export default function APIKeyManager() {
             </Header>
 
             <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-                
+
                 {/* 统计卡片 */}
                 {stats && (
                     <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
@@ -260,10 +259,10 @@ export default function APIKeyManager() {
                         </Space>
                     }
                 >
-                    <Table 
-                        columns={columns} 
-                        dataSource={apiKeys} 
-                        rowKey="id" 
+                    <Table
+                        columns={columns}
+                        dataSource={apiKeys}
+                        rowKey="id"
                         loading={loading}
                         scroll={{ x: 800 }}
                     />

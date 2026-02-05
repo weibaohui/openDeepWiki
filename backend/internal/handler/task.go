@@ -147,6 +147,44 @@ func (h *TaskHandler) ForceReset(c *gin.Context) {
 	})
 }
 
+// Retry 重试任务（Reset + Enqueue）
+func (h *TaskHandler) Retry(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	if err := h.service.Retry(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task retry started",
+		"status":  "queued",
+	})
+}
+
+// Cancel 取消任务
+func (h *TaskHandler) Cancel(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	if err := h.service.Cancel(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task canceled",
+		"status":  "canceled",
+	})
+}
+
 // CleanupStuck 清理超时的卡住任务
 func (h *TaskHandler) CleanupStuck(c *gin.Context) {
 	// 默认超时时间为 10 分钟

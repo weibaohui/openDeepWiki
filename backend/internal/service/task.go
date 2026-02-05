@@ -352,6 +352,86 @@ func (s *TaskService) ForceReset(taskID uint) error {
 	return nil
 }
 
+// Retry 重试任务
+// 组合 Reset 和 Enqueue 操作
+// 适用于 Failed, Succeeded, Canceled 状态的任务
+func (s *TaskService) Retry(taskID uint) error {
+	klog.V(6).Infof("重试任务: taskID=%d", taskID)
+
+	// 1. 先重置任务状态
+	if err := s.Reset(taskID); err != nil {
+		return fmt.Errorf("重置任务失败: %w", err)
+	}
+
+	// 重新获取任务以获取 RepositoryID
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	// 2. 重新入队
+	// 默认优先级为0
+	if err := s.Enqueue(taskID, task.RepositoryID, 0); err != nil {
+		return fmt.Errorf("任务入队失败: %w", err)
+	}
+
+	return nil
+}
+
+// Cancel 取消任务
+// 支持取消 Running 和 Queued 状态的任务
+func (s *TaskService) Cancel(taskID uint) error {
+	klog.V(6).Infof("取消任务: taskID=%d", taskID)
+
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	oldStatus := statemachine.TaskStatus(task.Status)
+	newStatus := statemachine.TaskStatusCanceled
+
+	// 检查是否已经是取消状态
+	if oldStatus == newStatus {
+		return nil
+	}
+
+	// 尝试通知编排器取消正在运行的任务
+	// 即使任务不在运行中（例如在队列中），我们也继续更新数据库状态
+	// worker在取出任务执行时，应该检查数据库状态（目前worker逻辑依赖外部调用CancelTask来终止上下文）
+	// TODO: 最好在worker执行前增加一次状态检查
+	if oldStatus == statemachine.TaskStatusRunning {
+		if s.orchestrator.CancelTask(taskID) {
+			klog.V(6).Infof("已触发运行中任务的取消: taskID=%d", taskID)
+		} else {
+			klog.Warningf("尝试取消运行中任务，但编排器中未找到: taskID=%d", taskID)
+		}
+	}
+
+	// 使用状态机验证迁移
+	if err := s.taskStateMachine.Transition(oldStatus, newStatus, taskID); err != nil {
+		return fmt.Errorf("任务状态迁移失败: %w", err)
+	}
+
+	// 更新数据库状态
+	// 记录取消时间为完成时间
+	now := time.Now()
+	task.Status = string(newStatus)
+	task.CompletedAt = &now
+	task.ErrorMsg = "用户手动取消"
+
+	if err := s.taskRepo.Save(task); err != nil {
+		return fmt.Errorf("更新任务状态失败: %w", err)
+	}
+
+	klog.V(6).Infof("任务已取消: taskID=%d", taskID)
+
+	// 更新仓库状态
+	_ = s.UpdateRepositoryStatus(task.RepositoryID)
+
+	return nil
+}
+
 // Delete 删除任务（删除单个任务）
 // 注意：删除任务也会删除关联的文档
 func (s *TaskService) Delete(taskID uint) error {

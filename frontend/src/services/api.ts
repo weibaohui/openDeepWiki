@@ -26,6 +26,9 @@ export const taskApi = {
     getByRepository: (repoId: number) => api.get<Task[]>(`/repositories/${repoId}/tasks`),
     get: (id: number) => api.get<Task>(`/tasks/${id}`),
     run: (id: number) => api.post(`/tasks/${id}/run`),
+    enqueue: (id: number) => api.post(`/tasks/${id}/enqueue`),
+    retry: (id: number) => api.post(`/tasks/${id}/retry`),
+    cancel: (id: number) => api.post(`/tasks/${id}/cancel`),
     reset: (id: number) => api.post(`/tasks/${id}/reset`),
     delete: (id: number) => api.delete(`/tasks/${id}`),
 };
