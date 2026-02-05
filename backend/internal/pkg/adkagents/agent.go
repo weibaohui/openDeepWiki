@@ -10,8 +10,9 @@ type AgentDefinition struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
 
-	// LLM 配置
-	Model string `yaml:"model" json:"model"` // 模型名称或别名，空则使用默认
+	// LLM 配置（支持单模型和多模型）
+	Model       string   `yaml:"model" json:"model"`       // 单模型：模型名称或别名
+	Models      []string `yaml:"models" json:"models"`      // 多模型：模型列表
 
 	// Agent 行为配置
 	Instruction   string   `yaml:"instruction" json:"instruction"`      // System Prompt
@@ -39,4 +40,25 @@ func (a *AgentDefinition) HasTool(toolName string) bool {
 // ToolCount 返回配置的工具数量
 func (a *AgentDefinition) ToolCount() int {
 	return len(a.Tools)
+}
+
+// GetModelNames 获取模型名称列表
+func (a *AgentDefinition) GetModelNames() []string {
+	// 如果配置了多模型列表，返回列表
+	if len(a.Models) > 0 {
+		return a.Models
+	}
+
+	// 如果配置了单模型，返回包含单模型的列表
+	if a.Model != "" {
+		return []string{a.Model}
+	}
+
+	// 都没有配置，返回空列表（使用默认模型）
+	return []string{}
+}
+
+// UseModelPool 判断是否使用模型池
+func (a *AgentDefinition) UseModelPool() bool {
+	return len(a.Models) > 0
 }

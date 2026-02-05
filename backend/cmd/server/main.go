@@ -51,9 +51,11 @@ func main() {
 	chapterRepo := repository.NewChapterRepository(db)
 	docTemplateRepo := repository.NewDocTemplateRepository(db)
 	aiAnalysisTaskRepo := repository.NewAIAnalysisTaskRepository(db)
+	apiKeyRepo := repository.NewAPIKeyRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 
 	// 初始化文档生成服务
 	docGeneratorService, err := documentgenerator.New(cfg)
@@ -90,6 +92,18 @@ func main() {
 	configHandler := handler.NewConfigHandler(cfg)
 	templateHandler := handler.NewDocumentTemplateHandler(templateService, chapterService, docTemplateService)
 	aiAnalyzeHandler := handler.NewAIAnalyzeHandler(aiAnalyzeService)
+	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
+
+	// 初始化 EnhancedModelProvider 并设置到 Manager
+	manager, err := adkagents.GetOrCreateInstance(cfg)
+	if err != nil {
+		log.Fatalf("Failed to get manager: %v", err)
+	}
+	enhancedModelProvider, err := adkagents.NewEnhancedModelProvider(cfg, apiKeyRepo, apiKeyService)
+	if err != nil {
+		log.Fatalf("Failed to create enhanced model provider: %v", err)
+	}
+	manager.SetEnhancedModelProvider(enhancedModelProvider)
 
 	// 初始化预置模板数据
 	if err := service.InitDefaultTemplates(db); err != nil {
@@ -100,7 +114,7 @@ func main() {
 	cleanupStuckTasks(taskService)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler, aiAnalyzeHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler, aiAnalyzeHandler, apiKeyHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

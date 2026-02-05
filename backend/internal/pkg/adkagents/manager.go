@@ -10,6 +10,7 @@ import (
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
@@ -24,6 +25,9 @@ type Manager struct {
 	parser  *Parser
 	loader  *Loader
 	watcher *FileWatcher
+
+	// 增强的模型提供者（支持多模型和自动切换）
+	enhancedModelProvider *EnhancedModelProviderImpl
 }
 
 var (
@@ -67,6 +71,19 @@ func newManagerInternal(cfg *config.Config) (*Manager, error) {
 	m.startWatcher()
 
 	return m, nil
+}
+
+// SetEnhancedModelProvider 设置增强的模型提供者
+func (m *Manager) SetEnhancedModelProvider(provider *EnhancedModelProviderImpl) {
+	m.enhancedModelProvider = provider
+	if provider != nil {
+		provider.switcher.SetModelProvider(provider)
+	}
+}
+
+// GetEnhancedModelProvider 获取增强的模型提供者
+func (m *Manager) GetEnhancedModelProvider() *EnhancedModelProviderImpl {
+	return m.enhancedModelProvider
 }
 
 // startWatcher 启动文件监听
@@ -172,10 +189,45 @@ func (m *Manager) CreateAgent(name string) (adk.Agent, error) {
 func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	ctx := context.Background()
 
-	// 获取模型
-	chatModel, err := NewLLMChatModel(m.cfg)
-	if err != nil {
-		klog.V(6).Infof("[Manager] Failed to get model '%s', using default: %v", def.Model, err)
+	// 获取模型（支持模型池）
+	var chatModel *openai.ChatModel
+	var err error
+
+	if def.UseModelPool() && m.enhancedModelProvider != nil {
+		// 使用模型池
+		modelNames := def.GetModelNames()
+		klog.V(6).Infof("[Manager] Using model pool for agent %s: %v", def.Name, modelNames)
+
+		// 获取第一个可用模型
+		models, err := m.enhancedModelProvider.GetModelPool(ctx, modelNames)
+		if err != nil || len(models) == 0 {
+			klog.Warningf("[Manager] Failed to get model pool for agent %s, using default model: %v", def.Name, err)
+			chatModel, err = NewLLMChatModel(m.cfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get default model: %w", err)
+			}
+		} else {
+			chatModel = &models[0].ChatModel
+		}
+	} else if def.Model != "" && m.enhancedModelProvider != nil {
+		// 使用单个模型（通过 EnhancedModelProvider）
+		klog.V(6).Infof("[Manager] Using model %s for agent %s", def.Model, def.Name)
+		model, err := m.enhancedModelProvider.GetModel(def.Model)
+		if err != nil {
+			klog.Warningf("[Manager] Failed to get model %s, using default model: %v", def.Model, err)
+			chatModel, err = NewLLMChatModel(m.cfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get default model: %w", err)
+			}
+		} else {
+			chatModel = model
+		}
+	} else {
+		// 使用默认模型
+		chatModel, err = NewLLMChatModel(m.cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get model: %w", err)
+		}
 	}
 
 	//将Tools进行包装为Adk可用的模式
@@ -192,14 +244,6 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		}
 		tools = append(tools, t)
 	}
-
-	// 获取技能中间件
-	skillMiddleware, err := m.GetOrCreateSkillMiddleware(m.cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create skill middleware: %w", err)
-	}
-
-	// 技能由 skill middleware 自动处理，它会拦截技能调用并执行
 
 	// 构造配置
 	config := &adk.ChatModelAgentConfig{
@@ -226,24 +270,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		},
 	}
 
-	//Skill 要单独加使用提示
-	if m.skillMiddlewareHaveSkills() {
-		var sn = `**重要：如何使用 Skills**
-  系统提供了一个 "skill" 工具，用于调用各种专业技能。使用规则：
-  - 当需要使用某个 skill 时，必须调用工具名为 "skill" 的工具
-  - 参数格式：{"skill": "skill-name"}
-  - 例如：要使用 repo-detection skill，调用工具名为 "skill"，参数为 {"skill": "repo-detection"}
-  - 绝对不要直接调用 skill 名称（如 "repo-detection"）作为工具名
-  - 可用的 skills 会在 "skill" 工具的描述中列出
-  
-  `
-		if !strings.Contains(config.Instruction, `系统提供了一个 "skill" 工具，用于调用各种专业技能。使用规则`) {
-			config.Instruction = sn + config.Instruction
-		}
-		config.Middlewares = append(config.Middlewares, skillMiddleware)
-	}
-
-	// 如果有工具或技能，添加 ToolsConfig
+	// 如果有工具，添加 ToolsConfig
 	if len(tools) > 0 {
 		config.ToolsConfig = adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{

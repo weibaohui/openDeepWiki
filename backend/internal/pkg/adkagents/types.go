@@ -1,9 +1,10 @@
 package adkagents
 
 import (
+	"context"
 	"time"
 
-	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino-ext/components/model/openai"
 )
 
 // ExitConfig 退出条件配置
@@ -24,12 +25,38 @@ type FileEvent struct {
 	Path string
 }
 
+// APIKeyService API Key 服务接口（避免循环导入）
+type APIKeyService interface {
+	MarkUnavailable(ctx context.Context, apiKeyID uint, resetTime time.Time) error
+	RecordRequest(ctx context.Context, apiKeyID uint, success bool) error
+}
+
+// ModelWithMetadata 带有元数据的模型包装器
+type ModelWithMetadata struct {
+	openai.ChatModel
+	APIKeyName string
+	APIKeyID   uint
+}
+
+// Name 返回模型名称
+func (m *ModelWithMetadata) Name() string {
+	return m.APIKeyName
+}
+
 // ModelProvider 模型提供者接口
 type ModelProvider interface {
 	// GetModel 获取指定名称的模型，name 为空时返回默认模型
-	GetModel(name string) (model.ToolCallingChatModel, error)
+	GetModel(name string) (*openai.ChatModel, error)
 	// DefaultModel 获取默认模型
-	DefaultModel() model.ToolCallingChatModel
+	DefaultModel() *openai.ChatModel
+	// GetModelPool 获取模型池
+	GetModelPool(ctx context.Context, names []string) ([]*ModelWithMetadata, error)
+	// IsRateLimitError 判断是否为 Rate Limit 错误
+	IsRateLimitError(err error) bool
+	// MarkModelUnavailable 标记模型为不可用
+	MarkModelUnavailable(modelName string, resetTime time.Time) error
+	// GetNextModel 获取下一个可用模型
+	GetNextModel(ctx context.Context, currentModelName string, poolNames []string) (*ModelWithMetadata, error)
 }
 
 // Now 返回当前时间（用于测试）

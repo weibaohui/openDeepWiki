@@ -16,6 +16,7 @@ func Setup(
 	configHandler *handler.ConfigHandler,
 	templateHandler *handler.DocumentTemplateHandler,
 	aiAnalyzeHandler *handler.AIAnalyzeHandler,
+	apiKeyHandler *handler.APIKeyHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -99,6 +100,9 @@ func Setup(
 			templateDocs.PUT("/:id", templateHandler.UpdateDocument)
 			templateDocs.DELETE("/:id", templateHandler.DeleteDocument)
 		}
+
+		// API Key 管理
+		apiKeyHandler.RegisterRoutes(api)
 	}
 
 	// 设置前端静态文件路由（嵌入式）
