@@ -130,3 +130,7 @@ tools:
    - list_skills
    - run_terminal_command
 maxIterations: 50
+models:
+   - cat
+   - dsfree
+   - zai
