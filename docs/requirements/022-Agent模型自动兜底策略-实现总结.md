@@ -79,6 +79,14 @@ func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, er
 
 这种机制彻底解决了“Agent 构建后模型固定，无法在运行时响应 429 切换”的问题。
 
+### 3.4 智能限速处理
+
+为了避免因短暂限速（429）导致模型被永久禁用，实现了智能限速与自动恢复机制：
+
+1.  **临时标记而非禁用**：当触发 429 错误时，不再将 API Key 的状态（`status`）修改为 `disabled`（该字段仅供人工管理），而是设置 `rate_limit_reset_at` 字段为当前时间 + 2分钟。
+2.  **动态过滤**：`GetHighestPriority` 和 `ListByNames` 在选择模型时，会同时过滤掉 `status != enabled` 和 `rate_limit_reset_at > now` 的模型。
+3.  **自动解除**：每次执行列表查询（`List`）时，会自动检查并清除已过期的限速标记（`rate_limit_reset_at < now`），实现限速状态的自动恢复。
+
 ## 4. 验证结果
 
 - **单元测试**: `internal/repository/api_key_repo_test.go` 中新增了对 `GetHighestPriority` 的测试，验证了按优先级排序和状态过滤的正确性。

@@ -91,8 +91,8 @@ func (p *ProxyChatModel) Generate(ctx context.Context, input []*schema.Message, 
 			// 解析重置时间
 			resetTime := p.parseResetTime(err)
 			if resetTime.IsZero() {
-				// 默认 1 小时
-				resetTime = time.Now().Add(time.Hour)
+				// 默认 2 分钟
+				resetTime = time.Now().Add(2 * time.Minute)
 			}
 
 			// 标记不可用

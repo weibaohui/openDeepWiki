@@ -171,6 +171,20 @@ func (a *APIKey) BeforeUpdate(tx *gorm.DB) error {
 }
 ```
 
+### 3.3 状态流转与限速处理
+
+*   **Status 字段**：仅用于人工手动控制（启用/禁用）。系统自动逻辑不修改此字段。
+*   **RateLimitResetAt 字段**：用于标识模型是否被限速。
+    *   当触发 429 限速时，系统更新 `rate_limit_reset_at` 为 `当前时间 + 2分钟`（或 Provider 返回的具体恢复时间）。
+    *   此时模型被视为“暂时不可用”，但 `status` 仍保持 `enabled`。
+    *   **自动解除**：每次获取模型列表（List/GetHighestPriority）时，系统会检查并清除已过期的 `rate_limit_reset_at` 标记（即 `rate_limit_reset_at < 当前时间`）。
+
+### 3.4 模型选择逻辑
+
+`GetHighestPriority` 和 `ListByNames` 的筛选条件变更为：
+1.  `status` 必须为 `enabled`。
+2.  且 `rate_limit_reset_at` 必须为空，或 `rate_limit_reset_at` 小于当前时间。
+
 ---
 
 ## 4. Repository 层设计

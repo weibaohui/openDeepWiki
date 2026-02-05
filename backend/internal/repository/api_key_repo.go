@@ -108,6 +108,9 @@ func (r *apiKeyRepository) GetByName(ctx context.Context, name string) (*model.A
 
 // List 列出所有配置（按优先级排序，包含已禁用）
 func (r *apiKeyRepository) List(ctx context.Context) ([]*model.APIKey, error) {
+	// 顺便释放已过期的速率限制
+	r.releaseExpiredRateLimits(ctx)
+
 	var apiKeys []*model.APIKey
 	err := r.db.WithContext(ctx).
 		Where("deleted_at IS NULL").
@@ -134,6 +137,7 @@ func (r *apiKeyRepository) ListByNames(ctx context.Context, names []string) ([]*
 	var apiKeys []*model.APIKey
 	err := r.db.WithContext(ctx).
 		Where("name IN ? AND status = ? AND deleted_at IS NULL", names, "enabled").
+		Where("rate_limit_reset_at IS NULL OR rate_limit_reset_at < ?", time.Now()).
 		Order("priority ASC, id ASC").
 		Find(&apiKeys).Error
 	return apiKeys, err
@@ -144,6 +148,7 @@ func (r *apiKeyRepository) GetHighestPriority(ctx context.Context) (*model.APIKe
 	var apiKey model.APIKey
 	err := r.db.WithContext(ctx).
 		Where("status = ? AND deleted_at IS NULL", "enabled").
+		Where("rate_limit_reset_at IS NULL OR rate_limit_reset_at < ?", time.Now()).
 		Order("priority ASC, id ASC").
 		First(&apiKey).Error
 	if err != nil {
@@ -188,7 +193,6 @@ func (r *apiKeyRepository) SetRateLimitReset(ctx context.Context, id uint, reset
 		Model(&model.APIKey{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"status":              "unavailable",
 			"rate_limit_reset_at": resetTime,
 		}).Error
 }
@@ -250,3 +254,13 @@ func NameExistsInSlice(ctx context.Context, db *gorm.DB, name string) (bool, err
 
 // ErrAPIKeyDuplicate API Key 名称重复错误
 var ErrAPIKeyDuplicate = fmt.Errorf("api key name already exists")
+
+// releaseExpiredRateLimits 释放已过期的速率限制
+func (r *apiKeyRepository) releaseExpiredRateLimits(ctx context.Context) {
+	// 顺便清除超过2分钟（即已过期）的限速标记
+	// 如果 rate_limit_reset_at 小于当前时间，说明限速已结束，重置为 NULL
+	r.db.WithContext(ctx).
+		Model(&model.APIKey{}).
+		Where("rate_limit_reset_at < ?", time.Now()).
+		Update("rate_limit_reset_at", nil)
+}
