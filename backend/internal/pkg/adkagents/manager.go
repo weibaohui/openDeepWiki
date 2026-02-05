@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"k8s.io/klog/v2"
 )
@@ -190,25 +190,14 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	ctx := context.Background()
 
 	// 获取模型（支持模型池）
-	var chatModel *openai.ChatModel
+	var chatModel model.ToolCallingChatModel
 	var err error
 
 	if def.UseModelPool() && m.enhancedModelProvider != nil {
-		// 使用模型池
+		// 使用模型池代理
 		modelNames := def.GetModelNames()
-		klog.V(6).Infof("[Manager] Using model pool for agent %s: %v", def.Name, modelNames)
-
-		// 获取第一个可用模型
-		models, err := m.enhancedModelProvider.GetModelPool(ctx, modelNames)
-		if err != nil || len(models) == 0 {
-			klog.Warningf("[Manager] Failed to get model pool for agent %s, using default model: %v", def.Name, err)
-			chatModel, err = NewLLMChatModel(m.cfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get default model: %w", err)
-			}
-		} else {
-			chatModel = &models[0].ChatModel
-		}
+		klog.V(6).Infof("[Manager] Using proxy model pool for agent %s: %v", def.Name, modelNames)
+		chatModel = NewProxyChatModel(m.enhancedModelProvider, modelNames)
 	} else if def.Model != "" && m.enhancedModelProvider != nil {
 		// 使用单个模型（通过 EnhancedModelProvider）
 		klog.V(6).Infof("[Manager] Using model %s for agent %s", def.Model, def.Name)
@@ -254,7 +243,11 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		ModelRetryConfig: &adk.ModelRetryConfig{
 			MaxRetries: 3,
 			IsRetryAble: func(ctx context.Context, err error) bool {
-				klog.V(6).Infof("[Manager] IsRetryAble: %v", err)
+				klog.V(6).Infof("[Manager] IsRetryAble check: %v", err)
+				if m.enhancedModelProvider != nil && m.enhancedModelProvider.IsRateLimitError(err) {
+					klog.Warningf("[Manager] IsRetryAble: rate limit error detected, retrying...")
+					return true
+				}
 				return false
 			},
 		},

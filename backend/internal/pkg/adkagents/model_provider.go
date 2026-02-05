@@ -183,7 +183,7 @@ func (p *EnhancedModelProviderImpl) IsRateLimitError(err error) bool {
 	}
 
 	errMsg := err.Error()
-
+	errMsg=strings.ToLower(errMsg)
 	// 检查 HTTP 状态码
 	if strings.Contains(errMsg, "429") {
 		return true
@@ -192,11 +192,13 @@ func (p *EnhancedModelProviderImpl) IsRateLimitError(err error) bool {
 	// 检查错误消息
 	rateLimitKeywords := []string{
 		"rate limit",
-		"rate_limit",
 		"quota exceeded",
 		"too many requests",
 		"rate-limited",
 		"request rate exceeded",
+		"请求次数超过限制",
+		"超过限制",
+		"每分钟请求次数",
 	}
 
 	lowerMsg := strings.ToLower(errMsg)
