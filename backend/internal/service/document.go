@@ -46,7 +46,7 @@ func (s *DocumentService) Create(req CreateDocumentRequest) (*model.Document, er
 		UpdatedAt:    time.Now(),
 	}
 
-	if err := s.docRepo.Create(doc); err != nil {
+	if err := s.docRepo.CreateVersioned(doc); err != nil {
 		return nil, err
 	}
 	return doc, nil

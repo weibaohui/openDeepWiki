@@ -40,6 +40,8 @@ type Document struct {
 	Filename     string    `json:"filename" gorm:"size:255;not null"`
 	Content      string    `json:"content" gorm:"type:text"`
 	SortOrder    int       `json:"sort_order" gorm:"default:0"`
+	Version      int       `json:"version" gorm:"default:1;index"`
+	IsLatest     bool      `json:"is_latest" gorm:"default:true;index"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

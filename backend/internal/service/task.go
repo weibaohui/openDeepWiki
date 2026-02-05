@@ -274,11 +274,6 @@ func (s *TaskService) Reset(taskID uint) error {
 		return fmt.Errorf("任务状态迁移失败: %w", err)
 	}
 
-	// 删除关联的文档
-	if err := s.docService.DeleteByTaskID(taskID); err != nil {
-		return fmt.Errorf("删除文档失败: %w", err)
-	}
-
 	// 更新数据库状态
 	task.Status = string(newStatus)
 	task.ErrorMsg = ""
@@ -328,11 +323,6 @@ func (s *TaskService) ForceReset(taskID uint) error {
 		if err := s.taskStateMachine.Transition(currentStatus, newStatus, taskID); err != nil {
 			klog.Warningf("任务状态迁移失败（%s -> %s）: taskID=%d, error=%v，继续强制重置", currentStatus, newStatus, taskID, err)
 		}
-	}
-
-	// 删除关联的文档
-	if err := s.docService.DeleteByTaskID(taskID); err != nil {
-		return fmt.Errorf("删除文档失败: %w", err)
 	}
 
 	// 重置任务状态
