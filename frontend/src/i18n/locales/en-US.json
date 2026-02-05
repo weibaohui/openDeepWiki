@@ -70,6 +70,10 @@
         "title": "Tasks",
         "run": "Run",
         "reset": "Reset",
+        "retry": "Retry",
+        "regenerate": "Regenerate",
+        "retry_started": "Task regeneration started",
+        "retry_failed": "Failed to regenerate task",
         "status": {
             "pending": "Pending",
             "running": "Running",

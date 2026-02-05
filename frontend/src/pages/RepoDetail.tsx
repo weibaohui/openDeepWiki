@@ -157,6 +157,7 @@ export default function RepoDetail() {
     const getTaskIcon = (status: string) => {
         switch (status) {
             case 'completed':
+            case 'succeeded':
                 return <CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />;
             case 'running':
                 return <LoadingOutlined style={{ color: 'var(--ant-color-primary)' }} />;
@@ -330,7 +331,15 @@ export default function RepoDetail() {
                                                     title={t('task.cancel', 'Cancel')}
                                                 />
                                             ),
-                                            (task.status === 'completed' || task.status === 'failed' || task.status === 'canceled') && (
+                                            (task.status === 'completed' || task.status === 'succeeded') && (
+                                                <Button
+                                                    type="text"
+                                                    icon={<ReloadOutlined />}
+                                                    onClick={() => handleRetryTask(task.id)}
+                                                    title={t('task.regenerate', 'Regenerate')}
+                                                />
+                                            ),
+                                            (task.status === 'failed' || task.status === 'canceled') && (
                                                 <Button
                                                     type="text"
                                                     icon={<ReloadOutlined />}

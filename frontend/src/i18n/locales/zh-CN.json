@@ -70,6 +70,10 @@
         "title": "任务列表",
         "run": "运行",
         "reset": "重置",
+        "retry": "重试",
+        "regenerate": "再次生成",
+        "retry_started": "任务重新生成已启动",
+        "retry_failed": "任务重新生成失败",
         "status": {
             "pending": "未运行",
             "queued": "已入队等待",
