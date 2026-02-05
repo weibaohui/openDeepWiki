@@ -403,7 +403,17 @@ export default function RepoDetail() {
                                             <List.Item.Meta
                                                 avatar={<FileTextOutlined style={{ color: 'var(--ant-color-primary)' }} />}
                                                 title={doc.title}
-                                                description={doc.filename}
+                                                description={
+                                                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                                        <div>{doc.filename}</div>
+                                                        {doc.updated_at && (
+                                                            <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+                                                                <ClockCircleOutlined style={{ marginRight: 4 }} />
+                                                                {formatDateTime(doc.updated_at)}
+                                                            </div>
+                                                        )}
+                                                    </Space>
+                                                }
                                             />
                                         </List.Item>
                                     )}

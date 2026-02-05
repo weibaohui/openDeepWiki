@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document } from '../types';
@@ -23,6 +23,29 @@ export default function DocViewer() {
     const [editContent, setEditContent] = useState('');
     const [messageApi, contextHolder] = message.useMessage();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    const formatDateTime = (dateStr: string) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now.getTime() - date.getTime();
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (seconds < 60) {
+            return t('task.updated_just_now');
+        } else if (minutes < 60) {
+            return t('task.updated_minutes_ago').replace('{{minutes}}', minutes.toString());
+        } else if (hours < 24) {
+            return t('task.updated_hours_ago').replace('{{hours}}', hours.toString());
+        } else if (days < 7) {
+            return t('task.updated_days_ago').replace('{{days}}', days.toString());
+        } else {
+            return date.toLocaleDateString();
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -108,7 +131,17 @@ export default function DocViewer() {
                 items={documents.map(doc => ({
                     key: String(doc.id),
                     icon: <FileTextOutlined />,
-                    label: doc.title,
+                    label: (
+                        <div>
+                            <div>{doc.title}</div>
+                            {doc.updated_at && (
+                                <div style={{ display: 'flex', alignItems: 'center', fontSize: '11px', color: 'var(--ant-color-text-tertiary)' }}>
+                                    <ClockCircleOutlined style={{ marginRight: 4, fontSize: '10px' }} />
+                                    {formatDateTime(doc.updated_at)}
+                                </div>
+                            )}
+                        </div>
+                    ),
                     onClick: () => {
                         navigate(`/repo/${id}/doc/${doc.id}`);
                         setMobileMenuOpen(false);
