@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document } from '../types';
@@ -112,9 +112,7 @@ export default function DocViewer() {
         setVersionDrawerOpen(true);
     };
 
-    const otherVersions = document
-        ? versions.filter((item) => item.id !== document.id).sort((a, b) => b.version - a.version)
-        : [];
+    const sortedVersions = versions.slice().sort((a, b) => b.version - a.version);
 
     if (loading) {
         return (
@@ -276,26 +274,37 @@ export default function DocViewer() {
                 onClose={() => setVersionDrawerOpen(false)}
                 width={260}
             >
-                {otherVersions.length === 0 ? (
+                {sortedVersions.length === 0 ? (
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={t('document.no_versions')}
                     />
                 ) : (
                     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                        {otherVersions.map((item) => (
-                            <Button
-                                key={item.id}
-                                type="link"
-                                onClick={() => {
-                                    navigate(`/repo/${id}/doc/${item.id}`);
-                                    setVersionDrawerOpen(false);
-                                }}
-                                style={{ padding: 0, height: 'auto', textAlign: 'left' }}
-                            >
-                                {t('document.version_label').replace('{{version}}', String(item.version))}
-                            </Button>
-                        ))}
+                        {sortedVersions.map((item) => {
+                            const isCurrent = item.id === document.id;
+                            return (
+                                <Button
+                                    key={item.id}
+                                    type="link"
+                                    onClick={() => {
+                                        navigate(`/repo/${id}/doc/${item.id}`);
+                                        setVersionDrawerOpen(false);
+                                    }}
+                                    style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                                >
+                                    <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                                        <Space size={6}>
+                                            <span>{t('document.version_label').replace('{{version}}', String(item.version))}</span>
+                                            {isCurrent && <CheckOutlined style={{ color: 'var(--ant-color-success)' }} />}
+                                        </Space>
+                                        <span style={{ fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
+                                            {t('document.updated_at')}: {formatDateTime(item.updated_at)}
+                                        </span>
+                                    </Space>
+                                </Button>
+                            );
+                        })}
                     </Space>
                 )}
             </Drawer>
