@@ -196,7 +196,7 @@ type APIKeyRepository interface {
     // GetByName 根据名称获取
     GetByName(ctx context.Context, name string) (*model.APIKey, error)
 
-    // List 列出所有启用的配置（按优先级排序）
+    // List 列出所有配置（按优先级排序，包含已禁用）
     List(ctx context.Context) ([]*model.APIKey, error)
 
     // ListByProvider 按提供商列出配置
@@ -270,11 +270,11 @@ func (r *apiKeyRepository) GetByName(ctx context.Context, name string) (*model.A
     return &apiKey, nil
 }
 
-// List 列出所有启用的配置（按优先级排序）
+// List 列出所有配置（按优先级排序，包含已禁用）
 func (r *apiKeyRepository) List(ctx context.Context) ([]*model.APIKey, error) {
     var apiKeys []*model.APIKey
     err := r.db.WithContext(ctx).
-        Where("status = ? AND deleted_at IS NULL", "enabled").
+        Where("deleted_at IS NULL").
         Order("priority ASC, id ASC").
         Find(&apiKeys).Error
     return apiKeys, err
