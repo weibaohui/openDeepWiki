@@ -58,22 +58,26 @@ func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, er
 
 ### 3.3 Agent 管理层 (`Manager`)
 
-修复了 `Manager.createADKAgent` 中当 Agent 未指定模型时的处理逻辑，确保调用 `EnhancedModelProvider` 进行自动兜底，而不是直接使用 Env 默认模型。
+优化了 `Manager.createADKAgent` 的兜底逻辑。当 Agent 未指定模型时，不再是“创建时一次性选择”，而是创建一个配置为“全局自动模式”的 `ProxyChatModel`。
 
 ```go
 // internal/pkg/adkagents/manager.go
 } else {
-    // 模型未指定，尝试使用增强提供者获取自动兜底模型
+    // 模型未指定，使用动态代理模型（自动兜底模式）
     if m.enhancedModelProvider != nil {
-        model, err := m.enhancedModelProvider.GetModel("")
-        // ... 成功则使用 model，失败则降级到 Env
-    } else {
-        // 没有增强提供者，直接使用默认模型
-        chatModel, err = NewLLMChatModel(m.cfg)
-        // ...
+        // 传入 nil 作为 modelNames，启用“自动选择所有可用模型”模式
+        chatModel = NewProxyChatModel(m.enhancedModelProvider, nil)
     }
+    // ...
 }
 ```
+
+这意味着：
+1.  Agent 在**每次执行**（Generate/Stream）时，都会动态查询数据库中当前优先级最高的可用模型。
+2.  如果当前使用的模型触发 429 限流并被标记为不可用，Agent 的下一次重试会自动切换到下一个优先级最高的模型。
+3.  如果所有数据库模型均不可用，`ProxyChatModel` 内部会自动降级到 Env 环境变量模型。
+
+这种机制彻底解决了“Agent 构建后模型固定，无法在运行时响应 429 切换”的问题。
 
 ## 4. 验证结果
 

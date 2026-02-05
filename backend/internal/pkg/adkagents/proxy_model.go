@@ -37,6 +37,23 @@ func (p *ProxyChatModel) Generate(ctx context.Context, input []*schema.Message, 
 		return nil, err
 	}
 	if len(models) == 0 {
+		// 如果没有可用模型，且未指定特定模型名称（全局自动兜底模式），尝试使用 Env 默认模型
+		if len(p.modelNames) == 0 {
+			klog.Warningf("ProxyChatModel.Generate: no DB models available, falling back to Env default model")
+			defaultModel := p.provider.DefaultModel()
+			// 绑定工具
+			p.toolsMu.RLock()
+			tools := p.tools
+			p.toolsMu.RUnlock()
+			if len(tools) > 0 {
+				if binder, ok := interface{}(defaultModel).(interface {
+					BindTools(tools []*schema.ToolInfo) error
+				}); ok {
+					_ = binder.BindTools(tools)
+				}
+			}
+			return defaultModel.Generate(ctx, input, opts...)
+		}
 		return nil, ErrNoAvailableModel
 	}
 
@@ -105,6 +122,23 @@ func (p *ProxyChatModel) Stream(ctx context.Context, input []*schema.Message, op
 		return nil, err
 	}
 	if len(models) == 0 {
+		// 如果没有可用模型，且未指定特定模型名称（全局自动兜底模式），尝试使用 Env 默认模型
+		if len(p.modelNames) == 0 {
+			klog.Warningf("ProxyChatModel.Stream: no DB models available, falling back to Env default model")
+			defaultModel := p.provider.DefaultModel()
+			// 绑定工具
+			p.toolsMu.RLock()
+			tools := p.tools
+			p.toolsMu.RUnlock()
+			if len(tools) > 0 {
+				if binder, ok := interface{}(defaultModel).(interface {
+					BindTools(tools []*schema.ToolInfo) error
+				}); ok {
+					_ = binder.BindTools(tools)
+				}
+			}
+			return defaultModel.Stream(ctx, input, opts...)
+		}
 		return nil, ErrNoAvailableModel
 	}
 

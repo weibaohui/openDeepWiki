@@ -212,19 +212,11 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 			chatModel = model
 		}
 	} else {
-		// 模型未指定，尝试使用增强提供者获取自动兜底模型
+		// 模型未指定，使用动态代理模型（自动兜底模式）
 		if m.enhancedModelProvider != nil {
-			klog.V(6).Infof("[Manager] Model not specified for agent %s, attempting auto-fallback via EnhancedModelProvider", def.Name)
-			model, err := m.enhancedModelProvider.GetModel("")
-			if err == nil {
-				chatModel = model
-			} else {
-				klog.Warningf("[Manager] Failed to get auto-fallback model, using default Env model: %v", err)
-				chatModel, err = NewLLMChatModel(m.cfg)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get default model: %w", err)
-				}
-			}
+			klog.V(6).Infof("[Manager] Model not specified for agent %s, using dynamic ProxyChatModel for auto-fallback", def.Name)
+			// 传入 nil 作为 modelNames，启用“自动选择所有可用模型”模式
+			chatModel = NewProxyChatModel(m.enhancedModelProvider, nil)
 		} else {
 			// 没有增强提供者，直接使用默认模型
 			chatModel, err = NewLLMChatModel(m.cfg)

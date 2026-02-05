@@ -127,7 +127,14 @@ func (p *EnhancedModelProviderImpl) GetModelPool(ctx context.Context, names []st
 	klog.V(6).Infof("EnhancedModelProvider.GetModelPool: getting models for names %v", names)
 
 	// 从数据库获取 API Key 配置列表
-	apiKeys, err := p.apiKeyRepo.ListByNames(ctx, names)
+	var apiKeys []*model.APIKey
+	var err error
+	if len(names) == 0 {
+		// 如果未指定名称，获取所有配置
+		apiKeys, err = p.apiKeyRepo.List(ctx)
+	} else {
+		apiKeys, err = p.apiKeyRepo.ListByNames(ctx, names)
+	}
 	if err != nil {
 		klog.Errorf("EnhancedModelProvider.GetModelPool: failed to get API Keys: %v", err)
 		return nil, err
