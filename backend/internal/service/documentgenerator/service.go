@@ -14,8 +14,9 @@ import (
 
 // Agent 名称常量
 const (
-	agentGen   = "document_generator" // 文档生成 Agent
-	agentCheck = "markdown_checker"   // Markdown 校验 Agent
+	agentGen      = "document_generator" // 文档生成 Agent
+	agentCheck    = "markdown_checker"   // Markdown 校验 Agent
+	agentDocCheck = "document_checker"   // 文档校验 Agent
 )
 
 // 错误定义
@@ -81,6 +82,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		"document generator sequential agent - analyze code and generate documentation",
 		agentGen,
 		agentCheck,
+		agentDocCheck,
 	)
 
 	if err != nil {
