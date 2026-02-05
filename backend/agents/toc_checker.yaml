@@ -67,7 +67,7 @@ tools:
    - list_skills # 技能列表工具：获取所有已注册技能
    - run_terminal_command # 终端命令执行工具：执行shell命令，如uv run <script>、python3 <script>、ls、cat、grep等
 maxIterations: 30
-models:
-   - cat
-   - dsfree
-   - zai
+# models:
+#    - cat
+#    - dsfree
+#    - zai
