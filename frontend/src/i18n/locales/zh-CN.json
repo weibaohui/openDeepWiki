@@ -74,6 +74,10 @@
         "regenerate": "再次生成",
         "retry_started": "任务重新生成已启动",
         "retry_failed": "任务重新生成失败",
+        "retry_missing_docs": "重试无文档任务",
+        "retry_missing_docs_success": "已触发 {{count}} 个任务重试",
+        "retry_missing_docs_failed": "任务重试失败（{{count}} 个任务）",
+        "retry_missing_docs_empty": "暂无可重试任务",
         "status": {
             "pending": "未运行",
             "queued": "已入队等待",

@@ -74,6 +74,10 @@
         "regenerate": "Regenerate",
         "retry_started": "Task regeneration started",
         "retry_failed": "Failed to regenerate task",
+        "retry_missing_docs": "Retry Tasks Without Docs",
+        "retry_missing_docs_success": "Triggered retry for {{count}} tasks",
+        "retry_missing_docs_failed": "Failed to retry {{count}} tasks",
+        "retry_missing_docs_empty": "No tasks to retry",
         "status": {
             "pending": "Pending",
             "running": "Running",

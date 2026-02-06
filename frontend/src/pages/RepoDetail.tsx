@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider, Statistic } from 'antd';
+import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -24,6 +24,7 @@ export default function RepoDetail() {
     const [loading, setLoading] = useState(true);
     const [messageApi, contextHolder] = message.useMessage();
     const [drawerVisible, setDrawerVisible] = useState(false);
+    const [retryingMissingDocs, setRetryingMissingDocs] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!id) return;
@@ -140,6 +141,41 @@ export default function RepoDetail() {
         });
     };
 
+    const getDocumentForTask = (taskId: number) => {
+        return documents.find((doc) => doc.task_id === taskId);
+    };
+
+    const retryableMissingDocTasks = tasks.filter(
+        (task) => !getDocumentForTask(task.id) && !['pending', 'running', 'queued'].includes(task.status)
+    );
+
+    const handleRetryMissingDocs = async () => {
+        if (retryingMissingDocs || retryableMissingDocTasks.length === 0) return;
+        setRetryingMissingDocs(true);
+        let successCount = 0;
+        let failureCount = 0;
+        for (const task of retryableMissingDocTasks) {
+            try {
+                await taskApi.retry(task.id);
+                successCount += 1;
+            } catch (error) {
+                console.error('Failed to retry task:', error);
+                failureCount += 1;
+            }
+        }
+        await fetchData();
+        if (successCount > 0) {
+            messageApi.success(t('task.retry_missing_docs_success').replace('{{count}}', successCount.toString()));
+        }
+        if (failureCount > 0) {
+            messageApi.error(t('task.retry_missing_docs_failed').replace('{{count}}', failureCount.toString()));
+        }
+        if (successCount === 0 && failureCount === 0) {
+            messageApi.warning(t('task.retry_missing_docs_empty'));
+        }
+        setRetryingMissingDocs(false);
+    };
+
     const handleExport = async () => {
         if (!id) return;
         try {
@@ -169,10 +205,6 @@ export default function RepoDetail() {
             default:
                 return <ClockCircleOutlined style={{ color: 'var(--ant-color-text-secondary)' }} />;
         }
-    };
-
-    const getDocumentForTask = (taskId: number) => {
-        return documents.find((doc) => doc.task_id === taskId);
     };
 
     const formatDateTime = (dateStr: string) => {
@@ -322,6 +354,17 @@ export default function RepoDetail() {
                                     <span style={{ color: 'var(--ant-color-text-secondary)' }}>{t('task.status.running')}:</span>
                                     <span style={{ fontWeight: 'bold' }}>{taskStats['running'] || 0}</span>
                                 </Space>
+                                <Tooltip title={retryableMissingDocTasks.length === 0 ? t('task.retry_missing_docs_empty') : t('task.retry_missing_docs')}>
+                                    <Button
+                                        type="primary"
+                                        icon={<ReloadOutlined />}
+                                        onClick={handleRetryMissingDocs}
+                                        loading={retryingMissingDocs}
+                                        disabled={retryingMissingDocs || retryableMissingDocTasks.length === 0}
+                                    >
+                                        {t('task.retry_missing_docs')}
+                                    </Button>
+                                </Tooltip>
                             </Space>
                         </div>
                         <Card bodyStyle={{ padding: 0 }}>
