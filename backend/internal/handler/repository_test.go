@@ -17,15 +17,23 @@ import (
 )
 
 type mockRepoRepo struct {
+	CreateFunc   func(repo *model.Repository) error
+	ListFunc     func() ([]model.Repository, error)
 	GetBasicFunc func(id uint) (*model.Repository, error)
 	SaveFunc     func(repo *model.Repository) error
 }
 
 func (m *mockRepoRepo) Create(repo *model.Repository) error {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(repo)
+	}
 	return nil
 }
 
 func (m *mockRepoRepo) List() ([]model.Repository, error) {
+	if m.ListFunc != nil {
+		return m.ListFunc()
+	}
 	return nil, nil
 }
 
@@ -144,6 +152,46 @@ func (m *mockDirMakerService) CreateDirs(ctx context.Context, repo *model.Reposi
 		return m.CreateDirsFunc(ctx, repo)
 	}
 	return nil, nil
+}
+
+func TestRepositoryHandlerCreateInvalidURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repoRepo := &mockRepoRepo{}
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	handler := NewRepositoryHandler(svc)
+	router := gin.New()
+	router.POST("/repositories", handler.Create)
+
+	req := httptest.NewRequest(http.MethodPost, "/repositories", strings.NewReader(`{"url":"https://github.com/owner/repo/blob/main/README.md"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestRepositoryHandlerCreateDuplicateURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repoRepo := &mockRepoRepo{
+		ListFunc: func() ([]model.Repository, error) {
+			return []model.Repository{{ID: 1, URL: "https://github.com/Owner/Repo?tab=readme"}}, nil
+		},
+	}
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	handler := NewRepositoryHandler(svc)
+	router := gin.New()
+	router.POST("/repositories", handler.Create)
+
+	req := httptest.NewRequest(http.MethodPost, "/repositories", strings.NewReader(`{"url":"https://github.com/owner/repo"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected status 409, got %d", w.Code)
+	}
 }
 
 func TestRepositoryHandlerPurgeLocalSuccess(t *testing.T) {

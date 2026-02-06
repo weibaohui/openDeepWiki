@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,6 +70,54 @@ func IsValidGitURL(url string) bool {
 	sshPattern := regexp.MustCompile(`^git@[^\s]+:[^\s]+\.git$`)
 
 	return httpsPattern.MatchString(url) || sshPattern.MatchString(url)
+}
+
+func NormalizeRepoURL(raw string) (string, string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", "", fmt.Errorf("empty url")
+	}
+
+	if strings.HasPrefix(trimmed, "git@") {
+		re := regexp.MustCompile(`^git@([^:]+):([^/]+)/([^/]+?)(?:\.git)?/?$`)
+		matches := re.FindStringSubmatch(trimmed)
+		if len(matches) != 4 {
+			return "", "", fmt.Errorf("invalid ssh url")
+		}
+		host := strings.ToLower(matches[1])
+		owner := strings.ToLower(matches[2])
+		repo := strings.ToLower(matches[3])
+		normalized := fmt.Sprintf("git@%s:%s/%s.git", host, owner, repo)
+		key := fmt.Sprintf("%s/%s/%s", host, owner, repo)
+		return normalized, key, nil
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid url: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", "", fmt.Errorf("unsupported scheme")
+	}
+	if parsed.Host == "" {
+		return "", "", fmt.Errorf("missing host")
+	}
+
+	path := strings.Trim(parsed.Path, "/")
+	path = strings.TrimSuffix(path, ".git")
+	if path == "" {
+		return "", "", fmt.Errorf("missing repo path")
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid repo path")
+	}
+	host := strings.ToLower(parsed.Host)
+	owner := strings.ToLower(parts[0])
+	repo := strings.ToLower(parts[1])
+	normalized := fmt.Sprintf("%s://%s/%s/%s", strings.ToLower(parsed.Scheme), host, owner, repo)
+	key := fmt.Sprintf("%s/%s/%s", host, owner, repo)
+	return normalized, key, nil
 }
 
 func GetBranchAndCommit(repoPath string) (string, string, error) {

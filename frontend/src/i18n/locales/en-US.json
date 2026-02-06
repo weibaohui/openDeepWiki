@@ -25,6 +25,7 @@
         "add": "Add Repository",
         "list_title": "Repositories",
         "url_placeholder": "Enter GitHub repository URL",
+        "duplicate_error": "Repository already exists and cannot be added again",
         "status": {
             "pending": "Pending",
             "cloning": "Cloning",

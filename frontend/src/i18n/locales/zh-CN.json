@@ -25,6 +25,7 @@
         "add": "添加仓库",
         "list_title": "仓库列表",
         "url_placeholder": "请输入 GitHub 仓库地址",
+        "duplicate_error": "仓库已存在，不能重复添加",
         "status": {
             "pending": "等待中",
             "cloning": "克隆中",
@@ -79,6 +80,7 @@
         "run": "运行",
         "reset": "重置",
         "retry": "重试",
+        "cancel":"取消",
         "regenerate": "再次生成",
         "retry_started": "任务重新生成已启动",
         "retry_failed": "任务重新生成失败",
@@ -153,7 +155,7 @@
         "enabled": "已启用",
         "disabled": "已禁用",
         "unavailable": "不可用",
-        "request_count":"请求数",
+        "request_count": "请求数",
         "stats": {
             "total": "总配置数",
             "enabled": "启用中",

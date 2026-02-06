@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
     PlusOutlined,
@@ -13,7 +14,7 @@ import {
     WarningOutlined,
     FolderOutlined
 } from '@ant-design/icons';
-import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid } from 'antd';
+import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid, message } from 'antd';
 import type { Repository } from '../types';
 import { repositoryApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -35,6 +36,7 @@ export default function Home() {
     const [newRepoUrl, setNewRepoUrl] = useState('');
     const [adding, setAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [messageApi, contextHolder] = message.useMessage();
 
     const fetchRepositories = async () => {
         try {
@@ -66,6 +68,9 @@ export default function Home() {
             fetchRepositories();
         } catch (error) {
             console.error('Failed to add repository:', error);
+            if (axios.isAxiosError(error) && error.response?.status === 409) {
+                messageApi.error(t('repository.duplicate_error'));
+            }
         } finally {
             setAdding(false);
         }
@@ -75,25 +80,6 @@ export default function Home() {
         if (!size || size <= 0) return '-';
         return `${size.toFixed(2)} MB`;
     };
-
-    const handleDelete = async (id: number, e: React.MouseEvent) => {
-        e.stopPropagation();
-        Modal.confirm({
-            title: t('repository.delete_confirm'),
-            content: 'This action cannot be undone.',
-            okText: t('common.delete'),
-            cancelText: t('common.cancel'),
-            onOk: async () => {
-                try {
-                    await repositoryApi.delete(id);
-                    fetchRepositories();
-                } catch (error) {
-                    console.error('Failed to delete repository:', error);
-                }
-            }
-        });
-    };
-
 
     const getStatusDisplay = (status: string) => {
         const map: Record<string, { label: string, icon: React.ReactNode, color: string }> = {
@@ -115,6 +101,7 @@ export default function Home() {
 
     return (
         <>
+            {contextHolder}
             <GitHubPromoBanner />
             <Layout style={{ minHeight: '100vh' }}>
                 <Header style={{
@@ -195,7 +182,7 @@ export default function Home() {
                                         <Card
                                             hoverable
                                             onClick={() => navigate(`/repo/${repo.id}`)}
-                                       
+
                                         >
                                             <Card.Meta
                                                 avatar={<BookOutlined style={{ fontSize: 24, color: 'var(--ant-color-primary)' }} />}
@@ -207,7 +194,7 @@ export default function Home() {
                                                 }
                                                 description={
                                                     <Space direction="vertical" style={{ width: '100%' }} size={4}>
-                                                       
+
                                                         <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
                                                             <GithubOutlined style={{ marginRight: 4 }} />
                                                             <span title={repo.url} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
@@ -217,7 +204,7 @@ export default function Home() {
                                                                 <BranchesOutlined></BranchesOutlined>
                                                                 {repo.clone_branch || '-'}
                                                             </span>
-                                                            
+
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
                                                             <ClockCircleOutlined style={{ marginRight: 4 }} />

@@ -64,3 +64,65 @@ func TestGetBranchAndCommit(t *testing.T) {
 	}
 }
 
+func TestNormalizeRepoURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantURL   string
+		wantKey   string
+		expectErr bool
+	}{
+		{
+			name:      "https with query",
+			input:     "https://github.com/Owner/Repo?tab=readme",
+			wantURL:   "https://github.com/owner/repo",
+			wantKey:   "github.com/owner/repo",
+			expectErr: false,
+		},
+		{
+			name:      "https with git suffix",
+			input:     "https://gitlab.com/team/project.git",
+			wantURL:   "https://gitlab.com/team/project",
+			wantKey:   "gitlab.com/team/project",
+			expectErr: false,
+		},
+		{
+			name:      "ssh url",
+			input:     "git@github.com:Owner/Repo.git",
+			wantURL:   "git@github.com:owner/repo.git",
+			wantKey:   "github.com/owner/repo",
+			expectErr: false,
+		},
+		{
+			name:      "invalid path depth",
+			input:     "https://github.com/owner/repo/blob/main/README.md",
+			expectErr: true,
+		},
+		{
+			name:      "invalid scheme",
+			input:     "ftp://github.com/owner/repo",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotURL, gotKey, err := NormalizeRepoURL(tt.input)
+			if tt.expectErr {
+				if err == nil {
+					t.Fatalf("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("NormalizeRepoURL error: %v", err)
+			}
+			if gotURL != tt.wantURL {
+				t.Fatalf("unexpected url: %s", gotURL)
+			}
+			if gotKey != tt.wantKey {
+				t.Fatalf("unexpected key: %s", gotKey)
+			}
+		})
+	}
+}

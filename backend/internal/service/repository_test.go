@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -20,6 +21,40 @@ func (m *mockDirMakerService) CreateDirs(ctx context.Context, repo *model.Reposi
 		return m.CreateDirsFunc(ctx, repo)
 	}
 	return nil, nil
+}
+
+func TestRepositoryServiceCreateInvalidURL(t *testing.T) {
+	repoRepo := &mockRepoRepo{
+		ListFunc: func() ([]model.Repository, error) {
+			return nil, nil
+		},
+		CreateFunc: func(repo *model.Repository) error {
+			t.Fatalf("unexpected create called")
+			return nil
+		},
+	}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	_, err := service.Create(CreateRepoRequest{URL: "https://github.com/owner/repo/blob/main/README.md"})
+	if !errors.Is(err, ErrInvalidRepositoryURL) {
+		t.Fatalf("expected invalid url error, got %v", err)
+	}
+}
+
+func TestRepositoryServiceCreateDuplicateURL(t *testing.T) {
+	repoRepo := &mockRepoRepo{
+		ListFunc: func() ([]model.Repository, error) {
+			return []model.Repository{{ID: 1, URL: "https://github.com/Owner/Repo?tab=readme"}}, nil
+		},
+		CreateFunc: func(repo *model.Repository) error {
+			t.Fatalf("unexpected create called")
+			return nil
+		},
+	}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	_, err := service.Create(CreateRepoRequest{URL: "https://github.com/owner/repo"})
+	if !errors.Is(err, ErrRepositoryAlreadyExists) {
+		t.Fatalf("expected duplicate error, got %v", err)
+	}
 }
 
 func TestRepositoryServicePurgeLocalDirSuccess(t *testing.T) {

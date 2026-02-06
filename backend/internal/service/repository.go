@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -58,16 +59,43 @@ type CreateRepoRequest struct {
 	URL string `json:"url" binding:"required"`
 }
 
+var (
+	ErrInvalidRepositoryURL    = errors.New("invalid repository url")
+	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+)
+
 // Create 创建仓库并初始化任务
 func (s *RepositoryService) Create(req CreateRepoRequest) (*model.Repository, error) {
+	normalizedURL, repoKey, err := git.NormalizeRepoURL(req.URL)
+	if err != nil {
+		klog.V(6).Infof("仓库URL校验失败: url=%s, error=%v", req.URL, err)
+		return nil, ErrInvalidRepositoryURL
+	}
+
+	existingRepos, err := s.repoRepo.List()
+	if err != nil {
+		return nil, fmt.Errorf("获取仓库列表失败: %w", err)
+	}
+	for _, existing := range existingRepos {
+		_, existingKey, parseErr := git.NormalizeRepoURL(existing.URL)
+		if parseErr != nil {
+			klog.V(6).Infof("已有仓库URL无法解析，跳过去重: repoID=%d, url=%s, error=%v", existing.ID, existing.URL, parseErr)
+			continue
+		}
+		if existingKey == repoKey {
+			klog.V(6).Infof("仓库已存在，拒绝重复添加: repoID=%d, url=%s", existing.ID, normalizedURL)
+			return nil, ErrRepositoryAlreadyExists
+		}
+	}
+
 	// 生成仓库名称和本地路径
-	repoName := git.ParseRepoName(req.URL)
+	repoName := git.ParseRepoName(normalizedURL)
 	localPath := filepath.Join(s.cfg.Data.RepoDir, repoName+"-"+fmt.Sprintf("%d", time.Now().Unix()))
 
 	// 创建仓库（初始状态为pending）
 	repo := &model.Repository{
 		Name:      repoName,
-		URL:       req.URL,
+		URL:       normalizedURL,
 		LocalPath: localPath,
 		Status:    string(statemachine.RepoStatusPending),
 	}
