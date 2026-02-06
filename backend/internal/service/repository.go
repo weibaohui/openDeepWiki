@@ -149,6 +149,23 @@ func (s *RepositoryService) cloneRepository(repoID uint) {
 		return
 	}
 
+	sizeMB, err := git.DirSizeMB(repo.LocalPath)
+	if err != nil {
+		klog.Errorf("计算仓库大小失败: repoID=%d, error=%v", repoID, err)
+	} else {
+		repo.SizeMB = sizeMB
+		klog.V(6).Infof("仓库大小已记录: repoID=%d, sizeMB=%.2f", repoID, sizeMB)
+	}
+
+	branch, commit, err := git.GetBranchAndCommit(repo.LocalPath)
+	if err != nil {
+		klog.Errorf("获取仓库分支与提交信息失败: repoID=%d, error=%v", repoID, err)
+	} else {
+		repo.CloneBranch = branch
+		repo.CloneCommit = commit
+		klog.V(6).Infof("仓库分支与提交信息已记录: repoID=%d, branch=%s, commit=%s", repoID, branch, commit)
+	}
+
 	// 克隆成功，状态迁移: cloning -> ready
 	repo.Status = string(statemachine.RepoStatusReady)
 	repo.ErrorMsg = ""

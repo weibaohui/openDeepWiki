@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,4 +69,45 @@ func IsValidGitURL(url string) bool {
 	sshPattern := regexp.MustCompile(`^git@[^\s]+:[^\s]+\.git$`)
 
 	return httpsPattern.MatchString(url) || sshPattern.MatchString(url)
+}
+
+func GetBranchAndCommit(repoPath string) (string, string, error) {
+	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	branchCmd.Dir = repoPath
+	branchBytes, err := branchCmd.CombinedOutput()
+	if err != nil {
+		return "", "", fmt.Errorf("git branch failed: %w, output: %s", err, string(branchBytes))
+	}
+
+	commitCmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	commitCmd.Dir = repoPath
+	commitBytes, err := commitCmd.CombinedOutput()
+	if err != nil {
+		return "", "", fmt.Errorf("git commit failed: %w, output: %s", err, string(commitBytes))
+	}
+
+	return strings.TrimSpace(string(branchBytes)), strings.TrimSpace(string(commitBytes)), nil
+}
+
+func DirSizeMB(path string) (float64, error) {
+	var totalSize int64
+	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		totalSize += info.Size()
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return float64(totalSize) / (1024 * 1024), nil
 }

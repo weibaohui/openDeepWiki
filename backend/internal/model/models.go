@@ -10,6 +10,9 @@ type Repository struct {
 	URL         string     `json:"url" gorm:"size:500;not null"`
 	LocalPath   string     `json:"local_path" gorm:"size:500"`
 	Description string     `json:"description" gorm:"size:1000"`
+	CloneBranch string     `json:"clone_branch" gorm:"size:255"`
+	CloneCommit string     `json:"clone_commit_id" gorm:"size:100"`
+	SizeMB      float64    `json:"size_mb" gorm:"default:0"`
 	Status      string     `json:"status" gorm:"size:50;default:pending"` // pending, cloning, ready, analyzing, completed, error
 	ErrorMsg    string     `json:"error_msg" gorm:"size:1000"`
 	CreatedAt   time.Time  `json:"created_at"`
