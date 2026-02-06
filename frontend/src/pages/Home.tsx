@@ -14,7 +14,7 @@ import {
     LoadingOutlined,
     WarningOutlined
 } from '@ant-design/icons';
-import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid, Tooltip } from 'antd';
+import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid } from 'antd';
 import type { Repository } from '../types';
 import { repositoryApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
