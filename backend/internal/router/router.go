@@ -47,6 +47,7 @@ func Setup(
 			repos.GET("/:id/ai-analysis-status", aiAnalyzeHandler.GetAnalysisStatus)
 			repos.GET("/:id/ai-analysis-result", aiAnalyzeHandler.GetAnalysisResult)
 			repos.GET("/:id/tasks", taskHandler.GetByRepository)
+			repos.GET("/:id/tasks/stats", taskHandler.GetStats) // 新增：任务统计
 			repos.GET("/:id/documents", docHandler.GetByRepository)
 			repos.GET("/:id/documents/index", docHandler.GetIndex)
 			repos.GET("/:id/documents/export", docHandler.Export)

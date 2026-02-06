@@ -68,6 +68,7 @@ type mockTaskRepo struct {
 	GetStuckTasksFunc        func(timeout time.Duration) ([]model.Task, error)
 	DeleteByRepositoryIDFunc func(repoID uint) error
 	DeleteFunc               func(id uint) error
+	GetTaskStatsFunc         func(repoID uint) (map[string]int64, error)
 }
 
 func (m *mockTaskRepo) Create(task *model.Task) error {
@@ -124,6 +125,13 @@ func (m *mockTaskRepo) Delete(id uint) error {
 		return m.DeleteFunc(id)
 	}
 	return nil
+}
+
+func (m *mockTaskRepo) GetTaskStats(repoID uint) (map[string]int64, error) {
+	if m.GetTaskStatsFunc != nil {
+		return m.GetTaskStatsFunc(repoID)
+	}
+	return nil, nil
 }
 
 func TestTaskServiceResetKeepsHistory(t *testing.T) {

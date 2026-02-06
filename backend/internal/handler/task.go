@@ -36,6 +36,23 @@ func (h *TaskHandler) GetByRepository(c *gin.Context) {
 	c.JSON(http.StatusOK, tasks)
 }
 
+// GetStats 获取仓库的任务统计信息
+func (h *TaskHandler) GetStats(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid repository id"})
+		return
+	}
+
+	stats, err := h.service.GetTaskStats(uint(repoID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
 // Enqueue 提交任务到队列（替代原来的Run方法）
 // 接口变更：从"立即执行"改为"提交作业"
 func (h *TaskHandler) Enqueue(c *gin.Context) {

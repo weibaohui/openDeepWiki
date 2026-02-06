@@ -79,3 +79,25 @@ func (r *taskRepository) DeleteByRepositoryID(repoID uint) error {
 func (r *taskRepository) Delete(id uint) error {
 	return r.db.Delete(&model.Task{}, id).Error
 }
+
+func (r *taskRepository) GetTaskStats(repoID uint) (map[string]int64, error) {
+	var results []struct {
+		Status string
+		Count  int64
+	}
+	err := r.db.Model(&model.Task{}).
+		Where("repository_id = ?", repoID).
+		Group("status").
+		Select("status, count(*) as count").
+		Scan(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make(map[string]int64)
+	for _, r := range results {
+		stats[r.Status] = r.Count
+	}
+	return stats, nil
+}

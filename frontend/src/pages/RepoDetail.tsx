@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
+import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider, Statistic } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -19,6 +19,7 @@ export default function RepoDetail() {
     const screens = useBreakpoint();
     const [repository, setRepository] = useState<Repository | null>(null);
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [taskStats, setTaskStats] = useState<Record<string, number>>({});
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [messageApi, contextHolder] = message.useMessage();
@@ -27,14 +28,16 @@ export default function RepoDetail() {
     const fetchData = useCallback(async () => {
         if (!id) return;
         try {
-            const [repoRes, tasksRes, docsRes] = await Promise.all([
+            const [repoRes, tasksRes, docsRes, statsRes] = await Promise.all([
                 repositoryApi.get(Number(id)),
                 taskApi.getByRepository(Number(id)),
                 documentApi.getByRepository(Number(id)),
+                taskApi.getStats(Number(id)),
             ]);
             setRepository(repoRes.data);
             setTasks(tasksRes.data);
             setDocuments(docsRes.data);
+            setTaskStats(statsRes.data);
         } catch (error) {
             console.error('Failed to fetch data:', error);
             messageApi.error('Failed to load data');
@@ -306,7 +309,21 @@ export default function RepoDetail() {
             <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
                 <Row gutter={[screens.md ? 24 : 12, screens.md ? 24 : 12]}>
                     <Col xs={24} lg={12}>
-                        <Title level={4}>{t('task.title')}</Title>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <Title level={4} style={{ margin: 0 }}>{t('task.title')}</Title>
+                            <Space size="large">
+                                <Space>
+                                    <ClockCircleOutlined style={{ color: 'var(--ant-color-primary)' }} />
+                                    <span style={{ color: 'var(--ant-color-text-secondary)' }}>{t('task.status.queued')}:</span>
+                                    <span style={{ fontWeight: 'bold' }}>{taskStats['queued'] || 0}</span>
+                                </Space>
+                                <Space>
+                                    <LoadingOutlined style={{ color: 'var(--ant-color-success)' }} />
+                                    <span style={{ color: 'var(--ant-color-text-secondary)' }}>{t('task.status.running')}:</span>
+                                    <span style={{ fontWeight: 'bold' }}>{taskStats['running'] || 0}</span>
+                                </Space>
+                            </Space>
+                        </div>
                         <Card bodyStyle={{ padding: 0 }}>
                             <List
                                 dataSource={tasks}

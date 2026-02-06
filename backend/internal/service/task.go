@@ -49,6 +49,11 @@ func (s *TaskService) GetByRepository(repoID uint) ([]model.Task, error) {
 	return s.taskRepo.GetByRepository(repoID)
 }
 
+// GetTaskStats 获取仓库的任务统计信息
+func (s *TaskService) GetTaskStats(repoID uint) (map[string]int64, error) {
+	return s.taskRepo.GetTaskStats(repoID)
+}
+
 // Get 获取单个任务
 func (s *TaskService) Get(id uint) (*model.Task, error) {
 	return s.taskRepo.Get(id)

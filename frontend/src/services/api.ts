@@ -24,6 +24,7 @@ export const repositoryApi = {
 // Task APIs
 export const taskApi = {
     getByRepository: (repoId: number) => api.get<Task[]>(`/repositories/${repoId}/tasks`),
+    getStats: (repoId: number) => api.get<Record<string, number>>(`/repositories/${repoId}/tasks/stats`),
     get: (id: number) => api.get<Task>(`/tasks/${id}`),
     run: (id: number) => api.post(`/tasks/${id}/run`),
     enqueue: (id: number) => api.post(`/tasks/${id}/enqueue`),
