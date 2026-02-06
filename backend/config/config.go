@@ -13,7 +13,6 @@ type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
 	LLM      LLMConfig      `yaml:"llm"`
-	GitHub   GitHubConfig   `yaml:"github"`
 	Data     DataConfig     `yaml:"data"`
 	Agent    AgentConfig    `yaml:"agent"`
 	Skill    SkillConfig    `yaml:"skill"`
@@ -34,10 +33,6 @@ type LLMConfig struct {
 	APIKey    string `yaml:"api_key"`
 	Model     string `yaml:"model"`
 	MaxTokens int    `yaml:"max_tokens"`
-}
-
-type GitHubConfig struct {
-	Token string `yaml:"token"`
 }
 
 type DataConfig struct {

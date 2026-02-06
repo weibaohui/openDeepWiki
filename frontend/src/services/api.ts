@@ -46,11 +46,6 @@ export const documentApi = {
     export: (repoId: number) => api.get(`/repositories/${repoId}/documents/export`, { responseType: 'blob' }),
 };
 
-// Config APIs
-export const configApi = {
-    get: () => api.get<Config>('/config'),
-    update: (config: Partial<Config>) => api.put('/config', config),
-};
 
 // Document Template APIs
 export const templateApi = {

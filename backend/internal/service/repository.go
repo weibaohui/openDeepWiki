@@ -134,7 +134,6 @@ func (s *RepositoryService) cloneRepository(repoID uint) {
 	err = git.Clone(git.CloneOptions{
 		URL:       repo.URL,
 		TargetDir: repo.LocalPath,
-		Token:     s.cfg.GitHub.Token,
 	})
 
 	if err != nil {

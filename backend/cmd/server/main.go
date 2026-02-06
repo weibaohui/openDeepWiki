@@ -47,9 +47,6 @@ func main() {
 	repoRepo := repository.NewRepoRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
 	docRepo := repository.NewDocumentRepository(db)
-	templateRepo := repository.NewTemplateRepository(db)
-	chapterRepo := repository.NewChapterRepository(db)
-	docTemplateRepo := repository.NewDocTemplateRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 
 	// 初始化 Service
@@ -63,9 +60,6 @@ func main() {
 	}
 
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService, docGeneratorService)
-	templateService := service.NewTemplateService(templateRepo)
-	chapterService := service.NewChapterService(chapterRepo, templateRepo)
-	docTemplateService := service.NewDocTemplateService(docTemplateRepo, chapterRepo)
 
 	// 初始化目录分析服务
 	dirMakerService, err := dirmaker.New(cfg, taskRepo)
@@ -87,8 +81,6 @@ func main() {
 	repoHandler := handler.NewRepositoryHandler(repoService)
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docService)
-	configHandler := handler.NewConfigHandler(cfg)
-	templateHandler := handler.NewDocumentTemplateHandler(templateService, chapterService, docTemplateService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 
 	// 初始化 EnhancedModelProvider 并设置到 Manager
@@ -102,16 +94,11 @@ func main() {
 	}
 	manager.SetEnhancedModelProvider(enhancedModelProvider)
 
-	// 初始化预置模板数据
-	if err := service.InitDefaultTemplates(db); err != nil {
-		log.Printf("Failed to initialize default templates: %v", err)
-	}
-
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler, apiKeyHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler,apiKeyHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

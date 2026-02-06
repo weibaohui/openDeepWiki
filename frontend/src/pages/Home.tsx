@@ -128,15 +128,9 @@ export default function Home() {
                         {screens.sm && <Title level={4} style={{ margin: 0 }}>openDeepWiki</Title>}
                     </div>
                     <Space size={screens.md ? 'middle' : 'small'}>
-                        <Button type="text" icon={<FileTextOutlined />} onClick={() => navigate('/templates')}>
-                            {screens.md && 'Templates'}
-                        </Button>
                         <LanguageSwitcher />
                         <ThemeSwitcher />
-                        <Tooltip title={t('apiKey.title', 'API Key Management')}>
-                            <Button type="text" icon={<KeyOutlined />} onClick={() => navigate('/api-keys')} />
-                        </Tooltip>
-                        <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/config')} />
+                        <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/api-keys')} />
                     </Space>
                 </Header>
 

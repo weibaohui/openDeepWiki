@@ -13,8 +13,6 @@ func Setup(
 	repoHandler *handler.RepositoryHandler,
 	taskHandler *handler.TaskHandler,
 	docHandler *handler.DocumentHandler,
-	configHandler *handler.ConfigHandler,
-	templateHandler *handler.DocumentTemplateHandler,
 	apiKeyHandler *handler.APIKeyHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
@@ -71,36 +69,6 @@ func Setup(
 			docs.GET("/:id", docHandler.Get)
 			docs.GET("/:id/versions", docHandler.GetVersions)
 			docs.PUT("/:id", docHandler.Update)
-		}
-
-		api.GET("/config", configHandler.Get)
-		api.PUT("/config", configHandler.Update)
-
-		// 文档模板管理
-		templates := api.Group("/document-templates")
-		{
-			templates.GET("", templateHandler.ListTemplates)
-			templates.POST("", templateHandler.CreateTemplate)
-			templates.GET("/:id", templateHandler.GetTemplate)
-			templates.PUT("/:id", templateHandler.UpdateTemplate)
-			templates.DELETE("/:id", templateHandler.DeleteTemplate)
-			templates.POST("/:id/clone", templateHandler.CloneTemplate)
-			templates.POST("/:id/chapters", templateHandler.CreateChapter)
-		}
-
-		// 章节管理
-		chapters := api.Group("/chapters")
-		{
-			chapters.PUT("/:id", templateHandler.UpdateChapter)
-			chapters.DELETE("/:id", templateHandler.DeleteChapter)
-			chapters.POST("/:id/documents", templateHandler.CreateDocument)
-		}
-
-		// 模板文档管理
-		templateDocs := api.Group("/template-documents")
-		{
-			templateDocs.PUT("/:id", templateHandler.UpdateDocument)
-			templateDocs.DELETE("/:id", templateHandler.DeleteDocument)
 		}
 
 		// API Key 管理

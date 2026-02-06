@@ -14,7 +14,6 @@ import (
 type CloneOptions struct {
 	URL       string
 	TargetDir string
-	Token     string
 	Timeout   time.Duration
 }
 
@@ -27,9 +26,6 @@ func Clone(opts CloneOptions) error {
 	defer cancel()
 
 	url := opts.URL
-	if opts.Token != "" && strings.HasPrefix(url, "https://") {
-		url = injectToken(url, opts.Token)
-	}
 
 	if err := os.MkdirAll(filepath.Dir(opts.TargetDir), 0755); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
@@ -44,13 +40,6 @@ func Clone(opts CloneOptions) error {
 	}
 
 	return nil
-}
-
-func injectToken(url, token string) string {
-	if strings.HasPrefix(url, "https://github.com/") {
-		return strings.Replace(url, "https://github.com/", fmt.Sprintf("https://%s@github.com/", token), 1)
-	}
-	return url
 }
 
 func ParseRepoName(url string) string {
