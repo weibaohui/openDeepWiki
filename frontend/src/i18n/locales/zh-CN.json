@@ -192,6 +192,7 @@
         "filename": "文件名",
         "created_at": "创建于",
         "updated_at": "更新于",
+        "repository_url": "仓库地址",
         "versions": "版本",
         "no_versions": "暂无其他版本",
         "versions_failed": "加载版本失败",

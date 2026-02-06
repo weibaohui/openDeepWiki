@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
-import type { Document } from '../types';
-import { documentApi } from '../services/api';
+import type { Document, Repository } from '../types';
+import { documentApi, repositoryApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content, Sider } = Layout;
@@ -19,6 +19,7 @@ export default function DocViewer() {
     const [document, setDocument] = useState<Document | null>(null);
     const [documents, setDocuments] = useState<Document[]>([]);
     const [versions, setVersions] = useState<Document[]>([]);
+    const [repository, setRepository] = useState<Repository | null>(null);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
@@ -71,6 +72,19 @@ export default function DocViewer() {
     }, [id, docId, messageApi]);
 
     useEffect(() => {
+        const fetchRepository = async () => {
+            if (!id) return;
+            try {
+                const { data } = await repositoryApi.get(Number(id));
+                setRepository(data);
+            } catch (error) {
+                console.error('获取仓库信息失败:', error);
+            }
+        };
+        fetchRepository();
+    }, [id]);
+
+    useEffect(() => {
         const fetchVersions = async () => {
             if (!docId || !versionDrawerOpen) return;
             try {
@@ -113,6 +127,7 @@ export default function DocViewer() {
     };
 
     const sortedVersions = versions.slice().sort((a, b) => b.version - a.version);
+    const repositoryUrl = repository?.url?.trim();
 
     if (loading) {
         return (
@@ -215,6 +230,14 @@ export default function DocViewer() {
                                 <span>{t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
                             </Space>
                         </div>
+                        {repositoryUrl && (
+                            <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--ant-color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <Space size={6}>
+                                    <LinkOutlined style={{ fontSize: '12px', color: 'var(--ant-color-text-tertiary)' }} />
+                                    <span>{t('document.repository_url')}: {repositoryUrl}</span>
+                                </Space>
+                            </div>
+                        )}
                     </div>
                     <Space size="small">
                         <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>
