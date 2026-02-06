@@ -331,57 +331,52 @@ export default function RepoDetail() {
                                     <List.Item
                                         style={{ padding: '16px' }}
                                         actions={[
-                                            task.status === 'pending' && (
+                                            <Tooltip title={t('task.run')}>
                                                 <Button
                                                     type="text"
                                                     icon={<PlayCircleOutlined />}
                                                     onClick={() => handleRunTask(task.id)}
-                                                    title={t('task.run')}
+                                                    disabled={task.status !== 'pending'}
                                                 />
-                                            ),
-                                            (task.status === 'running' || task.status === 'queued') && (
+                                            </Tooltip>,
+                                            <Tooltip title={t('task.cancel', 'Cancel')}>
                                                 <Button
                                                     type="text"
                                                     danger
                                                     icon={<StopOutlined />}
                                                     onClick={() => handleCancelTask(task.id)}
-                                                    title={t('task.cancel', 'Cancel')}
+                                                    disabled={task.status !== 'running' && task.status !== 'queued'}
                                                 />
-                                            ),
-                                            (task.status === 'completed' || task.status === 'succeeded') && (
+                                            </Tooltip>,
+                                            <Tooltip title={task.status === 'completed' || task.status === 'succeeded' ? t('task.regenerate', 'Regenerate') : t('task.retry', 'Retry')}>
                                                 <Button
                                                     type="text"
                                                     icon={<ReloadOutlined />}
                                                     onClick={() => handleRetryTask(task.id)}
-                                                    title={t('task.regenerate', 'Regenerate')}
+                                                    disabled={['pending', 'running', 'queued'].includes(task.status)}
                                                 />
-                                            ),
-                                            (task.status === 'failed' || task.status === 'canceled') && (
-                                                <Button
-                                                    type="text"
-                                                    icon={<ReloadOutlined />}
-                                                    onClick={() => handleRetryTask(task.id)}
-                                                    title={t('task.retry', 'Retry')}
-                                                />
-                                            ),
-                                            task.status !== 'running' && task.status !== 'queued' && (
+                                            </Tooltip>,
+                                            <Tooltip title={t('task.delete')}>
                                                 <Button
                                                     type="text"
                                                     danger
                                                     icon={<DeleteOutlined />}
                                                     onClick={() => handleDeleteTask(task.id)}
-                                                    title={t('task.delete')}
+                                                    disabled={task.status === 'running' || task.status === 'queued'}
                                                 />
-                                            ),
-                                            getDocumentForTask(task.id) && (
+                                            </Tooltip>,
+                                            <Tooltip title={t('repository.view_docs')}>
                                                 <Button
                                                     type="text"
                                                     icon={<FileTextOutlined />}
-                                                    onClick={() => navigate(`/repo/${id}/doc/${getDocumentForTask(task.id)?.id}`)}
-                                                    title={t('repository.view_docs')}
-                                                    style={{ color: 'var(--ant-color-success)' }}
+                                                    onClick={() => {
+                                                        const doc = getDocumentForTask(task.id);
+                                                        if (doc) navigate(`/repo/${id}/doc/${doc.id}`);
+                                                    }}
+                                                    disabled={!getDocumentForTask(task.id)}
+                                                    style={{ color: getDocumentForTask(task.id) ? 'var(--ant-color-success)' : undefined }}
                                                 />
-                                            )
+                                            </Tooltip>
                                         ]}
                                     >
                                         <List.Item.Meta
