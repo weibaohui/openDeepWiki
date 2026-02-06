@@ -17,6 +17,7 @@ export const repositoryApi = {
     create: (url: string) => api.post<Repository>('/repositories', { url }),
     delete: (id: number) => api.delete(`/repositories/${id}`),
     clone: (id: number) => api.post(`/repositories/${id}/clone`),
+    purgeLocal: (id: number) => api.post(`/repositories/${id}/purge-local`),
     runAll: (id: number) => api.post(`/repositories/${id}/run-all`),
     analyzeDirectory: (id: number) => api.post<{ tasks: Task[]; message: string }>(`/repositories/${id}/directory-analyze`),
     setReady: (id: number) => api.post(`/repositories/${id}/set-ready`),

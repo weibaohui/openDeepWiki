@@ -203,6 +203,36 @@ func (s *RepositoryService) Delete(id uint) error {
 	return nil
 }
 
+func (s *RepositoryService) PurgeLocalDir(id uint) error {
+	repo, err := s.repoRepo.GetBasic(id)
+	if err != nil {
+		return fmt.Errorf("获取仓库失败: %w", err)
+	}
+
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if currentStatus == statemachine.RepoStatusCloning || currentStatus == statemachine.RepoStatusAnalyzing {
+		return fmt.Errorf("仓库状态不允许删除本地目录: current=%s", currentStatus)
+	}
+
+	if repo.LocalPath != "" {
+		klog.V(6).Infof("仅删除本地仓库目录: repoID=%d, localPath=%s", id, repo.LocalPath)
+		if err := git.RemoveRepo(repo.LocalPath); err != nil {
+			klog.Warningf("删除本地仓库目录失败: repoID=%d, error=%v", id, err)
+			return fmt.Errorf("删除本地仓库目录失败: %w", err)
+		}
+		repo.LocalPath = ""
+		if err := s.repoRepo.Save(repo); err != nil {
+			klog.Errorf("更新仓库记录失败: repoID=%d, error=%v", id, err)
+			return fmt.Errorf("更新仓库记录失败: %w", err)
+		}
+		klog.V(6).Infof("本地仓库目录已删除并清空记录: repoID=%d", id)
+	} else {
+		klog.V(6).Infof("本地目录为空，跳过删除: repoID=%d", id)
+	}
+
+	return nil
+}
+
 // RunAllTasks 执行仓库的所有任务
 // 将所有pending任务提交到编排器队列
 func (s *RepositoryService) RunAllTasks(repoID uint) error {

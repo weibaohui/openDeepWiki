@@ -164,6 +164,27 @@ export default function RepoDetail() {
         });
     };
 
+    const handlePurgeLocalDirectory = async () => {
+        if (!id) return;
+        Modal.confirm({
+            title: t('repository.purge_local_confirm_title'),
+            content: t('repository.purge_local_confirm_content'),
+            okText: t('common.confirm'),
+            cancelText: t('common.cancel'),
+            onOk: async () => {
+                try {
+                    await repositoryApi.purgeLocal(Number(id));
+                    fetchData();
+                    messageApi.success(t('repository.purge_local_success'));
+                    setDrawerVisible(false);
+                } catch (error) {
+                    console.error('Failed to purge local directory:', error);
+                    messageApi.error(t('repository.purge_local_failed'));
+                }
+            },
+        });
+    };
+
     const handleDeleteTask = async (taskId: number) => {
         Modal.confirm({
             title: t('task.delete_confirm_title'),
@@ -404,6 +425,14 @@ export default function RepoDetail() {
                                 disabled={!canCloneRepository}
                             >
                                 {t('repository.redownload')}
+                            </Button>
+                            <Button
+                                block
+                                icon={<DeleteOutlined />}
+                                onClick={handlePurgeLocalDirectory}
+                                disabled={!canCloneRepository}
+                            >
+                                {t('repository.purge_local')}
                             </Button>
                             <Button
                                 block

@@ -144,3 +144,18 @@ func (h *RepositoryHandler) Clone(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "clone started"})
 }
+
+func (h *RepositoryHandler) PurgeLocal(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := h.service.PurgeLocalDir(uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "local directory purged"})
+}

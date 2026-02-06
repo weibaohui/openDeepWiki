@@ -42,6 +42,7 @@ func Setup(
 			repos.DELETE("/:id", repoHandler.Delete)
 			repos.POST("/:id/run-all", repoHandler.RunAllTasks)
 			repos.POST("/:id/clone", repoHandler.Clone)
+			repos.POST("/:id/purge-local", repoHandler.PurgeLocal)
 			repos.POST("/:id/directory-analyze", repoHandler.AnalyzeDirectory)
 			repos.POST("/:id/set-ready", repoHandler.SetReady)
 			repos.POST("/:id/ai-analyze", aiAnalyzeHandler.StartAnalysis)
