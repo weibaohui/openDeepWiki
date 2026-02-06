@@ -229,26 +229,21 @@ export default function DocViewer() {
                         <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {document.title}
                         </Title>
-                        <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
+                        <div style={{ marginLeft: '12px', marginTop: '8px', fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
                             <Space split style={{ width: screens.md ? '100%' : 'auto' }}>
-                                <Space size={4}>
-                                    <CalendarOutlined style={{ fontSize: '12px', color: 'var(--ant-color-text-tertiary)' }} />
-                                </Space>
-                                <span>{t('document.created_at')}: {formatDateTime(document.created_at)}</span>
-                                <Space size={4}>
-                                    <ClockCircleOutlined style={{ fontSize: '12px', color: 'var(--ant-color-text-tertiary)' }} />
-                                </Space>
-                                <span>{t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
+                                <span><CalendarOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                                    {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
+                                <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                                    {t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
+                                {repositoryUrl && (
+                                    <span>
+                                        <LinkOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                                        <a href={repositoryUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}> {repositoryUrl}</a>
+                                    </span>
+                                )}
                             </Space>
                         </div>
-                        {repositoryUrl && (
-                            <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--ant-color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                <Space size={6}>
-                                    <LinkOutlined style={{ fontSize: '12px', color: 'var(--ant-color-text-tertiary)' }} />
-                                    <span>{t('document.repository_url')}: {repositoryUrl}</span>
-                                </Space>
-                            </div>
-                        )}
+
                     </div>
                     <Space size="small">
                         <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>
