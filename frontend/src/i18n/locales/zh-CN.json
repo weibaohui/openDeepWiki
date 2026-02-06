@@ -64,7 +64,17 @@
         "more_actions": "更多操作",
         "document_management": "文档管理",
         "task_management": "任务管理",
-        "status_management": "状态管理"
+        "status_management": "状态管理",
+        "repository_management": "仓库管理",
+        "redownload": "重新下载仓库",
+        "redownload_confirm_title": "确认重新下载仓库",
+        "redownload_confirm_content": "将删除本地仓库并重新克隆，确认继续？",
+        "redownload_started": "仓库重新下载已开始",
+        "redownload_failed": "重新下载仓库失败",
+        "delete_repository": "删除仓库",
+        "delete_confirm_content": "删除仓库将同时删除任务和文档，且无法恢复。",
+        "delete_success": "仓库已删除",
+        "delete_failed": "删除仓库失败"
     },
     "task": {
         "title": "任务列表",

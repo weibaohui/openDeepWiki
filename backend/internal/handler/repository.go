@@ -127,3 +127,20 @@ func (h *RepositoryHandler) SetReady(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "仓库状态已设置为就绪"})
 }
+
+// Clone 重新下载仓库（删除本地目录并重新克隆）
+// 仅在非 cloning/analyzing 状态下允许触发
+func (h *RepositoryHandler) Clone(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := h.service.CloneRepository(uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "clone started"})
+}

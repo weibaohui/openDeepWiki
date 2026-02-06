@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
@@ -120,6 +120,48 @@ export default function RepoDetail() {
             console.error('Failed to set ready:', error);
             messageApi.error(t('repository.set_ready_failed'));
         }
+    };
+
+    const handleCloneRepository = async () => {
+        if (!id) return;
+        Modal.confirm({
+            title: t('repository.redownload_confirm_title'),
+            content: t('repository.redownload_confirm_content'),
+            okText: t('common.confirm'),
+            cancelText: t('common.cancel'),
+            onOk: async () => {
+                try {
+                    await repositoryApi.clone(Number(id));
+                    fetchData();
+                    messageApi.success(t('repository.redownload_started'));
+                    setDrawerVisible(false);
+                } catch (error) {
+                    console.error('Failed to clone repository:', error);
+                    messageApi.error(t('repository.redownload_failed'));
+                }
+            },
+        });
+    };
+
+    const handleDeleteRepository = async () => {
+        if (!id) return;
+        Modal.confirm({
+            title: t('repository.delete_confirm'),
+            content: t('repository.delete_confirm_content'),
+            okText: t('common.delete'),
+            cancelText: t('common.cancel'),
+            onOk: async () => {
+                try {
+                    await repositoryApi.delete(Number(id));
+                    messageApi.success(t('repository.delete_success'));
+                    setDrawerVisible(false);
+                    navigate('/');
+                } catch (error) {
+                    console.error('Failed to delete repository:', error);
+                    messageApi.error(t('repository.delete_failed'));
+                }
+            },
+        });
     };
 
     const handleDeleteTask = async (taskId: number) => {
@@ -246,6 +288,8 @@ export default function RepoDetail() {
         );
     }
 
+    const canCloneRepository = repository.status !== 'cloning' && repository.status !== 'analyzing';
+
     return (
         <Layout style={{ minHeight: '100vh' }}>
             {contextHolder}
@@ -318,6 +362,18 @@ export default function RepoDetail() {
                             >
                                 {t('repository.rebuild')}
                             </Button>
+                            <Tooltip title={retryableMissingDocTasks.length === 0 ? t('task.retry_missing_docs_empty') : t('task.retry_missing_docs')}>
+                                <Button
+                                    block
+                                    type="primary"
+                                    icon={<ReloadOutlined />}
+                                    onClick={handleRetryMissingDocs}
+                                    loading={retryingMissingDocs}
+                                    disabled={retryingMissingDocs || retryableMissingDocTasks.length === 0}
+                                >
+                                    {t('task.retry_missing_docs')}
+                                </Button>
+                            </Tooltip>
                         </Space>
                     </div>
 
@@ -332,6 +388,30 @@ export default function RepoDetail() {
                                 icon={<CheckOutlined />}
                             >
                                 {t('repository.set_ready')}
+                            </Button>
+                        </Space>
+                    </div>
+
+                    <Divider />
+
+                    <div>
+                        <Title level={5}>{t('repository.repository_management')}</Title>
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                            <Button
+                                block
+                                icon={<CloudDownloadOutlined />}
+                                onClick={handleCloneRepository}
+                                disabled={!canCloneRepository}
+                            >
+                                {t('repository.redownload')}
+                            </Button>
+                            <Button
+                                block
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={handleDeleteRepository}
+                            >
+                                {t('repository.delete_repository')}
                             </Button>
                         </Space>
                     </div>
@@ -354,17 +434,6 @@ export default function RepoDetail() {
                                     <span style={{ color: 'var(--ant-color-text-secondary)' }}>{t('task.status.running')}:</span>
                                     <span style={{ fontWeight: 'bold' }}>{taskStats['running'] || 0}</span>
                                 </Space>
-                                <Tooltip title={retryableMissingDocTasks.length === 0 ? t('task.retry_missing_docs_empty') : t('task.retry_missing_docs')}>
-                                    <Button
-                                        type="primary"
-                                        icon={<ReloadOutlined />}
-                                        onClick={handleRetryMissingDocs}
-                                        loading={retryingMissingDocs}
-                                        disabled={retryingMissingDocs || retryableMissingDocTasks.length === 0}
-                                    >
-                                        {t('task.retry_missing_docs')}
-                                    </Button>
-                                </Tooltip>
                             </Space>
                         </div>
                         <Card bodyStyle={{ padding: 0 }}>

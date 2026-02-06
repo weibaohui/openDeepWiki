@@ -41,6 +41,9 @@ func NewRepositoryStateMachine() *RepositoryStateMachine {
 	transitions := []RepositoryTransition{
 		// 克隆流程
 		{RepoStatusPending, RepoStatusCloning},
+		{RepoStatusReady, RepoStatusCloning},
+		{RepoStatusCompleted, RepoStatusCloning},
+		{RepoStatusError, RepoStatusCloning},
 		{RepoStatusCloning, RepoStatusReady},
 		{RepoStatusCloning, RepoStatusError}, // 克隆失败
 

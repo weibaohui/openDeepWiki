@@ -64,7 +64,17 @@
         "more_actions": "More Actions",
         "document_management": "Document Management",
         "task_management": "Task Management",
-        "status_management": "Status Management"
+        "status_management": "Status Management",
+        "repository_management": "Repository Management",
+        "redownload": "Redownload Repository",
+        "redownload_confirm_title": "Confirm Redownload",
+        "redownload_confirm_content": "This will remove local repo and clone again. Continue?",
+        "redownload_started": "Repository redownload started",
+        "redownload_failed": "Failed to redownload repository",
+        "delete_repository": "Delete Repository",
+        "delete_confirm_content": "Deleting repository also removes tasks and documents. This action cannot be undone.",
+        "delete_success": "Repository deleted",
+        "delete_failed": "Failed to delete repository"
     },
     "task": {
         "title": "Tasks",

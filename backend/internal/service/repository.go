@@ -287,9 +287,8 @@ func (s *RepositoryService) CloneRepository(repoID uint) error {
 		return fmt.Errorf("获取仓库失败: %w", err)
 	}
 
-	// 只有pending或error状态的仓库可以重新克隆
 	currentStatus := statemachine.RepositoryStatus(repo.Status)
-	if currentStatus != statemachine.RepoStatusPending && currentStatus != statemachine.RepoStatusError {
+	if currentStatus == statemachine.RepoStatusCloning || currentStatus == statemachine.RepoStatusAnalyzing {
 		return fmt.Errorf("仓库状态不允许重新克隆: current=%s", currentStatus)
 	}
 
