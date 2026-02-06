@@ -153,6 +153,7 @@
         "enabled": "已启用",
         "disabled": "已禁用",
         "unavailable": "不可用",
+        "request_count":"请求数",
         "stats": {
             "total": "总配置数",
             "enabled": "启用中",

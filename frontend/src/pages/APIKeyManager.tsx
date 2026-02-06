@@ -171,10 +171,10 @@ export default function APIKeyManager() {
             )
         },
         {
-            title: t('apiKey.last_used', 'Last Used'),
-            dataIndex: 'last_used_at',
-            key: 'last_used_at',
-            render: (text: string) => text ? new Date(text).toLocaleString() : '-',
+            title: t('apiKey.request_count', 'Request Count'),
+            dataIndex: 'request_count',
+            key: 'request_count',
+            render: (text: number) => text ? text.toString() : '-',
             responsive: ['lg']
         },
         {
