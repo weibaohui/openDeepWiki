@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,6 +135,17 @@ func (m *mockDocumentRepo) GetByTaskID(taskID uint) ([]model.Document, error) {
 	return nil, nil
 }
 
+type mockDirMakerService struct {
+	CreateDirsFunc func(ctx context.Context, repo *model.Repository) ([]*model.Task, error)
+}
+
+func (m *mockDirMakerService) CreateDirs(ctx context.Context, repo *model.Repository) ([]*model.Task, error) {
+	if m.CreateDirsFunc != nil {
+		return m.CreateDirsFunc(ctx, repo)
+	}
+	return nil, nil
+}
+
 func TestRepositoryHandlerPurgeLocalSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tempDir, err := os.MkdirTemp("", "purge-local-handler")
@@ -187,5 +200,48 @@ func TestRepositoryHandlerPurgeLocalInvalidID(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestRepositoryHandlerAnalyzeDirectoryStarted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &model.Repository{
+		ID:     4,
+		Status: string(statemachine.RepoStatusReady),
+	}
+	called := make(chan struct{}, 1)
+
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	dirMaker := &mockDirMakerService{
+		CreateDirsFunc: func(ctx context.Context, target *model.Repository) ([]*model.Task, error) {
+			called <- struct{}{}
+			return []*model.Task{{ID: 1}}, nil
+		},
+	}
+
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker)
+	handler := NewRepositoryHandler(svc)
+	router := gin.New()
+	router.POST("/repositories/:id/directory-analyze", handler.AnalyzeDirectory)
+
+	req := httptest.NewRequest(http.MethodPost, "/repositories/4/directory-analyze", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "directory analysis started") {
+		t.Fatalf("unexpected response body: %s", w.Body.String())
+	}
+
+	select {
+	case <-called:
+	case <-time.After(300 * time.Millisecond):
+		t.Fatalf("expected async directory analysis to be triggered")
 	}
 }
