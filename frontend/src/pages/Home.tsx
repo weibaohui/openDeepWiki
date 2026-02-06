@@ -2,19 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     PlusOutlined,
-    DeleteOutlined,
     GithubOutlined,
     SettingOutlined,
     BookOutlined,
     BranchesOutlined,
     ClockCircleOutlined,
-    RightOutlined,
     SearchOutlined,
     CheckCircleOutlined,
     LoadingOutlined,
     WarningOutlined,
-    DislikeOutlined,
-    FontSizeOutlined,
     FolderOutlined
 } from '@ant-design/icons';
 import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid } from 'antd';
@@ -199,20 +195,7 @@ export default function Home() {
                                         <Card
                                             hoverable
                                             onClick={() => navigate(`/repo/${repo.id}`)}
-                                            actions={[
-                                                <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/repo/${repo.id}`) }}>
-                                                    {t('repository.enter_wiki', '进入知识库')} <RightOutlined />
-                                                </Button>,
-                                                <Button
-                                                    type="text"
-                                                    danger
-                                                    size="small"
-                                                    onClick={(e) => handleDelete(repo.id, e)}
-                                                    icon={<DeleteOutlined />}
-                                                >
-                                                    {t('common.delete')}
-                                                </Button>,
-                                            ]}
+                                       
                                         >
                                             <Card.Meta
                                                 avatar={<BookOutlined style={{ fontSize: 24, color: 'var(--ant-color-primary)' }} />}
