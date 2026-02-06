@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 
 import Home from './pages/Home';
@@ -9,14 +9,14 @@ import APIKeyManager from './pages/APIKeyManager';
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/repo/:id" element={<RepoDetail />} />
           <Route path="/repo/:id/doc/:docId" element={<DocViewer />} />
           <Route path="/api-keys" element={<APIKeyManager />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </ThemeProvider>
   );
 }
