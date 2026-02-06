@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined, LinkOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined, LinkOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document, Repository } from '../types';
-import { documentApi, repositoryApi } from '../services/api';
+import { documentApi, repositoryApi, taskApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content, Sider } = Layout;
@@ -108,6 +108,17 @@ export default function DocViewer() {
         } catch (error) {
             console.error('Failed to save document:', error);
             messageApi.error('Failed to save document');
+        }
+    };
+
+    const handleRegenerate = async () => {
+        if (!document?.task_id) return;
+        try {
+            await taskApi.retry(document.task_id);
+            messageApi.success(t('document.regenerate_started'));
+        } catch (error) {
+            console.error('文档重新生成失败:', error);
+            messageApi.error(t('document.regenerate_failed'));
         }
     };
 
@@ -260,8 +271,11 @@ export default function DocViewer() {
                             </>
                         ) : (
                             <>
-                                <Button type="text" icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
+                                <Button icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
                                     {screens.md && t('common.edit')}
+                                </Button>
+                                <Button icon={<ReloadOutlined />} onClick={handleRegenerate} size={screens.md ? 'middle' : 'small'}>
+                                    {screens.md && t('document.regenerate')}
                                 </Button>
                                 <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
                                     {screens.md && t('document.versions')}
