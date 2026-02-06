@@ -108,7 +108,7 @@ func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "directory analysis completed",
+		"message": "directory analysis started",
 		"tasks":   tasks,
 	})
 }

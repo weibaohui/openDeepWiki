@@ -344,7 +344,7 @@ func (s *RepositoryService) CloneRepository(repoID uint) error {
 
 // AnalyzeDirectory 分析目录并创建任务
 func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) ([]*model.Task, error) {
-	klog.V(6).Infof("准备分析目录并创建任务: repoID=%d", repoID)
+	klog.V(6).Infof("准备异步分析目录并创建任务: repoID=%d", repoID)
 
 	// 获取仓库基本信息
 	repo, err := s.repoRepo.GetBasic(repoID)
@@ -358,15 +358,18 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 		return nil, fmt.Errorf("仓库状态不允许执行目录分析: current=%s", currentStatus)
 	}
 
-	// 调用目录分析服务
-	dirs, err := s.dirMakerService.CreateDirs(ctx, repo)
-	if err != nil {
-		return nil, fmt.Errorf("目录分析失败: %w", err)
-	}
+	go func(targetRepo *model.Repository) {
+		klog.V(6).Infof("开始异步目录分析: repoID=%d", targetRepo.ID)
+		dirs, err := s.dirMakerService.CreateDirs(context.Background(), targetRepo)
+		if err != nil {
+			klog.Errorf("异步目录分析失败: repoID=%d, error=%v", targetRepo.ID, err)
+			return
+		}
+		klog.V(6).Infof("异步目录分析完成，创建了 %d 个目录: repoID=%d", len(dirs), targetRepo.ID)
+	}(repo)
 
-	klog.V(6).Infof("目录分析完成，创建了 %d 个目录: repoID=%d", len(dirs), repoID)
-
-	return dirs, nil
+	klog.V(6).Infof("目录分析任务已异步启动: repoID=%d", repoID)
+	return []*model.Task{}, nil
 }
 
 // SetReady 将仓库状态设置为就绪（用于调试或特殊场景）
