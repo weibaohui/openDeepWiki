@@ -4,6 +4,9 @@ export interface Repository {
     url: string;
     local_path: string;
     description: string;
+    clone_branch?: string;
+    clone_commit_id?: string;
+    size_mb?: number;
     status: 'pending' | 'cloning' | 'ready' | 'analyzing' | 'completed' | 'error';
     error_msg: string;
     created_at: string;

@@ -45,6 +45,8 @@
         "no_docs": "还没有生成文档",
         "no_docs_hint": "运行任务后将在此显示",
         "not_found": "仓库不存在",
+        "branch": "分支",
+        "size": "大小",
         "directory_analyze": "目录分析",
         "directory_analyze_started": "目录分析已启动",
         "directory_analyze_failed": "目录分析失败",

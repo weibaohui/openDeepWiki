@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     PlusOutlined,
@@ -14,6 +14,7 @@ import {
     Layout, Typography, Button, Table, Tag, Space, Modal, Form, Input,
     InputNumber, Select, Switch, message, Card, Tooltip, Grid, Row, Col, Statistic
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { apiKeyApi } from '../services/api';
 import type { APIKey, APIKeyStats } from '../types';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -37,7 +38,7 @@ export default function APIKeyManager() {
     const [form] = Form.useForm();
     const [messageApi, contextHolder] = message.useMessage();
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [listRes, statsRes] = await Promise.all([
@@ -52,11 +53,11 @@ export default function APIKeyManager() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [messageApi]);
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
 
     const handleAdd = () => {
         setEditingKey(null);
@@ -85,7 +86,7 @@ export default function APIKeyManager() {
             await apiKeyApi.delete(id);
             messageApi.success(t('apiKey.messages.deleted', 'Deleted successfully'));
             fetchData();
-        } catch (error) {
+        } catch {
             messageApi.error('Failed to delete');
         }
     };
@@ -95,7 +96,7 @@ export default function APIKeyManager() {
             await apiKeyApi.updateStatus(id, checked ? 'enabled' : 'disabled');
             messageApi.success(t('apiKey.messages.status_updated', 'Status updated'));
             fetchData();
-        } catch (error) {
+        } catch {
             messageApi.error('Failed to update status');
         }
     };
@@ -121,7 +122,7 @@ export default function APIKeyManager() {
         }
     };
 
-    const columns = [
+    const columns: ColumnsType<APIKey> = [
         {
             title: t('apiKey.name', 'Name'),
             dataIndex: 'name',
@@ -174,12 +175,12 @@ export default function APIKeyManager() {
             dataIndex: 'last_used_at',
             key: 'last_used_at',
             render: (text: string) => text ? new Date(text).toLocaleString() : '-',
-            responsive: ['lg'] as any
+            responsive: ['lg']
         },
         {
             title: t('apiKey.actions', 'Actions'),
             key: 'actions',
-            render: (_: any, record: APIKey) => (
+            render: (_value: unknown, record: APIKey) => (
                 <Space>
                     <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                     <Button

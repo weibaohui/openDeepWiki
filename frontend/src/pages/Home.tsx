@@ -12,7 +12,10 @@ import {
     SearchOutlined,
     CheckCircleOutlined,
     LoadingOutlined,
-    WarningOutlined
+    WarningOutlined,
+    DislikeOutlined,
+    FontSizeOutlined,
+    FolderOutlined
 } from '@ant-design/icons';
 import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid } from 'antd';
 import type { Repository } from '../types';
@@ -70,6 +73,11 @@ export default function Home() {
         } finally {
             setAdding(false);
         }
+    };
+
+    const formatSize = (size?: number) => {
+        if (!size || size <= 0) return '-';
+        return `${size.toFixed(2)} MB`;
     };
 
     const handleDelete = async (id: number, e: React.MouseEvent) => {
@@ -216,14 +224,24 @@ export default function Home() {
                                                 }
                                                 description={
                                                     <Space direction="vertical" style={{ width: '100%' }} size={4}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
-                                                            <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                                            {new Date(repo.created_at).toLocaleDateString()}
-                                                        </div>
+                                                       
                                                         <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
                                                             <GithubOutlined style={{ marginRight: 4 }} />
                                                             <span title={repo.url} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
                                                                 {repo.url.replace('https://github.com/', '')}
+                                                            </span>
+                                                            <span style={{ marginLeft: 8, color: 'var(--ant-color-text-secondary)' }}>
+                                                                <BranchesOutlined></BranchesOutlined>
+                                                                {repo.clone_branch || '-'}
+                                                            </span>
+                                                            
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+                                                            <ClockCircleOutlined style={{ marginRight: 4 }} />
+                                                            {new Date(repo.created_at).toLocaleDateString()}
+                                                            <span style={{ marginLeft: 8 }}>
+                                                                <FolderOutlined></FolderOutlined>
+                                                                {formatSize(repo.size_mb)}
                                                             </span>
                                                         </div>
                                                         {repo.error_msg && (

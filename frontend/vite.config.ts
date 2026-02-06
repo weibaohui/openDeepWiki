@@ -23,7 +23,7 @@ export default defineConfig({
           proxy.on('proxyReq', (proxyReq, req) => {
             const originalPath = req.url;
             console.log(`Before restoring: ${originalPath}`);
-            // @ts-expect-error
+            // @ts-expect-error 代理请求对象缺少 path 类型定义
             proxyReq.path = originalPath.replace('%2F%2F', '//');
             console.log(`Restored path: ${proxyReq.path}`);
           });
