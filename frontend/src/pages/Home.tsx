@@ -12,9 +12,7 @@ import {
     SearchOutlined,
     CheckCircleOutlined,
     LoadingOutlined,
-    WarningOutlined,
-    FileTextOutlined,
-    KeyOutlined
+    WarningOutlined
 } from '@ant-design/icons';
 import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid, Tooltip } from 'antd';
 import type { Repository } from '../types';

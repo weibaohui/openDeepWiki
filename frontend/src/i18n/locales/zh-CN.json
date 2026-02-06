@@ -108,13 +108,6 @@
         "title": "设置",
         "language": "语言",
         "theme": "主题",
-        "llm_config": "LLM 配置",
-        "github_config": "GitHub 配置",
-        "api_url": "API 地址",
-        "api_key": "API Key",
-        "model": "模型",
-        "max_tokens": "最大 Token 数",
-        "github_token": "GitHub Token (用于访问私有仓库)",
         "save_success": "配置已保存",
         "save_failed": "保存失败",
         "saving": "保存中..."
@@ -123,61 +116,6 @@
         "light": "浅色",
         "dark": "深色",
         "system": "跟随系统"
-    },
-    "template": {
-        "title": "文档模板管理",
-        "list": "模板列表",
-        "structure": "模板结构",
-        "new_template": "新建模板",
-        "new_chapter": "添加章节",
-        "new_document": "添加文档",
-        "edit_template": "编辑模板",
-        "edit_chapter": "编辑章节",
-        "edit_document": "编辑文档",
-        "clone_template": "克隆模板",
-        "delete_template": "删除模板",
-        "delete_chapter": "删除章节",
-        "delete_document": "删除文档",
-        "delete_template_confirm": "确定要删除这个模板吗？",
-        "delete_chapter_confirm": "确定要删除这个章节吗？章节下的所有文档都会被删除。",
-        "delete_document_confirm": "确定要删除这个文档吗？",
-        "system_template": "系统模板",
-        "key": "标识",
-        "name": "名称",
-        "description": "描述",
-        "sort_order": "排序",
-        "filename": "文件名",
-        "content_prompt": "内容提示词",
-        "placeholder": {
-            "key": "例如：my-template",
-            "name": "例如：我的模板",
-            "description": "模板描述",
-            "chapter_title": "例如：架构分析",
-            "document_title": "例如：数据架构",
-            "filename": "例如：data_architecture.md",
-            "content_prompt": "指导 LLM 生成内容的提示词"
-        },
-        "actions": {
-            "view": "查看",
-            "edit": "编辑",
-            "clone": "克隆",
-            "delete": "删除"
-        },
-        "errors": {
-            "key_exists": "模板标识已存在",
-            "system_delete": "系统模板不能删除",
-            "fetch_failed": "获取模板列表失败",
-            "create_failed": "创建失败",
-            "update_failed": "更新失败",
-            "delete_failed": "删除失败",
-            "clone_failed": "克隆失败"
-        },
-        "success": {
-            "created": "创建成功",
-            "updated": "更新成功",
-            "deleted": "删除成功",
-            "cloned": "克隆成功"
-        }
     },
     "document": {
         "filename": "文件名",

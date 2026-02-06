@@ -98,7 +98,7 @@ func main() {
 	cleanupStuckTasks(taskService)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler,apiKeyHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)
