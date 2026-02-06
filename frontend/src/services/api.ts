@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, Config, DocumentTemplate, TemplateDetail, TemplateChapter, TemplateDocument, AIAnalysisStatus, APIKey, APIKeyStats } from '../types';
+import type { Repository, Task, Document, Config, DocumentTemplate, TemplateDetail, TemplateChapter, TemplateDocument, APIKey, APIKeyStats } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -50,13 +50,6 @@ export const documentApi = {
 export const configApi = {
     get: () => api.get<Config>('/config'),
     update: (config: Partial<Config>) => api.put('/config', config),
-};
-
-// AI Analysis APIs
-export const aiAnalyzeApi = {
-    start: (repoId: number) => api.post<{ task_id: string; status: string; message: string }>(`/repositories/${repoId}/ai-analyze`),
-    getStatus: (repoId: number) => api.get<AIAnalysisStatus>(`/repositories/${repoId}/ai-analysis-status`),
-    getResult: (repoId: number) => api.get<{ content: string }>(`/repositories/${repoId}/ai-analysis-result`),
 };
 
 // Document Template APIs

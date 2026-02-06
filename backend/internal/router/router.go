@@ -15,7 +15,6 @@ func Setup(
 	docHandler *handler.DocumentHandler,
 	configHandler *handler.ConfigHandler,
 	templateHandler *handler.DocumentTemplateHandler,
-	aiAnalyzeHandler *handler.AIAnalyzeHandler,
 	apiKeyHandler *handler.APIKeyHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
@@ -45,9 +44,6 @@ func Setup(
 			repos.POST("/:id/purge-local", repoHandler.PurgeLocal)
 			repos.POST("/:id/directory-analyze", repoHandler.AnalyzeDirectory)
 			repos.POST("/:id/set-ready", repoHandler.SetReady)
-			repos.POST("/:id/ai-analyze", aiAnalyzeHandler.StartAnalysis)
-			repos.GET("/:id/ai-analysis-status", aiAnalyzeHandler.GetAnalysisStatus)
-			repos.GET("/:id/ai-analysis-result", aiAnalyzeHandler.GetAnalysisResult)
 			repos.GET("/:id/tasks", taskHandler.GetByRepository)
 			repos.GET("/:id/tasks/stats", taskHandler.GetStats) // 新增：任务统计
 			repos.GET("/:id/documents", docHandler.GetByRepository)

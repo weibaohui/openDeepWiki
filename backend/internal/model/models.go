@@ -59,17 +59,3 @@ var TaskTypes = []struct {
 	{"business-flow", "业务流程", "business-flow.md", 4},
 	{"deployment", "部署配置", "deployment.md", 5},
 }
-
-// AIAnalysisTask AI分析任务模型
-type AIAnalysisTask struct {
-	ID           uint       `json:"id" gorm:"primaryKey"`
-	RepositoryID uint       `json:"repository_id" gorm:"index;"`
-	TaskID       string     `json:"task_id" gorm:"size:64;uniqueIndex"`    // UUID
-	Status       string     `json:"status" gorm:"size:50;default:pending"` // pending, running, completed, failed
-	Progress     int        `json:"progress" gorm:"default:0"`             // 0-100
-	OutputPath   string     `json:"output_path" gorm:"size:500"`
-	ErrorMsg     string     `json:"error_msg" gorm:"size:2000"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	CompletedAt  *time.Time `json:"completed_at"`
-}

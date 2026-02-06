@@ -50,7 +50,6 @@ func main() {
 	templateRepo := repository.NewTemplateRepository(db)
 	chapterRepo := repository.NewChapterRepository(db)
 	docTemplateRepo := repository.NewDocTemplateRepository(db)
-	aiAnalysisTaskRepo := repository.NewAIAnalysisTaskRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 
 	// 初始化 Service
@@ -67,7 +66,6 @@ func main() {
 	templateService := service.NewTemplateService(templateRepo)
 	chapterService := service.NewChapterService(chapterRepo, templateRepo)
 	docTemplateService := service.NewDocTemplateService(docTemplateRepo, chapterRepo)
-	aiAnalyzeService := service.NewAIAnalyzeService(cfg, repoRepo, aiAnalysisTaskRepo)
 
 	// 初始化目录分析服务
 	dirMakerService, err := dirmaker.New(cfg, taskRepo)
@@ -91,7 +89,6 @@ func main() {
 	docHandler := handler.NewDocumentHandler(docService)
 	configHandler := handler.NewConfigHandler(cfg)
 	templateHandler := handler.NewDocumentTemplateHandler(templateService, chapterService, docTemplateService)
-	aiAnalyzeHandler := handler.NewAIAnalyzeHandler(aiAnalyzeService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 
 	// 初始化 EnhancedModelProvider 并设置到 Manager
@@ -114,7 +111,7 @@ func main() {
 	cleanupStuckTasks(taskService)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler, aiAnalyzeHandler, apiKeyHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, configHandler, templateHandler, apiKeyHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

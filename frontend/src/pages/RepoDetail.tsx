@@ -381,7 +381,7 @@ export default function RepoDetail() {
                                 onClick={handleRunAll}
                                 icon={<ReloadOutlined />}
                             >
-                                {t('repository.rebuild')}
+                                {t('repository.run_all')}
                             </Button>
                             <Tooltip title={retryableMissingDocTasks.length === 0 ? t('task.retry_missing_docs_empty') : t('task.retry_missing_docs')}>
                                 <Button
