@@ -101,6 +101,14 @@ func (m *mockTaskRepo) GetTaskStats(repoID uint) (map[string]int64, error) {
 	return nil, nil
 }
 
+func (m *mockTaskRepo) GetActiveTasks() ([]model.Task, error) {
+	return nil, nil
+}
+
+func (m *mockTaskRepo) GetRecentTasks(limit int) ([]model.Task, error) {
+	return nil, nil
+}
+
 type mockDocumentRepo struct{}
 
 func (m *mockDocumentRepo) Create(doc *model.Document) error {
