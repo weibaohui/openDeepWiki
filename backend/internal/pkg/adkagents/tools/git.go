@@ -1,6 +1,3 @@
-// Git Tools - Git 操作工具
-// 对应 MCP tools: git.clone, git.diff, git.log, git.status, git.branch_list
-
 package tools
 
 import (
@@ -11,7 +8,6 @@ import (
 	"strings"
 )
 
-// GitCloneArgs git.clone 参数
 type GitCloneArgs struct {
 	RepoURL   string `json:"repo_url"`
 	Branch    string `json:"branch,omitempty"`
@@ -19,7 +15,6 @@ type GitCloneArgs struct {
 	Depth     int    `json:"depth,omitempty"`
 }
 
-// GitClone 克隆 Git 仓库
 func GitClone(args json.RawMessage, basePath string) (string, error) {
 	var params GitCloneArgs
 	if err := json.Unmarshal(args, &params); err != nil {
@@ -33,13 +28,11 @@ func GitClone(args json.RawMessage, basePath string) (string, error) {
 		return "", fmt.Errorf("target_dir is required")
 	}
 
-	// 安全检查：确保目标目录在 basePath 内
 	targetPath := filepath.Join(basePath, params.TargetDir)
 	if !isPathSafe(basePath, targetPath) {
 		return "", fmt.Errorf("target_dir escapes base directory: %s", params.TargetDir)
 	}
 
-	// 构建 git clone 命令
 	cmdArgs := []string{"clone"}
 
 	if params.Depth > 0 {
@@ -58,7 +51,6 @@ func GitClone(args json.RawMessage, basePath string) (string, error) {
 		return "", fmt.Errorf("git clone failed: %w\nOutput: %s", err, string(output))
 	}
 
-	// 获取当前分支和 commit
 	branch, commit, _ := getGitInfo(targetPath)
 	if branch == "" {
 		branch = params.Branch
@@ -72,13 +64,11 @@ func GitClone(args json.RawMessage, basePath string) (string, error) {
 	return result, nil
 }
 
-// GitDiffArgs git.diff 参数
 type GitDiffArgs struct {
 	CommitHash string `json:"commit_hash"`
 	FilePath   string `json:"file_path,omitempty"`
 }
 
-// GitDiff 获取 Git 差异
 func GitDiff(args json.RawMessage, basePath string) (string, error) {
 	var params GitDiffArgs
 	if err := json.Unmarshal(args, &params); err != nil {
@@ -91,7 +81,6 @@ func GitDiff(args json.RawMessage, basePath string) (string, error) {
 
 	cmdArgs := []string{"diff", params.CommitHash}
 	if params.FilePath != "" {
-		// 安全检查
 		fullPath := filepath.Join(basePath, params.FilePath)
 		if !isPathSafe(basePath, fullPath) {
 			return "", fmt.Errorf("file_path escapes base directory: %s", params.FilePath)
@@ -113,14 +102,12 @@ func GitDiff(args json.RawMessage, basePath string) (string, error) {
 	return string(output), nil
 }
 
-// GitLogArgs git.log 参数
 type GitLogArgs struct {
 	FilePath string `json:"file_path,omitempty"`
 	Limit    int    `json:"limit,omitempty"`
 	Since    string `json:"since,omitempty"`
 }
 
-// GitLog 获取 Git 提交历史
 func GitLog(args json.RawMessage, basePath string) (string, error) {
 	var params GitLogArgs
 	if err := json.Unmarshal(args, &params); err != nil {
@@ -131,7 +118,7 @@ func GitLog(args json.RawMessage, basePath string) (string, error) {
 		params.Limit = 10
 	}
 	if params.Limit > 50 {
-		params.Limit = 50 // 限制最大数量
+		params.Limit = 50
 	}
 
 	cmdArgs := []string{"log", "--oneline", fmt.Sprintf("-%d", params.Limit)}
@@ -158,12 +145,10 @@ func GitLog(args json.RawMessage, basePath string) (string, error) {
 	return string(output), nil
 }
 
-// GitStatusArgs git.status 参数
 type GitStatusArgs struct {
 	RepoPath string `json:"repo_path"`
 }
 
-// GitStatus 获取 Git 仓库状态
 func GitStatus(args json.RawMessage, basePath string) (string, error) {
 	var params GitStatusArgs
 	if err := json.Unmarshal(args, &params); err != nil {
@@ -178,20 +163,16 @@ func GitStatus(args json.RawMessage, basePath string) (string, error) {
 		}
 	}
 
-	// 获取当前分支
 	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	branchCmd.Dir = repoPath
 	branch, _ := branchCmd.Output()
 
-	// 获取状态
 	statusCmd := exec.Command("git", "status", "--short")
 	statusCmd.Dir = repoPath
 	status, _ := statusCmd.Output()
 
-	// 检查是否干净
 	isClean := len(strings.TrimSpace(string(status))) == 0
 
-	// 解析修改的文件
 	var modified, untracked []string
 	for _, line := range strings.Split(string(status), "\n") {
 		if len(line) < 3 {
@@ -218,13 +199,11 @@ func GitStatus(args json.RawMessage, basePath string) (string, error) {
 	return result, nil
 }
 
-// GitBranchListArgs git.branch_list 参数
 type GitBranchListArgs struct {
 	RepoPath string `json:"repo_path"`
 	Remote   bool   `json:"remote,omitempty"`
 }
 
-// GitBranchList 列出 Git 分支
 func GitBranchList(args json.RawMessage, basePath string) (string, error) {
 	var params GitBranchListArgs
 	if err := json.Unmarshal(args, &params); err != nil {
@@ -251,7 +230,6 @@ func GitBranchList(args json.RawMessage, basePath string) (string, error) {
 		return "", fmt.Errorf("git branch failed: %w", err)
 	}
 
-	// 获取当前分支
 	currentCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	currentCmd.Dir = repoPath
 	current, _ := currentCmd.Output()
@@ -260,15 +238,12 @@ func GitBranchList(args json.RawMessage, basePath string) (string, error) {
 	return result, nil
 }
 
-// getGitInfo 获取 Git 仓库信息
 func getGitInfo(repoPath string) (branch, commit string, err error) {
-	// 获取当前分支
 	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	branchCmd.Dir = repoPath
 	branchBytes, _ := branchCmd.Output()
 	branch = strings.TrimSpace(string(branchBytes))
 
-	// 获取当前 commit
 	commitCmd := exec.Command("git", "rev-parse", "--short", "HEAD")
 	commitCmd.Dir = repoPath
 	commitBytes, _ := commitCmd.Output()

@@ -8,8 +8,6 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
-
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm/tools"
 )
 
 // ReadFileTool 文件读取工具
@@ -65,12 +63,12 @@ func (t *ReadFileTool) InvokableRun(ctx context.Context, arguments string, opts 
 
 	klog.V(6).Infof("[ReadFileTool] 读取文件: path=%s, limit=%d", args.Path, args.Limit)
 
-	readArgs, _ := json.Marshal(tools.ReadFileArgs{
+	readArgs, _ := json.Marshal(ReadFileArgs{
 		Path:  args.Path,
 		Limit: args.Limit,
 	})
 
-	result, err := tools.ReadFile(readArgs, t.basePath)
+	result, err := ReadFile(readArgs, t.basePath)
 	if err != nil {
 		klog.Errorf("[ReadFileTool] 读取文件失败: %v", err)
 		// 将错误信息作为字符串返回给大模型，而不是返回 error 中断节点执行

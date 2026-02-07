@@ -9,14 +9,12 @@ import (
 	"strings"
 )
 
-// ReadFileArgs read_file 工具参数
 type ReadFileArgs struct {
 	Path   string `json:"path"`
 	Offset int    `json:"offset,omitempty"`
 	Limit  int    `json:"limit,omitempty"`
 }
 
-// ReadFile 读取文件内容
 func ReadFile(args json.RawMessage, basePath string) (string, error) {
 	var params ReadFileArgs
 	if err := json.Unmarshal(args, &params); err != nil {
@@ -27,23 +25,14 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 		return "", fmt.Errorf("path is required")
 	}
 
-	// // 检查路径参数是否为绝对路径
-	// TODO 改为验证是否在项目的仓库范围内
-	// if filepath.IsAbs(params.Path) {
-	// 	return "", fmt.Errorf("absolute paths not allowed: %s", params.Path)
-	// }
-
-	// 构建完整路径
 	fullPath := filepath.Join(basePath, params.Path)
 	if strings.HasPrefix(params.Path, "/") {
 		fullPath = params.Path
 	}
-	// 安全检查
 	if !isPathSafe(basePath, fullPath) {
 		return "", fmt.Errorf("path escapes base directory: %s", params.Path)
 	}
 
-	// 检查文件是否存在
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -56,13 +45,11 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 		return "", fmt.Errorf("path is a directory, not a file: %s", params.Path)
 	}
 
-	// 检查文件大小限制 (1MB)
 	const maxFileSize = 1024 * 1024
 	if info.Size() > maxFileSize {
 		return "", fmt.Errorf("file too large (max 1MB): %s (%d bytes)", params.Path, info.Size())
 	}
 
-	// 设置默认值
 	offset := params.Offset
 	if offset < 1 {
 		offset = 1
@@ -73,17 +60,15 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 		limit = 100
 	}
 	if limit > 500 {
-		limit = 500 // 最大 500 行
+		limit = 500
 	}
 
-	// 打开文件
 	file, err := os.Open(fullPath)
 	if err != nil {
 		return "", fmt.Errorf("cannot open file: %w", err)
 	}
 	defer file.Close()
 
-	// 按行读取
 	scanner := bufio.NewScanner(file)
 	var lines []string
 	currentLine := 0
@@ -94,7 +79,7 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 			continue
 		}
 		if currentLine >= offset+limit {
-			lines = append(lines, fmt.Sprintf("... (%d more lines)", int(info.Size())/100)) // 粗略估计
+			lines = append(lines, fmt.Sprintf("... (%d more lines)", int(info.Size())/100))
 			break
 		}
 		lines = append(lines, scanner.Text())

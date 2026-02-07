@@ -8,8 +8,6 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
-
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm/tools"
 )
 
 // ListDirTool 目录列表工具
@@ -61,12 +59,12 @@ func (t *ListDirTool) InvokableRun(ctx context.Context, arguments string, opts .
 
 	klog.V(6).Infof("[ListDirTool] 列出目录: dir=%s, recursive=%v", args.Dir, args.Recursive)
 
-	listArgs, _ := json.Marshal(tools.ListDirArgs{
+	listArgs, _ := json.Marshal(ListDirArgs{
 		Dir:       args.Dir,
 		Recursive: args.Recursive,
 	})
 
-	result, err := tools.ListDir(listArgs, t.basePath)
+	result, err := ListDir(listArgs, t.basePath)
 	if err != nil {
 		klog.Errorf("[ListDirTool] 列出目录失败: %v", err)
 		// 将错误信息作为字符串返回给大模型，而不是返回 error 中断节点执行

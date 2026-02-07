@@ -11,8 +11,6 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
-
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm/tools"
 )
 
 // GitCloneTool Git 克隆工具
@@ -83,13 +81,13 @@ func (t *GitCloneTool) InvokableRun(ctx context.Context, arguments string, opts 
 
 	klog.V(6).Infof("[GitCloneTool] 开始克隆: repoURL=%s, targetDir=%s", args.RepoURL, args.TargetDir)
 
-	gitArgs, _ := json.Marshal(tools.GitCloneArgs{
+	gitArgs, _ := json.Marshal(GitCloneArgs{
 		RepoURL:   args.RepoURL,
 		TargetDir: args.TargetDir,
 		Depth:     1, // 浅克隆，加快克隆速度
 	})
 
-	result, err := tools.GitClone(gitArgs, t.basePath)
+	result, err := GitClone(gitArgs, t.basePath)
 	if err != nil {
 		klog.Errorf("[GitCloneTool] 克隆失败: %v", err)
 		// 将错误信息作为字符串返回给大模型，而不是返回 error 中断节点执行

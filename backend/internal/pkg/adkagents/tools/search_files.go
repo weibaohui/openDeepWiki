@@ -8,8 +8,6 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"k8s.io/klog/v2"
-
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/llm/tools"
 )
 
 // SearchFilesTool 文件搜索工具
@@ -56,11 +54,11 @@ func (t *SearchFilesTool) InvokableRun(ctx context.Context, arguments string, op
 
 	klog.V(6).Infof("[SearchFilesTool] 搜索文件: pattern=%s", args.Pattern)
 
-	searchArgs, _ := json.Marshal(tools.SearchFilesArgs{
+	searchArgs, _ := json.Marshal(SearchFilesArgs{
 		Pattern: args.Pattern,
 	})
 
-	result, err := tools.SearchFiles(searchArgs, t.basePath)
+	result, err := SearchFiles(searchArgs, t.basePath)
 	if err != nil {
 		klog.Errorf("[SearchFilesTool] 搜索文件失败: %v", err)
 		// 将错误信息作为字符串返回给大模型，而不是返回 error 中断节点执行
