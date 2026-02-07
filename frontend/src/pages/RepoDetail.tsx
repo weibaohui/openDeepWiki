@@ -449,7 +449,7 @@ export default function RepoDetail() {
 
             <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
                 <Row gutter={[screens.md ? 24 : 12, screens.md ? 24 : 12]}>
-                    <Col xs={24} lg={12}>
+                    <Col xs={24} lg={24}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                             <Title level={4} style={{ margin: 0 }}>{t('task.title')}</Title>
                             <Space size="large">
@@ -537,51 +537,6 @@ export default function RepoDetail() {
                                 )}
                             />
                         </Card>
-                    </Col>
-
-                    <Col xs={24} lg={12}>
-                        <Title level={4}>{t('repository.docs')}</Title>
-                        {documents.length === 0 ? (
-                            <Empty
-                                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                description={
-                                    <span>
-                                        {t('repository.no_docs')}
-                                        <br />
-                                        <Text type="secondary" style={{ fontSize: '12px' }}>{t('repository.no_docs_hint')}</Text>
-                                    </span>
-                                }
-                            />
-                        ) : (
-                            <Card bodyStyle={{ padding: 0 }}>
-                                <List
-                                    dataSource={documents}
-                                    renderItem={(doc) => (
-                                        <List.Item
-                                            style={{ padding: '16px', cursor: 'pointer' }}
-                                            onClick={() => navigate(`/repo/${id}/doc/${doc.id}`)}
-                                            className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                                        >
-                                            <List.Item.Meta
-                                                avatar={<FileTextOutlined style={{ color: 'var(--ant-color-primary)' }} />}
-                                                title={doc.title}
-                                                description={
-                                                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                                                        <div>{doc.filename}</div>
-                                                        {doc.updated_at && (
-                                                            <div style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
-                                                                <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                                                {formatDateTime(doc.updated_at)}
-                                                            </div>
-                                                        )}
-                                                    </Space>
-                                                }
-                                            />
-                                        </List.Item>
-                                    )}
-                                />
-                            </Card>
-                        )}
                     </Col>
                 </Row>
             </Content>
