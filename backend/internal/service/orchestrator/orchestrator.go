@@ -28,8 +28,7 @@ type TaskExecutor interface {
 // 负责管理任务队列、worker池和任务执行
 type Orchestrator struct {
 	// 任务队列
-	jobQueue      chan *Job
-	priorityQueue chan *Job // 高优先级队列
+	jobQueue *jobQueue
 
 	// Worker池配置
 	maxWorkers int
@@ -60,8 +59,7 @@ func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Orchestrator{
-		jobQueue:            make(chan *Job, 100), // 普通任务队列，缓冲100
-		priorityQueue:       make(chan *Job, 20),  // 高优先级队列，缓冲20
+		jobQueue:            newJobQueue(120),
 		maxWorkers:          maxWorkers,
 		workers:             make([]*worker, 0, maxWorkers),
 		repoConcurrency:     make(map[uint]bool),
@@ -99,12 +97,10 @@ func (o *Orchestrator) Stop() {
 		// 取消上下文
 		o.cancel()
 
+		o.jobQueue.Close()
+
 		// 等待所有worker完成
 		o.workerWg.Wait()
-
-		// 关闭队列
-		close(o.jobQueue)
-		close(o.priorityQueue)
 
 		klog.V(6).Infof("任务编排器已停止")
 	})
@@ -119,32 +115,16 @@ func (o *Orchestrator) EnqueueJob(job *Job) error {
 	default:
 	}
 
-	// 根据优先级选择队列
-	if job.Priority > 0 {
-		// 高优先级任务
-		select {
-		case o.priorityQueue <- job:
-			klog.V(6).Infof("任务已入队(高优先级): taskID=%d, repoID=%d, priority=%d",
+	if err := o.jobQueue.Enqueue(job); err != nil {
+		if err.Error() == "task queue is full" {
+			klog.Warningf("任务队列已满: taskID=%d, repoID=%d, priority=%d",
 				job.TaskID, job.RepositoryID, job.Priority)
-			return nil
-		case <-o.ctx.Done():
-			return fmt.Errorf("orchestrator is stopped")
-		default:
-			// 高优先级队列满了，尝试普通队列
 		}
+		return err
 	}
-
-	// 普通任务
-	select {
-	case o.jobQueue <- job:
-		klog.V(6).Infof("任务已入队: taskID=%d, repoID=%d, priority=%d",
-			job.TaskID, job.RepositoryID, job.Priority)
-		return nil
-	case <-o.ctx.Done():
-		return fmt.Errorf("orchestrator is stopped")
-	default:
-		return fmt.Errorf("task queue is full")
-	}
+	klog.V(6).Infof("任务已入队: taskID=%d, repoID=%d, priority=%d",
+		job.TaskID, job.RepositoryID, job.Priority)
+	return nil
 }
 
 // EnqueueBatch 批量提交任务到队列
@@ -198,19 +178,17 @@ func (o *Orchestrator) GetQueueStatus() *QueueStatus {
 	defer o.repoMutex.Unlock()
 
 	return &QueueStatus{
-		QueueLength:    len(o.jobQueue),
-		PriorityLength: len(o.priorityQueue),
-		ActiveWorkers:  len(o.workers),
-		ActiveRepos:    len(o.repoConcurrency),
+		QueueLength:   o.jobQueue.Len(),
+		ActiveWorkers: len(o.workers),
+		ActiveRepos:   len(o.repoConcurrency),
 	}
 }
 
 // QueueStatus 队列状态
 type QueueStatus struct {
-	QueueLength    int `json:"queue_length"`    // 普通队列长度
-	PriorityLength int `json:"priority_length"` // 高优先级队列长度
-	ActiveWorkers  int `json:"active_workers"`  // 活跃worker数
-	ActiveRepos    int `json:"active_repos"`    // 活跃仓库数
+	QueueLength   int `json:"queue_length"`
+	ActiveWorkers int `json:"active_workers"`
+	ActiveRepos   int `json:"active_repos"`
 }
 
 // worker 工作线程
@@ -230,15 +208,15 @@ func (w *worker) Run() {
 		case <-w.orchestrator.ctx.Done():
 			klog.V(6).Infof("Worker停止: id=%d", w.id)
 			return
-
-		// 优先处理高优先级队列
-		case job := <-w.orchestrator.priorityQueue:
-			w.processJob(job)
-
-		// 处理普通队列
-		case job := <-w.orchestrator.jobQueue:
-			w.processJob(job)
+		default:
 		}
+
+		job, ok := w.orchestrator.jobQueue.Dequeue()
+		if !ok {
+			klog.V(6).Infof("Worker停止: id=%d", w.id)
+			return
+		}
+		w.processJob(job)
 	}
 }
 
@@ -321,6 +299,71 @@ func NewTaskJob(taskID, repositoryID uint, priority int) *Job {
 		EnqueuedAt:   time.Now(),
 		Priority:     priority,
 	}
+}
+
+type jobQueue struct {
+	maxSize int
+	items   []*Job
+	mutex   sync.Mutex
+	cond    *sync.Cond
+	closed  bool
+}
+
+func newJobQueue(maxSize int) *jobQueue {
+	queue := &jobQueue{
+		maxSize: maxSize,
+		items:   make([]*Job, 0, maxSize),
+	}
+	queue.cond = sync.NewCond(&queue.mutex)
+	return queue
+}
+
+func (q *jobQueue) Enqueue(job *Job) error {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	if q.closed {
+		return fmt.Errorf("orchestrator is stopped")
+	}
+	if q.maxSize > 0 && len(q.items) >= q.maxSize {
+		return fmt.Errorf("task queue is full")
+	}
+
+	q.items = append(q.items, job)
+
+	q.cond.Signal()
+	return nil
+}
+
+func (q *jobQueue) Dequeue() (*Job, bool) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	for len(q.items) == 0 && !q.closed {
+		q.cond.Wait()
+	}
+
+	if len(q.items) == 0 {
+		return nil, false
+	}
+
+	job := q.items[0]
+	q.items[0] = nil
+	q.items = q.items[1:]
+	return job, true
+}
+
+func (q *jobQueue) Len() int {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return len(q.items)
+}
+
+func (q *jobQueue) Close() {
+	q.mutex.Lock()
+	q.closed = true
+	q.cond.Broadcast()
+	q.mutex.Unlock()
 }
 
 // 全局编排器实例
