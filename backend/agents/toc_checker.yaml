@@ -36,51 +36,38 @@ instruction: |
 
    ### 强制输出格式（严格遵循 YAML 规范，无多余注释/换行，将被校验 Agent 审查）
    dirs:
-      - type: 任务类型标识（如project_overview/architecture/core_module等）
-         title: 任务中文名称
-         sort_order: 数字排序（递增，从1开始）
-         evidence:
-         - aspect: 证据维度（如目录结构/核心文件/配置说明等）
-            source: |
-               证据来源文件/目录/依赖（支持多行列举，用-分隔多个来源）
-            detail: |
-               证据细节与结论依据（支持多行描述，清晰说明标题的判定依据）
-   analysis_summary: "仓库核心分析总结：明确项目类型/技术栈/核心功能/规模，说明筛选分析任务的核心依据，简洁精准，不冗余"
+    - type: 编制目录标题的类型标识（如project_overview/architecture/core_module等）
+      title: 目录标题的中文名称
+      sort_order: 数字排序（递增，从1开始）
+      evidence:
+        - aspect: 决策维度（如目录结构/核心文件/配置说明等）
+          source: |
+            形成title字段的决策依据，包括来源文件/目录/依赖（支持多行列举，用-分隔多个来源），要包含行号（例如L32-L86）、关键字（搜索用的关键字）
+          detail: |
+            总结输出最终title字段的推论细节（支持多行描述，清晰说明标题的判定依据，要包含搜索用的关键字，让其他AI可以通过这个提示，重新推导出title字段，并能进行高效搜索、定位、挖掘更多信息）
 
    ### YAML格式示例
    dirs:
-      - type: project_overview
-         title: 项目简介与定位
-         sort_order: 1
-         evidence:
-         - aspect: 核心说明文件
-            source: |
-               1. /README.md
-               2. /docs/project_intro.md
-            detail: |
-               从README.md的「项目定位」章节可知，该仓库为openDeepWiki生态下的代码仓库解读工具，核心目标是为技术文档生成类书籍结构化目录，面向开发者和文档阅读者。
-      - type: project_overview
-         title: 技术栈与依赖
-         sort_order: 2
-         evidence:
-         - aspect: 依赖配置文件
-            source: |
-               1. /pyproject.toml
-               2. /requirements.txt
-               3. /package.json（前端模块）
-            detail: |
-               通过读取requirements.txt可知，核心依赖包括Python 3.10+、PyYAML 6.0.1（YAML解析）、uv（包管理）；前端模块依赖Vue3和Element Plus，对应package.json中的依赖声明。
-      - type: architecture
-         title: 系统架构图/设计思路
-         sort_order: 3
-         evidence:
-         - aspect: 架构文档
-            source: |
-               1. /docs/architecture/design.md
-               2. /assets/architecture.png
-            detail: |
-               从design.md和架构图可知，系统分为3层：目录解析层（读取仓库结构）、逻辑编排层（按书籍逻辑整理目录）、输出层（生成YAML格式目录），各层通过接口解耦，支持扩展不同输出格式。
-
+    - type: project_overview
+      title: 项目简介与定位
+      sort_order: 1
+      evidence:
+        - aspect: 核心说明文件
+          source: |
+            1. /README.md L32-L89 关键字：代码解读、目录、开发文档
+            2. /docs/project_intro.md  L32-L89 （项目定位章节）
+          detail: |
+            从README.md的「项目定位」章节可知，该仓库为openDeepWiki生态下的代码仓库解读工具，核心目标是为技术文档生成类书籍结构化目录，面向开发者和文档阅读者。
+   - type: architecture
+      title: 系统架构图/设计思路
+      sort_order: 3
+      evidence:
+        - aspect: 架构文档
+          source: |
+            1. /docs/architecture/design.md L140-L350 关键字：三层设计、数据隔离、多租户
+            2. /assets/architecture.png 该图为系统架构图
+          detail: |
+            从design.md和架构图可知，系统分为3层：目录解析层（读取仓库结构）、逻辑编排层（按书籍逻辑整理目录）、输出层（生成YAML格式目录），各层通过接口解耦，支持扩展不同输出格式。
 
 
 
