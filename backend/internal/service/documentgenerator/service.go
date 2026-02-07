@@ -97,7 +97,6 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 
 仓库地址: %s
 文档标题: %s
-参考线索: 
 %s
 
 请按以下步骤执行：
@@ -138,7 +137,7 @@ func (s *Service) buildEvidencePrompt(taskID uint) string {
 		return ""
 	}
 	builder := &strings.Builder{}
-	builder.WriteString("\n")
+	builder.WriteString("撰写文章时可参考如下线索: \n")
 	for _, ev := range evidences {
 		builder.WriteString("- 维度: ")
 		builder.WriteString(safe(ev.Aspect))

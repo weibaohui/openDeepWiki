@@ -71,6 +71,8 @@ type mockTaskRepo struct {
 	DeleteByRepositoryIDFunc func(repoID uint) error
 	DeleteFunc               func(id uint) error
 	GetTaskStatsFunc         func(repoID uint) (map[string]int64, error)
+	GetActiveTasksFunc       func() ([]model.Task, error)
+	GetRecentTasksFunc       func(limit int) ([]model.Task, error)
 }
 
 func (m *mockTaskRepo) Create(task *model.Task) error {
@@ -139,6 +141,20 @@ func (m *mockTaskRepo) Delete(id uint) error {
 func (m *mockTaskRepo) GetTaskStats(repoID uint) (map[string]int64, error) {
 	if m.GetTaskStatsFunc != nil {
 		return m.GetTaskStatsFunc(repoID)
+	}
+	return nil, nil
+}
+
+func (m *mockTaskRepo) GetActiveTasks() ([]model.Task, error) {
+	if m.GetActiveTasksFunc != nil {
+		return m.GetActiveTasksFunc()
+	}
+	return nil, nil
+}
+
+func (m *mockTaskRepo) GetRecentTasks(limit int) ([]model.Task, error) {
+	if m.GetRecentTasksFunc != nil {
+		return m.GetRecentTasksFunc(limit)
 	}
 	return nil, nil
 }
