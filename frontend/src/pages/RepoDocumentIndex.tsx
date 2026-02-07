@@ -154,9 +154,8 @@ export default function RepoDocumentIndex() {
                         {!screens.md && (
                             <Button type="text" icon={<MenuOutlined />} onClick={() => setMobileMenuOpen(true)} />
                         )}
-                        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/')} />
                         <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {repository.name} · {t('document.overview_title')}
+                            {t('document.overview_title')}999
                         </Title>
                     </div>
                 </Header>

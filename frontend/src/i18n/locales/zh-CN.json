@@ -43,7 +43,7 @@
         "export_docs": "导出文档",
         "created_at": "创建时间",
         "tasks": "任务列表",
-        "docs": "生成的文档",
+        "docs": "文档列表",
         "no_docs": "还没有生成文档",
         "no_docs_hint": "运行任务后将在此显示",
         "not_found": "仓库不存在",
