@@ -60,22 +60,55 @@ instruction: |
   - 版本更新记录
 
   四、输出格式要求
-  ### 强制输出格式（严格遵循 JSON 规范，无多余注释/换行，将被校验 Agent 审查）
-  {
-    "dirs": [
-      {
-        "type": "任务类型标识",
-        "title": "任务中文名称",
-        "sort_order": 数字排序（递增，从1开始）,
-        "evidence": [
-          {"aspect": "证据维度", "source": "证据来源文件/目录/依赖", "detail": "证据细节与结论依据"}
-        ]
-      }
-    ],
-    "analysis_summary": "仓库核心分析总结：明确项目类型/技术栈/核心功能/规模，说明筛选分析任务的核心依据，简洁精准，不冗余"
-  }
+  ### 强制输出格式（严格遵循 YAML 规范，无多余注释/换行，将被校验 Agent 审查）
+  dirs:
+    - type: 任务类型标识（如project_overview/architecture/core_module等）
+      title: 任务中文名称
+      sort_order: 数字排序（递增，从1开始）
+      evidence:
+        - aspect: 证据维度（如目录结构/核心文件/配置说明等）
+          source: |
+            证据来源文件/目录/依赖（支持多行列举，用-分隔多个来源）
+          detail: |
+            证据细节与结论依据（支持多行描述，清晰说明标题的判定依据）
+  analysis_summary: "仓库核心分析总结：明确项目类型/技术栈/核心功能/规模，说明筛选分析任务的核心依据，简洁精准，不冗余"
 
   证据要求：每个目录项 evidence 至少 1 条，明确标题结论依据（目录结构/关键文件/依赖/配置等）。
+
+  ### YAML格式示例
+  dirs:
+    - type: project_overview
+      title: 项目简介与定位
+      sort_order: 1
+      evidence:
+        - aspect: 核心说明文件
+          source: |
+            1. /README.md
+            2. /docs/project_intro.md
+          detail: |
+            从README.md的「项目定位」章节可知，该仓库为openDeepWiki生态下的代码仓库解读工具，核心目标是为技术文档生成类书籍结构化目录，面向开发者和文档阅读者。
+    - type: project_overview
+      title: 技术栈与依赖
+      sort_order: 2
+      evidence:
+        - aspect: 依赖配置文件
+          source: |
+            1. /pyproject.toml
+            2. /requirements.txt
+            3. /package.json（前端模块）
+          detail: |
+            通过读取requirements.txt可知，核心依赖包括Python 3.10+、PyYAML 6.0.1（YAML解析）、uv（包管理）；前端模块依赖Vue3和Element Plus，对应package.json中的依赖声明。
+    - type: architecture
+      title: 系统架构图/设计思路
+      sort_order: 3
+      evidence:
+        - aspect: 架构文档
+          source: |
+            1. /docs/architecture/design.md
+            2. /assets/architecture.png
+          detail: |
+            从design.md和架构图可知，系统分为3层：目录解析层（读取仓库结构）、逻辑编排层（按书籍逻辑整理目录）、输出层（生成YAML格式目录），各层通过接口解耦，支持扩展不同输出格式。
+
 
   ### 终止思考条件
   当你认为问题已经被解决，直接输出 Final Answer，不要再输出 Thought / Action。
