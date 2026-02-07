@@ -45,6 +45,7 @@ type dirSpec struct {
 	Type      string `json:"type"`       // 目录类型标识，如 "security", "performance", "data-model"
 	Title     string `json:"title"`      // 目录标题，如 "安全分析"
 	SortOrder int    `json:"sort_order"` // 排序顺序
+	
 }
 
 // Service 目录分析任务生成服务。
