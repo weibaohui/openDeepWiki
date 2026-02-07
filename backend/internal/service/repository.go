@@ -340,7 +340,7 @@ func (s *RepositoryService) RunAllTasks(repoID uint) error {
 	// 将所有queued任务提交到编排器队列
 	jobs := make([]*orchestrator.Job, 0, len(pendingTasks))
 	for _, task := range pendingTasks {
-		job := orchestrator.NewTaskJob(task.ID, task.RepositoryID, 0)
+		job := orchestrator.NewTaskJob(task.ID, task.RepositoryID)
 		jobs = append(jobs, job)
 	}
 

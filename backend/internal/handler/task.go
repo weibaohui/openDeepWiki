@@ -70,7 +70,7 @@ func (h *TaskHandler) Enqueue(c *gin.Context) {
 	}
 
 	// 提交任务到编排器队列
-	if err := h.service.Enqueue(uint(id), task.RepositoryID, 0); err != nil {
+	if err := h.service.Enqueue(uint(id), task.RepositoryID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -98,7 +98,7 @@ func (h *TaskHandler) Run(c *gin.Context) {
 	}
 
 	// 提交任务到编排器队列
-	if err := h.service.Enqueue(uint(id), task.RepositoryID, 0); err != nil {
+	if err := h.service.Enqueue(uint(id), task.RepositoryID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

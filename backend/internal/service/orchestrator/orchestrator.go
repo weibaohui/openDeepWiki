@@ -2,66 +2,75 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
 	"k8s.io/klog/v2"
 )
 
-// Job 定义编排器中的任务
+// -------------------- Errors --------------------
+var (
+	// ErrRepoQueueFull occurs when the repo queue is full.
+	ErrRepoQueueFull = errors.New("repo queue is full (reject new)")
+)
+
+// -------------------- Job --------------------
 type Job struct {
 	TaskID       uint
 	RepositoryID uint
 	EnqueuedAt   time.Time
-	Priority     int // 优先级，数值越大优先级越高
 }
 
-// TaskExecutor 任务执行器接口
-// 抽象任务执行逻辑，便于测试和扩展
-// 通过接口定义，避免循环依赖
+// NewTaskJob creates a new Job
+func NewTaskJob(taskID, repositoryID uint) *Job {
+	return &Job{
+		TaskID:       taskID,
+		RepositoryID: repositoryID,
+		EnqueuedAt:   time.Now(),
+	}
+}
+
+// -------------------- Task Executor --------------------
 type TaskExecutor interface {
 	ExecuteTask(ctx context.Context, taskID uint) error
 }
 
-// Orchestrator 任务编排器
-// 负责管理任务队列、worker池和任务执行
+// -------------------- Orchestrator --------------------
 type Orchestrator struct {
-	// 任务队列
 	jobQueue *jobQueue
 
-	// Worker池配置
-	maxWorkers int
-	workers    []*worker
-	workerWg   sync.WaitGroup
+	// ants worker pool (execution only)
+	pool *ants.Pool
 
-	// 并发控制
-	repoConcurrency map[uint]bool // 记录每个仓库是否有任务在执行
-	repoMutex       sync.Mutex    // 保护 repoConcurrency
+	// repo concurrency control
+	repoConcurrency map[uint]bool
+	repoMutex       sync.Mutex
 
-	// 执行器
 	executor TaskExecutor
 
-	// 生命周期管理
 	ctx      context.Context
 	cancel   context.CancelFunc
 	stopOnce sync.Once
 
-	// 任务取消管理
 	activeCancellations map[uint]context.CancelFunc
 	cancelMutex         sync.Mutex
 }
 
-// NewOrchestrator 创建新的任务编排器
-// maxWorkers: 最大worker数量（建议2-4，避免打爆CPU/LLM配额）
-// executor: 任务执行器
+// NewOrchestrator creates a new Orchestrator
 func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	pool, err := ants.NewPool(maxWorkers, ants.WithNonblocking(true))
+	if err != nil {
+		panic(err)
+	}
+
 	return &Orchestrator{
 		jobQueue:            newJobQueue(120),
-		maxWorkers:          maxWorkers,
-		workers:             make([]*worker, 0, maxWorkers),
+		pool:                pool,
 		repoConcurrency:     make(map[uint]bool),
 		activeCancellations: make(map[uint]context.CancelFunc),
 		executor:            executor,
@@ -70,44 +79,22 @@ func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
 	}
 }
 
-// Start 启动编排器
+// Start begins the orchestrator dispatch loop
 func (o *Orchestrator) Start() {
-	klog.V(6).Infof("任务编排器启动中: maxWorkers=%d", o.maxWorkers)
-
-	// 创建并启动worker
-	for i := 0; i < o.maxWorkers; i++ {
-		w := &worker{
-			id:           i,
-			orchestrator: o,
-		}
-		o.workers = append(o.workers, w)
-		o.workerWg.Add(1)
-
-		go w.Run()
-	}
-
-	klog.V(6).Infof("任务编排器启动完成: workers=%d", len(o.workers))
+	go o.dispatchLoop()
 }
 
-// Stop 停止编排器
+// Stop stops orchestrator and releases resources
 func (o *Orchestrator) Stop() {
 	o.stopOnce.Do(func() {
-		klog.V(6).Infof("任务编排器停止中...")
-
-		// 取消上下文
 		o.cancel()
-
 		o.jobQueue.Close()
-
-		// 等待所有worker完成
-		o.workerWg.Wait()
-
-		klog.V(6).Infof("任务编排器已停止")
+		o.pool.Release()
+		klog.V(6).Infof("Orchestrator stopped")
 	})
 }
 
-// EnqueueJob 提交任务到队列
-// 自动根据优先级选择队列
+// EnqueueJob submits a job to the queue
 func (o *Orchestrator) EnqueueJob(job *Job) error {
 	select {
 	case <-o.ctx.Done():
@@ -117,190 +104,140 @@ func (o *Orchestrator) EnqueueJob(job *Job) error {
 
 	if err := o.jobQueue.Enqueue(job); err != nil {
 		if err.Error() == "task queue is full" {
-			klog.Warningf("任务队列已满: taskID=%d, repoID=%d, priority=%d",
-				job.TaskID, job.RepositoryID, job.Priority)
+			klog.Warningf("Job queue full: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
 		}
 		return err
 	}
-	klog.V(6).Infof("任务已入队: taskID=%d, repoID=%d, priority=%d",
-		job.TaskID, job.RepositoryID, job.Priority)
+
+	klog.V(6).Infof("Job enqueued: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
 	return nil
 }
 
-// EnqueueBatch 批量提交任务到队列
-// 用于 run-all 场景，按 sort_order 顺序入队
+// EnqueueBatch submits multiple jobs
 func (o *Orchestrator) EnqueueBatch(jobs []*Job) error {
-	klog.V(6).Infof("批量提交任务到队列: count=%d", len(jobs))
-
 	for _, job := range jobs {
 		if err := o.EnqueueJob(job); err != nil {
-			klog.Errorf("批量提交任务失败: taskID=%d, error=%v", job.TaskID, err)
 			return err
 		}
 	}
-
 	return nil
 }
 
-// CancelTask 取消指定任务
-// 如果任务正在运行，调用其 CancelFunc
-// 返回 true 表示成功找到并取消了运行中的任务
+// CancelTask cancels a running task
 func (o *Orchestrator) CancelTask(taskID uint) bool {
 	o.cancelMutex.Lock()
 	defer o.cancelMutex.Unlock()
 
 	if cancel, ok := o.activeCancellations[taskID]; ok {
-		klog.V(6).Infof("正在取消运行中的任务: taskID=%d", taskID)
+		klog.V(6).Infof("Cancelling running task: taskID=%d", taskID)
 		cancel()
 		return true
 	}
-
 	return false
 }
 
-// registerCancel 注册任务的取消函数
 func (o *Orchestrator) registerCancel(taskID uint, cancel context.CancelFunc) {
 	o.cancelMutex.Lock()
 	defer o.cancelMutex.Unlock()
 	o.activeCancellations[taskID] = cancel
 }
 
-// unregisterCancel 注销任务的取消函数
 func (o *Orchestrator) unregisterCancel(taskID uint) {
 	o.cancelMutex.Lock()
 	defer o.cancelMutex.Unlock()
 	delete(o.activeCancellations, taskID)
 }
 
-// GetQueueStatus 获取队列状态信息
+// GetQueueStatus returns current queue metrics
 func (o *Orchestrator) GetQueueStatus() *QueueStatus {
 	o.repoMutex.Lock()
 	defer o.repoMutex.Unlock()
-
 	return &QueueStatus{
 		QueueLength:   o.jobQueue.Len(),
-		ActiveWorkers: len(o.workers),
 		ActiveRepos:   len(o.repoConcurrency),
+		ActiveWorkers: o.pool.Cap(),
 	}
 }
 
-// QueueStatus 队列状态
+// -------------------- QueueStatus --------------------
 type QueueStatus struct {
 	QueueLength   int `json:"queue_length"`
-	ActiveWorkers int `json:"active_workers"`
 	ActiveRepos   int `json:"active_repos"`
+	ActiveWorkers int `json:"active_workers"`
 }
 
-// worker 工作线程
-type worker struct {
-	id           int
-	orchestrator *Orchestrator
-}
-
-// Run 运行worker
-func (w *worker) Run() {
-	defer w.orchestrator.workerWg.Done()
-
-	klog.V(6).Infof("Worker启动: id=%d", w.id)
-
+// -------------------- Dispatch Loop --------------------
+func (o *Orchestrator) dispatchLoop() {
 	for {
 		select {
-		case <-w.orchestrator.ctx.Done():
-			klog.V(6).Infof("Worker停止: id=%d", w.id)
+		case <-o.ctx.Done():
 			return
 		default:
 		}
 
-		job, ok := w.orchestrator.jobQueue.Dequeue()
+		job, ok := o.jobQueue.Dequeue()
 		if !ok {
-			klog.V(6).Infof("Worker停止: id=%d", w.id)
 			return
 		}
-		w.processJob(job)
+
+		o.tryDispatch(job)
 	}
 }
 
-// processJob 处理单个任务
-func (w *worker) processJob(job *Job) {
-	klog.V(6).Infof("Worker开始处理任务: workerID=%d, taskID=%d, repoID=%d",
-		w.id, job.TaskID, job.RepositoryID)
-
-	// 检查仓库并发限制
-	if !w.acquireRepoLock(job.RepositoryID) {
-		klog.V(6).Infof("仓库已有任务在执行，等待后重新入队: repoID=%d, taskID=%d",
-			job.RepositoryID, job.TaskID)
-
-		// 增加随机延迟，避免忙等待和日志刷屏
-		// 1-3秒的延迟
-		time.Sleep(time.Second * 2)
-
-		// 重新入队，等待下次调度
-		if err := w.orchestrator.EnqueueJob(job); err != nil {
-			klog.Errorf("重新入队任务失败: workerID=%d, taskID=%d, repoID=%d, error=%v",
-				w.id, job.TaskID, job.RepositoryID, err)
-		}
+func (o *Orchestrator) tryDispatch(job *Job) {
+	if !o.acquireRepoLock(job.RepositoryID) {
+		time.Sleep(2 * time.Second)
+		_ = o.EnqueueJob(job)
 		return
 	}
-	defer w.releaseRepoLock(job.RepositoryID)
 
-	// 创建任务上下文
-	// 增加手动取消的支持
-	ctx, cancel := context.WithTimeout(w.orchestrator.ctx, 10*time.Minute)
+	err := o.pool.Submit(func() {
+		defer o.releaseRepoLock(job.RepositoryID)
+		o.executeJob(job)
+	})
+
+	if err != nil {
+		// pool full -> re-enqueue and release semaphore
+		o.releaseRepoLock(job.RepositoryID)
+		_ = o.EnqueueJob(job)
+	}
+}
+
+func (o *Orchestrator) executeJob(job *Job) {
+	ctx, cancel := context.WithTimeout(o.ctx, 10*time.Minute)
 	defer cancel()
 
-	// 包装一个可取消的上下文，用于手动取消
 	runCtx, manualCancel := context.WithCancel(ctx)
 	defer manualCancel()
 
-	// 注册取消函数
-	w.orchestrator.registerCancel(job.TaskID, manualCancel)
-	defer w.orchestrator.unregisterCancel(job.TaskID)
+	o.registerCancel(job.TaskID, manualCancel)
+	defer o.unregisterCancel(job.TaskID)
 
-	// 执行任务
-	err := w.orchestrator.executor.ExecuteTask(runCtx, job.TaskID)
-
-	if err != nil {
-		klog.Errorf("任务执行失败: workerID=%d, taskID=%d, repoID=%d, error=%v",
-			w.id, job.TaskID, job.RepositoryID, err)
+	if err := o.executor.ExecuteTask(runCtx, job.TaskID); err != nil {
+		klog.Errorf("task failed: taskID=%d err=%v", job.TaskID, err)
 	} else {
-		klog.V(6).Infof("任务执行完成: workerID=%d, taskID=%d, repoID=%d",
-			w.id, job.TaskID, job.RepositoryID)
+		klog.V(6).Infof("task completed: taskID=%d repoID=%d", job.TaskID, job.RepositoryID)
 	}
 }
 
-// acquireRepoLock 获取仓库并发锁
-// 返回true表示获取成功，false表示仓库已有任务在执行
-func (w *worker) acquireRepoLock(repoID uint) bool {
-	w.orchestrator.repoMutex.Lock()
-	defer w.orchestrator.repoMutex.Unlock()
-
-	if w.orchestrator.repoConcurrency[repoID] {
+// -------------------- Repo Semaphore --------------------
+func (o *Orchestrator) acquireRepoLock(repoID uint) bool {
+	o.repoMutex.Lock()
+	defer o.repoMutex.Unlock()
+	if o.repoConcurrency[repoID] {
 		return false
 	}
-
-	w.orchestrator.repoConcurrency[repoID] = true
+	o.repoConcurrency[repoID] = true
 	return true
 }
 
-// releaseRepoLock 释放仓库并发锁
-func (w *worker) releaseRepoLock(repoID uint) {
-	w.orchestrator.repoMutex.Lock()
-	defer w.orchestrator.repoMutex.Unlock()
-
-	delete(w.orchestrator.repoConcurrency, repoID)
+func (o *Orchestrator) releaseRepoLock(repoID uint) {
+	o.repoMutex.Lock()
+	defer o.repoMutex.Unlock()
+	delete(o.repoConcurrency, repoID)
 }
 
-// NewTaskJob 创建任务Job
-// 自动设置入队时间和优先级
-func NewTaskJob(taskID, repositoryID uint, priority int) *Job {
-	return &Job{
-		TaskID:       taskID,
-		RepositoryID: repositoryID,
-		EnqueuedAt:   time.Now(),
-		Priority:     priority,
-	}
-}
-
+// -------------------- Job Queue --------------------
 type jobQueue struct {
 	maxSize int
 	items   []*Job
@@ -310,12 +247,12 @@ type jobQueue struct {
 }
 
 func newJobQueue(maxSize int) *jobQueue {
-	queue := &jobQueue{
+	q := &jobQueue{
 		maxSize: maxSize,
 		items:   make([]*Job, 0, maxSize),
 	}
-	queue.cond = sync.NewCond(&queue.mutex)
-	return queue
+	q.cond = sync.NewCond(&q.mutex)
+	return q
 }
 
 func (q *jobQueue) Enqueue(job *Job) error {
@@ -323,14 +260,13 @@ func (q *jobQueue) Enqueue(job *Job) error {
 	defer q.mutex.Unlock()
 
 	if q.closed {
-		return fmt.Errorf("orchestrator is stopped")
+		return errors.New("orchestrator is stopped")
 	}
 	if q.maxSize > 0 && len(q.items) >= q.maxSize {
-		return fmt.Errorf("task queue is full")
+		return ErrRepoQueueFull
 	}
 
 	q.items = append(q.items, job)
-
 	q.cond.Signal()
 	return nil
 }
@@ -366,32 +302,27 @@ func (q *jobQueue) Close() {
 	q.mutex.Unlock()
 }
 
-// 全局编排器实例
+// -------------------- Global Orchestrator --------------------
 var (
 	globalOrchestrator *Orchestrator
 	orchestratorOnce   sync.Once
 )
 
-// InitGlobalOrchestrator 初始化全局编排器
-// 应该在应用启动时调用
 func InitGlobalOrchestrator(maxWorkers int, executor TaskExecutor) {
 	orchestratorOnce.Do(func() {
 		globalOrchestrator = NewOrchestrator(maxWorkers, executor)
 		globalOrchestrator.Start()
-		klog.V(6).Infof("全局任务编排器已初始化: maxWorkers=%d", maxWorkers)
+		klog.V(6).Infof("Global orchestrator initialized: maxWorkers=%d", maxWorkers)
 	})
 }
 
-// GetGlobalOrchestrator 获取全局编排器
 func GetGlobalOrchestrator() *Orchestrator {
 	return globalOrchestrator
 }
 
-// ShutdownGlobalOrchestrator 关闭全局编排器
-// 应该在应用关闭时调用
 func ShutdownGlobalOrchestrator() {
 	if globalOrchestrator != nil {
 		globalOrchestrator.Stop()
-		klog.V(6).Infof("全局任务编排器已关闭")
+		klog.V(6).Infof("Global orchestrator shutdown")
 	}
 }

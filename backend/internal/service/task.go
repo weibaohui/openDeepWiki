@@ -61,7 +61,7 @@ func (s *TaskService) Get(id uint) (*model.Task, error) {
 
 // Enqueue 提交任务到编排器队列
 // 这是新的任务提交方式，通过编排器控制执行
-func (s *TaskService) Enqueue(taskID, repositoryID uint, priority int) error {
+func (s *TaskService) Enqueue(taskID, repositoryID uint) error {
 	task, err := s.taskRepo.Get(taskID)
 	if err != nil {
 		return fmt.Errorf("获取任务失败: %w", err)
@@ -97,7 +97,7 @@ func (s *TaskService) Enqueue(taskID, repositoryID uint, priority int) error {
 	}
 
 	// 提交到编排器
-	job := orchestrator.NewTaskJob(taskID, task.RepositoryID, priority)
+	job := orchestrator.NewTaskJob(taskID, task.RepositoryID)
 	if err := s.orchestrator.EnqueueJob(job); err != nil {
 		// 入队失败，只有在发生了状态迁移时才回滚状态
 		if oldStatus != statemachine.TaskStatusQueued {
@@ -366,7 +366,7 @@ func (s *TaskService) Retry(taskID uint) error {
 
 	// 2. 重新入队
 	// 默认优先级为0
-	if err := s.Enqueue(taskID, task.RepositoryID, 0); err != nil {
+	if err := s.Enqueue(taskID, task.RepositoryID); err != nil {
 		return fmt.Errorf("任务入队失败: %w", err)
 	}
 
