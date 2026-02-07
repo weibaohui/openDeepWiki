@@ -76,10 +76,15 @@ export default function RepoDocumentIndex() {
     const SidebarContent = () => (
         <>
             <div style={{ padding: '16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
-                <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                    <Title level={5} style={{ margin: 0 }}>{t('repository.docs')}</Title>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{repository?.name || '-'}</Text>
-                </Space>
+                <Button
+                    type="text"
+                    icon={<ArrowLeftOutlined />}
+                    onClick={() => navigate(`/`)}
+                    block
+                    style={{ textAlign: 'left' }}
+                >
+                    {t('nav.home')}
+                </Button>
             </div>
             {sortedDocuments.length === 0 ? (
                 <div style={{ padding: 16 }}>
@@ -124,7 +129,7 @@ export default function RepoDocumentIndex() {
         <Layout style={{ minHeight: '100vh' }}>
             {contextHolder}
             {screens.lg ? (
-                <Sider width={260} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
+                <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
                     <SidebarContent />
                 </Sider>
             ) : (
@@ -133,7 +138,7 @@ export default function RepoDocumentIndex() {
                     placement="left"
                     onClose={() => setMobileMenuOpen(false)}
                     open={mobileMenuOpen}
-                    width={260}
+                    width={250}
                     styles={{ body: { padding: 0 } }}
                 >
                     <SidebarContent />
@@ -150,9 +155,14 @@ export default function RepoDocumentIndex() {
                         borderBottom: '1px solid var(--ant-color-border-secondary)',
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, minWidth: 0 }}>
                         {!screens.md && (
-                            <Button type="text" icon={<MenuOutlined />} onClick={() => setMobileMenuOpen(true)} />
+                            <Button
+                                type="text"
+                                icon={<MenuOutlined />}
+                                onClick={() => setMobileMenuOpen(true)}
+                                style={{ marginRight: 8 }}
+                            />
                         )}
                         <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {t('document.overview_title')}
