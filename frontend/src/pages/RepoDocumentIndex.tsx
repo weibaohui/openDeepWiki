@@ -155,7 +155,7 @@ export default function RepoDocumentIndex() {
                             <Button type="text" icon={<MenuOutlined />} onClick={() => setMobileMenuOpen(true)} />
                         )}
                         <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {t('document.overview_title')}999
+                            {t('document.overview_title')}
                         </Title>
                     </div>
                 </Header>
