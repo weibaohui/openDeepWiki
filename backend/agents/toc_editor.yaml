@@ -61,7 +61,8 @@ instruction: |
   - 版本更新记录
 
   四、输出格式要求
-  ### 强制输出格式（严格遵循 YAML 规范，无多余注释/换行，将被校验 Agent 审查）
+  ### 请直接输出内容，绝对不要调用工具存储到文件系统中。
+  ### 强制输出格式（严格遵循 YAML 规范，无多余注释/换行）
   dirs:
     - type: 编制目录标题的类型标识（如project_overview/architecture/core_module等）
       title: 目录标题的中文名称
