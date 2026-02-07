@@ -30,6 +30,8 @@ type TaskRepository interface {
 	DeleteByRepositoryID(repoID uint) error
 	Delete(id uint) error
 	GetTaskStats(repoID uint) (map[string]int64, error)
+	GetActiveTasks() ([]model.Task, error)
+	GetRecentTasks(limit int) ([]model.Task, error)
 }
 
 type DocumentRepository interface {

@@ -655,3 +655,31 @@ func (s *TaskService) GetOrchestratorStatus() *orchestrator.QueueStatus {
 	}
 	return s.orchestrator.GetQueueStatus()
 }
+
+// GlobalMonitorData 全局监控数据
+type GlobalMonitorData struct {
+	QueueStatus *orchestrator.QueueStatus `json:"queue_status"`
+	ActiveTasks []model.Task              `json:"active_tasks"`
+	RecentTasks []model.Task              `json:"recent_tasks"`
+}
+
+// GetGlobalMonitorData 获取全局监控数据
+func (s *TaskService) GetGlobalMonitorData() (*GlobalMonitorData, error) {
+	status := s.GetOrchestratorStatus()
+
+	activeTasks, err := s.taskRepo.GetActiveTasks()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active tasks: %w", err)
+	}
+
+	recentTasks, err := s.taskRepo.GetRecentTasks(20) // 获取最近20条历史记录
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent tasks: %w", err)
+	}
+
+	return &GlobalMonitorData{
+		QueueStatus: status,
+		ActiveTasks: activeTasks,
+		RecentTasks: recentTasks,
+	}, nil
+}

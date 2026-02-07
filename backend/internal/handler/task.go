@@ -279,3 +279,14 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 		"message": "task deleted",
 	})
 }
+
+// Monitor 全局任务监控
+func (h *TaskHandler) Monitor(c *gin.Context) {
+	data, err := h.service.GetGlobalMonitorData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
+}

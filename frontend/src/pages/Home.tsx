@@ -119,7 +119,7 @@ export default function Home() {
                     <Space size={screens.md ? 'middle' : 'small'}>
                         <LanguageSwitcher />
                         <ThemeSwitcher />
-                        <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/api-keys')} />
+                        <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/settings')} />
                     </Space>
                 </Header>
 

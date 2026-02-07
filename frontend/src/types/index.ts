@@ -27,6 +27,7 @@ export interface Task {
     completed_at: string | null;
     created_at: string;
     updated_at: string;
+    repository?: Repository;
 }
 
 export interface Document {
@@ -42,7 +43,7 @@ export interface Document {
     created_at: string;
     updated_at: string;
 }
- 
+
 
 export type ThemeMode = 'default' | 'dark' | 'compact';
 
@@ -70,4 +71,17 @@ export interface APIKeyStats {
     unavailable_count: number;
     total_requests: number;
     total_errors: number;
+}
+
+export interface QueueStatus {
+    queue_length: number;
+    priority_length: number;
+    active_workers: number;
+    active_repos: number;
+}
+
+export interface GlobalMonitorData {
+    queue_status: QueueStatus;
+    active_tasks: Task[];
+    recent_tasks: Task[];
 }

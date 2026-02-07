@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, APIKey, APIKeyStats } from '../types';
+import type { Repository, Task, Document, APIKey, APIKeyStats, GlobalMonitorData } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -34,6 +34,7 @@ export const taskApi = {
     cancel: (id: number) => api.post(`/tasks/${id}/cancel`),
     reset: (id: number) => api.post(`/tasks/${id}/reset`),
     delete: (id: number) => api.delete(`/tasks/${id}`),
+    monitor: () => api.get<GlobalMonitorData>('/tasks/monitor'),
 };
 
 // Document APIs

@@ -52,6 +52,7 @@ func Setup(
 		tasks := api.Group("/tasks")
 		{
 			tasks.GET("/status", taskHandler.GetOrchestratorStatus) // 获取编排器状态（新增）
+			tasks.GET("/monitor", taskHandler.Monitor)              // 获取全局监控数据（新增）
 			tasks.GET("/stuck", taskHandler.GetStuck)               // 获取卡住的任务
 			tasks.POST("/cleanup", taskHandler.CleanupStuck)        // 清理卡住的任务
 			tasks.GET("/:id", taskHandler.Get)

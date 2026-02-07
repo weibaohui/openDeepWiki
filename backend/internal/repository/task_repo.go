@@ -108,3 +108,24 @@ func (r *taskRepository) GetTaskStats(repoID uint) (map[string]int64, error) {
 	}
 	return stats, nil
 }
+
+// GetActiveTasks 获取活跃任务（running/queued），预加载 Repository
+func (r *taskRepository) GetActiveTasks() ([]model.Task, error) {
+	var tasks []model.Task
+	err := r.db.Preload("Repository").
+		Where("status IN ?", []string{"running", "queued"}).
+		Order("created_at desc").
+		Find(&tasks).Error
+	return tasks, err
+}
+
+// GetRecentTasks 获取最近完成的任务，预加载 Repository
+func (r *taskRepository) GetRecentTasks(limit int) ([]model.Task, error) {
+	var tasks []model.Task
+	err := r.db.Preload("Repository").
+		Where("status IN ?", []string{"succeeded", "failed", "canceled"}).
+		Order("updated_at desc").
+		Limit(limit).
+		Find(&tasks).Error
+	return tasks, err
+}
