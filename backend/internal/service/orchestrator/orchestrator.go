@@ -18,6 +18,9 @@ type Job struct {
 	TaskID       uint
 	RepositoryID uint
 	EnqueuedAt   time.Time
+	RetryCount   int
+	MaxRetries   int
+	Timeout      time.Duration
 }
 
 // -----------------------------
@@ -66,18 +69,25 @@ func getTaskKey(taskID, repoID uint) string {
 	return fmt.Sprintf("%d:%d", taskID, repoID)
 }
 
+// NewTaskJob
+// 说明：创建一个新的任务对象，初始化重试次数、最大重试次数与自定义超时
+// 参数：taskID 任务ID；repositoryID 仓库ID
+// 返回：*Job 初始化后的任务对象
 func NewTaskJob(taskID, repositoryID uint) *Job {
 	return &Job{
 		TaskID:       taskID,
 		RepositoryID: repositoryID,
 		EnqueuedAt:   time.Now(),
+		RetryCount:   0,
+		MaxRetries:   5,
+		Timeout:      30 * time.Minute,
 	}
 }
 
 // -----------------------------
 // 构造函数
 // -----------------------------
-func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
+func NewOrchestrator(maxWorkers int, executor TaskExecutor) (*Orchestrator, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	jobQ := newJobQueue(120)
@@ -89,7 +99,8 @@ func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
 		ants.WithExpiryDuration(5*time.Minute),
 	)
 	if err != nil {
-		klog.Fatalf("ants pool initialization failed: %v", err)
+		klog.Errorf("ants pool initialization failed: %v", err)
+		return nil, err
 	}
 
 	return &Orchestrator{
@@ -102,7 +113,7 @@ func NewOrchestrator(maxWorkers int, executor TaskExecutor) *Orchestrator {
 		executor:            executor,
 		ctx:                 ctx,
 		cancel:              cancel,
-	}
+	}, nil
 }
 
 // -----------------------------
@@ -120,10 +131,12 @@ func (o *Orchestrator) Stop() {
 	o.stopOnce.Do(func() {
 		klog.V(6).Infof("Orchestrator stopping...")
 
+		// 1. 停止接收新任务，关闭队列
 		o.cancel()
 		o.jobQueue.Close()
 		o.retryQueue.Close()
 
+		// 2. 等待队列中待执行的任务全部分发完毕（原有逻辑保留）
 		for {
 			if o.jobQueue.Len() == 0 && o.retryQueue.Len() == 0 {
 				break
@@ -131,8 +144,25 @@ func (o *Orchestrator) Stop() {
 			time.Sleep(100 * time.Millisecond)
 			klog.V(6).Infof("Waiting for queues to empty: main=%d, retry=%d", o.jobQueue.Len(), o.retryQueue.Len())
 		}
-// o.pool.Waiting()
-		o.pool.Release()
+
+		// 3. 等待正在执行的长任务完成（核心适配 ants/v2）
+		// 3.1 先打印当前运行中的任务数，便于排查
+		runningTasks := o.pool.Running()
+		if runningTasks > 0 {
+			klog.V(6).Infof("Waiting for %d running tasks to complete (timeout: 35min)", runningTasks)
+		}
+
+		// 3.2 使用 ReleaseTimeout 等待35分钟（覆盖30分钟任务超时）
+		// 该方法会阻塞，直到：1. 所有任务完成；2. 超时；3. 被中断
+		timeout := 35 * time.Minute
+		rErr := o.pool.ReleaseTimeout(timeout)
+
+		// 3.3 打印等待结果日志
+		if rErr == nil {
+			klog.V(6).Infof("All running tasks completed before timeout")
+		} else {
+			klog.Warningf("Timeout after %v: some running tasks may be forced to stop", timeout)
+		}
 
 		klog.V(6).Infof("Orchestrator stopped completely")
 	})
@@ -218,7 +248,6 @@ func (o *Orchestrator) dispatchLoop() {
 		default:
 			job, ok := o.jobQueue.Dequeue()
 			if !ok {
-				time.Sleep(50 * time.Millisecond)
 				continue
 			}
 			o.tryDispatch(job)
@@ -231,17 +260,32 @@ func (o *Orchestrator) dispatchLoop() {
 // -----------------------------
 func (o *Orchestrator) processRetryQueue() {
 	defer o.retryTicker.Stop()
+	// 增加协程级Panic防护，避免协程退出
+	defer func() {
+		if r := recover(); r != nil {
+			klog.Errorf("Retry queue loop panic recovered: %v", r)
+		}
+	}()
 	for {
 		select {
 		case <-o.ctx.Done():
 			return
 		case <-o.retryTicker.C:
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				job, ok := o.retryQueue.Dequeue()
 				if !ok {
 					break
 				}
-				o.tryDispatch(job)
+				// 单个任务Panic不影响整个循环
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							klog.Errorf("Retry dispatch panic: taskID=%d, repoID=%d, err=%v",
+								job.TaskID, job.RepositoryID, r)
+						}
+					}()
+					o.tryDispatch(job)
+				}()
 			}
 		}
 	}
@@ -250,9 +294,16 @@ func (o *Orchestrator) processRetryQueue() {
 // -----------------------------
 // Try Dispatch
 // -----------------------------
+// tryDispatch
+// 说明：尝试分发任务到协程池执行；当仓库锁被占用或池提交失败时，按重试上限与计数进行重试入队
+// 参数：job 待执行的任务
+// 行为：当达到重试上限时直接放弃，并打印中文日志
+// tryDispatch 精简为只负责分发，不操作 RetryCount
 func (o *Orchestrator) tryDispatch(job *Job) {
 	if !o.acquireRepoLock(job.RepositoryID) {
-		_ = o.retryQueue.Enqueue(job)
+		if err := o.retryQueue.Enqueue(job); err != nil {
+			klog.Errorf("重试任务入队失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
+		}
 		return
 	}
 
@@ -268,15 +319,16 @@ func (o *Orchestrator) tryDispatch(job *Job) {
 		defer o.releaseRepoLock(job.RepositoryID)
 		o.executeJob(job)
 	})
+
 	if err != nil {
-		klog.Errorf("Failed to submit job to pool: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
-		_ = o.retryQueue.Enqueue(job)
+		klog.Errorf("提交任务到协程池失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
+		if err := o.retryQueue.Enqueue(job); err != nil {
+			klog.Errorf("重试任务入队失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
+		}
 	}
 }
 
-// -----------------------------
-// Execute Job
-// -----------------------------
+// executeJob 统一控制重试
 func (o *Orchestrator) executeJob(job *Job) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -285,7 +337,11 @@ func (o *Orchestrator) executeJob(job *Job) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(o.ctx, 10*time.Minute)
+	timeout := job.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(o.ctx, timeout)
 	defer cancel()
 	runCtx, manualCancel := context.WithCancel(ctx)
 	defer manualCancel()
@@ -293,11 +349,32 @@ func (o *Orchestrator) executeJob(job *Job) {
 	o.registerCancel(job.TaskID, job.RepositoryID, manualCancel)
 	defer o.unregisterCancel(job.TaskID, job.RepositoryID)
 
-	if err := o.executor.ExecuteTask(runCtx, job.TaskID); err != nil {
-		klog.Errorf("Task failed: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
-	} else {
-		klog.V(6).Infof("Task completed: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
+	for i := job.RetryCount; i < job.MaxRetries; i++ {
+		job.RetryCount = i // 每次尝试前更新 RetryCount
+
+		err := o.executor.ExecuteTask(runCtx, job.TaskID)
+		if err == nil {
+			klog.V(6).Infof("Task completed: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
+			return
+		}
+
+		backoff := time.Second << i
+		if backoff > 20*time.Minute {
+			backoff = 20 * time.Minute
+		}
+
+		klog.Warningf("任务重试失败: taskID=%d, repoID=%d, retry=%d/%d, err=%v, backoff=%v",
+			job.TaskID, job.RepositoryID, i+1, job.MaxRetries, err, backoff)
+
+		select {
+		case <-runCtx.Done():
+			klog.Warningf("任务被取消或超时: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
+			return
+		case <-time.After(backoff):
+		}
 	}
+
+	klog.Errorf("任务执行失败且超过重试上限: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
 }
 
 // -----------------------------
@@ -406,12 +483,19 @@ var (
 	orchestratorOnce   sync.Once
 )
 
-func InitGlobalOrchestrator(maxWorkers int, executor TaskExecutor) {
+func InitGlobalOrchestrator(maxWorkers int, executor TaskExecutor) error {
+	var initErr error
 	orchestratorOnce.Do(func() {
-		globalOrchestrator = NewOrchestrator(maxWorkers, executor)
+		orch, err := NewOrchestrator(maxWorkers, executor)
+		if err != nil {
+			initErr = err
+			return
+		}
+		globalOrchestrator = orch
 		globalOrchestrator.Start()
 		klog.V(6).Infof("Global orchestrator initialized: maxWorkers=%d", maxWorkers)
 	})
+	return initErr
 }
 
 func GetGlobalOrchestrator() *Orchestrator {
