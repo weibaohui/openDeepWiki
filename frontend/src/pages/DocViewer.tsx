@@ -156,6 +156,23 @@ export default function DocViewer() {
         );
     }
 
+    const metaInfo = (
+        <div style={{ marginBottom: 12, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
+            <Space direction={screens.md ? 'horizontal' : 'vertical'} split={screens.md ? undefined : false} size={screens.md ? 'middle' : 4} style={{ width: '100%' }}>
+                <span><CalendarOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                    {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
+                <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                    {t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
+                {repositoryUrl && (
+                    <span>
+                        <LinkOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                        {t('document.repository_url')}: <a href={repositoryUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', wordBreak: 'break-all' }}> {repositoryUrl}</a>
+                    </span>
+                )}
+            </Space>
+        </div>
+    );
+
     const SidebarContent = () => (
         <>
             <div style={{ padding: '16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
@@ -217,7 +234,13 @@ export default function DocViewer() {
                     background: 'var(--ant-color-bg-container)',
                     borderBottom: '1px solid var(--ant-color-border-secondary)'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1 }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        overflow: 'hidden',
+                        flex: 1,
+                        minWidth: 0
+                    }}>
                         {!screens.md && (
                             <Button
                                 type="text"
@@ -229,21 +252,6 @@ export default function DocViewer() {
                         <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {document.title}
                         </Title>
-                        <div style={{ marginLeft: '12px', marginTop: '8px', fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-                            <Space split style={{ width: screens.md ? '100%' : 'auto' }}>
-                                <span><CalendarOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
-                                    {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
-                                <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
-                                    {t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
-                                {repositoryUrl && (
-                                    <span>
-                                        <LinkOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
-                                        <a href={repositoryUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}> {repositoryUrl}</a>
-                                    </span>
-                                )}
-                            </Space>
-                        </div>
-
                     </div>
                     <Space size="small">
                         <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>
@@ -283,6 +291,7 @@ export default function DocViewer() {
                     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                         {editing ? (
                             <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                {metaInfo}
                                 <MDEditor
                                     value={editContent}
                                     onChange={(val) => setEditContent(val || '')}
@@ -292,6 +301,7 @@ export default function DocViewer() {
                         ) : (
                             <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                    {metaInfo}
                                     <MDEditor.Markdown source={document.content} style={{ background: 'transparent' }} />
                                 </div>
                             </Card>
