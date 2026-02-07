@@ -40,7 +40,7 @@ export default function TaskMonitor() {
             title: t('taskMonitor.repository', 'Repository'),
             dataIndex: ['repository', 'name'],
             key: 'repo',
-            render: (text, record) => record.repository?.name || record.repository_id
+            render: (_, record) => record.repository?.name || record.repository_id
         },
         {
             title: t('taskMonitor.task', 'Task'),
@@ -92,7 +92,7 @@ export default function TaskMonitor() {
             title: t('taskMonitor.repository', 'Repository'),
             dataIndex: ['repository', 'name'],
             key: 'repo',
-            render: (text, record) => record.repository?.name || record.repository_id
+            render: (_, record) => record.repository?.name || record.repository_id
         },
         {
             title: t('taskMonitor.task', 'Task'),
@@ -137,7 +137,7 @@ export default function TaskMonitor() {
     };
 
     return (
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Space>
                     <Button
@@ -194,6 +194,6 @@ export default function TaskMonitor() {
                     loading={loading && !data}
                 />
             </Card>
-        </Space>
+        </div>
     );
 }

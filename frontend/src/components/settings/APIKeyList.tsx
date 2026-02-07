@@ -9,7 +9,7 @@ import {
     KeyOutlined
 } from '@ant-design/icons';
 import {
-    Typography, Button, Table, Tag, Space, Modal, Form, Input,
+     Button, Table, Tag, Space, Modal, Form, Input,
     InputNumber, Select, Switch, message, Card, Tooltip, Row, Col, Statistic
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -17,11 +17,15 @@ import { apiKeyApi } from '../../services/api';
 import type { APIKey, APIKeyStats } from '../../types';
 import { useAppConfig } from '../../context/AppConfigContext';
 
-const { Title } = Typography;
-const { Option } = Select;
-
 export default function APIKeyList() {
     const { t } = useAppConfig();
+
+    const providerOptions = [
+        { value: 'openai', label: 'OpenAI' },
+        { value: 'anthropic', label: 'Anthropic' },
+        { value: 'deepseek', label: 'DeepSeek' },
+        { value: 'other', label: 'Other' }
+    ];
     const [loading, setLoading] = useState(true);
     const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
     const [stats, setStats] = useState<APIKeyStats | null>(null);
@@ -196,23 +200,32 @@ export default function APIKeyList() {
             {stats && (
                 <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                     <Col xs={12} sm={6}>
-                        <Card bordered={false}>
+                        <Card>
                             <Statistic title={t('apiKey.stats.total', 'Total')} value={stats.total_count} prefix={<KeyOutlined />} />
                         </Card>
                     </Col>
                     <Col xs={12} sm={6}>
-                        <Card bordered={false}>
-                            <Statistic title={t('apiKey.stats.enabled', 'Enabled')} value={stats.enabled_count} valueStyle={{ color: '#3f8600' }} prefix={<CheckCircleOutlined />} />
+                        <Card>
+                            <Statistic
+                                title={t('apiKey.stats.enabled', 'Enabled')}
+                                value={stats.enabled_count}
+                                formatter={(value) => <span style={{ color: '#3f8600' }}>{value}</span>}
+                                prefix={<CheckCircleOutlined />}
+                            />
                         </Card>
                     </Col>
                     <Col xs={12} sm={6}>
-                        <Card bordered={false}>
+                        <Card>
                             <Statistic title={t('apiKey.stats.requests', 'Requests')} value={stats.total_requests} />
                         </Card>
                     </Col>
                     <Col xs={12} sm={6}>
-                        <Card bordered={false}>
-                            <Statistic title={t('apiKey.stats.errors', 'Errors')} value={stats.total_errors} valueStyle={{ color: '#cf1322' }} />
+                        <Card>
+                            <Statistic
+                                title={t('apiKey.stats.errors', 'Errors')}
+                                value={stats.total_errors}
+                                formatter={(value) => <span style={{ color: '#cf1322' }}>{value}</span>}
+                            />
                         </Card>
                     </Col>
                 </Row>
@@ -222,7 +235,7 @@ export default function APIKeyList() {
                 title={t('apiKey.title', 'API Key Management')}
                 extra={
                     <Space>
-                        <Button icon={<ReloadOutlined />} onClick={fetchData}>Refresh</Button>
+                        <Button icon={<ReloadOutlined />} onClick={fetchData}>{t('common.refresh', 'Refresh')}</Button>
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             {t('apiKey.add', 'Add New')}
                         </Button>
@@ -252,7 +265,7 @@ export default function APIKeyList() {
                     <Form.Item
                         name="name"
                         label={t('apiKey.name', 'Name')}
-                        rules={[{ required: true, message: 'Please input name' }]}
+                        rules={[{ required: true, message: t('apiKey.form.validation.name', 'Please input name') }]}
                     >
                         <Input placeholder={t('apiKey.form.name_placeholder', 'e.g. openai-primary')} />
                     </Form.Item>
@@ -264,12 +277,7 @@ export default function APIKeyList() {
                                 label={t('apiKey.provider', 'Provider')}
                                 rules={[{ required: true }]}
                             >
-                                <Select>
-                                    <Option value="openai">OpenAI</Option>
-                                    <Option value="anthropic">Anthropic</Option>
-                                    <Option value="deepseek">DeepSeek</Option>
-                                    <Option value="other">Other</Option>
-                                </Select>
+                                <Select options={providerOptions} />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
@@ -294,7 +302,7 @@ export default function APIKeyList() {
                     <Form.Item
                         name="api_key"
                         label={t('apiKey.api_key', 'API Key')}
-                        rules={[{ required: !editingKey, message: 'Please input API Key' }]}
+                        rules={[{ required: !editingKey, message: t('apiKey.form.validation.api_key', 'Please input API Key') }]}
                     >
                         <Input.Password placeholder={editingKey ? '********' : t('apiKey.form.api_key_placeholder', 'sk-...')} />
                     </Form.Item>

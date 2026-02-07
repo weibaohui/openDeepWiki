@@ -167,5 +167,52 @@
     "banner": {
         "title": "This is an open source project",
         "description": "If you find it useful, please give us a star!"
+    },
+    "apiKey": {
+        "title": "API Key Management",
+        "list": "Configuration List",
+        "add": "Add Configuration",
+        "edit": "Edit Configuration",
+        "name": "Name",
+        "provider": "Provider",
+        "base_url": "Base URL",
+        "api_key": "API Key",
+        "model": "Model",
+        "priority": "Priority",
+        "status": "Status",
+        "last_used": "Last Used",
+        "actions": "Actions",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "unavailable": "Unavailable",
+        "request_count": "Request Count",
+        "stats": {
+            "total": "Total Configs",
+            "enabled": "Enabled",
+            "requests": "Total Requests",
+            "errors": "Total Errors"
+        },
+        "form": {
+            "name_placeholder": "e.g. openai-primary",
+            "provider_placeholder": "Select Provider",
+            "base_url_placeholder": "e.g. https://api.openai.com/v1",
+            "api_key_placeholder": "Input API Key",
+            "model_placeholder": "e.g. gpt-4o",
+            "priority_help": "Lower value means higher priority",
+            "validation": {
+                "name": "Please input name",
+                "api_key": "Please input API Key"
+            }
+        },
+        "messages": {
+            "created": "Created successfully",
+            "updated": "Updated successfully",
+            "deleted": "Deleted successfully",
+            "status_updated": "Status updated",
+            "delete_confirm": "Are you sure you want to delete this configuration?",
+            "load_failed": "Failed to load data",
+            "delete_failed": "Failed to delete",
+            "status_update_failed": "Failed to update status"
+        }
     }
 }

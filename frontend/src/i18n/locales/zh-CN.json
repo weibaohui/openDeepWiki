@@ -199,14 +199,21 @@
             "base_url_placeholder": "例如：https://api.openai.com/v1",
             "api_key_placeholder": "输入 API Key",
             "model_placeholder": "例如：gpt-4o",
-            "priority_help": "数字越小优先级越高"
+            "priority_help": "数字越小优先级越高",
+            "validation": {
+                "name": "请输入名称",
+                "api_key": "请输入 API Key"
+            }
         },
         "messages": {
             "created": "创建成功",
             "updated": "更新成功",
             "deleted": "删除成功",
             "status_updated": "状态已更新",
-            "delete_confirm": "确定要删除这个配置吗？"
+            "delete_confirm": "确定要删除这个配置吗？",
+            "load_failed": "加载数据失败",
+            "delete_failed": "删除失败",
+            "status_update_failed": "更新状态失败"
         }
     }
 }
