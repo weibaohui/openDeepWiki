@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"strings"
 
 	"k8s.io/klog/v2"
 )
@@ -32,6 +33,73 @@ func ExtractJSON(content string) string {
 	}
 
 	return content
+}
+
+// ExtractYAML 从文本中提取 YAML 内容
+func ExtractYAML(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+	codeBlockPrefix := "```"
+	for i := 0; i < len(content); {
+		if i+3 <= len(content) && content[i:i+3] == codeBlockPrefix {
+			j := i + 3
+			for j < len(content) && content[j] == ' ' {
+				j++
+			}
+			yamlPrefix := ""
+			if j+4 <= len(content) {
+				yamlPrefix = strings.ToLower(content[j : j+4])
+			}
+			if yamlPrefix == "yaml" || (j+3 <= len(content) && strings.ToLower(content[j:j+3]) == "yml") {
+				for j < len(content) && content[j] != '\n' && content[j] != '\r' {
+					j++
+				}
+				for j < len(content) && (content[j] == '\r' || content[j] == '\n') {
+					j++
+				}
+				start := j
+				end := strings.Index(content[start:], codeBlockPrefix)
+				if end >= 0 {
+					klog.V(6).Infof("[ExtractYAML] 从代码块提取 YAML 内容")
+					return content[start : start+end]
+				}
+			}
+			i = j
+			continue
+		}
+		i++
+	}
+
+	lines := strings.Split(content, "\n")
+	start := -1
+	end := -1
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if start == -1 {
+			if strings.HasPrefix(trimmed, "dirs:") {
+				start = i
+				end = i
+			}
+			continue
+		}
+		if trimmed == "" ||
+			strings.HasPrefix(line, " ") ||
+			strings.HasPrefix(line, "\t") ||
+			strings.HasPrefix(trimmed, "- ") ||
+			strings.HasPrefix(trimmed, "dirs:") ||
+			strings.HasPrefix(trimmed, "analysis_summary:") {
+			end = i
+			continue
+		}
+		break
+	}
+	if start >= 0 && end >= start {
+		klog.V(6).Infof("[ExtractYAML] 从文本中定位到 dirs 开始位置")
+		return strings.TrimSpace(strings.Join(lines[start:end+1], "\n"))
+	}
+
+	klog.V(6).Infof("[ExtractYAML] 未定位到 YAML 结构，返回原始内容")
+	return strings.TrimSpace(content)
 }
 
 func ToJSON(v any) string {

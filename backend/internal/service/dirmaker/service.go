@@ -2,7 +2,6 @@ package dirmaker
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 	"github.com/weibaohui/opendeepwiki/backend/internal/utils"
+	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 )
 
@@ -28,30 +28,30 @@ const (
 var (
 	ErrInvalidLocalPath     = errors.New("无效的本地路径")
 	ErrAgentExecutionFailed = errors.New("Agent 执行失败")
-	ErrJSONParseFailed      = errors.New("JSON 解析失败")
+	ErrYAMLParseFailed      = errors.New("YAML 解析失败")
 	ErrTaskCreationFailed   = errors.New("任务创建失败")
 	ErrNoAgentOutput        = errors.New("Agent 未产生任何输出内容")
 )
 
 // generationResult 表示 Agent 输出的任务生成结果（仅包内使用）。
 type generationResult struct {
-	Dirs            []dirSpec `json:"dirs"`
-	AnalysisSummary string    `json:"analysis_summary"`
+	Dirs            []dirSpec `json:"dirs" yaml:"dirs"`
+	AnalysisSummary string    `json:"analysis_summary" yaml:"analysis_summary"`
 }
 
 // taskSpec 表示 Agent 生成的单个任务定义（仅包内使用）。
 // Type 字段不局限于预定义值，Agent 可根据项目特征自由定义。
 type dirSpec struct {
-	Type      string         `json:"type"`       // 目录类型标识，如 "security", "performance", "data-model"
-	Title     string         `json:"title"`      // 目录标题，如 "安全分析"
-	SortOrder int            `json:"sort_order"` // 排序顺序
-	Evidence  []evidenceSpec `json:"evidence"`
+	Type      string         `json:"type" yaml:"type"`             // 目录类型标识，如 "security", "performance", "data-model"
+	Title     string         `json:"title" yaml:"title"`           // 目录标题，如 "安全分析"
+	SortOrder int            `json:"sort_order" yaml:"sort_order"` // 排序顺序
+	Evidence  []evidenceSpec `json:"evidence" yaml:"evidence"`
 }
 
 type evidenceSpec struct {
-	Aspect string `json:"aspect"`
-	Source string `json:"source"`
-	Detail string `json:"detail"`
+	Aspect string `json:"aspect" yaml:"aspect"`
+	Source string `json:"source" yaml:"source"`
+	Detail string `json:"detail" yaml:"detail"`
 }
 
 // Service 目录分析任务生成服务。
@@ -160,7 +160,7 @@ func (s *Service) genDirList(ctx context.Context, localPath string) (*generation
 2. 根据项目特征生成初步的任务列表
 3. 校验并修正任务列表，确保完整性和合理性
 
-请确保最终输出格式为有效的 JSON。`, localPath)
+请确保最终输出为严格符合 YAML 规范的目录结构（包含 dirs 与 analysis_summary），无多余注释或解释性文字。`, localPath)
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
 			Role:    schema.User,
@@ -188,22 +188,22 @@ func (s *Service) genDirList(ctx context.Context, localPath string) (*generation
 
 // parseDirList 从 Agent 输出解析目录生成结果。
 func parseDirList(content string) (*generationResult, error) {
-	klog.V(6).Infof("[dm.parseList] parsing agent output, content length: %d", len(content))
+	klog.V(6).Infof("[dm.parseList] 开始解析 Agent 输出内容，长度: %d", len(content))
 
-	// 尝试从内容中提取 JSON
-	jsonStr := utils.ExtractJSON(content)
-	if jsonStr == "" {
-		klog.Warningf("[dm.parseList] failed to extract json from content")
-		return nil, fmt.Errorf("%w: extract json from content failed", ErrJSONParseFailed)
+	// 尝试从内容中提取 YAML
+	yamlStr := utils.ExtractYAML(content)
+	if yamlStr == "" {
+		klog.Warningf("[dm.parseList] 提取 YAML 失败")
+		return nil, fmt.Errorf("%w: 提取 YAML 失败", ErrYAMLParseFailed)
 	}
 
 	var result generationResult
-	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		klog.Errorf("[dm.parseList] json parse failed: %v", err)
-		return nil, fmt.Errorf("%w: %v", ErrJSONParseFailed, err)
+	if err := yaml.Unmarshal([]byte(yamlStr), &result); err != nil {
+		klog.Errorf("[dm.parseList] YAML 解析失败: %v", err)
+		return nil, fmt.Errorf("%w: %v", ErrYAMLParseFailed, err)
 	}
 
-	klog.V(6).Infof("[dm.parseList] parse success, dirs: %d", len(result.Dirs))
+	klog.V(6).Infof("[dm.parseList] 解析完成，目录数: %d", len(result.Dirs))
 	return &result, nil
 }
 
