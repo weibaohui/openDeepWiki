@@ -48,6 +48,7 @@ func main() {
 	taskRepo := repository.NewTaskRepository(db)
 	docRepo := repository.NewDocumentRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
+	evidenceRepo := repository.NewEvidenceRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
@@ -62,7 +63,7 @@ func main() {
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService, docGeneratorService)
 
 	// 初始化目录分析服务
-	dirMakerService, err := dirmaker.New(cfg, taskRepo)
+	dirMakerService, err := dirmaker.New(cfg, taskRepo, evidenceRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}

@@ -46,3 +46,8 @@ type DocumentRepository interface {
 	ClearLatestByTaskID(taskID uint) error
 	GetByTaskID(taskID uint) ([]model.Document, error)
 }
+
+type EvidenceRepository interface {
+	CreateBatch(evidences []model.TaskEvidence) error
+	GetByTaskID(taskID uint) ([]model.TaskEvidence, error)
+}

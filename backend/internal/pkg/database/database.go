@@ -23,7 +23,7 @@ func InitDB(dbType, dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&model.Repository{}, &model.Task{}, &model.Document{}); err != nil {
+	if err := db.AutoMigrate(&model.Repository{}, &model.Task{}, &model.Document{}, &model.TaskEvidence{}); err != nil {
 		return nil, err
 	}
 	if err := db.AutoMigrate(&model.APIKey{}); err != nil {
