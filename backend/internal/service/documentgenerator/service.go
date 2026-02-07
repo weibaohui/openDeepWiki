@@ -138,7 +138,7 @@ func (s *Service) buildEvidencePrompt(taskID uint) string {
 		return ""
 	}
 	builder := &strings.Builder{}
-	builder.WriteString("\n参考证据（请在限定范围内参考下述事实，不得编造）：\n")
+	builder.WriteString("\n")
 	for _, ev := range evidences {
 		builder.WriteString("- 维度: ")
 		builder.WriteString(safe(ev.Aspect))
