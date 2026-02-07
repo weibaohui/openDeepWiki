@@ -57,8 +57,4 @@ var TaskTypes = []struct {
 	SortOrder int
 }{
 	{"overview", "项目概览", "overview.md", 1},
-	{"architecture", "架构分析", "architecture.md", 2},
-	{"api", "核心接口", "api.md", 3},
-	{"business-flow", "业务流程", "business-flow.md", 4},
-	{"deployment", "部署配置", "deployment.md", 5},
 }
