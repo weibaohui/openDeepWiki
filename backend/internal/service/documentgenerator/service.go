@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"k8s.io/klog/v2"
 )
 
@@ -30,11 +32,11 @@ var (
 // Service 文档生成服务。
 // 基于 Eino ADK 实现，用于分析代码并生成技术文档。
 type Service struct {
-	factory *adkagents.AgentFactory
+	factory      *adkagents.AgentFactory
+	evidenceRepo repository.EvidenceRepository
 }
 
-// New 创建文档生成服务实例。
-func New(cfg *config.Config) (*Service, error) {
+func New(cfg *config.Config, evidenceRepo repository.EvidenceRepository) (*Service, error) {
 	klog.V(6).Infof("[dgen.New] creating document generator service")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
@@ -44,12 +46,12 @@ func New(cfg *config.Config) (*Service, error) {
 	}
 
 	return &Service{
-		factory: factory,
+		factory:      factory,
+		evidenceRepo: evidenceRepo,
 	}, nil
 }
 
-// Generate 分析仓库代码并生成文档。
-func (s *Service) Generate(ctx context.Context, localPath string, title string) (string, error) {
+func (s *Service) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
 	if localPath == "" {
 		return "", fmt.Errorf("%w: local path is empty", ErrInvalidLocalPath)
 	}
@@ -57,23 +59,23 @@ func (s *Service) Generate(ctx context.Context, localPath string, title string) 
 		return "", fmt.Errorf("%w: title is empty", ErrInvalidLocalPath)
 	}
 
-	klog.V(6).Infof("[dgen.Generate] generating document: localPath=%s, title=%s", localPath, title)
+	klog.V(6).Infof("[dgen.Generate] 开始生成文档: 仓库路径=%s, 标题=%s, 任务ID=%d", localPath, title, taskID)
 
-	markdown, err := s.genDocument(ctx, localPath, title)
+	markdown, err := s.genDocument(ctx, localPath, title, taskID)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
 	}
 
-	klog.V(6).Infof("[dgen.Generate] generation complete, content length: %d", len(markdown))
-	klog.V(6).Infof("[dgen.Generate] generation complete, markdown: %s", markdown)
+	klog.V(6).Infof("[dgen.Generate] 文档生成完成: 内容长度=%d", len(markdown))
+	klog.V(6).Infof("[dgen.Generate] 文档生成完成: Markdown内容预览=%s", markdown)
 
 	return markdown, nil
 }
 
-// genDocument 执行文档生成链路，返回解析后的文档内容。
-func (s *Service) genDocument(ctx context.Context, localPath string, title string) (string, error) {
+func (s *Service) genDocument(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	adk.AddSessionValue(ctx, "document_title", title)
+	adk.AddSessionValue(ctx, "task_id", taskID)
 
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
@@ -89,15 +91,20 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", fmt.Errorf("create agent failed: %w", err)
 	}
 
+	evidencePrompt := s.buildEvidencePrompt(taskID)
+
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成一份技术文档。
 
 仓库地址: %s
 文档标题: %s
+参考线索: 
+%s
 
 请按以下步骤执行：
 1. 分析仓库代码，关注可能与标题所示含义相关的内容
 2. 编写详细的技术文档，使用 Markdown 格式
-`, localPath, title)
+
+`, localPath, title, evidencePrompt)
 
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
@@ -114,6 +121,39 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", ErrNoAgentOutput
 	}
 
-	klog.V(8).Infof("[dgen.genDoc] agent output: \n%s\n", lastContent)
+	klog.V(8).Infof("[dgen.genDoc] Agent 输出内容: \n%s\n", lastContent)
 	return lastContent, nil
+}
+
+func (s *Service) buildEvidencePrompt(taskID uint) string {
+	if s.evidenceRepo == nil || taskID == 0 {
+		return ""
+	}
+	evidences, err := s.evidenceRepo.GetByTaskID(taskID)
+	if err != nil {
+		klog.V(6).Infof("[dgen.buildEvidencePrompt] 读取任务证据失败: taskID=%d, error=%v", taskID, err)
+		return ""
+	}
+	if len(evidences) == 0 {
+		return ""
+	}
+	builder := &strings.Builder{}
+	builder.WriteString("\n参考证据（请在限定范围内参考下述事实，不得编造）：\n")
+	for _, ev := range evidences {
+		builder.WriteString("- 维度: ")
+		builder.WriteString(safe(ev.Aspect))
+		builder.WriteString("\n  来源: ")
+		builder.WriteString(safe(ev.Source))
+		builder.WriteString("\n  细节: ")
+		builder.WriteString(safe(ev.Detail))
+		builder.WriteString("\n")
+	}
+	return builder.String()
+}
+
+func safe(s string) string {
+	if s == "" {
+		return "(无)"
+	}
+	return s
 }

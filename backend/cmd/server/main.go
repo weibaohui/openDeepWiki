@@ -55,7 +55,7 @@ func main() {
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 
 	// 初始化文档生成服务
-	docGeneratorService, err := documentgenerator.New(cfg)
+	docGeneratorService, err := documentgenerator.New(cfg, evidenceRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize document generator service: %v", err)
 	}

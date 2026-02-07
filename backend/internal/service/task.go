@@ -178,7 +178,7 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 
 	// 使用 DocumentGeneratorService 生成文档
 	klog.V(6).Infof("开始生成文档: taskType=%s, repoPath=%s", task.Type, repo.LocalPath)
-	content, err := s.docGenerator.Generate(ctx, repo.LocalPath, task.Title)
+	content, err := s.docGenerator.Generate(ctx, repo.LocalPath, task.Title, task.ID)
 	if err != nil {
 		klog.Errorf("生成文档失败: taskTitle=%s, error=%v", task.Title, err)
 		return fmt.Errorf("生成文档失败: %w", err)
