@@ -131,7 +131,7 @@ func (o *Orchestrator) Stop() {
 			time.Sleep(100 * time.Millisecond)
 			klog.V(6).Infof("Waiting for queues to empty: main=%d, retry=%d", o.jobQueue.Len(), o.retryQueue.Len())
 		}
-
+// o.pool.Waiting()
 		o.pool.Release()
 
 		klog.V(6).Infof("Orchestrator stopped completely")
