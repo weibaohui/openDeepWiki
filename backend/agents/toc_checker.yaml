@@ -100,6 +100,13 @@ instruction: |
    - 直接输出，不要使用tools进行处理
    - 严格遵循 YAML 格式，不允许使用 JSON 格式
    - **绝对不要使用任何工具**。直接输出 YAML 内容
+
+tools:
+   - list_dir # 核心基础工具：获取仓库目录结构
+   - read_file # 精准读取工具：读取配置/说明类关键文件
+   - search_files # 特征检索工具：搜索仓库内特征性文件/依赖
+   - list_skills # 技能列表工具：获取所有已注册技能
+   - run_terminal_command # 终端命令执行工具：执行shell命令，如uv run <script>、python3 <script>、ls、cat、grep等
 maxIterations: 30
 # models:
 #    - cat
