@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined, LinkOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty } from 'antd';
+import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty, Row, Col, Statistic, Tag } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
-import type { Document, Repository } from '../types';
+import type { Document, Repository, Task } from '../types';
 import { documentApi, repositoryApi, taskApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
 const { useBreakpoint } = Grid;
+const statusOrder = ['pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'canceled'] as const;
+type TaskStatus = Task['status'];
 
 export default function DocViewer() {
     const { t, themeMode } = useAppConfig();
@@ -20,6 +22,7 @@ export default function DocViewer() {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [versions, setVersions] = useState<Document[]>([]);
     const [repository, setRepository] = useState<Repository | null>(null);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
@@ -52,15 +55,32 @@ export default function DocViewer() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!id || !docId) return;
+            if (!id) return;
+            setLoading(true);
             try {
-                const [docRes, docsRes] = await Promise.all([
-                    documentApi.get(Number(docId)),
-                    documentApi.getByRepository(Number(id)),
-                ]);
-                setDocument(docRes.data);
-                setDocuments(docsRes.data);
-                setEditContent(docRes.data.content);
+                if (docId) {
+                    const [docRes, docsRes, repoRes, tasksRes] = await Promise.all([
+                        documentApi.get(Number(docId)),
+                        documentApi.getByRepository(Number(id)),
+                        repositoryApi.get(Number(id)),
+                        taskApi.getByRepository(Number(id)),
+                    ]);
+                    setDocument(docRes.data);
+                    setEditContent(docRes.data.content);
+                    setDocuments(docsRes.data);
+                    setRepository(repoRes.data);
+                    setTasks(tasksRes.data);
+                } else {
+                    const [docsRes, repoRes, tasksRes] = await Promise.all([
+                        documentApi.getByRepository(Number(id)),
+                        repositoryApi.get(Number(id)),
+                        taskApi.getByRepository(Number(id)),
+                    ]);
+                    setDocument(null);
+                    setDocuments(docsRes.data);
+                    setRepository(repoRes.data);
+                    setTasks(tasksRes.data);
+                }
             } catch (error) {
                 console.error('Failed to fetch document:', error);
                 messageApi.error('Failed to load document');
@@ -70,19 +90,6 @@ export default function DocViewer() {
         };
         fetchData();
     }, [id, docId, messageApi]);
-
-    useEffect(() => {
-        const fetchRepository = async () => {
-            if (!id) return;
-            try {
-                const { data } = await repositoryApi.get(Number(id));
-                setRepository(data);
-            } catch (error) {
-                console.error('获取仓库信息失败:', error);
-            }
-        };
-        fetchRepository();
-    }, [id]);
 
     useEffect(() => {
         const fetchVersions = async () => {
@@ -137,8 +144,26 @@ export default function DocViewer() {
         setVersionDrawerOpen(true);
     };
 
+    const isIndexView = !docId;
     const sortedVersions = versions.slice().sort((a, b) => b.version - a.version);
     const repositoryUrl = repository?.url?.trim();
+    const statusCounts = useMemo(() => {
+        return tasks.reduce((acc, task) => {
+            acc[task.status] = (acc[task.status] || 0) + 1;
+            return acc;
+        }, {} as Record<TaskStatus, number>);
+    }, [tasks]);
+    const completedCount = (statusCounts.completed || 0) + (statusCounts.succeeded || 0);
+    const pendingCount = (statusCounts.pending || 0) + (statusCounts.queued || 0) + (statusCounts.running || 0);
+    const totalCount = tasks.length;
+    const totalVersions = useMemo(() => {
+        return documents.reduce((sum, doc) => sum + (doc.version || 0), 0);
+    }, [documents]);
+    const statusItems = useMemo(() => {
+        return statusOrder
+            .map((status) => ({ status, count: statusCounts[status] || 0 }))
+            .filter((item) => item.count > 0);
+    }, [statusCounts]);
 
     if (loading) {
         return (
@@ -148,7 +173,7 @@ export default function DocViewer() {
         );
     }
 
-    if (!document) {
+    if (!document && !isIndexView) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
                 <Typography.Text type="secondary">{t('repository.not_found')}</Typography.Text>
@@ -156,7 +181,7 @@ export default function DocViewer() {
         );
     }
 
-    const metaInfo = (
+    const metaInfo = document ? (
         <div style={{ marginBottom: 12, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
             <Space direction={screens.md ? 'horizontal' : 'vertical'} split={screens.md ? undefined : false} size={screens.md ? 'middle' : 4} style={{ width: '100%' }}>
                 <span><CalendarOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
@@ -171,7 +196,7 @@ export default function DocViewer() {
                 )}
             </Space>
         </div>
-    );
+    ) : null;
 
     const SidebarContent = () => (
         <>
@@ -187,20 +212,26 @@ export default function DocViewer() {
                 </Button>
             </div>
 
-            <Menu
-                mode="inline"
-                selectedKeys={[docId || '']}
-                style={{ borderRight: 0 }}
-                items={documents.map(doc => ({
-                    key: String(doc.id),
-                    icon: <FileTextOutlined />,
-                    label: doc.title,
-                    onClick: () => {
-                        navigate(`/repo/${id}/doc/${doc.id}`);
-                        setMobileMenuOpen(false);
-                    }
-                }))}
-            />
+            {documents.length === 0 ? (
+                <div style={{ padding: 16 }}>
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('repository.no_docs')} />
+                </div>
+            ) : (
+                <Menu
+                    mode="inline"
+                    selectedKeys={docId ? [docId] : []}
+                    style={{ borderRight: 0 }}
+                    items={documents.map(doc => ({
+                        key: String(doc.id),
+                        icon: <FileTextOutlined />,
+                        label: doc.title,
+                        onClick: () => {
+                            navigate(`/repo/${id}/doc/${doc.id}`);
+                            setMobileMenuOpen(false);
+                        }
+                    }))}
+                />
+            )}
         </>
     );
 
@@ -248,46 +279,78 @@ export default function DocViewer() {
                             />
                         )}
                         <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {document.title}
+                            {isIndexView ? t('document.overview_title') : document?.title}
                         </Title>
                     </div>
-                    <Space size="small">
-                        <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>
-                            {screens.md && t('common.save')}
-                        </Button>
-                        {editing ? (
-                            <>
-                                <Button icon={<CloseOutlined />} onClick={() => {
-                                    setEditing(false);
-                                    setEditContent(document.content);
-                                }} size={screens.md ? 'middle' : 'small'}>
-                                    {screens.md && t('common.cancel')}
-                                </Button>
-                                <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} size={screens.md ? 'middle' : 'small'}>
-                                    {screens.md && t('common.save')}
-                                </Button>
-                                <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
-                                    {screens.md && t('document.versions')}
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <Button icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
-                                    {screens.md && t('common.edit')}
-                                </Button>
-                                <Button icon={<ReloadOutlined />} onClick={handleRegenerate} size={screens.md ? 'middle' : 'small'}>
-                                    {screens.md && t('document.regenerate')}
-                                </Button>
-                                <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
-                                    {screens.md && t('document.versions')}
-                                </Button>
-                            </>
-                        )}
-                    </Space>
+                    {!isIndexView && document && (
+                        <Space size="small">
+                            <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>
+                                {screens.md && t('common.save')}
+                            </Button>
+                            {editing ? (
+                                <>
+                                    <Button icon={<CloseOutlined />} onClick={() => {
+                                        setEditing(false);
+                                        setEditContent(document?.content || '');
+                                    }} size={screens.md ? 'middle' : 'small'}>
+                                        {screens.md && t('common.cancel')}
+                                    </Button>
+                                    <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} size={screens.md ? 'middle' : 'small'}>
+                                        {screens.md && t('common.save')}
+                                    </Button>
+                                    <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
+                                        {screens.md && t('document.versions')}
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
+                                        {screens.md && t('common.edit')}
+                                    </Button>
+                                    <Button icon={<ReloadOutlined />} onClick={handleRegenerate} size={screens.md ? 'middle' : 'small'}>
+                                        {screens.md && t('document.regenerate')}
+                                    </Button>
+                                    <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
+                                        {screens.md && t('document.versions')}
+                                    </Button>
+                                </>
+                            )}
+                        </Space>
+                    )}
                 </Header>
                 <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
                     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                        {editing ? (
+                        {isIndexView ? (
+                            <Card title={t('document.overview_title')}>
+                                <Row gutter={[16, 16]}>
+                                    <Col xs={12} sm={12} md={6}>
+                                        <Statistic title={t('document.overview_total')} value={totalCount} />
+                                    </Col>
+                                    <Col xs={12} sm={12} md={6}>
+                                        <Statistic title={t('document.overview_completed')} value={completedCount} />
+                                    </Col>
+                                    <Col xs={12} sm={12} md={6}>
+                                        <Statistic title={t('document.overview_pending')} value={pendingCount} />
+                                    </Col>
+                                    <Col xs={12} sm={12} md={6}>
+                                        <Statistic title={t('document.overview_versions')} value={totalVersions} />
+                                    </Col>
+                                </Row>
+                                <div style={{ marginTop: 16 }}>
+                                    {statusItems.length === 0 ? (
+                                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.empty', '暂无数据')} />
+                                    ) : (
+                                        <Space wrap size={[8, 8]}>
+                                            {statusItems.map((item) => (
+                                                <Tag key={item.status} color="processing">
+                                                    {t(`task.status.${item.status}`)} {item.count}
+                                                </Tag>
+                                            ))}
+                                        </Space>
+                                    )}
+                                </div>
+                            </Card>
+                        ) : editing ? (
                             <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                 {metaInfo}
                                 <MDEditor
@@ -300,7 +363,7 @@ export default function DocViewer() {
                             <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MDEditor.Markdown source={document.content} style={{ background: 'transparent' }} />
+                                    <MDEditor.Markdown source={document?.content || ''} style={{ background: 'transparent' }} />
                                 </div>
                             </Card>
                         )}
@@ -322,7 +385,7 @@ export default function DocViewer() {
                 ) : (
                     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                         {sortedVersions.map((item) => {
-                            const isCurrent = item.id === document.id;
+                            const isCurrent = document ? item.id === document.id : false;
                             return (
                                 <Button
                                     key={item.id}

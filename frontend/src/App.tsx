@@ -3,7 +3,6 @@ import { ThemeProvider } from '@/providers/ThemeProvider';
 
 import Home from './pages/Home';
 import RepoDetail from './pages/RepoDetail';
-import RepoDocumentIndex from './pages/RepoDocumentIndex';
 import DocViewer from './pages/DocViewer';
 import APIKeyManager from './pages/APIKeyManager';
 
@@ -14,7 +13,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/repo/:id" element={<RepoDetail />} />
-          <Route path="/repo/:id/index" element={<RepoDocumentIndex />} />
+          <Route path="/repo/:id/index" element={<DocViewer />} />
           <Route path="/repo/:id/doc/:docId" element={<DocViewer />} />
           <Route path="/api-keys" element={<APIKeyManager />} />
         </Routes>
