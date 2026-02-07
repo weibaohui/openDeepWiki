@@ -507,6 +507,52 @@ func (s *TaskService) CleanupStuckTasks(timeout time.Duration) (int64, error) {
 	return affected, nil
 }
 
+// CleanupQueuedTasksOnStartup 清理启动时遗留的排队任务
+func (s *TaskService) CleanupQueuedTasksOnStartup() (int64, error) {
+	klog.V(6).Info("开始清理启动时遗留的排队任务")
+
+	tasks, err := s.taskRepo.GetByStatus(string(statemachine.TaskStatusQueued))
+	if err != nil {
+		klog.V(6).Infof("获取排队任务失败: error=%v", err)
+		return 0, err
+	}
+
+	var affected int64
+	updatedRepoIDs := make(map[uint]struct{})
+	for _, task := range tasks {
+		currentStatus := statemachine.TaskStatus(task.Status)
+		if err := s.taskStateMachine.Transition(currentStatus, statemachine.TaskStatusCanceled, task.ID); err != nil {
+			klog.Warningf("任务状态迁移失败（%s -> canceled）: taskID=%d, error=%v", currentStatus, task.ID, err)
+			continue
+		}
+		currentStatus = statemachine.TaskStatusCanceled
+		if err := s.taskStateMachine.Transition(currentStatus, statemachine.TaskStatusPending, task.ID); err != nil {
+			klog.Warningf("任务状态迁移失败（%s -> pending）: taskID=%d, error=%v", currentStatus, task.ID, err)
+			continue
+		}
+
+		task.Status = string(statemachine.TaskStatusPending)
+		task.ErrorMsg = ""
+		task.StartedAt = nil
+		task.CompletedAt = nil
+		if err := s.taskRepo.Save(&task); err != nil {
+			klog.Errorf("更新任务状态失败: taskID=%d, error=%v", task.ID, err)
+			continue
+		}
+
+		affected++
+		updatedRepoIDs[task.RepositoryID] = struct{}{}
+		klog.V(6).Infof("启动时清理排队任务完成: taskID=%d", task.ID)
+	}
+
+	for repoID := range updatedRepoIDs {
+		_ = s.UpdateRepositoryStatus(repoID)
+	}
+
+	klog.V(6).Infof("启动时清理排队任务完成: affected=%d", affected)
+	return affected, nil
+}
+
 // GetStuckTasks 获取卡住的任务列表
 func (s *TaskService) GetStuckTasks(timeout time.Duration) ([]model.Task, error) {
 	return s.taskRepo.GetStuckTasks(timeout)

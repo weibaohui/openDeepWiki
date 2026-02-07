@@ -123,4 +123,14 @@ func cleanupStuckTasks(taskService *service.TaskService) {
 	if affected > 0 {
 		klog.V(6).Infof("启动时清理了 %d 个卡住的任务", affected)
 	}
+
+	queuedAffected, err := taskService.CleanupQueuedTasksOnStartup()
+	if err != nil {
+		klog.V(6).Infof("清理启动遗留排队任务失败: %v", err)
+		return
+	}
+
+	if queuedAffected > 0 {
+		klog.V(6).Infof("启动时清理了 %d 个遗留排队任务", queuedAffected)
+	}
 }

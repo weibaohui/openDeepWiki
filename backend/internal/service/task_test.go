@@ -6,6 +6,7 @@ import (
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 )
 
 type mockRepoRepo struct {
@@ -62,6 +63,7 @@ func (m *mockRepoRepo) Delete(id uint) error {
 type mockTaskRepo struct {
 	CreateFunc               func(task *model.Task) error
 	GetByRepositoryFunc      func(repoID uint) ([]model.Task, error)
+	GetByStatusFunc          func(status string) ([]model.Task, error)
 	GetFunc                  func(id uint) (*model.Task, error)
 	SaveFunc                 func(task *model.Task) error
 	CleanupStuckTasksFunc    func(timeout time.Duration) (int64, error)
@@ -81,6 +83,13 @@ func (m *mockTaskRepo) Create(task *model.Task) error {
 func (m *mockTaskRepo) GetByRepository(repoID uint) ([]model.Task, error) {
 	if m.GetByRepositoryFunc != nil {
 		return m.GetByRepositoryFunc(repoID)
+	}
+	return nil, nil
+}
+
+func (m *mockTaskRepo) GetByStatus(status string) ([]model.Task, error) {
+	if m.GetByStatusFunc != nil {
+		return m.GetByStatusFunc(status)
 	}
 	return nil, nil
 }
@@ -222,5 +231,67 @@ func TestTaskServiceForceResetKeepsHistory(t *testing.T) {
 	}
 	if saved.Status != "pending" || saved.ErrorMsg != "" || saved.StartedAt != nil || saved.CompletedAt != nil {
 		t.Fatalf("unexpected task after force reset: %+v", saved)
+	}
+}
+
+// TestTaskServiceCleanupQueuedTasksOnStartup 验证启动时清理排队任务逻辑
+func TestTaskServiceCleanupQueuedTasksOnStartup(t *testing.T) {
+	now := time.Now()
+	queuedTasks := []model.Task{
+		{
+			ID:           1,
+			RepositoryID: 10,
+			Status:       string(statemachine.TaskStatusQueued),
+			ErrorMsg:     "stale",
+			StartedAt:    &now,
+			CompletedAt:  &now,
+		},
+		{
+			ID:           2,
+			RepositoryID: 10,
+			Status:       string(statemachine.TaskStatusQueued),
+		},
+	}
+	var savedTasks []*model.Task
+	repo := &model.Repository{ID: 10, Status: "ready"}
+	taskRepo := &mockTaskRepo{
+		GetByStatusFunc: func(status string) ([]model.Task, error) {
+			if status != string(statemachine.TaskStatusQueued) {
+				t.Fatalf("unexpected status: %s", status)
+			}
+			return queuedTasks, nil
+		},
+		GetByRepositoryFunc: func(repoID uint) ([]model.Task, error) {
+			return nil, nil
+		},
+		SaveFunc: func(task *model.Task) error {
+			savedTasks = append(savedTasks, task)
+			return nil
+		},
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	service := NewTaskService(&config.Config{}, taskRepo, repoRepo, &DocumentService{}, nil)
+
+	affected, err := service.CleanupQueuedTasksOnStartup()
+	if err != nil {
+		t.Fatalf("CleanupQueuedTasksOnStartup() error = %v", err)
+	}
+	if affected != int64(len(queuedTasks)) {
+		t.Fatalf("expected affected=%d, got %d", len(queuedTasks), affected)
+	}
+	if len(savedTasks) != len(queuedTasks) {
+		t.Fatalf("expected %d saved tasks, got %d", len(queuedTasks), len(savedTasks))
+	}
+	for _, task := range savedTasks {
+		if task.Status != string(statemachine.TaskStatusPending) {
+			t.Fatalf("unexpected task status: %s", task.Status)
+		}
+		if task.ErrorMsg != "" || task.StartedAt != nil || task.CompletedAt != nil {
+			t.Fatalf("unexpected task fields after cleanup: %+v", task)
+		}
 	}
 }

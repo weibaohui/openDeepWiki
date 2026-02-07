@@ -26,6 +26,13 @@ func (r *taskRepository) GetByRepository(repoID uint) ([]model.Task, error) {
 	return tasks, err
 }
 
+// GetByStatus 获取指定状态的任务列表
+func (r *taskRepository) GetByStatus(status string) ([]model.Task, error) {
+	var tasks []model.Task
+	err := r.db.Where("status = ?", status).Find(&tasks).Error
+	return tasks, err
+}
+
 func (r *taskRepository) Get(id uint) (*model.Task, error) {
 	var task model.Task
 	err := r.db.First(&task, id).Error

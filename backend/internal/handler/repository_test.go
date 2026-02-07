@@ -69,6 +69,10 @@ func (m *mockTaskRepo) GetByRepository(repoID uint) ([]model.Task, error) {
 	return nil, nil
 }
 
+func (m *mockTaskRepo) GetByStatus(status string) ([]model.Task, error) {
+	return nil, nil
+}
+
 func (m *mockTaskRepo) Get(id uint) (*model.Task, error) {
 	return nil, nil
 }

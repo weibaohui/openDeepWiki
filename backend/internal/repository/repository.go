@@ -22,6 +22,7 @@ type RepoRepository interface {
 type TaskRepository interface {
 	Create(task *model.Task) error
 	GetByRepository(repoID uint) ([]model.Task, error)
+	GetByStatus(status string) ([]model.Task, error)
 	Get(id uint) (*model.Task, error)
 	Save(task *model.Task) error
 	CleanupStuckTasks(timeout time.Duration) (int64, error)
