@@ -72,7 +72,23 @@ instruction: |
             形成title字段的决策依据，包括来源文件/目录/依赖（支持多行列举，用-分隔多个来源），要包含行号（例如L32-L86）、关键字（搜索用的关键字）
           detail: |
             总结输出最终title字段的推论细节（支持多行描述，清晰说明标题的判定依据，要包含搜索用的关键字，让其他AI可以通过这个提示，重新推导出title字段，并能进行高效搜索、定位、挖掘更多信息）
-
+  analysis_summary: |
+    project_type: 项目类型
+    programming_language: 项目语言使用的编程语言，java、go、python等
+    frontend_framework: 前端框架使用的前端框架，如React、Vue等
+    architecture_style: 架构风格，如微服务、插件化等
+    key_features: |
+      关键特性，可包含多条
+    technical_stack: |
+      backend: 如有后端，填写后端使用的基本架构技术栈
+      frontend: 如有前端，填写前端使用的技术栈
+      ai_integration: 如果AI，填写AI技术栈
+      database: 如有，填写数据库选型
+      containerization: 如有，填写容器化选项
+      monitoring: 如有，填写监控情况
+    project_complexity: 描述项目复杂程度
+    documentation_status: 描述项目文档丰富程度
+    deployment_target: 描述项目部署平台支持情况，如linux、容器、k8s、手机、单片机等
 
   ### YAML格式示例
   dirs:
@@ -96,7 +112,28 @@ instruction: |
             2. /assets/architecture.png 该图为系统架构图
           detail: |
             从design.md和架构图可知，系统分为3层：目录解析层（读取仓库结构）、逻辑编排层（按书籍逻辑整理目录）、输出层（生成YAML格式目录），各层通过接口解耦，支持扩展不同输出格式。
-
+  analysis_summary:
+    project_type: "Kubernetes管理控制台/AI驱动的运维工具"
+    programming_language: "Go 1.24.9"
+    frontend_framework: "百度AMIS（基于React+TypeScript+Vite）"
+    architecture_style: "插件化微内核架构"
+    key_features: |
+      1. AI驱动的Kubernetes智能管理
+      2. 多集群统一管理与权限控制  
+      3. MCP协议集成与工具链支持
+      4. 完全插件化的功能模块设计
+      5. 单文件部署与多实例高可用
+      6. 多数据库支持与开放API
+    technical_stack:
+      backend: "Go 1.24.9, chi路由器, GORM ORM, weibaohui/kom客户端"
+      frontend: "React, TypeScript, Vite, 百度AMIS组件库"
+      ai_integration: "OpenAI API, Ollama, 内置Qwen2.5模型, MCP协议"
+      database: "SQLite（默认）, MySQL, PostgreSQL"
+      containerization: "Docker, Kubernetes部署"
+      monitoring: "klog日志系统, 心跳检测, 集群状态监控"
+    project_complexity: "中高复杂度 - 包含完整的Web应用、AI集成、插件系统、多集群管理"
+    documentation_status: "完善 - 包含详细的中英文README、完整的文档目录、开发指南、配置说明"
+    deployment_target: "跨平台（Linux/macOS/Windows, x86/ARM）, Kubernetes集群, Docker容器"
 
   ### 终止思考条件
   当你认为问题已经被解决，直接输出 Final Answer，不要再输出 Thought / Action。

@@ -202,6 +202,8 @@ func parseDirList(content string) (*generationResult, error) {
 		klog.Errorf("[dm.parseList] YAML 解析失败: %v", err)
 		return nil, fmt.Errorf("%w: %v", ErrYAMLParseFailed, err)
 	}
+	//TODO 入库，后续分析作为背景。
+	klog.V(6).Infof("AI分析概要\n%s\n", result.AnalysisSummary)
 
 	klog.V(6).Infof("[dm.parseList] 解析完成，目录数: %d", len(result.Dirs))
 	return &result, nil

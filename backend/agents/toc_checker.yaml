@@ -68,6 +68,28 @@ instruction: |
             2. /assets/architecture.png 该图为系统架构图
           detail: |
             从design.md和架构图可知，系统分为3层：目录解析层（读取仓库结构）、逻辑编排层（按书籍逻辑整理目录）、输出层（生成YAML格式目录），各层通过接口解耦，支持扩展不同输出格式。
+   analysis_summary: |
+    project_type: "Kubernetes管理控制台/AI驱动的运维工具"
+    programming_language: "Go 1.24.9"
+    frontend_framework: "百度AMIS（基于React+TypeScript+Vite）"
+    architecture_style: "插件化微内核架构"
+    key_features: |
+      1. AI驱动的Kubernetes智能管理
+      2. 多集群统一管理与权限控制  
+      3. MCP协议集成与工具链支持
+      4. 完全插件化的功能模块设计
+      5. 单文件部署与多实例高可用
+      6. 多数据库支持与开放API
+    technical_stack: |
+      backend: "Go 1.24.9, chi路由器, GORM ORM, weibaohui/kom客户端"
+      frontend: "React, TypeScript, Vite, 百度AMIS组件库"
+      ai_integration: "OpenAI API, Ollama, 内置Qwen2.5模型, MCP协议"
+      database: "SQLite（默认）, MySQL, PostgreSQL"
+      containerization: "Docker, Kubernetes部署"
+      monitoring: "klog日志系统, 心跳检测, 集群状态监控"
+    project_complexity: "中高复杂度 - 包含完整的Web应用、AI集成、插件系统、多集群管理"
+    documentation_status: "完善 - 包含详细的中英文README、完整的文档目录、开发指南、配置说明"
+    deployment_target: "跨平台（Linux/macOS/Windows, x86/ARM）, Kubernetes集群, Docker容器"
 
 
 

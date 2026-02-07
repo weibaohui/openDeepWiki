@@ -283,6 +283,9 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	if def.Exit.Type != "" {
 		config.Exit = adk.ExitTool{}
 	}
+	if def.MaxIterations > 0 {
+		config.Instruction = config.Instruction + fmt.Sprintf("\n 最大交互次数 %d", def.MaxIterations)
+	}
 
 	// 创建 Agent
 	agent, err := adk.NewChatModelAgent(ctx, config)
