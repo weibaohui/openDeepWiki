@@ -209,7 +209,7 @@ export default function DocViewer() {
     return (
         <Layout style={{ minHeight: '100vh' }}>
             {contextHolder}
-            {screens.md ? (
+            {screens.lg ? (
                 <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
                     <SidebarContent />
                 </Sider>
