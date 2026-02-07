@@ -181,7 +181,7 @@ export default function Home() {
                                     <List.Item>
                                         <Card
                                             hoverable
-                                            onClick={() => navigate(`/repo/${repo.id}`)}
+                                            onClick={() => navigate(`/repo/${repo.id}/index`)}
 
                                         >
                                             <Card.Meta
@@ -219,6 +219,18 @@ export default function Home() {
                                                                 <WarningOutlined /> {repo.error_msg}
                                                             </Text>
                                                         )}
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                            <Button
+                                                                type="link"
+                                                                size="small"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    navigate(`/repo/${repo.id}`);
+                                                                }}
+                                                            >
+                                                                {t('repository.task_management')}
+                                                            </Button>
+                                                        </div>
                                                     </Space>
                                                 }
                                             />

@@ -13,7 +13,8 @@
         "yes": "是",
         "no": "否",
         "required": "必填项",
-        "actions": "操作"
+        "actions": "操作",
+        "empty": "暂无数据"
     },
     "nav": {
         "home": "首页",
@@ -80,7 +81,7 @@
         "run": "运行",
         "reset": "重置",
         "retry": "重试",
-        "cancel":"取消",
+        "cancel": "取消",
         "regenerate": "再次生成",
         "retry_started": "任务重新生成已启动",
         "retry_failed": "任务重新生成失败",
@@ -132,7 +133,14 @@
         "versions": "版本",
         "no_versions": "暂无其他版本",
         "versions_failed": "加载版本失败",
-        "version_label": "版本 {{version}}"
+        "version_label": "版本 {{version}}",
+        "overview_title": "文档概览",
+        "overview_total": "文档总数",
+        "overview_completed": "已完成",
+        "overview_pending": "待生成",
+        "overview_versions": "版本总数",
+        "overview_status_group": "状态分组",
+        "overview_load_failed": "加载文档概览失败"
     },
     "banner": {
         "title": "本项目为开源项目",

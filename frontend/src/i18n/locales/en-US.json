@@ -13,7 +13,8 @@
         "yes": "Yes",
         "no": "No",
         "required": "Required",
-        "actions": "Actions"
+        "actions": "Actions",
+        "empty": "No data"
     },
     "nav": {
         "home": "Home",
@@ -131,7 +132,14 @@
         "versions": "Versions",
         "no_versions": "No other versions",
         "versions_failed": "Failed to load versions",
-        "version_label": "Version {{version}}"
+        "version_label": "Version {{version}}",
+        "overview_title": "Document Overview",
+        "overview_total": "Total Documents",
+        "overview_completed": "Completed",
+        "overview_pending": "Pending",
+        "overview_versions": "Total Versions",
+        "overview_status_group": "Status Summary",
+        "overview_load_failed": "Failed to load document overview"
     },
     "banner": {
         "title": "This is an open source project",
