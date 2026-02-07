@@ -179,16 +179,14 @@ export default function DocViewer() {
                 <Button
                     type="text"
                     icon={<ArrowLeftOutlined />}
-                    onClick={() => navigate(`/repo/${id}`)}
+                    onClick={() => navigate(`/`)}
                     block
                     style={{ textAlign: 'left' }}
                 >
-                    {t('repository.title')}
+                    {t('nav.home')}
                 </Button>
             </div>
-            <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--ant-color-text-secondary)', textTransform: 'uppercase' }}>
-                {t('repository.docs')}
-            </div>
+
             <Menu
                 mode="inline"
                 selectedKeys={[docId || '']}
