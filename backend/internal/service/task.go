@@ -396,7 +396,7 @@ func (s *TaskService) Cancel(taskID uint) error {
 	// worker在取出任务执行时，应该检查数据库状态（目前worker逻辑依赖外部调用CancelTask来终止上下文）
 	// TODO: 最好在worker执行前增加一次状态检查
 	if oldStatus == statemachine.TaskStatusRunning {
-		if s.orchestrator.CancelTask(taskID) {
+		if s.orchestrator.CancelTask(taskID, task.RepositoryID) {
 			klog.V(6).Infof("已触发运行中任务的取消: taskID=%d", taskID)
 		} else {
 			klog.Warningf("尝试取消运行中任务，但编排器中未找到: taskID=%d", taskID)
