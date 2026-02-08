@@ -44,6 +44,7 @@ func NewTaskStateMachine() *TaskStateMachine {
 	transitions := []TaskTransition{
 		// 正常执行流程
 		{TaskStatusPending, TaskStatusQueued},
+		{TaskStatusPending, TaskStatusRunning},
 		{TaskStatusQueued, TaskStatusRunning},
 		{TaskStatusRunning, TaskStatusSucceeded},
 		{TaskStatusRunning, TaskStatusFailed},
