@@ -52,4 +52,5 @@ type DocumentRepository interface {
 type EvidenceRepository interface {
 	CreateBatch(evidences []model.TaskEvidence) error
 	GetByTaskID(taskID uint) ([]model.TaskEvidence, error)
+	SearchInRepo(repoID uint, keywords []string) ([]model.TaskEvidence, error)
 }

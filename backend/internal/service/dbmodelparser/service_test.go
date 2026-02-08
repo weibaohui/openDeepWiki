@@ -24,6 +24,13 @@ func (m *mockEvidenceRepo) GetByTaskID(taskID uint) ([]model.TaskEvidence, error
 	return m.evidences, nil
 }
 
+func (m *mockEvidenceRepo) SearchInRepo(repoID uint, keywords []string) ([]model.TaskEvidence, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.evidences, nil
+}
+
 func TestBuildEvidenceYAMLFilters(t *testing.T) {
 	repo := &mockEvidenceRepo{
 		evidences: []model.TaskEvidence{
@@ -33,7 +40,7 @@ func TestBuildEvidenceYAMLFilters(t *testing.T) {
 	}
 	svc := &Service{evidenceRepo: repo}
 
-	out := svc.buildEvidenceYAML(10)
+	out := svc.buildEvidenceYAML(1)
 	if out == "" {
 		t.Fatalf("expected non-empty yaml")
 	}
@@ -62,7 +69,7 @@ func TestBuildEvidenceYAMLEmpty(t *testing.T) {
 	repo := &mockEvidenceRepo{}
 	svc := &Service{evidenceRepo: repo}
 
-	out := svc.buildEvidenceYAML(10)
+	out := svc.buildEvidenceYAML(1)
 	if out != "" {
 		t.Fatalf("expected empty yaml")
 	}
@@ -72,13 +79,13 @@ func TestBuildEvidenceYAMLError(t *testing.T) {
 	repo := &mockEvidenceRepo{err: errors.New("db error")}
 	svc := &Service{evidenceRepo: repo}
 
-	out := svc.buildEvidenceYAML(10)
+	out := svc.buildEvidenceYAML(1)
 	if out != "" {
 		t.Fatalf("expected empty yaml on error")
 	}
 }
 
-func TestBuildEvidenceYAMLZeroTaskID(t *testing.T) {
+func TestBuildEvidenceYAMLZeroRepoID(t *testing.T) {
 	repo := &mockEvidenceRepo{
 		evidences: []model.TaskEvidence{{Title: "数据模型", Source: "models/user.go", Detail: "User 结构体"}},
 	}
@@ -86,6 +93,6 @@ func TestBuildEvidenceYAMLZeroTaskID(t *testing.T) {
 
 	out := svc.buildEvidenceYAML(0)
 	if out != "" {
-		t.Fatalf("expected empty yaml when taskID is zero")
+		t.Fatalf("expected empty yaml when repoID is zero")
 	}
 }

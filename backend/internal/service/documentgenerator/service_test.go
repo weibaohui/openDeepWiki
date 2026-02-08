@@ -24,6 +24,13 @@ func (m *mockEvidenceRepo) GetByTaskID(taskID uint) ([]model.TaskEvidence, error
 	return m.evidences, nil
 }
 
+func (m *mockEvidenceRepo) SearchInRepo(repoID uint, keywords []string) ([]model.TaskEvidence, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.evidences, nil
+}
+
 func TestBuildEvidencePrompt(t *testing.T) {
 	repo := &mockEvidenceRepo{
 		evidences: []model.TaskEvidence{

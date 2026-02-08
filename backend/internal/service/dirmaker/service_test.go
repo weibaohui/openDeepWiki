@@ -20,6 +20,10 @@ func (m *mockEvidenceRepo) GetByTaskID(taskID uint) ([]model.TaskEvidence, error
 	return nil, nil
 }
 
+func (m *mockEvidenceRepo) SearchInRepo(repoID uint, keywords []string) ([]model.TaskEvidence, error) {
+	return nil, nil
+}
+
 func TestServiceSaveEvidence(t *testing.T) {
 	repo := &mockEvidenceRepo{}
 	svc := &Service{evidenceRepo: repo}

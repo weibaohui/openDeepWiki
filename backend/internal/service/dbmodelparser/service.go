@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
-	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"gopkg.in/yaml.v3"
@@ -45,16 +43,19 @@ func New(cfg *config.Config, evidenceRepo repository.EvidenceRepository) (*Servi
 	}, nil
 }
 
-func (s *Service) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+func (s *Service) Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
 	if localPath == "" {
 		return "", fmt.Errorf("%w: local path is empty", ErrInvalidLocalPath)
 	}
 	if title == "" {
 		return "", fmt.Errorf("%w: title is empty", ErrInvalidLocalPath)
 	}
+	if repoID == 0 {
+		return "", fmt.Errorf("%w: repo id is empty", ErrInvalidLocalPath)
+	}
 
 	klog.V(6).Infof("[dbmodel.Generate] 开始生成文档: 仓库路径=%s, 标题=%s, 任务ID=%d", localPath, title, taskID)
-	markdown, err := s.genDocument(ctx, localPath, title, taskID)
+	markdown, err := s.genDocument(ctx, localPath, title, repoID, taskID)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
 	}
@@ -63,7 +64,7 @@ func (s *Service) Generate(ctx context.Context, localPath string, title string, 
 	return markdown, nil
 }
 
-func (s *Service) genDocument(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+func (s *Service) genDocument(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	adk.AddSessionValue(ctx, "document_title", title)
 	adk.AddSessionValue(ctx, "task_id", taskID)
@@ -80,10 +81,10 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", fmt.Errorf("create agent failed: %w", err)
 	}
 
-	evidenceYAML := s.buildEvidenceYAML(taskID)
+	evidenceYAML := s.buildEvidenceYAML(repoID)
 	var evidenceSection string
 	if evidenceYAML == "" {
-		evidenceSection = "线索信息: 未找到数据库相关证据，请自行从源码中探索表结构定义。\n"
+		evidenceSection = ""
 	} else {
 		evidenceSection = fmt.Sprintf("线索信息（YAML）:\n```yaml\n%s```\n", evidenceYAML)
 	}
@@ -115,13 +116,14 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 	return lastContent, nil
 }
 
-func (s *Service) buildEvidenceYAML(taskID uint) string {
-	if s.evidenceRepo == nil || taskID == 0 {
+func (s *Service) buildEvidenceYAML(repoID uint) string {
+	if s.evidenceRepo == nil || repoID == 0 {
 		return ""
 	}
-	evidences, err := s.evidenceRepo.GetByTaskID(taskID)
+	keywords := dbKeywords()
+	evidences, err := s.evidenceRepo.SearchInRepo(repoID, keywords)
 	if err != nil {
-		klog.V(6).Infof("[dbmodel.buildEvidenceYAML] 读取任务证据失败: taskID=%d, error=%v", taskID, err)
+		klog.V(6).Infof("[dbmodel.buildEvidenceYAML] 仓库范围搜索证据失败: repoID=%d, error=%v", repoID, err)
 		return ""
 	}
 	if len(evidences) == 0 {
@@ -130,9 +132,7 @@ func (s *Service) buildEvidenceYAML(taskID uint) string {
 
 	items := make([]map[string]string, 0, len(evidences))
 	for _, ev := range evidences {
-		if !s.matchDatabaseEvidence(ev) {
-			continue
-		}
+
 		items = append(items, map[string]string{
 			"title":  safe(ev.Title),
 			"detail": safe(ev.Detail),
@@ -155,9 +155,8 @@ func (s *Service) buildEvidenceYAML(taskID uint) string {
 	return string(data)
 }
 
-func (s *Service) matchDatabaseEvidence(ev model.TaskEvidence) bool {
-	combined := strings.ToLower(strings.Join([]string{ev.Title, ev.Aspect, ev.Source, ev.Detail}, " "))
-	keywords := []string{
+func dbKeywords() []string {
+	return []string{
 		"sql",
 		"ddl",
 		"schema",
@@ -171,12 +170,6 @@ func (s *Service) matchDatabaseEvidence(ev model.TaskEvidence) bool {
 		"字段",
 		"数据模型",
 	}
-	for _, keyword := range keywords {
-		if strings.Contains(combined, keyword) {
-			return true
-		}
-	}
-	return false
 }
 
 func safe(value string) string {

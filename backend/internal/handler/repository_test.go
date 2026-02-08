@@ -167,12 +167,12 @@ func (m *mockDirMakerService) CreateDirs(ctx context.Context, repo *model.Reposi
 }
 
 type mockDatabaseModelParser struct {
-	GenerateFunc func(ctx context.Context, localPath string, title string, taskID uint) (string, error)
+	GenerateFunc func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
 }
 
-func (m *mockDatabaseModelParser) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+func (m *mockDatabaseModelParser) Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
 	if m.GenerateFunc != nil {
-		return m.GenerateFunc(ctx, localPath, title, taskID)
+		return m.GenerateFunc(ctx, localPath, title, repoID, taskID)
 	}
 	return "", nil
 }
@@ -325,7 +325,7 @@ func TestRepositoryHandlerAnalyzeDatabaseModelStarted(t *testing.T) {
 		LocalPath: "/tmp/repo",
 	}
 	parser := &mockDatabaseModelParser{
-		GenerateFunc: func(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+		GenerateFunc: func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
 			return "# 数据库模型\n", nil
 		},
 	}

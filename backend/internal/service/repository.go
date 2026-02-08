@@ -43,7 +43,7 @@ type DirMakerService interface {
 }
 
 type DatabaseModelParser interface {
-	Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error)
+	Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
 }
 
 // NewRepositoryService 创建仓库服务实例。
@@ -464,7 +464,7 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 			klog.Errorf("更新数据库模型任务状态失败: taskID=%d, error=%v", targetTask.ID, err)
 		}
 
-		content, err := s.dbModelParser.Generate(context.Background(), targetRepo.LocalPath, targetTask.Title, targetTask.ID)
+		content, err := s.dbModelParser.Generate(context.Background(), targetRepo.LocalPath, targetTask.Title, targetRepo.ID, targetTask.ID)
 		if err != nil {
 			completedAt := time.Now()
 			if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusFailed, targetTask.ID); err == nil {
