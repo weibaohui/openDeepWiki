@@ -16,7 +16,8 @@ import (
 
 const (
 	agentExplorer = "db_model_explorer"
-	agentCheck    = "markdown_checker"
+	agentMdCheck    = "markdown_checker"
+	agentDocCheck = "document_checker"
 )
 
 var (
@@ -75,7 +76,8 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		"db_model_parser_sequential_agent",
 		"db model parser sequential agent - explore database models then validate markdown",
 		agentExplorer,
-		agentCheck,
+		agentDocCheck,
+		agentMdCheck,
 	)
 	if err != nil {
 		return "", fmt.Errorf("create agent failed: %w", err)
