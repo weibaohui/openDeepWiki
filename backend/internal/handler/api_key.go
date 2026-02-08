@@ -63,7 +63,7 @@ type APIKeyResponse struct {
 	Name             string     `json:"name"`
 	Provider         string     `json:"provider"`
 	BaseURL          string     `json:"base_url"`
-	APIKey           string     `json:"api_key"`       // 脱敏后
+	APIKey           string     `json:"api_key"` // 脱敏后
 	Model            string     `json:"model"`
 	Priority         int        `json:"priority"`
 	Status           string     `json:"status"`
@@ -160,8 +160,8 @@ func (h *APIKeyHandler) UpdateAPIKey(c *gin.Context) {
 		Name:     req.Name,
 		Provider: req.Provider,
 		BaseURL:  req.BaseURL,
-		APIKey:   req.APIKey,
-		Model:    req.Model,
+		// APIKey:   req.APIKey,
+		// Model:    req.Model,
 		Priority: req.Priority,
 	})
 	if err != nil {
