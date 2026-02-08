@@ -28,19 +28,20 @@
 
 ---
 
-### 2.2 必须基于新分支开展工作
+### 2.2 必须基于 worktree 开展工作
 
 * AI **不得**在 `main` / `master` / `release` 等受保护分支上直接修改代码
-* 必须先创建新分支，例如：
+* 必须先创建 worktree，并绑定新分支，例如：
 
 ```text
-feature/xxx
-fix/xxx
-docs/xxx
-ai/xxx
+git worktree add -b feature/xxx ../openDeepWiki-feature-xxx
+git worktree add -b fix/xxx ../openDeepWiki-fix-xxx
+git worktree add -b docs/xxx ../openDeepWiki-docs-xxx
+git worktree add -b ai/xxx ../openDeepWiki-ai-xxx
 ```
 
-* 所有代码修改 **仅允许发生在该新分支下**
+* worktree 允许多个分支并行工作
+* 所有代码修改 **仅允许发生在对应的 worktree 分支下**
 
 ---
 
