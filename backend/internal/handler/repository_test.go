@@ -177,10 +177,22 @@ func (m *mockDatabaseModelParser) Generate(ctx context.Context, localPath string
 	return "", nil
 }
 
+type mockAPIAnalyzer struct {
+	GenerateFunc func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
+}
+
+// Generate 模拟API接口分析输出。
+func (m *mockAPIAnalyzer) Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+	if m.GenerateFunc != nil {
+		return m.GenerateFunc(ctx, localPath, title, repoID, taskID)
+	}
+	return "", nil
+}
+
 func TestRepositoryHandlerCreateInvalidURL(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repoRepo := &mockRepoRepo{}
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories", handler.Create)
@@ -202,7 +214,7 @@ func TestRepositoryHandlerCreateDuplicateURL(t *testing.T) {
 			return []model.Repository{{ID: 1, URL: "https://github.com/Owner/Repo?tab=readme"}}, nil
 		},
 	}
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories", handler.Create)
@@ -241,7 +253,7 @@ func TestRepositoryHandlerPurgeLocalSuccess(t *testing.T) {
 		},
 	}
 
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories/:id/purge-local", handler.PurgeLocal)
@@ -260,7 +272,7 @@ func TestRepositoryHandlerPurgeLocalSuccess(t *testing.T) {
 
 func TestRepositoryHandlerPurgeLocalInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	svc := service.NewRepositoryService(&config.Config{}, &mockRepoRepo{}, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, &mockRepoRepo{}, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories/:id/purge-local", handler.PurgeLocal)
@@ -294,7 +306,7 @@ func TestRepositoryHandlerAnalyzeDirectoryStarted(t *testing.T) {
 		},
 	}
 
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories/:id/directory-analyze", handler.AnalyzeDirectory)
@@ -335,7 +347,7 @@ func TestRepositoryHandlerAnalyzeDatabaseModelStarted(t *testing.T) {
 		},
 	}
 	docService := service.NewDocumentService(&config.Config{}, &mockDocumentRepo{}, repoRepo)
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, docService, parser)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories/:id/db-model-analyze", handler.AnalyzeDatabaseModel)
@@ -348,6 +360,42 @@ func TestRepositoryHandlerAnalyzeDatabaseModelStarted(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", w.Code)
 	}
 	if !strings.Contains(w.Body.String(), "database model analysis started") {
+		t.Fatalf("unexpected response body: %s", w.Body.String())
+	}
+}
+
+// TestRepositoryHandlerAnalyzeAPIStarted 验证API分析接口返回成功。
+func TestRepositoryHandlerAnalyzeAPIStarted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &model.Repository{
+		ID:        6,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: "/tmp/repo",
+	}
+	analyzer := &mockAPIAnalyzer{
+		GenerateFunc: func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+			return "# API接口分析\n", nil
+		},
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	docService := service.NewDocumentService(&config.Config{}, &mockDocumentRepo{}, repoRepo)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, docService, nil, analyzer)
+	handler := NewRepositoryHandler(svc)
+	router := gin.New()
+	router.POST("/repositories/:id/api-analyze", handler.AnalyzeAPI)
+
+	req := httptest.NewRequest(http.MethodPost, "/repositories/6/api-analyze", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "api analysis started") {
 		t.Fatalf("unexpected response body: %s", w.Body.String())
 	}
 }

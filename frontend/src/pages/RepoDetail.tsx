@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined, ApiOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
@@ -118,6 +118,19 @@ export default function RepoDetail() {
         } catch (error) {
             console.error('Failed to analyze database model:', error);
             messageApi.error(t('repository.db_model_analyze_failed'));
+        }
+    };
+
+    // 触发API接口分析任务
+    const handleAnalyzeAPI = async () => {
+        if (!id) return;
+        try {
+            await repositoryApi.analyzeAPI(Number(id));
+            fetchData();
+            messageApi.success(t('repository.api_analyze_started'));
+        } catch (error) {
+            console.error('Failed to analyze api:', error);
+            messageApi.error(t('repository.api_analyze_failed'));
         }
     };
 
@@ -393,6 +406,13 @@ export default function RepoDetail() {
                                 icon={<FileTextOutlined />}
                             >
                                 {t('repository.db_model_analyze')}
+                            </Button>
+                            <Button
+                                block
+                                onClick={handleAnalyzeAPI}
+                                icon={<ApiOutlined />}
+                            >
+                                {t('repository.api_analyze')}
                             </Button>
                             <Button
                                 type="primary"

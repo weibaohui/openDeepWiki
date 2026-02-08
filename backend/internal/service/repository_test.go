@@ -34,6 +34,18 @@ func (m *mockDatabaseModelParser) Generate(ctx context.Context, localPath string
 	return "", nil
 }
 
+type mockAPIAnalyzer struct {
+	GenerateFunc func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
+}
+
+// Generate 模拟API接口分析输出。
+func (m *mockAPIAnalyzer) Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+	if m.GenerateFunc != nil {
+		return m.GenerateFunc(ctx, localPath, title, repoID, taskID)
+	}
+	return "", nil
+}
+
 func TestRepositoryServiceCreateInvalidURL(t *testing.T) {
 	repoRepo := &mockRepoRepo{
 		ListFunc: func() ([]model.Repository, error) {
@@ -44,7 +56,7 @@ func TestRepositoryServiceCreateInvalidURL(t *testing.T) {
 			return nil
 		},
 	}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	_, err := service.Create(CreateRepoRequest{URL: "https://github.com/owner/repo/blob/main/README.md"})
 	if !errors.Is(err, ErrInvalidRepositoryURL) {
 		t.Fatalf("expected invalid url error, got %v", err)
@@ -61,7 +73,7 @@ func TestRepositoryServiceCreateDuplicateURL(t *testing.T) {
 			return nil
 		},
 	}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	_, err := service.Create(CreateRepoRequest{URL: "https://github.com/owner/repo"})
 	if !errors.Is(err, ErrRepositoryAlreadyExists) {
 		t.Fatalf("expected duplicate error, got %v", err)
@@ -94,7 +106,7 @@ func TestRepositoryServicePurgeLocalDirSuccess(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	if err := service.PurgeLocalDir(1); err != nil {
 		t.Fatalf("PurgeLocalDir error: %v", err)
 	}
@@ -130,7 +142,7 @@ func TestRepositoryServicePurgeLocalDirDisallowedStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	if err := service.PurgeLocalDir(2); err == nil {
 		t.Fatalf("expected error for cloning status")
 	}
@@ -158,7 +170,7 @@ func TestRepositoryServicePurgeLocalDirEmptyPath(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	if err := service.PurgeLocalDir(3); err != nil {
 		t.Fatalf("PurgeLocalDir error: %v", err)
 	}
@@ -186,7 +198,7 @@ func TestRepositoryServiceAnalyzeDirectoryAsync(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil, nil)
 	tasks, err := service.AnalyzeDirectory(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("AnalyzeDirectory error: %v", err)
@@ -221,7 +233,7 @@ func TestRepositoryServiceAnalyzeDirectoryDisallowedStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil, nil)
 	if _, err := service.AnalyzeDirectory(context.Background(), 11); err == nil {
 		t.Fatalf("expected error for disallowed status")
 	}
@@ -263,7 +275,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelAsync(t *testing.T) {
 		},
 	}
 	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	task, err := service.AnalyzeDatabaseModel(context.Background(), 12)
 	if err != nil {
 		t.Fatalf("AnalyzeDatabaseModel error: %v", err)
@@ -313,7 +325,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelFailed(t *testing.T) {
 		},
 	}
 	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	task, err := service.AnalyzeDatabaseModel(context.Background(), 14)
 	if err != nil {
 		t.Fatalf("AnalyzeDatabaseModel error: %v", err)
@@ -348,8 +360,132 @@ func TestRepositoryServiceAnalyzeDatabaseModelDisallowedStatus(t *testing.T) {
 		},
 	}
 	parser := &mockDatabaseModelParser{}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, parser)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, parser, nil)
 	if _, err := service.AnalyzeDatabaseModel(context.Background(), 13); err == nil {
+		t.Fatalf("expected error for disallowed status")
+	}
+}
+
+// TestRepositoryServiceAnalyzeAPIAsync 验证API分析异步触发逻辑。
+func TestRepositoryServiceAnalyzeAPIAsync(t *testing.T) {
+	repo := &model.Repository{
+		ID:        15,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: "/tmp/repo",
+	}
+	triggered := make(chan struct{}, 1)
+	analyzer := &mockAPIAnalyzer{
+		GenerateFunc: func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+			triggered <- struct{}{}
+			return "# API接口分析\n", nil
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		CreateFunc: func(task *model.Task) error {
+			task.ID = 30
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		CreateVersionedFunc: func(doc *model.Document) error {
+			return nil
+		},
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, nil, analyzer)
+	task, err := service.AnalyzeAPI(context.Background(), 15)
+	if err != nil {
+		t.Fatalf("AnalyzeAPI error: %v", err)
+	}
+	if task == nil || task.Type != "api" {
+		t.Fatalf("unexpected task: %+v", task)
+	}
+	select {
+	case <-triggered:
+	case <-time.After(300 * time.Millisecond):
+		t.Fatalf("expected async api analysis to be triggered")
+	}
+}
+
+// TestRepositoryServiceAnalyzeAPIFailed 验证API分析失败后的状态更新。
+func TestRepositoryServiceAnalyzeAPIFailed(t *testing.T) {
+	repo := &model.Repository{
+		ID:        16,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: "/tmp/repo",
+	}
+	failedCh := make(chan model.Task, 1)
+	analyzer := &mockAPIAnalyzer{
+		GenerateFunc: func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+			return "", errors.New("解析失败")
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		CreateFunc: func(task *model.Task) error {
+			task.ID = 31
+			return nil
+		},
+		SaveFunc: func(task *model.Task) error {
+			if task.Status == string(statemachine.TaskStatusFailed) {
+				failedCh <- *task
+			}
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		CreateVersionedFunc: func(doc *model.Document) error {
+			return nil
+		},
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, nil, analyzer)
+	task, err := service.AnalyzeAPI(context.Background(), 16)
+	if err != nil {
+		t.Fatalf("AnalyzeAPI error: %v", err)
+	}
+	if task == nil || task.Type != "api" {
+		t.Fatalf("unexpected task: %+v", task)
+	}
+	select {
+	case failedTask := <-failedCh:
+		if failedTask.CompletedAt == nil {
+			t.Fatalf("expected completed time to be set")
+		}
+		if failedTask.StartedAt == nil {
+			t.Fatalf("expected started time to be set")
+		}
+		if failedTask.ErrorMsg == "" || failedTask.ErrorMsg == "解析失败" {
+			t.Fatalf("expected error message to be wrapped, got %s", failedTask.ErrorMsg)
+		}
+	case <-time.After(300 * time.Millisecond):
+		t.Fatalf("expected async api analysis to fail")
+	}
+}
+
+// TestRepositoryServiceAnalyzeAPIDisallowedStatus 验证禁用状态下不允许触发API分析。
+func TestRepositoryServiceAnalyzeAPIDisallowedStatus(t *testing.T) {
+	repo := &model.Repository{
+		ID:     17,
+		Status: string(statemachine.RepoStatusCloning),
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	analyzer := &mockAPIAnalyzer{}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, analyzer)
+	if _, err := service.AnalyzeAPI(context.Background(), 17); err == nil {
 		t.Fatalf("expected error for disallowed status")
 	}
 }
