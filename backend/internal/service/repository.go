@@ -455,27 +455,17 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 	go func(targetRepo *model.Repository, targetTask *model.Task) {
 		klog.V(6).Infof("开始异步数据库模型分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
 		startedAt := time.Now()
-		if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusRunning, targetTask.ID); err == nil {
-			targetTask.Status = string(statemachine.TaskStatusRunning)
-		}
-		targetTask.StartedAt = &startedAt
-		targetTask.ErrorMsg = ""
-		if err := s.taskRepo.Save(targetTask); err != nil {
+		clearErrMsg := ""
+		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusRunning, &startedAt, nil, &clearErrMsg); err != nil {
 			klog.Errorf("更新数据库模型任务状态失败: taskID=%d, error=%v", targetTask.ID, err)
 		}
 
 		content, err := s.dbModelParser.Generate(context.Background(), targetRepo.LocalPath, targetTask.Title, targetRepo.ID, targetTask.ID)
 		if err != nil {
 			completedAt := time.Now()
-			if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusFailed, targetTask.ID); err == nil {
-				targetTask.Status = string(statemachine.TaskStatusFailed)
-			}
-			targetTask.CompletedAt = &completedAt
-			targetTask.ErrorMsg = fmt.Sprintf("数据库模型解析失败: %v", err)
-			_ = s.taskRepo.Save(targetTask)
-			if s.taskService != nil {
-				_ = s.taskService.UpdateRepositoryStatus(targetRepo.ID)
-			}
+			errMsg := fmt.Sprintf("数据库模型解析失败: %v", err)
+			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
+			s.updateRepositoryStatusAfterTask(targetRepo.ID)
 			klog.Errorf("异步数据库模型分析失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
 			return
 		}
@@ -490,35 +480,47 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 		})
 		if err != nil {
 			completedAt := time.Now()
-			if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusFailed, targetTask.ID); err == nil {
-				targetTask.Status = string(statemachine.TaskStatusFailed)
-			}
-			targetTask.CompletedAt = &completedAt
-			targetTask.ErrorMsg = fmt.Sprintf("保存数据库模型文档失败: %v", err)
-			_ = s.taskRepo.Save(targetTask)
-			if s.taskService != nil {
-				_ = s.taskService.UpdateRepositoryStatus(targetRepo.ID)
-			}
+			errMsg := fmt.Sprintf("保存数据库模型文档失败: %v", err)
+			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
+			s.updateRepositoryStatusAfterTask(targetRepo.ID)
 			klog.Errorf("保存数据库模型文档失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
 			return
 		}
 
 		completedAt := time.Now()
-		if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusSucceeded, targetTask.ID); err == nil {
-			targetTask.Status = string(statemachine.TaskStatusSucceeded)
-		}
-		targetTask.CompletedAt = &completedAt
-		if err := s.taskRepo.Save(targetTask); err != nil {
+		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusSucceeded, nil, &completedAt, nil); err != nil {
 			klog.Errorf("更新数据库模型任务完成状态失败: taskID=%d, error=%v", targetTask.ID, err)
 		}
-		if s.taskService != nil {
-			_ = s.taskService.UpdateRepositoryStatus(targetRepo.ID)
-		}
+		s.updateRepositoryStatusAfterTask(targetRepo.ID)
 		klog.V(6).Infof("异步数据库模型分析完成: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
 	}(repo, task)
 
 	klog.V(6).Infof("数据库模型分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
 	return task, nil
+}
+
+// updateTaskStatus 更新任务状态并保存关键字段。
+func (s *RepositoryService) updateTaskStatus(task *model.Task, targetStatus statemachine.TaskStatus, startedAt *time.Time, completedAt *time.Time, errorMsg *string) error {
+	if err := s.taskStateMachine.Transition(statemachine.TaskStatus(task.Status), targetStatus, task.ID); err == nil {
+		task.Status = string(targetStatus)
+	}
+	if startedAt != nil {
+		task.StartedAt = startedAt
+	}
+	if completedAt != nil {
+		task.CompletedAt = completedAt
+	}
+	if errorMsg != nil {
+		task.ErrorMsg = *errorMsg
+	}
+	return s.taskRepo.Save(task)
+}
+
+// updateRepositoryStatusAfterTask 在任务状态变更后更新仓库状态。
+func (s *RepositoryService) updateRepositoryStatusAfterTask(repoID uint) {
+	if s.taskService != nil {
+		_ = s.taskService.UpdateRepositoryStatus(repoID)
+	}
 }
 
 // SetReady 将仓库状态设置为就绪（用于调试或特殊场景）

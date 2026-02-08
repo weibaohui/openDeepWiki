@@ -278,6 +278,65 @@ func TestRepositoryServiceAnalyzeDatabaseModelAsync(t *testing.T) {
 	}
 }
 
+func TestRepositoryServiceAnalyzeDatabaseModelFailed(t *testing.T) {
+	repo := &model.Repository{
+		ID:        14,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: "/tmp/repo",
+	}
+	failedCh := make(chan model.Task, 1)
+	parser := &mockDatabaseModelParser{
+		GenerateFunc: func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+			return "", errors.New("解析失败")
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		CreateFunc: func(task *model.Task) error {
+			task.ID = 21
+			return nil
+		},
+		SaveFunc: func(task *model.Task) error {
+			if task.Status == string(statemachine.TaskStatusFailed) {
+				failedCh <- *task
+			}
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		CreateVersionedFunc: func(doc *model.Document) error {
+			return nil
+		},
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser)
+	task, err := service.AnalyzeDatabaseModel(context.Background(), 14)
+	if err != nil {
+		t.Fatalf("AnalyzeDatabaseModel error: %v", err)
+	}
+	if task == nil || task.Type != "db-model" {
+		t.Fatalf("unexpected task: %+v", task)
+	}
+	select {
+	case failedTask := <-failedCh:
+		if failedTask.CompletedAt == nil {
+			t.Fatalf("expected completed time to be set")
+		}
+		if failedTask.StartedAt == nil {
+			t.Fatalf("expected started time to be set")
+		}
+		if failedTask.ErrorMsg == "" || failedTask.ErrorMsg == "解析失败" {
+			t.Fatalf("expected error message to be wrapped, got %s", failedTask.ErrorMsg)
+		}
+	case <-time.After(300 * time.Millisecond):
+		t.Fatalf("expected async database model analysis to fail")
+	}
+}
+
 func TestRepositoryServiceAnalyzeDatabaseModelDisallowedStatus(t *testing.T) {
 	repo := &model.Repository{
 		ID:     13,

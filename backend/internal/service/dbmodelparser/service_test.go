@@ -2,6 +2,7 @@ package dbmodelparser
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
@@ -28,7 +29,24 @@ func (m *mockEvidenceRepo) SearchInRepo(repoID uint, keywords []string) ([]model
 	if m.err != nil {
 		return nil, m.err
 	}
-	return m.evidences, nil
+	if repoID == 0 || len(keywords) == 0 {
+		return nil, nil
+	}
+	matched := make([]model.TaskEvidence, 0)
+	for _, evidence := range m.evidences {
+		text := strings.ToLower(strings.Join([]string{evidence.Title, evidence.Aspect, evidence.Source, evidence.Detail}, " "))
+		for _, kw := range keywords {
+			keyword := strings.ToLower(strings.TrimSpace(kw))
+			if keyword == "" {
+				continue
+			}
+			if strings.Contains(text, keyword) {
+				matched = append(matched, evidence)
+				break
+			}
+		}
+	}
+	return matched, nil
 }
 
 func TestBuildEvidenceYAMLFilters(t *testing.T) {
