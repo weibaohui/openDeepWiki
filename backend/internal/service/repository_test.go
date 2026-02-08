@@ -353,3 +353,210 @@ func TestRepositoryServiceAnalyzeDatabaseModelDisallowedStatus(t *testing.T) {
 		t.Fatalf("expected error for disallowed status")
 	}
 }
+
+func TestRepositoryServiceDeleteCompletedStatus(t *testing.T) {
+	repo := &model.Repository{
+		ID:     100,
+		Status: string(statemachine.RepoStatusCompleted),
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	err := service.Delete(100)
+	if !errors.Is(err, ErrCannotDeleteRepoInvalidStatus) {
+		t.Fatalf("expected ErrCannotDeleteRepoInvalidStatus, got %v", err)
+	}
+}
+
+func TestRepositoryServiceDeleteAnalyzingStatus(t *testing.T) {
+	repo := &model.Repository{
+		ID:     101,
+		Status: string(statemachine.RepoStatusAnalyzing),
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	err := service.Delete(101)
+	if !errors.Is(err, ErrCannotDeleteRepoInvalidStatus) {
+		t.Fatalf("expected ErrCannotDeleteRepoInvalidStatus, got %v", err)
+	}
+}
+
+func TestRepositoryServiceDeletePendingStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        102,
+		Status:    string(statemachine.RepoStatusPending),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(102)
+	if err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
+	}
+}
+
+func TestRepositoryServiceDeleteCloningStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        103,
+		Status:    string(statemachine.RepoStatusCloning),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(103)
+	if err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
+	}
+}
+
+func TestRepositoryServiceDeleteReadyStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        104,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(104)
+	if err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
+	}
+}
+
+func TestRepositoryServiceDeleteErrorStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        105,
+		Status:    string(statemachine.RepoStatusError),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(105)
+	if err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
+	}
+}
+
