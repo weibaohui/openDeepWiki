@@ -20,6 +20,7 @@ export const repositoryApi = {
     purgeLocal: (id: number) => api.post(`/repositories/${id}/purge-local`),
     runAll: (id: number) => api.post(`/repositories/${id}/run-all`),
     analyzeDirectory: (id: number) => api.post<{ tasks: Task[]; message: string }>(`/repositories/${id}/directory-analyze`),
+    analyzeDatabaseModel: (id: number) => api.post<{ task: Task; message: string }>(`/repositories/${id}/db-model-analyze`),
     setReady: (id: number) => api.post(`/repositories/${id}/set-ready`),
 };
 

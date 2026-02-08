@@ -121,6 +121,27 @@ func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
 	})
 }
 
+func (h *RepositoryHandler) AnalyzeDatabaseModel(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	ctx := context.Background()
+	task, err := h.service.AnalyzeDatabaseModel(ctx, uint(id))
+	if err != nil {
+		klog.Errorf("AnalyzeDatabaseModel failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "database model analysis started",
+		"task":    task,
+	})
+}
+
 func (h *RepositoryHandler) SetReady(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

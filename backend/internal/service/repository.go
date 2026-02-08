@@ -22,6 +22,7 @@ type RepositoryService struct {
 	repoRepo    repository.RepoRepository
 	taskRepo    repository.TaskRepository
 	docRepo     repository.DocumentRepository
+	docService  *DocumentService
 	taskService *TaskService
 
 	// 状态机
@@ -33,6 +34,7 @@ type RepositoryService struct {
 
 	// 目录分析服务
 	dirMakerService DirMakerService
+	dbModelParser   DatabaseModelParser
 }
 
 // DirMakerService 目录分析服务接口。
@@ -40,18 +42,24 @@ type DirMakerService interface {
 	CreateDirs(ctx context.Context, repo *model.Repository) ([]*model.Task, error)
 }
 
+type DatabaseModelParser interface {
+	Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error)
+}
+
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, dirMakerService DirMakerService) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
 		taskRepo:         taskRepo,
 		docRepo:          docRepo,
+		docService:       docService,
 		taskService:      taskService,
 		repoStateMachine: statemachine.NewRepositoryStateMachine(),
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 		dirMakerService:  dirMakerService,
+		dbModelParser:    dbModelParser,
 	}
 }
 
@@ -414,6 +422,103 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 
 	klog.V(6).Infof("目录分析任务已异步启动: repoID=%d", repoID)
 	return []*model.Task{}, nil
+}
+
+func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uint) (*model.Task, error) {
+	klog.V(6).Infof("准备异步分析数据库模型: repoID=%d", repoID)
+
+	if s.dbModelParser == nil || s.docService == nil {
+		return nil, fmt.Errorf("数据库模型解析服务未初始化")
+	}
+
+	repo, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		return nil, fmt.Errorf("获取仓库失败: %w", err)
+	}
+
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if !statemachine.CanExecuteTasks(currentStatus) {
+		return nil, fmt.Errorf("仓库状态不允许执行数据库模型分析: current=%s", currentStatus)
+	}
+
+	task := &model.Task{
+		RepositoryID: repo.ID,
+		Type:         "db-model",
+		Title:        "数据库模型分析",
+		Status:       string(statemachine.TaskStatusPending),
+		SortOrder:    0,
+	}
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, fmt.Errorf("创建数据库模型任务失败: %w", err)
+	}
+
+	go func(targetRepo *model.Repository, targetTask *model.Task) {
+		klog.V(6).Infof("开始异步数据库模型分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
+		startedAt := time.Now()
+		if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusRunning, targetTask.ID); err == nil {
+			targetTask.Status = string(statemachine.TaskStatusRunning)
+		}
+		targetTask.StartedAt = &startedAt
+		targetTask.ErrorMsg = ""
+		if err := s.taskRepo.Save(targetTask); err != nil {
+			klog.Errorf("更新数据库模型任务状态失败: taskID=%d, error=%v", targetTask.ID, err)
+		}
+
+		content, err := s.dbModelParser.Generate(context.Background(), targetRepo.LocalPath, targetTask.Title, targetTask.ID)
+		if err != nil {
+			completedAt := time.Now()
+			if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusFailed, targetTask.ID); err == nil {
+				targetTask.Status = string(statemachine.TaskStatusFailed)
+			}
+			targetTask.CompletedAt = &completedAt
+			targetTask.ErrorMsg = fmt.Sprintf("数据库模型解析失败: %v", err)
+			_ = s.taskRepo.Save(targetTask)
+			if s.taskService != nil {
+				_ = s.taskService.UpdateRepositoryStatus(targetRepo.ID)
+			}
+			klog.Errorf("异步数据库模型分析失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
+			return
+		}
+
+		_, err = s.docService.Create(CreateDocumentRequest{
+			RepositoryID: targetTask.RepositoryID,
+			TaskID:       targetTask.ID,
+			Title:        targetTask.Title,
+			Filename:     targetTask.Title + ".md",
+			Content:      content,
+			SortOrder:    targetTask.SortOrder,
+		})
+		if err != nil {
+			completedAt := time.Now()
+			if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusFailed, targetTask.ID); err == nil {
+				targetTask.Status = string(statemachine.TaskStatusFailed)
+			}
+			targetTask.CompletedAt = &completedAt
+			targetTask.ErrorMsg = fmt.Sprintf("保存数据库模型文档失败: %v", err)
+			_ = s.taskRepo.Save(targetTask)
+			if s.taskService != nil {
+				_ = s.taskService.UpdateRepositoryStatus(targetRepo.ID)
+			}
+			klog.Errorf("保存数据库模型文档失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
+			return
+		}
+
+		completedAt := time.Now()
+		if err := s.taskStateMachine.Transition(statemachine.TaskStatus(targetTask.Status), statemachine.TaskStatusSucceeded, targetTask.ID); err == nil {
+			targetTask.Status = string(statemachine.TaskStatusSucceeded)
+		}
+		targetTask.CompletedAt = &completedAt
+		if err := s.taskRepo.Save(targetTask); err != nil {
+			klog.Errorf("更新数据库模型任务完成状态失败: taskID=%d, error=%v", targetTask.ID, err)
+		}
+		if s.taskService != nil {
+			_ = s.taskService.UpdateRepositoryStatus(targetRepo.ID)
+		}
+		klog.V(6).Infof("异步数据库模型分析完成: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
+	}(repo, task)
+
+	klog.V(6).Infof("数据库模型分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
+	return task, nil
 }
 
 // SetReady 将仓库状态设置为就绪（用于调试或特殊场景）

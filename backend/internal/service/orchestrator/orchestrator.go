@@ -301,6 +301,11 @@ func (o *Orchestrator) processRetryQueue() {
 // tryDispatch 精简为只负责分发，不操作 RetryCount
 func (o *Orchestrator) tryDispatch(job *Job) {
 	if !o.acquireRepoLock(job.RepositoryID) {
+		if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
+			klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, repoID=%d, retry=%d/%d", job.TaskID, job.RepositoryID, job.RetryCount, job.MaxRetries)
+			return
+		}
+		job.RetryCount++
 		if err := o.retryQueue.Enqueue(job); err != nil {
 			klog.Errorf("重试任务入队失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
 		}
@@ -322,6 +327,11 @@ func (o *Orchestrator) tryDispatch(job *Job) {
 
 	if err != nil {
 		klog.Errorf("提交任务到协程池失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
+		if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
+			klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, repoID=%d, retry=%d/%d", job.TaskID, job.RepositoryID, job.RetryCount, job.MaxRetries)
+			return
+		}
+		job.RetryCount++
 		if err := o.retryQueue.Enqueue(job); err != nil {
 			klog.Errorf("重试任务入队失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
 		}

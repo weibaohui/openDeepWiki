@@ -15,6 +15,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/router"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/dbmodelparser"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/dirmaker"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
@@ -60,6 +61,11 @@ func main() {
 		log.Fatalf("Failed to initialize document generator service: %v", err)
 	}
 
+	dbModelParserService, err := dbmodelparser.New(cfg, evidenceRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize db model parser service: %v", err)
+	}
+
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService, docGeneratorService)
 
 	// 初始化目录分析服务
@@ -76,7 +82,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService, dirMakerService)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, taskService, dirMakerService, docService, dbModelParserService)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)

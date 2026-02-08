@@ -109,6 +109,18 @@ export default function RepoDetail() {
         }
     };
 
+    const handleAnalyzeDatabaseModel = async () => {
+        if (!id) return;
+        try {
+            await repositoryApi.analyzeDatabaseModel(Number(id));
+            fetchData();
+            messageApi.success(t('repository.db_model_analyze_started'));
+        } catch (error) {
+            console.error('Failed to analyze database model:', error);
+            messageApi.error(t('repository.db_model_analyze_failed'));
+        }
+    };
+
     const handleSetReady = async () => {
         if (!id) return;
         try {
@@ -374,6 +386,13 @@ export default function RepoDetail() {
                                 icon={<FolderOpenOutlined />}
                             >
                                 {t('repository.directory_analyze')}
+                            </Button>
+                            <Button
+                                block
+                                onClick={handleAnalyzeDatabaseModel}
+                                icon={<FileTextOutlined />}
+                            >
+                                {t('repository.db_model_analyze')}
                             </Button>
                             <Button
                                 type="primary"

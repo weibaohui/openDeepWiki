@@ -166,10 +166,21 @@ func (m *mockDirMakerService) CreateDirs(ctx context.Context, repo *model.Reposi
 	return nil, nil
 }
 
+type mockDatabaseModelParser struct {
+	GenerateFunc func(ctx context.Context, localPath string, title string, taskID uint) (string, error)
+}
+
+func (m *mockDatabaseModelParser) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+	if m.GenerateFunc != nil {
+		return m.GenerateFunc(ctx, localPath, title, taskID)
+	}
+	return "", nil
+}
+
 func TestRepositoryHandlerCreateInvalidURL(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repoRepo := &mockRepoRepo{}
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories", handler.Create)
@@ -191,7 +202,7 @@ func TestRepositoryHandlerCreateDuplicateURL(t *testing.T) {
 			return []model.Repository{{ID: 1, URL: "https://github.com/Owner/Repo?tab=readme"}}, nil
 		},
 	}
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories", handler.Create)
@@ -230,7 +241,7 @@ func TestRepositoryHandlerPurgeLocalSuccess(t *testing.T) {
 		},
 	}
 
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories/:id/purge-local", handler.PurgeLocal)
@@ -249,7 +260,7 @@ func TestRepositoryHandlerPurgeLocalSuccess(t *testing.T) {
 
 func TestRepositoryHandlerPurgeLocalInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	svc := service.NewRepositoryService(&config.Config{}, &mockRepoRepo{}, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	svc := service.NewRepositoryService(&config.Config{}, &mockRepoRepo{}, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories/:id/purge-local", handler.PurgeLocal)
@@ -283,7 +294,7 @@ func TestRepositoryHandlerAnalyzeDirectoryStarted(t *testing.T) {
 		},
 	}
 
-	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
 	router.POST("/repositories/:id/directory-analyze", handler.AnalyzeDirectory)
@@ -303,5 +314,40 @@ func TestRepositoryHandlerAnalyzeDirectoryStarted(t *testing.T) {
 	case <-called:
 	case <-time.After(300 * time.Millisecond):
 		t.Fatalf("expected async directory analysis to be triggered")
+	}
+}
+
+func TestRepositoryHandlerAnalyzeDatabaseModelStarted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &model.Repository{
+		ID:        5,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: "/tmp/repo",
+	}
+	parser := &mockDatabaseModelParser{
+		GenerateFunc: func(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+			return "# 数据库模型\n", nil
+		},
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	docService := service.NewDocumentService(&config.Config{}, &mockDocumentRepo{}, repoRepo)
+	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, docService, parser)
+	handler := NewRepositoryHandler(svc)
+	router := gin.New()
+	router.POST("/repositories/:id/db-model-analyze", handler.AnalyzeDatabaseModel)
+
+	req := httptest.NewRequest(http.MethodPost, "/repositories/5/db-model-analyze", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "database model analysis started") {
+		t.Fatalf("unexpected response body: %s", w.Body.String())
 	}
 }

@@ -23,6 +23,17 @@ func (m *mockDirMakerService) CreateDirs(ctx context.Context, repo *model.Reposi
 	return nil, nil
 }
 
+type mockDatabaseModelParser struct {
+	GenerateFunc func(ctx context.Context, localPath string, title string, taskID uint) (string, error)
+}
+
+func (m *mockDatabaseModelParser) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+	if m.GenerateFunc != nil {
+		return m.GenerateFunc(ctx, localPath, title, taskID)
+	}
+	return "", nil
+}
+
 func TestRepositoryServiceCreateInvalidURL(t *testing.T) {
 	repoRepo := &mockRepoRepo{
 		ListFunc: func() ([]model.Repository, error) {
@@ -33,7 +44,7 @@ func TestRepositoryServiceCreateInvalidURL(t *testing.T) {
 			return nil
 		},
 	}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	_, err := service.Create(CreateRepoRequest{URL: "https://github.com/owner/repo/blob/main/README.md"})
 	if !errors.Is(err, ErrInvalidRepositoryURL) {
 		t.Fatalf("expected invalid url error, got %v", err)
@@ -50,7 +61,7 @@ func TestRepositoryServiceCreateDuplicateURL(t *testing.T) {
 			return nil
 		},
 	}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	_, err := service.Create(CreateRepoRequest{URL: "https://github.com/owner/repo"})
 	if !errors.Is(err, ErrRepositoryAlreadyExists) {
 		t.Fatalf("expected duplicate error, got %v", err)
@@ -83,7 +94,7 @@ func TestRepositoryServicePurgeLocalDirSuccess(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	if err := service.PurgeLocalDir(1); err != nil {
 		t.Fatalf("PurgeLocalDir error: %v", err)
 	}
@@ -119,7 +130,7 @@ func TestRepositoryServicePurgeLocalDirDisallowedStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	if err := service.PurgeLocalDir(2); err == nil {
 		t.Fatalf("expected error for cloning status")
 	}
@@ -147,7 +158,7 @@ func TestRepositoryServicePurgeLocalDirEmptyPath(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
 	if err := service.PurgeLocalDir(3); err != nil {
 		t.Fatalf("PurgeLocalDir error: %v", err)
 	}
@@ -175,7 +186,7 @@ func TestRepositoryServiceAnalyzeDirectoryAsync(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil)
 	tasks, err := service.AnalyzeDirectory(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("AnalyzeDirectory error: %v", err)
@@ -210,7 +221,7 @@ func TestRepositoryServiceAnalyzeDirectoryDisallowedStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, dirMaker, nil, nil)
 	if _, err := service.AnalyzeDirectory(context.Background(), 11); err == nil {
 		t.Fatalf("expected error for disallowed status")
 	}
@@ -219,5 +230,67 @@ func TestRepositoryServiceAnalyzeDirectoryDisallowedStatus(t *testing.T) {
 	case <-called:
 		t.Fatalf("did not expect directory analysis to run")
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestRepositoryServiceAnalyzeDatabaseModelAsync(t *testing.T) {
+	repo := &model.Repository{
+		ID:        12,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: "/tmp/repo",
+	}
+	triggered := make(chan struct{}, 1)
+	parser := &mockDatabaseModelParser{
+		GenerateFunc: func(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
+			triggered <- struct{}{}
+			return "# 数据库模型\n", nil
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		CreateFunc: func(task *model.Task) error {
+			task.ID = 20
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		CreateVersionedFunc: func(doc *model.Document) error {
+			return nil
+		},
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser)
+	task, err := service.AnalyzeDatabaseModel(context.Background(), 12)
+	if err != nil {
+		t.Fatalf("AnalyzeDatabaseModel error: %v", err)
+	}
+	if task == nil || task.Type != "db-model" {
+		t.Fatalf("unexpected task: %+v", task)
+	}
+	select {
+	case <-triggered:
+	case <-time.After(300 * time.Millisecond):
+		t.Fatalf("expected async database model analysis to be triggered")
+	}
+}
+
+func TestRepositoryServiceAnalyzeDatabaseModelDisallowedStatus(t *testing.T) {
+	repo := &model.Repository{
+		ID:     13,
+		Status: string(statemachine.RepoStatusCloning),
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	parser := &mockDatabaseModelParser{}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, parser)
+	if _, err := service.AnalyzeDatabaseModel(context.Background(), 13); err == nil {
+		t.Fatalf("expected error for disallowed status")
 	}
 }

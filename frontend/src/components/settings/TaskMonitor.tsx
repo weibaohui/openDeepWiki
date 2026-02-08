@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Tag, Row, Col, Statistic, Button, Space, message } from 'antd';
 import { ReloadOutlined, SyncOutlined, StopOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -12,7 +12,7 @@ export default function TaskMonitor() {
     const [loading, setLoading] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         if (!data) setLoading(true);
         try {
             const res = await taskApi.monitor();
@@ -23,7 +23,7 @@ export default function TaskMonitor() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [data]);
 
     useEffect(() => {
         fetchData();
@@ -33,7 +33,7 @@ export default function TaskMonitor() {
             }
         }, 5000);
         return () => clearInterval(interval);
-    }, [autoRefresh]);
+    }, [autoRefresh, fetchData]);
 
     const activeColumns: ColumnsType<Task> = [
         {
@@ -131,7 +131,7 @@ export default function TaskMonitor() {
             await taskApi.cancel(id);
             message.success(t('taskMonitor.cancel_success', 'Task canceled'));
             fetchData();
-        } catch (error) {
+        } catch {
             message.error(t('taskMonitor.cancel_failed', 'Failed to cancel task'));
         }
     };
