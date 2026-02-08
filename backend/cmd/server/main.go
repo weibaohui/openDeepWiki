@@ -71,7 +71,7 @@ func main() {
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
 	taskExecutor := &taskExecutorAdapter{taskService: taskService}
-	orchestrator.InitGlobalOrchestrator(2, taskExecutor)
+	orchestrator.InitGlobalOrchestrator(1, taskExecutor)
 	taskService.SetOrchestrator(orchestrator.GetGlobalOrchestrator())
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
