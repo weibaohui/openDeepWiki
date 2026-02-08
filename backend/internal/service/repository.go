@@ -446,7 +446,7 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 		Type:         "db-model",
 		Title:        "数据库模型分析",
 		Status:       string(statemachine.TaskStatusPending),
-		SortOrder:    0,
+		SortOrder:    10,
 	}
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, fmt.Errorf("创建数据库模型任务失败: %w", err)
