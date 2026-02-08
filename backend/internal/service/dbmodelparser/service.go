@@ -16,7 +16,7 @@ import (
 
 const (
 	agentExplorer = "db_model_explorer"
-	agentMdCheck    = "markdown_checker"
+	agentMdCheck  = "markdown_checker"
 	agentDocCheck = "document_checker"
 )
 
@@ -27,11 +27,11 @@ var (
 )
 
 type Service struct {
-	factory      *adkagents.AgentFactory
-	evidenceRepo repository.EvidenceRepository
+	factory  *adkagents.AgentFactory
+	hintRepo repository.HintRepository
 }
 
-func New(cfg *config.Config, evidenceRepo repository.EvidenceRepository) (*Service, error) {
+func New(cfg *config.Config, hintRepo repository.HintRepository) (*Service, error) {
 	klog.V(6).Infof("[dbmodel.New] 创建数据库模型解析服务")
 	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
@@ -39,8 +39,8 @@ func New(cfg *config.Config, evidenceRepo repository.EvidenceRepository) (*Servi
 		return nil, fmt.Errorf("create AgentFactory failed: %w", err)
 	}
 	return &Service{
-		factory:      factory,
-		evidenceRepo: evidenceRepo,
+		factory:  factory,
+		hintRepo: hintRepo,
 	}, nil
 }
 
@@ -83,12 +83,12 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", fmt.Errorf("create agent failed: %w", err)
 	}
 
-	evidenceYAML := s.buildEvidenceYAML(repoID)
-	var evidenceSection string
-	if evidenceYAML == "" {
-		evidenceSection = ""
+	hintYAML := s.buildHintYAML(repoID)
+	var hintSection string
+	if hintYAML == "" {
+		hintSection = ""
 	} else {
-		evidenceSection = fmt.Sprintf("线索信息（YAML）:\n```yaml\n%s```\n", evidenceYAML)
+		hintSection = fmt.Sprintf("线索信息（YAML）:\n```yaml\n%s```\n", hintYAML)
 	}
 
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成数据库表结构说明文档。
@@ -99,7 +99,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 请按以下步骤执行：
 1. 根据线索与源码，定位数据库表定义或模型定义
 2. 输出完整的 Markdown 文档，包含所有表结构与字段说明
-`, localPath, title, evidenceSection)
+`, localPath, title, hintSection)
 
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
@@ -118,22 +118,22 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 	return lastContent, nil
 }
 
-func (s *Service) buildEvidenceYAML(repoID uint) string {
-	if s.evidenceRepo == nil || repoID == 0 {
+func (s *Service) buildHintYAML(repoID uint) string {
+	if s.hintRepo == nil || repoID == 0 {
 		return ""
 	}
 	keywords := dbKeywords()
-	evidences, err := s.evidenceRepo.SearchInRepo(repoID, keywords)
+	hints, err := s.hintRepo.SearchInRepo(repoID, keywords)
 	if err != nil {
-		klog.V(6).Infof("[dbmodel.buildEvidenceYAML] 仓库范围搜索证据失败: repoID=%d, error=%v", repoID, err)
+		klog.V(6).Infof("[dbmodel.buildHintYAML] 仓库范围搜索证据失败: repoID=%d, error=%v", repoID, err)
 		return ""
 	}
-	if len(evidences) == 0 {
+	if len(hints) == 0 {
 		return ""
 	}
 
-	items := make([]map[string]string, 0, len(evidences))
-	for _, ev := range evidences {
+	items := make([]map[string]string, 0, len(hints))
+	for _, ev := range hints {
 		items = append(items, map[string]string{
 			"title":  safe(ev.Title),
 			"detail": safe(ev.Detail),
@@ -146,11 +146,11 @@ func (s *Service) buildEvidenceYAML(repoID uint) string {
 	}
 
 	payload := map[string][]map[string]string{
-		"evidences": items,
+		"hints": items,
 	}
 	data, err := yaml.Marshal(payload)
 	if err != nil {
-		klog.V(6).Infof("[dbmodel.buildEvidenceYAML] 生成 YAML 失败: error=%v", err)
+		klog.V(6).Infof("[dbmodel.buildHintYAML] 生成 YAML 失败: error=%v", err)
 		return ""
 	}
 	return string(data)

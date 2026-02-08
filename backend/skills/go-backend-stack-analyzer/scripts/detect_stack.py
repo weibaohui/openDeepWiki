@@ -24,7 +24,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 
 @dataclass(frozen=True)
-class Evidence:
+class Hint:
     """技术栈判定证据（包含文件与行号）。"""
 
     file: str
@@ -217,15 +217,15 @@ def is_test_file(path: Path) -> bool:
     return "test" in parts or "tests" in parts
 
 
-def find_marker_evidence(
+def find_marker_hint(
     repo_root: Path,
     marker: str,
     max_hits: int,
     ignore_tests: bool,
-) -> List[Evidence]:
+) -> List[Hint]:
     """在仓库中查找 marker 的出现位置，并输出证据。"""
 
-    hits: List[Evidence] = []
+    hits: List[Hint] = []
     for go_file in _walk_files(repo_root, ".go"):
         if ignore_tests and is_test_file(go_file):
             continue
@@ -235,7 +235,7 @@ def find_marker_evidence(
         for idx, line in enumerate(text.splitlines(), start=1):
             if marker in line:
                 hits.append(
-                    Evidence(
+                    Hint(
                         file=str(go_file.relative_to(repo_root)),
                         line_start=idx,
                         line_end=idx,
@@ -248,16 +248,16 @@ def find_marker_evidence(
     return hits
 
 
-def find_marker_evidence_in_files(
+def find_marker_hint_in_files(
     repo_root: Path,
     relative_files: Sequence[str],
     marker: str,
     max_hits: int,
     why: str,
-) -> List[Evidence]:
+) -> List[Hint]:
     """在指定文件集合中查找 marker 的出现位置，并输出证据（包含行号）。"""
 
-    hits: List[Evidence] = []
+    hits: List[Hint] = []
     for rel in relative_files:
         p = (repo_root / rel).resolve()
         if not p.exists() or not p.is_file():
@@ -268,7 +268,7 @@ def find_marker_evidence_in_files(
         for idx, line in enumerate(text.splitlines(), start=1):
             if marker in line:
                 hits.append(
-                    Evidence(
+                    Hint(
                         file=str(Path(rel)),
                         line_start=idx,
                         line_end=idx,
@@ -284,7 +284,7 @@ def find_marker_evidence_in_files(
 def detect_stacks(
     repo_root: Path,
     go_mods: Sequence[Dict],
-    max_evidence: int,
+    max_hint: int,
     ignore_tests: bool,
     verbose: bool,
 ) -> List[Dict]:
@@ -382,35 +382,35 @@ def detect_stacks(
         for m in rule.code_markers:
             matched_markers.append(m)
 
-        code_evidence: List[Evidence] = []
+        code_hint: List[Hint] = []
         for cm in rule.code_markers:
-            code_evidence.extend(find_marker_evidence(repo_root, cm, max_hits=max(1, max_evidence // 2), ignore_tests=ignore_tests))
-            if len(code_evidence) >= max_evidence:
+            code_hint.extend(find_marker_hint(repo_root, cm, max_hits=max(1, max_hint // 2), ignore_tests=ignore_tests))
+            if len(code_hint) >= max_hint:
                 break
 
-        import_evidence: List[Evidence] = []
+        import_hint: List[Hint] = []
         for im in rule.import_markers:
             if matched_by_import:
-                import_evidence.extend(find_marker_evidence(repo_root, im, max_hits=max(1, max_evidence // 2), ignore_tests=ignore_tests))
-            if len(import_evidence) >= max_evidence:
+                import_hint.extend(find_marker_hint(repo_root, im, max_hits=max(1, max_hint // 2), ignore_tests=ignore_tests))
+            if len(import_hint) >= max_hint:
                 break
 
-        go_mod_evidence: List[Evidence] = []
+        go_mod_hint: List[Hint] = []
         if matched_by_mod:
             for im in rule.import_markers:
-                go_mod_evidence.extend(
-                    find_marker_evidence_in_files(
+                go_mod_hint.extend(
+                    find_marker_hint_in_files(
                         repo_root=repo_root,
                         relative_files=[f for f in go_mod_files if isinstance(f, str)],
                         marker=im,
-                        max_hits=max(1, max_evidence // 2),
+                        max_hits=max(1, max_hint // 2),
                         why="go.mod 依赖声明命中该组件/库",
                     )
                 )
-                if len(go_mod_evidence) >= max_evidence:
+                if len(go_mod_hint) >= max_hint:
                     break
 
-        if not (matched_by_mod or matched_by_import or code_evidence):
+        if not (matched_by_mod or matched_by_import or code_hint):
             continue
 
         confidence = 0.2
@@ -421,18 +421,18 @@ def detect_stacks(
         if matched_by_import:
             confidence += 0.25
             reasons.append("Go 源码 import 命中该组件/库")
-        if code_evidence:
+        if code_hint:
             confidence += 0.35
             reasons.append("Go 源码中出现典型初始化/调用点")
 
         confidence = min(0.95, max(0.0, confidence))
 
-        evidence: List[Evidence] = []
-        evidence.extend(code_evidence[:max_evidence])
-        if len(evidence) < max_evidence:
-            evidence.extend(go_mod_evidence[: max_evidence - len(evidence)])
-        if len(evidence) < max_evidence:
-            evidence.extend(import_evidence[: max_evidence - len(evidence)])
+        hint: List[Hint] = []
+        hint.extend(code_hint[:max_hint])
+        if len(hint) < max_hint:
+            hint.extend(go_mod_hint[: max_hint - len(hint)])
+        if len(hint) < max_hint:
+            hint.extend(import_hint[: max_hint - len(hint)])
 
         stacks.append(
             {
@@ -440,7 +440,7 @@ def detect_stacks(
                 "name": rule.name,
                 "confidence": round(confidence, 2),
                 "reasons": reasons,
-                "evidence": [e.__dict__ for e in evidence[:max_evidence]],
+                "hint": [e.__dict__ for e in hint[:max_hint]],
             }
         )
 
@@ -511,7 +511,7 @@ def _collect_deploy_related_files(repo_root: Path) -> Dict[str, List[str]]:
     }
 
 
-def detect_deploy_runtime(repo_root: Path, max_evidence: int) -> List[Dict]:
+def detect_deploy_runtime(repo_root: Path, max_hint: int) -> List[Dict]:
     """识别容器化/部署相关技术栈（Docker/Compose/K8s/Helm）。"""
 
     files = _collect_deploy_related_files(repo_root)
@@ -520,22 +520,22 @@ def detect_deploy_runtime(repo_root: Path, max_evidence: int) -> List[Dict]:
     dockerfiles = files.get("dockerfiles", [])
     if dockerfiles:
         markers = ("FROM ", "EXPOSE", "CMD", "ENTRYPOINT", "COPY --from=")
-        evidence: List[Evidence] = []
+        hint: List[Hint] = []
         for m in markers:
-            evidence.extend(
-                find_marker_evidence_in_files(
+            hint.extend(
+                find_marker_hint_in_files(
                     repo_root=repo_root,
                     relative_files=dockerfiles,
                     marker=m,
-                    max_hits=max(1, max_evidence // 2),
+                    max_hits=max(1, max_hint // 2),
                     why="Dockerfile 中包含镜像构建/运行声明",
                 )
             )
-            if len(evidence) >= max_evidence:
+            if len(hint) >= max_hint:
                 break
 
         confidence = 0.8
-        if any("COPY --from=" in e.match for e in evidence):
+        if any("COPY --from=" in e.match for e in hint):
             confidence = 0.9
 
         stacks.append(
@@ -546,17 +546,17 @@ def detect_deploy_runtime(repo_root: Path, max_evidence: int) -> List[Dict]:
                 "reasons": [
                     "仓库中存在 Dockerfile（容器镜像构建与运行配置）",
                 ],
-                "evidence": [e.__dict__ for e in evidence[:max_evidence]],
+                "hint": [e.__dict__ for e in hint[:max_hint]],
             }
         )
 
     composefiles = files.get("composefiles", [])
     if composefiles:
-        evidence = find_marker_evidence_in_files(
+        hint = find_marker_hint_in_files(
             repo_root=repo_root,
             relative_files=composefiles,
             marker="services:",
-            max_hits=max_evidence,
+            max_hits=max_hint,
             why="Compose 文件中定义了 services",
         )
         stacks.append(
@@ -565,17 +565,17 @@ def detect_deploy_runtime(repo_root: Path, max_evidence: int) -> List[Dict]:
                 "name": "docker-compose",
                 "confidence": 0.85,
                 "reasons": ["仓库中存在 docker-compose/compose 配置文件"],
-                "evidence": [e.__dict__ for e in evidence[:max_evidence]],
+                "hint": [e.__dict__ for e in hint[:max_hint]],
             }
         )
 
     charts = files.get("charts", [])
     if charts:
-        evidence = find_marker_evidence_in_files(
+        hint = find_marker_hint_in_files(
             repo_root=repo_root,
             relative_files=charts,
             marker="name:",
-            max_hits=max_evidence,
+            max_hits=max_hint,
             why="Helm Chart.yaml 中声明 chart 名称",
         )
         stacks.append(
@@ -584,24 +584,24 @@ def detect_deploy_runtime(repo_root: Path, max_evidence: int) -> List[Dict]:
                 "name": "helm",
                 "confidence": 0.8,
                 "reasons": ["仓库中存在 Helm Chart.yaml"],
-                "evidence": [e.__dict__ for e in evidence[:max_evidence]],
+                "hint": [e.__dict__ for e in hint[:max_hint]],
             }
         )
 
     k8s = files.get("k8s_manifests", [])
     if k8s:
-        evidence: List[Evidence] = []
+        hint: List[Hint] = []
         for m in ("apiVersion:", "kind:", "metadata:"):
-            evidence.extend(
-                find_marker_evidence_in_files(
+            hint.extend(
+                find_marker_hint_in_files(
                     repo_root=repo_root,
                     relative_files=k8s,
                     marker=m,
-                    max_hits=max(1, max_evidence // 2),
+                    max_hits=max(1, max_hint // 2),
                     why="Kubernetes 清单中存在关键字段",
                 )
             )
-            if len(evidence) >= max_evidence:
+            if len(hint) >= max_hint:
                 break
         stacks.append(
             {
@@ -609,7 +609,7 @@ def detect_deploy_runtime(repo_root: Path, max_evidence: int) -> List[Dict]:
                 "name": "kubernetes",
                 "confidence": 0.8,
                 "reasons": ["仓库中存在 Kubernetes manifests（yaml/yml）"],
-                "evidence": [e.__dict__ for e in evidence[:max_evidence]],
+                "hint": [e.__dict__ for e in hint[:max_hint]],
             }
         )
 
@@ -621,7 +621,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     parser = argparse.ArgumentParser(description="Go 后端技术栈初步扫描（输出 JSON）")
     parser.add_argument("repo_root", help="Go 仓库根目录（绝对路径或相对路径）")
-    parser.add_argument("--max-evidence", type=int, default=3, help="每个技术栈最多输出多少条证据（默认 3）")
+    parser.add_argument("--max-hint", type=int, default=3, help="每个技术栈最多输出多少条证据（默认 3）")
     parser.add_argument("--include-tests", action="store_true", help="是否包含测试代码（默认不包含）")
     parser.add_argument("--verbose", action="store_true", help="输出中文调试日志到 stderr")
     args = parser.parse_args(argv)
@@ -640,11 +640,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     stacks = detect_stacks(
         repo_root=repo_root,
         go_mods=go_mods,
-        max_evidence=max(1, args.max_evidence),
+        max_hint=max(1, args.max_hint),
         ignore_tests=ignore_tests,
         verbose=args.verbose,
     )
-    stacks.extend(detect_deploy_runtime(repo_root=repo_root, max_evidence=max(1, args.max_evidence)))
+    stacks.extend(detect_deploy_runtime(repo_root=repo_root, max_hint=max(1, args.max_hint)))
     stacks.sort(key=lambda x: (-x.get("confidence", 0.0), x.get("category", ""), x.get("name", "")))
 
     output = {

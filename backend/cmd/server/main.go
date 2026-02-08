@@ -49,19 +49,19 @@ func main() {
 	taskRepo := repository.NewTaskRepository(db)
 	docRepo := repository.NewDocumentRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
-	evidenceRepo := repository.NewEvidenceRepository(db)
+	hintRepo := repository.NewHintRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 
 	// 初始化文档生成服务
-	docGeneratorService, err := documentgenerator.New(cfg, evidenceRepo)
+	docGeneratorService, err := documentgenerator.New(cfg, hintRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize document generator service: %v", err)
 	}
 
-	dbModelParserService, err := dbmodelparser.New(cfg, evidenceRepo)
+	dbModelParserService, err := dbmodelparser.New(cfg, hintRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize db model parser service: %v", err)
 	}
@@ -69,7 +69,7 @@ func main() {
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService, docGeneratorService)
 
 	// 初始化目录分析服务
-	dirMakerService, err := dirmaker.New(cfg, taskRepo, evidenceRepo)
+	dirMakerService, err := dirmaker.New(cfg, taskRepo, hintRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}

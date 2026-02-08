@@ -49,8 +49,8 @@ type DocumentRepository interface {
 	GetByTaskID(taskID uint) ([]model.Document, error)
 }
 
-type EvidenceRepository interface {
-	CreateBatch(evidences []model.TaskEvidence) error
-	GetByTaskID(taskID uint) ([]model.TaskEvidence, error)
-	SearchInRepo(repoID uint, keywords []string) ([]model.TaskEvidence, error)
+type HintRepository interface {
+	CreateBatch(hints []model.TaskHint) error
+	GetByTaskID(taskID uint) ([]model.TaskHint, error)
+	SearchInRepo(repoID uint, keywords []string) ([]model.TaskHint, error)
 }

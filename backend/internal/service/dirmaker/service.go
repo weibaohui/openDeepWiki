@@ -42,13 +42,13 @@ type generationResult struct {
 // taskSpec 表示 Agent 生成的单个任务定义（仅包内使用）。
 // Type 字段不局限于预定义值，Agent 可根据项目特征自由定义。
 type dirSpec struct {
-	Type      string         `json:"type" yaml:"type"`             // 目录类型标识，如 "security", "performance", "data-model"
-	Title     string         `json:"title" yaml:"title"`           // 目录标题，如 "安全分析"
-	SortOrder int            `json:"sort_order" yaml:"sort_order"` // 排序顺序
-	Evidence  []evidenceSpec `json:"evidence" yaml:"evidence"`
+	Type      string     `json:"type" yaml:"type"`             // 目录类型标识，如 "security", "performance", "data-model"
+	Title     string     `json:"title" yaml:"title"`           // 目录标题，如 "安全分析"
+	SortOrder int        `json:"sort_order" yaml:"sort_order"` // 排序顺序
+	Hint      []hintSpec `json:"hint" yaml:"hint"`
 }
 
-type evidenceSpec struct {
+type hintSpec struct {
 	Aspect string `json:"aspect" yaml:"aspect"`
 	Source string `json:"source" yaml:"source"`
 	Detail string `json:"detail" yaml:"detail"`
@@ -57,13 +57,13 @@ type evidenceSpec struct {
 // Service 目录分析任务生成服务。
 // 基于 Eino ADK 实现，用于分析代码目录并动态生成分析任务。
 type Service struct {
-	factory      *adkagents.AgentFactory
-	taskRepo     repository.TaskRepository
-	evidenceRepo repository.EvidenceRepository
+	factory  *adkagents.AgentFactory
+	taskRepo repository.TaskRepository
+	hintRepo repository.HintRepository
 }
 
 // New 创建目录分析服务实例。
-func New(cfg *config.Config, taskRepo repository.TaskRepository, evidenceRepo repository.EvidenceRepository) (*Service, error) {
+func New(cfg *config.Config, taskRepo repository.TaskRepository, hintRepo repository.HintRepository) (*Service, error) {
 	klog.V(6).Infof("[dirmaker.New] 开始创建目录分析服务")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
@@ -73,9 +73,9 @@ func New(cfg *config.Config, taskRepo repository.TaskRepository, evidenceRepo re
 	}
 
 	return &Service{
-		factory:      factory,
-		taskRepo:     taskRepo,
-		evidenceRepo: evidenceRepo,
+		factory:  factory,
+		taskRepo: taskRepo,
+		hintRepo: hintRepo,
 	}, nil
 }
 
@@ -101,7 +101,7 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*mo
 
 	createdTasks := make([]*model.Task, 0, len(result.Dirs))
 	var creationErrors []error
-	var evidenceErrors []error
+	var hintErrors []error
 
 	for _, spec := range result.Dirs {
 		task := &model.Task{
@@ -117,8 +117,8 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*mo
 			continue
 		}
 
-		if err := s.saveEvidence(repo.ID, task, spec); err != nil {
-			evidenceErrors = append(evidenceErrors, err)
+		if err := s.saveHint(repo.ID, task, spec); err != nil {
+			hintErrors = append(hintErrors, err)
 		}
 
 		createdTasks = append(createdTasks, task)
@@ -131,8 +131,8 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*mo
 		}
 	}
 
-	if len(evidenceErrors) > 0 {
-		klog.Warningf("[dirmaker.CreateTasks] 证据保存出现异常: 数量=%d", len(evidenceErrors))
+	if len(hintErrors) > 0 {
+		klog.Warningf("[dirmaker.CreateTasks] 证据保存出现异常: 数量=%d", len(hintErrors))
 	}
 
 	klog.V(6).Infof("[dirmaker.CreateTasks] 全部完成，成功创建目录数: %d", len(createdTasks))
@@ -209,16 +209,16 @@ func parseDirList(content string) (*generationResult, error) {
 	return &result, nil
 }
 
-func (s *Service) saveEvidence(repoID uint, task *model.Task, spec dirSpec) error {
-	if s.evidenceRepo == nil {
+func (s *Service) saveHint(repoID uint, task *model.Task, spec dirSpec) error {
+	if s.hintRepo == nil {
 		return nil
 	}
-	if len(spec.Evidence) == 0 {
+	if len(spec.Hint) == 0 {
 		return nil
 	}
-	evidences := make([]model.TaskEvidence, 0, len(spec.Evidence))
-	for _, item := range spec.Evidence {
-		evidences = append(evidences, model.TaskEvidence{
+	hints := make([]model.TaskHint, 0, len(spec.Hint))
+	for _, item := range spec.Hint {
+		hints = append(hints, model.TaskHint{
 			RepositoryID: repoID,
 			TaskID:       task.ID,
 			Title:        spec.Title,
@@ -227,7 +227,7 @@ func (s *Service) saveEvidence(repoID uint, task *model.Task, spec dirSpec) erro
 			Detail:       item.Detail,
 		})
 	}
-	if err := s.evidenceRepo.CreateBatch(evidences); err != nil {
+	if err := s.hintRepo.CreateBatch(hints); err != nil {
 		klog.V(6).Infof("[dirmaker.CreateTasks] 保存证据失败: taskID=%d, error=%v", task.ID, err)
 		return fmt.Errorf("保存证据失败: %w", err)
 	}

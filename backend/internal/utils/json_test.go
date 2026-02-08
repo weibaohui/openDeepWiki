@@ -12,7 +12,7 @@ func TestExtractYAMLFromCodeBlock(t *testing.T) {
 		"  - type: project_overview\n" +
 		"    title: 项目简介\n" +
 		"    sort_order: 1\n" +
-		"    evidence:\n" +
+		"    hint:\n" +
 		"      - aspect: 目录结构\n" +
 		"        source: |\n" +
 		"          - /README.md\n" +

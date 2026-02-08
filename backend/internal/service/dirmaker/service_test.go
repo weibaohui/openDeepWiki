@@ -6,58 +6,58 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 )
 
-type mockEvidenceRepo struct {
-	created []model.TaskEvidence
+type mockHintRepo struct {
+	created []model.TaskHint
 	err     error
 }
 
-func (m *mockEvidenceRepo) CreateBatch(evidences []model.TaskEvidence) error {
-	m.created = append(m.created, evidences...)
+func (m *mockHintRepo) CreateBatch(hints []model.TaskHint) error {
+	m.created = append(m.created, hints...)
 	return m.err
 }
 
-func (m *mockEvidenceRepo) GetByTaskID(taskID uint) ([]model.TaskEvidence, error) {
+func (m *mockHintRepo) GetByTaskID(taskID uint) ([]model.TaskHint, error) {
 	return nil, nil
 }
 
-func (m *mockEvidenceRepo) SearchInRepo(repoID uint, keywords []string) ([]model.TaskEvidence, error) {
+func (m *mockHintRepo) SearchInRepo(repoID uint, keywords []string) ([]model.TaskHint, error) {
 	return nil, nil
 }
 
-func TestServiceSaveEvidence(t *testing.T) {
-	repo := &mockEvidenceRepo{}
-	svc := &Service{evidenceRepo: repo}
+func TestServiceSaveHint(t *testing.T) {
+	repo := &mockHintRepo{}
+	svc := &Service{hintRepo: repo}
 	task := &model.Task{ID: 5, RepositoryID: 1}
 	spec := dirSpec{
 		Title: "目录标题",
-		Evidence: []evidenceSpec{
+		Hint: []hintSpec{
 			{Aspect: "目录结构", Source: "backend/", Detail: "存在服务代码"},
 			{Aspect: "配置", Source: "go.mod", Detail: "识别Go项目"},
 		},
 	}
 
-	if err := svc.saveEvidence(1, task, spec); err != nil {
-		t.Fatalf("saveEvidence error: %v", err)
+	if err := svc.saveHint(1, task, spec); err != nil {
+		t.Fatalf("saveHint error: %v", err)
 	}
 	if len(repo.created) != 2 {
-		t.Fatalf("expected 2 evidences, got %d", len(repo.created))
+		t.Fatalf("expected 2 hints, got %d", len(repo.created))
 	}
 	if repo.created[0].TaskID != task.ID || repo.created[1].TaskID != task.ID {
 		t.Fatalf("unexpected task id values: %v, %v", repo.created[0].TaskID, repo.created[1].TaskID)
 	}
 }
 
-func TestServiceSaveEvidenceSkipEmpty(t *testing.T) {
-	repo := &mockEvidenceRepo{}
-	svc := &Service{evidenceRepo: repo}
+func TestServiceSaveHintSkipEmpty(t *testing.T) {
+	repo := &mockHintRepo{}
+	svc := &Service{hintRepo: repo}
 	task := &model.Task{ID: 7, RepositoryID: 2}
 	spec := dirSpec{Title: "空证据"}
 
-	if err := svc.saveEvidence(2, task, spec); err != nil {
-		t.Fatalf("saveEvidence error: %v", err)
+	if err := svc.saveHint(2, task, spec); err != nil {
+		t.Fatalf("saveHint error: %v", err)
 	}
 	if len(repo.created) != 0 {
-		t.Fatalf("expected no evidences, got %d", len(repo.created))
+		t.Fatalf("expected no hints, got %d", len(repo.created))
 	}
 }
 
@@ -68,7 +68,7 @@ func TestParseDirListFromYAMLBlock(t *testing.T) {
 		"  - type: project_overview\n" +
 		"    title: 项目简介与定位\n" +
 		"    sort_order: 1\n" +
-		"    evidence:\n" +
+		"    hint:\n" +
 		"      - aspect: 目录结构\n" +
 		"        source: |\n" +
 		"          - /README.md\n" +

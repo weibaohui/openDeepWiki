@@ -50,7 +50,7 @@ type Document struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
-type TaskEvidence struct {
+type TaskHint struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`
 	RepositoryID uint      `json:"repository_id" gorm:"index;"`
 	TaskID       uint      `json:"task_id" gorm:"index;"`

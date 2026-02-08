@@ -32,11 +32,11 @@ var (
 // Service 文档生成服务。
 // 基于 Eino ADK 实现，用于分析代码并生成技术文档。
 type Service struct {
-	factory      *adkagents.AgentFactory
-	evidenceRepo repository.EvidenceRepository
+	factory  *adkagents.AgentFactory
+	hintRepo repository.HintRepository
 }
 
-func New(cfg *config.Config, evidenceRepo repository.EvidenceRepository) (*Service, error) {
+func New(cfg *config.Config, hintRepo repository.HintRepository) (*Service, error) {
 	klog.V(6).Infof("[dgen.New] creating document generator service")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
@@ -46,8 +46,8 @@ func New(cfg *config.Config, evidenceRepo repository.EvidenceRepository) (*Servi
 	}
 
 	return &Service{
-		factory:      factory,
-		evidenceRepo: evidenceRepo,
+		factory:  factory,
+		hintRepo: hintRepo,
 	}, nil
 }
 
@@ -91,7 +91,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", fmt.Errorf("create agent failed: %w", err)
 	}
 
-	evidencePrompt := s.buildEvidencePrompt(taskID)
+	hintPrompt := s.buildHintPrompt(taskID)
 
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成一份技术文档。
 
@@ -103,7 +103,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 1. 分析仓库代码，关注可能与标题所示含义相关的内容
 2. 编写详细的技术文档，使用 Markdown 格式
 
-`, localPath, title, evidencePrompt)
+`, localPath, title, hintPrompt)
 
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
@@ -124,21 +124,21 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 	return lastContent, nil
 }
 
-func (s *Service) buildEvidencePrompt(taskID uint) string {
-	if s.evidenceRepo == nil || taskID == 0 {
+func (s *Service) buildHintPrompt(taskID uint) string {
+	if s.hintRepo == nil || taskID == 0 {
 		return ""
 	}
-	evidences, err := s.evidenceRepo.GetByTaskID(taskID)
+	hints, err := s.hintRepo.GetByTaskID(taskID)
 	if err != nil {
-		klog.V(6).Infof("[dgen.buildEvidencePrompt] 读取任务证据失败: taskID=%d, error=%v", taskID, err)
+		klog.V(6).Infof("[dgen.buildHintPrompt] 读取任务证据失败: taskID=%d, error=%v", taskID, err)
 		return ""
 	}
-	if len(evidences) == 0 {
+	if len(hints) == 0 {
 		return ""
 	}
 	builder := &strings.Builder{}
 	builder.WriteString("撰写文章时可参考如下线索: \n")
-	for _, ev := range evidences {
+	for _, ev := range hints {
 		builder.WriteString("- 维度: ")
 		builder.WriteString(safe(ev.Aspect))
 		builder.WriteString("\n  来源: ")
