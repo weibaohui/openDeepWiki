@@ -35,6 +35,7 @@ type RepositoryService struct {
 	// 目录分析服务
 	dirMakerService DirMakerService
 	dbModelParser   DatabaseModelParser
+	apiAnalyzer     APIAnalyzer
 }
 
 // DirMakerService 目录分析服务接口。
@@ -46,8 +47,12 @@ type DatabaseModelParser interface {
 	Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
 }
 
+type APIAnalyzer interface {
+	Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
+}
+
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser, apiAnalyzer APIAnalyzer) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
@@ -60,6 +65,7 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 		dirMakerService:  dirMakerService,
 		dbModelParser:    dbModelParser,
+		apiAnalyzer:      apiAnalyzer,
 	}
 }
 
@@ -504,6 +510,82 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 	}(repo, task)
 
 	klog.V(6).Infof("数据库模型分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
+	return task, nil
+}
+
+// AnalyzeAPI 异步触发API接口分析任务。
+func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model.Task, error) {
+	klog.V(6).Infof("准备异步分析API接口: repoID=%d", repoID)
+
+	if s.apiAnalyzer == nil || s.docService == nil {
+		return nil, fmt.Errorf("API接口分析服务未初始化")
+	}
+
+	repo, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		return nil, fmt.Errorf("获取仓库失败: %w", err)
+	}
+
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if !statemachine.CanExecuteTasks(currentStatus) {
+		return nil, fmt.Errorf("仓库状态不允许执行API接口分析: current=%s", currentStatus)
+	}
+
+	task := &model.Task{
+		RepositoryID: repo.ID,
+		Type:         "api",
+		Title:        "API接口分析",
+		Status:       string(statemachine.TaskStatusPending),
+		SortOrder:    11,
+	}
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, fmt.Errorf("创建API接口分析任务失败: %w", err)
+	}
+
+	go func(targetRepo *model.Repository, targetTask *model.Task) {
+		klog.V(6).Infof("开始异步API接口分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
+		startedAt := time.Now()
+		clearErrMsg := ""
+		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusRunning, &startedAt, nil, &clearErrMsg); err != nil {
+			klog.Errorf("更新API接口分析任务状态失败: taskID=%d, error=%v", targetTask.ID, err)
+		}
+
+		content, err := s.apiAnalyzer.Generate(context.Background(), targetRepo.LocalPath, targetTask.Title, targetRepo.ID, targetTask.ID)
+		if err != nil {
+			completedAt := time.Now()
+			errMsg := fmt.Sprintf("API接口分析失败: %v", err)
+			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
+			s.updateRepositoryStatusAfterTask(targetRepo.ID)
+			klog.Errorf("异步API接口分析失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
+			return
+		}
+
+		_, err = s.docService.Create(CreateDocumentRequest{
+			RepositoryID: targetTask.RepositoryID,
+			TaskID:       targetTask.ID,
+			Title:        targetTask.Title,
+			Filename:     targetTask.Title + ".md",
+			Content:      content,
+			SortOrder:    targetTask.SortOrder,
+		})
+		if err != nil {
+			completedAt := time.Now()
+			errMsg := fmt.Sprintf("保存API接口文档失败: %v", err)
+			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
+			s.updateRepositoryStatusAfterTask(targetRepo.ID)
+			klog.Errorf("保存API接口文档失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
+			return
+		}
+
+		completedAt := time.Now()
+		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusSucceeded, nil, &completedAt, nil); err != nil {
+			klog.Errorf("更新API接口分析任务完成状态失败: taskID=%d, error=%v", targetTask.ID, err)
+		}
+		s.updateRepositoryStatusAfterTask(targetRepo.ID)
+		klog.V(6).Infof("异步API接口分析完成: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
+	}(repo, task)
+
+	klog.V(6).Infof("API接口分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
 	return task, nil
 }
 
