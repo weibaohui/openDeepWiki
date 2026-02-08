@@ -366,126 +366,209 @@ func TestRepositoryServiceAnalyzeDatabaseModelDisallowedStatus(t *testing.T) {
 	}
 }
 
-// TestRepositoryServiceAnalyzeAPIAsync 验证API分析异步触发逻辑。
-func TestRepositoryServiceAnalyzeAPIAsync(t *testing.T) {
+func TestRepositoryServiceDeleteCompletedStatus(t *testing.T) {
 	repo := &model.Repository{
-		ID:        15,
-		Status:    string(statemachine.RepoStatusReady),
-		LocalPath: "/tmp/repo",
+		ID:     100,
+		Status: string(statemachine.RepoStatusCompleted),
 	}
-	triggered := make(chan struct{}, 1)
-	analyzer := &mockAPIAnalyzer{
-		GenerateFunc: func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
-			triggered <- struct{}{}
-			return "# API接口分析\n", nil
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	err := service.Delete(100)
+	if !errors.Is(err, ErrCannotDeleteRepoInvalidStatus) {
+		t.Fatalf("expected ErrCannotDeleteRepoInvalidStatus, got %v", err)
+	}
+}
+
+func TestRepositoryServiceDeleteAnalyzingStatus(t *testing.T) {
+	repo := &model.Repository{
+		ID:     101,
+		Status: string(statemachine.RepoStatusAnalyzing),
+	}
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+	}
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	err := service.Delete(101)
+	if !errors.Is(err, ErrCannotDeleteRepoInvalidStatus) {
+		t.Fatalf("expected ErrCannotDeleteRepoInvalidStatus, got %v", err)
+	}
+}
+
+func TestRepositoryServiceDeletePendingStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        102,
+		Status:    string(statemachine.RepoStatusPending),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
 		},
 	}
 	taskRepo := &mockTaskRepo{
-		CreateFunc: func(task *model.Task) error {
-			task.ID = 30
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
 			return nil
 		},
 	}
 	docRepo := &mockDocumentRepo{
-		CreateVersionedFunc: func(doc *model.Document) error {
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
 			return nil
 		},
 	}
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(102)
+	if err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
+	}
+}
+
+func TestRepositoryServiceDeleteCloningStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        103,
+		Status:    string(statemachine.RepoStatusCloning),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
 	repoRepo := &mockRepoRepo{
 		GetBasicFunc: func(id uint) (*model.Repository, error) {
 			return repo, nil
 		},
-	}
-	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, nil, analyzer)
-	task, err := service.AnalyzeAPI(context.Background(), 15)
-	if err != nil {
-		t.Fatalf("AnalyzeAPI error: %v", err)
-	}
-	if task == nil || task.Type != "api" {
-		t.Fatalf("unexpected task: %+v", task)
-	}
-	select {
-	case <-triggered:
-	case <-time.After(300 * time.Millisecond):
-		t.Fatalf("expected async api analysis to be triggered")
-	}
-}
-
-// TestRepositoryServiceAnalyzeAPIFailed 验证API分析失败后的状态更新。
-func TestRepositoryServiceAnalyzeAPIFailed(t *testing.T) {
-	repo := &model.Repository{
-		ID:        16,
-		Status:    string(statemachine.RepoStatusReady),
-		LocalPath: "/tmp/repo",
-	}
-	failedCh := make(chan model.Task, 1)
-	analyzer := &mockAPIAnalyzer{
-		GenerateFunc: func(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
-			return "", errors.New("解析失败")
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
 		},
 	}
 	taskRepo := &mockTaskRepo{
-		CreateFunc: func(task *model.Task) error {
-			task.ID = 31
-			return nil
-		},
-		SaveFunc: func(task *model.Task) error {
-			if task.Status == string(statemachine.TaskStatusFailed) {
-				failedCh <- *task
-			}
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
 			return nil
 		},
 	}
 	docRepo := &mockDocumentRepo{
-		CreateVersionedFunc: func(doc *model.Document) error {
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
 			return nil
 		},
 	}
-	repoRepo := &mockRepoRepo{
-		GetBasicFunc: func(id uint) (*model.Repository, error) {
-			return repo, nil
-		},
-	}
-	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, nil, analyzer)
-	task, err := service.AnalyzeAPI(context.Background(), 16)
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(103)
 	if err != nil {
-		t.Fatalf("AnalyzeAPI error: %v", err)
+		t.Fatalf("Delete error: %v", err)
 	}
-	if task == nil || task.Type != "api" {
-		t.Fatalf("unexpected task: %+v", task)
-	}
-	select {
-	case failedTask := <-failedCh:
-		if failedTask.CompletedAt == nil {
-			t.Fatalf("expected completed time to be set")
-		}
-		if failedTask.StartedAt == nil {
-			t.Fatalf("expected started time to be set")
-		}
-		if failedTask.ErrorMsg == "" || failedTask.ErrorMsg == "解析失败" {
-			t.Fatalf("expected error message to be wrapped, got %s", failedTask.ErrorMsg)
-		}
-	case <-time.After(300 * time.Millisecond):
-		t.Fatalf("expected async api analysis to fail")
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
 	}
 }
 
-// TestRepositoryServiceAnalyzeAPIDisallowedStatus 验证禁用状态下不允许触发API分析。
-func TestRepositoryServiceAnalyzeAPIDisallowedStatus(t *testing.T) {
-	repo := &model.Repository{
-		ID:     17,
-		Status: string(statemachine.RepoStatusCloning),
+func TestRepositoryServiceDeleteReadyStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
 	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        104,
+		Status:    string(statemachine.RepoStatusReady),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
 	repoRepo := &mockRepoRepo{
 		GetBasicFunc: func(id uint) (*model.Repository, error) {
 			return repo, nil
 		},
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
+		},
 	}
-	analyzer := &mockAPIAnalyzer{}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, analyzer)
-	if _, err := service.AnalyzeAPI(context.Background(), 17); err == nil {
-		t.Fatalf("expected error for disallowed status")
+	taskRepo := &mockTaskRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(104)
+	if err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
 	}
 }
+
+func TestRepositoryServiceDeleteErrorStatus(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "delete-repo")
+	if err != nil {
+		t.Fatalf("create temp dir error: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	repo := &model.Repository{
+		ID:        105,
+		Status:    string(statemachine.RepoStatusError),
+		LocalPath: tempDir,
+	}
+	deleteCalled := false
+	repoRepo := &mockRepoRepo{
+		GetBasicFunc: func(id uint) (*model.Repository, error) {
+			return repo, nil
+		},
+		DeleteFunc: func(id uint) error {
+			deleteCalled = true
+			return nil
+		},
+	}
+	taskRepo := &mockTaskRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+	docRepo := &mockDocumentRepo{
+		DeleteByRepositoryIDFunc: func(repoID uint) error {
+			return nil
+		},
+	}
+
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	err = service.Delete(105)
+	if err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Fatalf("expected repoRepo.Delete to be called")
+	}
+}
+
