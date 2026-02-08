@@ -70,6 +70,7 @@ type CreateRepoRequest struct {
 var (
 	ErrInvalidRepositoryURL    = errors.New("invalid repository url")
 	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+	ErrCannotDeleteRepoInvalidStatus = errors.New("无法删除仓库：已完成或正在分析中的仓库不能删除")
 )
 
 // Create 创建仓库并初始化任务
@@ -230,6 +231,13 @@ func (s *RepositoryService) Delete(id uint) error {
 	repo, err := s.repoRepo.GetBasic(id)
 	if err != nil {
 		return fmt.Errorf("获取仓库失败: %w", err)
+	}
+
+	// 校验仓库状态：已完成或正在分析中的仓库不能删除
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if currentStatus == statemachine.RepoStatusCompleted || currentStatus == statemachine.RepoStatusAnalyzing {
+		klog.V(6).Infof("拒绝删除仓库：状态不允许删除: repoID=%d, status=%s", id, currentStatus)
+		return ErrCannotDeleteRepoInvalidStatus
 	}
 
 	// 删除本地仓库文件
