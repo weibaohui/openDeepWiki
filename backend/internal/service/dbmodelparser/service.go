@@ -132,7 +132,6 @@ func (s *Service) buildEvidenceYAML(repoID uint) string {
 
 	items := make([]map[string]string, 0, len(evidences))
 	for _, ev := range evidences {
-
 		items = append(items, map[string]string{
 			"title":  safe(ev.Title),
 			"detail": safe(ev.Detail),

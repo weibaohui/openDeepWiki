@@ -44,7 +44,7 @@ func TestBuildEvidencePrompt(t *testing.T) {
 	if prompt == "" {
 		t.Fatalf("expected non-empty prompt")
 	}
-	if !strings.Contains(prompt, "参考证据") {
+	if !strings.Contains(prompt, "参考如下线索") {
 		t.Fatalf("expected evidence header")
 	}
 	if !strings.Contains(prompt, "目录结构") || !strings.Contains(prompt, "backend/") || !strings.Contains(prompt, "存在核心服务") {
