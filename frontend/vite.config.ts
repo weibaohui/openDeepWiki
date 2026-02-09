@@ -36,4 +36,16 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // 入口文件
+        entryFileNames: 'assets/[name]-[hash].js',
+        // chunk 文件（你这个 _baseUniq 就是这里来的）
+        chunkFileNames: 'assets/chunk-[name]-[hash].js',
+        // 其它资源
+        assetFileNames: 'assets/[name]-[hash][extname]',
+      },
+    },
+  },
 })
