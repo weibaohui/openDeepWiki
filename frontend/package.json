@@ -11,14 +11,17 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.7",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@uiw/react-md-editor": "^4.0.11",
     "antd": "6.2.2",
     "axios": "^1.13.3",
+    "github-markdown-css": "^5.9.0",
     "mermaid": "^11.12.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.0",
+    "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {

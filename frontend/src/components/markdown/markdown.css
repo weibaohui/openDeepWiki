@@ -1,0 +1,116 @@
+/* 引入 GitHub Markdown 样式 */
+@import 'github-markdown-css/github-markdown.css';
+
+/* 自定义增强样式 */
+.markdown-body {
+  /* 基础字体设置 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 16px; /* 增大字体 */
+  line-height: 1.6;
+  color: var(--ant-color-text); /* 适配 Ant Design 主题色 */
+  background-color: transparent !important; /* 透明背景以适配卡片 */
+  padding: 16px;
+}
+
+/* 强制覆盖表格样式，确保边框清晰 */
+.markdown-body table {
+  display: block;
+  width: 100%;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-body table tr {
+  background-color: var(--ant-color-bg-container);
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: var(--ant-color-bg-layout); /* 斑马纹 */
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  padding: 8px 16px; /* 增加内边距 */
+  border: 1px solid var(--ant-color-border-secondary); /* 明确边框 */
+  font-size: 15px;
+}
+
+.markdown-body table th {
+  font-weight: 600;
+  background-color: var(--ant-color-fill-secondary); /* 使用更柔和的背景色 */
+  color: var(--ant-color-text-base); /* 确保文字颜色清晰 */
+}
+
+/* 章节间距增强 */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body p {
+  margin-bottom: 16px; /* 增加段落间距 */
+}
+
+/* 代码块优化 */
+.markdown-body pre {
+  margin-bottom: 16px;
+  /* 移除强制背景色，交给 SyntaxHighlighter 接管 */
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* 仅对未被 SyntaxHighlighter 接管的 pre 生效（如无语言标记的代码块） */
+.markdown-body pre:not(:has(div[class*="syntax-highlighter"])) {
+  background-color: var(--ant-color-fill-secondary) !important;
+  border: 1px solid var(--ant-color-border-secondary) !important;
+  padding: 16px !important;
+  border-radius: 6px;
+}
+
+/* 行内代码优化 */
+.markdown-body :not(pre) > code {
+  background-color: var(--ant-color-fill-tertiary);
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 4px;
+  padding: 0.2em 0.4em;
+  font-size: 85%;
+  margin: 0;
+  color: var(--ant-color-text);
+}
+
+/* 列表间距 */
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 2em;
+  margin-bottom: 16px;
+}
+
+/* 深色模式适配覆盖 (利用 Ant Design 的 CSS 变量) */
+[data-theme='dark'] .markdown-body,
+.markdown-body[data-color-mode='dark'] {
+  color: var(--ant-color-text);
+}
+
+/* 针对 Mermaid 图表的容器微调 */
+.markdown-body .mermaid-container {
+  margin: 16px 0;
+  text-align: center;
+  background-color: var(--ant-color-bg-container);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--ant-color-border-secondary);
+}
