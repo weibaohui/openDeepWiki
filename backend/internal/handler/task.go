@@ -1,13 +1,14 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
+	"k8s.io/klog/v2"
 )
 
 type TaskHandler struct {
@@ -316,48 +317,17 @@ func (h *TaskHandler) CreateUserRequest(c *gin.Context) {
 	// 记录用户请求
 	klog.V(6).Infof("[handler.CreateUserRequest] 接收到用户需求: repoID=%d, content=%s", repoID, req.Content)
 
-	// 创建任务
-	task, err := h.service.CreateUserRequestTask(c.Request.Context(), uint(repoID), req.Content)
-	if err != nil {
-		klog.Errorf("[handler.CreateUserRequest] 创建任务失败: repoID=%d, error=%v", repoID, err)
-
-		// 判断错误类型，返回相应的错误信息
-		if strings.Contains(err.Error(), "LLM调用失败") {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": "无法处理您的请求，请稍后重试",
-			})
-		} else if strings.Contains(err.Error(), "仓库不存在") {
-			c.JSON(http.StatusNotFound, gin.H{
-				"code":    404,
-				"message": "仓库不存在",
-			})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": "保存失败，请稍后重试",
-			})
+	// 创建任务（后台异步执行）
+	go func() {
+		if _, err := h.service.CreateUserRequestTask(context.Background(), uint(repoID), req.Content); err != nil {
+			klog.Errorf("[handler.CreateUserRequest] 后台创建任务失败: repoID=%d, error=%v", repoID, err)
 		}
-		return
-	}
+	}()
 
-	// 构建响应
-	response := UserRequestResponseDTO{
-		ID:           task.ID,
-		RepositoryID: task.RepositoryID,
-		Type:         task.Type,
-		Title:        task.Title,
-		Status:       task.Status,
-		SortOrder:    task.SortOrder,
-		CreatedAt:    task.CreatedAt,
-		UpdatedAt:    task.UpdatedAt,
-	}
-
-	klog.V(6).Infof("[handler.CreateUserRequest] 任务创建成功: taskID=%d, title=%s", task.ID, task.Title)
+	klog.V(6).Infof("[handler.CreateUserRequest] 用户需求已提交后台处理: repoID=%d, content=%s", repoID, req.Content)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "需求已提交",
-		"data":    response,
+		"message": "需求已提交，后台处理中",
 	})
 }

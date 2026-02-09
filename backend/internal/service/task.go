@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudwego/eino/components/model"
-	"k8s.io/klog/v2"
-
+	einomodel "github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
@@ -16,6 +15,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
+	"k8s.io/klog/v2"
 )
 
 type TaskService struct {
@@ -27,7 +27,7 @@ type TaskService struct {
 	taskStateMachine *statemachine.TaskStateMachine
 	repoAggregator   *statemachine.RepositoryStatusAggregator
 	orchestrator     *orchestrator.Orchestrator
-	llm              model.ChatModel
+	llm              einomodel.ToolCallingChatModel
 }
 
 func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService, docGenerator *documentgenerator.Service) *TaskService {
@@ -716,13 +716,13 @@ func (s *TaskService) GenerateUserRequestTitle(ctx context.Context, userContent 
 请生成文档标题：`, userContent)
 
 	// 调用LLM
-	messages := []model.Message{
+	messages := []*schema.Message{
 		{
-			Role:    model.System,
+			Role:    schema.System,
 			Content: "你是一个专业的文档标题生成专家，擅长从用户需求中提取核心内容并生成简洁的标题。",
 		},
 		{
-			Role:    model.User,
+			Role:    schema.User,
 			Content: prompt,
 		},
 	}
@@ -736,7 +736,7 @@ func (s *TaskService) GenerateUserRequestTitle(ctx context.Context, userContent 
 	// 提取响应内容
 	title := ""
 	if len(resp.Content) > 0 {
-		title = strings.TrimSpace(resp.Content[0].Text)
+		title = strings.TrimSpace(resp.Content)
 	}
 
 	// 截断标题，确保不超过50个字符
