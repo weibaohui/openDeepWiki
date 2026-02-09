@@ -38,6 +38,7 @@ import {
     Input
 } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
+import MarkdownRender from '@/components/markdown/MarkdownRender';
 import type { Document, Repository, Task, DocumentRatingStats } from '../types';
 import { documentApi, repositoryApi, taskApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
@@ -548,7 +549,7 @@ export default function DocViewer() {
                             <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MDEditor.Markdown source={document?.content || ''} style={{ background: 'transparent' }} />
+                                    <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
                                     {rateInfo}
 
                                 </div>

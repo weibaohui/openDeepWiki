@@ -14,6 +14,7 @@
     "@uiw/react-md-editor": "^4.0.11",
     "antd": "6.2.2",
     "axios": "^1.13.3",
+    "mermaid": "^11.12.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
