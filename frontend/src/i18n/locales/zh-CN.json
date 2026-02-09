@@ -221,5 +221,15 @@
             "delete_failed": "删除失败",
             "status_update_failed": "更新状态失败"
         }
+    },
+    "user_request": {
+        "button_text": "没找到想要的",
+        "modal_title": "内容需求反馈",
+        "modal_description": "请用一句话描述您想要查看的内容，我们会根据您的需求生成新的文档。",
+        "input_placeholder": "例如：我想了解这个项目的认证机制是如何实现的",
+        "content_required": "请输入您想要查看的内容",
+        "content_too_long": "内容长度不能超过200个字符",
+        "success": "需求已提交，我们会尽快生成相关文档",
+        "failed": "提交失败，请稍后重试"
     }
 }

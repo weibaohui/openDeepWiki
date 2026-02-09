@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined, LinkOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty, Row, Col, Statistic, Tag } from 'antd';
+import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined, LinkOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty, Row, Col, Statistic, Tag, Modal, Input } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document, Repository, Task } from '../types';
 import { documentApi, repositoryApi, taskApi } from '../services/api';
@@ -29,6 +29,9 @@ export default function DocViewer() {
     const [messageApi, contextHolder] = message.useMessage();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [versionDrawerOpen, setVersionDrawerOpen] = useState(false);
+    const [userRequestModalOpen, setUserRequestModalOpen] = useState(false);
+    const [userRequestContent, setUserRequestContent] = useState('');
+    const [userRequestLoading, setUserRequestLoading] = useState(false);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -129,6 +132,40 @@ export default function DocViewer() {
         }
     };
 
+    const handleOpenUserRequestModal = () => {
+        setUserRequestModalOpen(true);
+        setUserRequestContent('');
+    };
+
+    const handleCloseUserRequestModal = () => {
+        setUserRequestModalOpen(false);
+        setUserRequestContent('');
+    };
+
+    const handleSubmitUserRequest = async () => {
+        if (!userRequestContent.trim()) {
+            messageApi.error(t('user_request.content_required'));
+            return;
+        }
+
+        if (userRequestContent.length > 200) {
+            messageApi.error(t('user_request.content_too_long'));
+            return;
+        }
+
+        setUserRequestLoading(true);
+        try {
+            await repositoryApi.createUserRequest(Number(id), userRequestContent);
+            messageApi.success(t('user_request.success'));
+            handleCloseUserRequestModal();
+        } catch (error) {
+            console.error('提交用户需求失败:', error);
+            messageApi.error(t('user_request.failed'));
+        } finally {
+            setUserRequestLoading(false);
+        }
+    };
+
     const handleDownload = () => {
         if (!document) return;
         const blob = new Blob([document.content], { type: 'text/markdown' });
@@ -217,20 +254,33 @@ export default function DocViewer() {
                     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('repository.no_docs')} />
                 </div>
             ) : (
-                <Menu
-                    mode="inline"
-                    selectedKeys={docId ? [docId] : []}
-                    style={{ borderRight: 0 }}
-                    items={documents.map(doc => ({
-                        key: String(doc.id),
-                        icon: <FileTextOutlined />,
-                        label: doc.title,
-                        onClick: () => {
-                            navigate(`/repo/${id}/doc/${doc.id}`);
-                            setMobileMenuOpen(false);
-                        }
-                    }))}
-                />
+                <>
+                    <Menu
+                        mode="inline"
+                        selectedKeys={docId ? [docId] : []}
+                        style={{ borderRight: 0 }}
+                        items={documents.map(doc => ({
+                            key: String(doc.id),
+                            icon: <FileTextOutlined />,
+                            label: doc.title,
+                            onClick: () => {
+                                navigate(`/repo/${id}/doc/${doc.id}`);
+                                setMobileMenuOpen(false);
+                            }
+                        }))}
+                    />
+                    <div style={{ padding: '16px' }}>
+                        <Button
+                            type="default"
+                            size="small"
+                            icon={<PlusOutlined />}
+                            onClick={handleOpenUserRequestModal}
+                            block
+                        >
+                            {t('user_request.button_text')}
+                        </Button>
+                    </div>
+                </>
             )}
         </>
     );
@@ -411,6 +461,27 @@ export default function DocViewer() {
                     </Space>
                 )}
             </Drawer>
+            <Modal
+                title={t('user_request.modal_title')}
+                open={userRequestModalOpen}
+                onCancel={handleCloseUserRequestModal}
+                onOk={handleSubmitUserRequest}
+                confirmLoading={userRequestLoading}
+                okText={t('common.confirm')}
+                cancelText={t('common.cancel')}
+            >
+                <div style={{ marginBottom: 16 }}>
+                    <p>{t('user_request.modal_description')}</p>
+                </div>
+                <Input.TextArea
+                    value={userRequestContent}
+                    onChange={(e) => setUserRequestContent(e.target.value)}
+                    placeholder={t('user_request.input_placeholder')}
+                    autoSize={{ minRows: 3, maxRows: 6 }}
+                    maxLength={200}
+                    showCount
+                />
+            </Modal>
         </Layout>
     );
 }

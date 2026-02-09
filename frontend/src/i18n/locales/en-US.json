@@ -220,5 +220,15 @@
             "delete_failed": "Failed to delete",
             "status_update_failed": "Failed to update status"
         }
+    },
+    "user_request": {
+        "button_text": "Can't find what you want",
+        "modal_title": "Content Request",
+        "modal_description": "Please describe in one sentence what you want to see, and we will generate new documentation based on your needs.",
+        "input_placeholder": "e.g. I want to understand how authentication works in this project",
+        "content_required": "Please describe what you want to see",
+        "content_too_long": "Content cannot exceed 200 characters",
+        "success": "Request submitted, we will generate relevant documentation as soon as possible",
+        "failed": "Submission failed, please try again later"
     }
 }
