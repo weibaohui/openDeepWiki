@@ -195,14 +195,7 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	}
 	klog.V(6).Infof("文档生成完成: taskTitle=%s, contentLength=%d", task.Title, len(content))
 
-	_, err = s.docService.Create(CreateDocumentRequest{
-		RepositoryID: task.RepositoryID,
-		TaskID:       task.ID,
-		Title:        task.Title,
-		Filename:     task.Title + ".md",
-		Content:      content,
-		SortOrder:    task.SortOrder,
-	})
+	_, err = s.docService.Update(task.DocID, content)
 
 	if err != nil {
 		klog.V(6).Infof("保存文档失败: error=%v", err)

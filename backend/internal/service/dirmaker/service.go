@@ -81,6 +81,7 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) (*mode
 		doc := &model.Document{
 			RepositoryID: repo.ID,
 			Title:        spec.Title,
+			Filename:     fmt.Sprintf("%s.md", spec.Title),
 			Status:       string(statemachine.TaskStatusPending),
 		}
 		if err := s.docRepo.Create(doc); err != nil {

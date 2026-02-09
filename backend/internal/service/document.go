@@ -79,7 +79,6 @@ func (s *DocumentService) Update(id uint, content string) (*model.Document, erro
 	if err != nil {
 		return nil, err
 	}
-
 	doc.Content = content
 	doc.UpdatedAt = time.Now()
 	if err := s.docRepo.Save(doc); err != nil {
@@ -176,7 +175,7 @@ func (s *DocumentService) GetRedirectURL(docID uint, filePath string) (string, e
 
 	// 处理仓库 URL
 	repoURL := repo.URL
-	if before, ok :=strings.CutSuffix(repoURL, ".git"); ok  {
+	if before, ok := strings.CutSuffix(repoURL, ".git"); ok {
 		repoURL = before
 	}
 
