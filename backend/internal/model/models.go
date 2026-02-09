@@ -43,7 +43,6 @@ type Document struct {
 	Title        string    `json:"title" gorm:"size:255;"`
 	Filename     string    `json:"filename" gorm:"size:255;"`
 	Content      string    `json:"content" gorm:"type:text"`
-	Status       string    `json:"status" gorm:"size:50;default:pending"` // pending, analyzing, completed, error
 	SortOrder    int       `json:"sort_order" gorm:"default:0"`
 	Version      int       `json:"version" gorm:"default:1;index"`
 	IsLatest     bool      `json:"is_latest" gorm:"default:true;index"`

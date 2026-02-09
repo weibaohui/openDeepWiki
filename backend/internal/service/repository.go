@@ -420,17 +420,14 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 		}
 		klog.V(6).Infof("异步目录分析完成，创建了 %d 个目录: repoID=%d", len(dirs.Dirs), targetRepo.ID)
 		//存入Task数据库
+
 		for _, dir := range dirs.Dirs {
-			task := &model.Task{
-				RepositoryID: targetRepo.ID,
-				DocID:        dir.DocID,
-				Title:        dir.Title,
-				Status:       string(statemachine.TaskStatusPending),
-				SortOrder:    dir.SortOrder,
+			task, err := s.CreateTaskWithDoc(ctx, targetRepo.ID, dir.Title, dir.SortOrder)
+			if err != nil {
+				klog.Errorf("创建任务失败: repoID=%d, error=%v", targetRepo.ID, err)
+				continue
 			}
-			if err := s.taskRepo.Create(task); err != nil {
-				klog.Errorf("目录分解为任务失败: repoID=%d, docID=%d, error=%v", targetRepo.ID, dir.DocID, err)
-			}
+
 			if err := s.saveHint(targetRepo.ID, task, dir); err != nil {
 				klog.Errorf("保存任务提示信息失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, task.ID, err)
 			}
@@ -509,7 +506,7 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 		return nil, fmt.Errorf("仓库状态不允许执行数据库模型分析: current=%s", currentStatus)
 	}
 
-	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "数据库模型分析")
+	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "数据库模型分析", 10)
 	if err != nil {
 		return nil, fmt.Errorf("创建数据库模型分析任务失败: %w", err)
 	}
@@ -572,7 +569,7 @@ func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model
 		return nil, fmt.Errorf("仓库状态不允许执行API接口分析: current=%s", currentStatus)
 	}
 
-	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "API接口分析")
+	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "API接口分析", 20)
 	if err != nil {
 		return nil, fmt.Errorf("创建API接口分析任务失败: %w", err)
 	}
@@ -669,13 +666,13 @@ func (s *RepositoryService) SetReady(repoID uint) error {
 // 1. 创建文档
 // 2. 创建任务
 // 3. 更新文档关联的任务ID
-func (s *RepositoryService) CreateTaskWithDoc(ctx context.Context, repoID uint, title string) (*model.Task, error) {
+func (s *RepositoryService) CreateTaskWithDoc(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
 	doc, err := s.docService.Create(CreateDocumentRequest{
 		RepositoryID: repoID,
 		Title:        title,
 		Filename:     title + ".md",
 		Content:      "",
-		SortOrder:    10,
+		SortOrder:    sortOrder,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("创建文档失败: %w", err)
@@ -686,7 +683,7 @@ func (s *RepositoryService) CreateTaskWithDoc(ctx context.Context, repoID uint, 
 		DocID:        doc.ID,
 		Title:        title,
 		Status:       string(statemachine.TaskStatusPending),
-		SortOrder:    10,
+		SortOrder:    sortOrder,
 	}
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, fmt.Errorf("创建任务失败: %w", err)

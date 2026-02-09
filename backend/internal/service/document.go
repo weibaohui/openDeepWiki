@@ -86,22 +86,6 @@ func (s *DocumentService) Update(docID uint, content string) (*model.Document, e
 
 	doc.Content = content
 	doc.UpdatedAt = time.Now()
-
-	if doc.Content == "" {
-		// 首次创建，直接保存
-		if err := s.docRepo.Save(doc); err != nil {
-			return nil, err
-		}
-		return doc, nil
-	}
-
-	// 非首次创建，创建新版本
-	doc.Status = "ready"
-	doc.ID = 0 // 重置 ID 为 0，触发创建新版本
-	if err := s.docRepo.CreateVersioned(doc); err != nil {
-		return nil, err
-	}
-
 	return doc, nil
 }
 

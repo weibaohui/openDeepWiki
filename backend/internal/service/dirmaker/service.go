@@ -12,7 +12,6 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 	"github.com/weibaohui/opendeepwiki/backend/internal/utils"
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
@@ -75,21 +74,6 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) (*mode
 
 	klog.V(6).Infof("[dirmaker.CreateTasks] 分析完成，生成目录数: %d", len(result.Dirs))
 	klog.V(6).Infof("[dirmaker.CreateTasks] 分析摘要: %s", result.AnalysisSummary)
-
-	//先把目录入库，后续任务完成后，再更新文档内容。
-	for _, spec := range result.Dirs {
-		doc := &model.Document{
-			RepositoryID: repo.ID,
-			Title:        spec.Title,
-			Filename:     fmt.Sprintf("%s.md", spec.Title),
-			Status:       string(statemachine.TaskStatusPending),
-		}
-		if err := s.docRepo.Create(doc); err != nil {
-			return nil, fmt.Errorf("创建文档 %s 失败: %w", spec.Title, err)
-		}
-		spec.DocID = doc.ID
-	}
-
 	return result, nil
 }
 
