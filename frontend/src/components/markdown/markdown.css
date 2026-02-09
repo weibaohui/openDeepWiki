@@ -72,6 +72,10 @@
   border: none !important;
   padding: 0 !important;
 }
+.markdown-body pre code {
+  font-size: 100%;
+  color: var(--ant-color-text);
+}
 
 /* 仅对未被 SyntaxHighlighter 接管的 pre 生效（如无语言标记的代码块） */
 .markdown-body pre:not(:has(div[class*="syntax-highlighter"])) {
