@@ -44,6 +44,7 @@ func Setup(
 			repos.POST("/:id/db-model-analyze", repoHandler.AnalyzeDatabaseModel)
 			repos.POST("/:id/api-analyze", repoHandler.AnalyzeAPI)
 			repos.POST("/:id/set-ready", repoHandler.SetReady)
+			repos.POST("/:id/user-requests", taskHandler.CreateUserRequest) // 新增：用户需求反馈
 			repos.GET("/:id/tasks", taskHandler.GetByRepository)
 			repos.GET("/:id/tasks/stats", taskHandler.GetStats) // 新增：任务统计
 			repos.GET("/:id/documents", docHandler.GetByRepository)
