@@ -274,7 +274,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelAsync(t *testing.T) {
 			return repo, nil
 		},
 	}
-	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil)
 	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	task, err := service.AnalyzeDatabaseModel(context.Background(), 12)
 	if err != nil {
@@ -324,7 +324,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelFailed(t *testing.T) {
 			return repo, nil
 		},
 	}
-	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil)
 	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	task, err := service.AnalyzeDatabaseModel(context.Background(), 14)
 	if err != nil {
@@ -376,7 +376,7 @@ func TestRepositoryServiceDeleteCompletedStatus(t *testing.T) {
 			return repo, nil
 		},
 	}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	err := service.Delete(100)
 	if !errors.Is(err, ErrCannotDeleteRepoInvalidStatus) {
 		t.Fatalf("expected ErrCannotDeleteRepoInvalidStatus, got %v", err)
@@ -393,7 +393,7 @@ func TestRepositoryServiceDeleteAnalyzingStatus(t *testing.T) {
 			return repo, nil
 		},
 	}
-	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, nil, nil, nil)
 	err := service.Delete(101)
 	if !errors.Is(err, ErrCannotDeleteRepoInvalidStatus) {
 		t.Fatalf("expected ErrCannotDeleteRepoInvalidStatus, got %v", err)
@@ -433,7 +433,7 @@ func TestRepositoryServiceDeletePendingStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil, nil)
 	err = service.Delete(102)
 	if err != nil {
 		t.Fatalf("Delete error: %v", err)
@@ -476,7 +476,7 @@ func TestRepositoryServiceDeleteCloningStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil, nil)
 	err = service.Delete(103)
 	if err != nil {
 		t.Fatalf("Delete error: %v", err)
@@ -519,7 +519,7 @@ func TestRepositoryServiceDeleteReadyStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil, nil)
 	err = service.Delete(104)
 	if err != nil {
 		t.Fatalf("Delete error: %v", err)
@@ -562,7 +562,7 @@ func TestRepositoryServiceDeleteErrorStatus(t *testing.T) {
 		},
 	}
 
-	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil)
+	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, docRepo, nil, nil, nil, nil, nil)
 	err = service.Delete(105)
 	if err != nil {
 		t.Fatalf("Delete error: %v", err)
@@ -571,4 +571,3 @@ func TestRepositoryServiceDeleteErrorStatus(t *testing.T) {
 		t.Fatalf("expected repoRepo.Delete to be called")
 	}
 }
-

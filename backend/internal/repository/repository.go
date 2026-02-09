@@ -49,6 +49,12 @@ type DocumentRepository interface {
 	GetByTaskID(taskID uint) ([]model.Document, error)
 }
 
+type DocumentRatingRepository interface {
+	Create(rating *model.DocumentRating) error
+	GetLatestByDocumentID(documentID uint) (*model.DocumentRating, error)
+	GetStatsByDocumentID(documentID uint) (*model.DocumentRatingStats, error)
+}
+
 type HintRepository interface {
 	CreateBatch(hints []model.TaskHint) error
 	GetByTaskID(taskID uint) ([]model.TaskHint, error)

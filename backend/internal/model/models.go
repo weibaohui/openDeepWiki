@@ -50,6 +50,19 @@ type Document struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type DocumentRating struct {
+	ID         uint      `json:"id" gorm:"primaryKey"`
+	DocumentID uint      `json:"document_id" gorm:"index"`
+	Score      int       `json:"score"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type DocumentRatingStats struct {
+	AverageScore float64 `json:"average_score"`
+	RatingCount  int64   `json:"rating_count"`
+}
+
 type TaskHint struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`
 	RepositoryID uint      `json:"repository_id" gorm:"index;"`

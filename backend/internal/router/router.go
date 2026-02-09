@@ -72,6 +72,8 @@ func Setup(
 			docs.GET("/:id", docHandler.Get)
 			docs.GET("/:id/versions", docHandler.GetVersions)
 			docs.PUT("/:id", docHandler.Update)
+			docs.POST("/:id/ratings", docHandler.SubmitRating)
+			docs.GET("/:id/ratings/stats", docHandler.GetRatingStats)
 		}
 
 		// API Key 管理

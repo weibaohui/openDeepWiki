@@ -168,7 +168,14 @@
         "overview_pending": "Pending",
         "overview_versions": "Total Versions",
         "overview_status_group": "Status Summary",
-        "overview_load_failed": "Failed to load document overview"
+        "overview_load_failed": "Failed to load document overview",
+        "rating_title": "Rating",
+        "rating_average": "Average",
+        "rating_count": "Ratings",
+        "rating_action": "Rate this document",
+        "rating_submit_success": "Rating submitted",
+        "rating_submit_failed": "Failed to submit rating",
+        "rating_stats_failed": "Failed to load rating"
     },
     "banner": {
         "title": "This is an open source project",

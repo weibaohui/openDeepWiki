@@ -109,7 +109,7 @@ func TestDocumentServiceCreateVersioned(t *testing.T) {
 			return nil
 		},
 	}
-	service := NewDocumentService(&config.Config{}, repo, nil)
+	service := NewDocumentService(&config.Config{}, repo, nil, nil)
 
 	doc, err := service.Create(CreateDocumentRequest{
 		RepositoryID: 1,
@@ -139,7 +139,7 @@ func TestDocumentServiceCreateVersionedError(t *testing.T) {
 			return errors.New("create failed")
 		},
 	}
-	service := NewDocumentService(&config.Config{}, repo, nil)
+	service := NewDocumentService(&config.Config{}, repo, nil, nil)
 
 	_, err := service.Create(CreateDocumentRequest{
 		RepositoryID: 1,
@@ -166,7 +166,7 @@ func TestDocumentServiceGetVersions(t *testing.T) {
 			}, nil
 		},
 	}
-	service := NewDocumentService(&config.Config{}, repo, nil)
+	service := NewDocumentService(&config.Config{}, repo, nil, nil)
 
 	versions, err := service.GetVersions(3)
 	if err != nil {

@@ -44,6 +44,11 @@ export interface Document {
     updated_at: string;
 }
 
+export interface DocumentRatingStats {
+	average_score: number;
+	rating_count: number;
+}
+
 
 export type ThemeMode = 'default' | 'dark' | 'compact';
 

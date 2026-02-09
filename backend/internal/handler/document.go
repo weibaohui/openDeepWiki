@@ -12,12 +12,14 @@ type DocumentHandler struct {
 	service *service.DocumentService
 }
 
+// NewDocumentHandler 创建文档处理器
 func NewDocumentHandler(service *service.DocumentService) *DocumentHandler {
 	return &DocumentHandler{
 		service: service,
 	}
 }
 
+// GetByRepository 获取仓库下文档列表
 func (h *DocumentHandler) GetByRepository(c *gin.Context) {
 	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -34,6 +36,7 @@ func (h *DocumentHandler) GetByRepository(c *gin.Context) {
 	c.JSON(http.StatusOK, docs)
 }
 
+// Get 获取单个文档详情
 func (h *DocumentHandler) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -50,6 +53,7 @@ func (h *DocumentHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, doc)
 }
 
+// GetVersions 获取文档版本列表
 func (h *DocumentHandler) GetVersions(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -66,6 +70,7 @@ func (h *DocumentHandler) GetVersions(c *gin.Context) {
 	c.JSON(http.StatusOK, docs)
 }
 
+// Update 更新文档内容
 func (h *DocumentHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -90,6 +95,7 @@ func (h *DocumentHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, doc)
 }
 
+// Export 导出仓库下所有文档
 func (h *DocumentHandler) Export(c *gin.Context) {
 	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -107,6 +113,7 @@ func (h *DocumentHandler) Export(c *gin.Context) {
 	c.Data(http.StatusOK, "application/zip", data)
 }
 
+// GetIndex 获取仓库文档索引内容
 func (h *DocumentHandler) GetIndex(c *gin.Context) {
 	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -121,4 +128,48 @@ func (h *DocumentHandler) GetIndex(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"content": content})
+}
+
+// SubmitRating 提交文档评分
+func (h *DocumentHandler) SubmitRating(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req struct {
+		Score int `json:"score" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Score < 1 || req.Score > 5 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "score must be between 1 and 5"})
+		return
+	}
+
+	stats, err := h.service.SubmitRating(uint(id), req.Score)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
+}
+
+// GetRatingStats 获取文档评分统计
+func (h *DocumentHandler) GetRatingStats(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	stats, err := h.service.GetRatingStats(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
 }

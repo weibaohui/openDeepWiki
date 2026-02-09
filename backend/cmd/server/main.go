@@ -49,11 +49,12 @@ func main() {
 	repoRepo := repository.NewRepoRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
 	docRepo := repository.NewDocumentRepository(db)
+	ratingRepo := repository.NewDocumentRatingRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	hintRepo := repository.NewHintRepository(db)
 
 	// 初始化 Service
-	docService := service.NewDocumentService(cfg, docRepo, repoRepo)
+	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 
 	// 初始化文档生成服务

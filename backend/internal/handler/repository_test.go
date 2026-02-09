@@ -346,7 +346,7 @@ func TestRepositoryHandlerAnalyzeDatabaseModelStarted(t *testing.T) {
 			return repo, nil
 		},
 	}
-	docService := service.NewDocumentService(&config.Config{}, &mockDocumentRepo{}, repoRepo)
+	docService := service.NewDocumentService(&config.Config{}, &mockDocumentRepo{}, repoRepo, nil)
 	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()
@@ -382,7 +382,7 @@ func TestRepositoryHandlerAnalyzeAPIStarted(t *testing.T) {
 			return repo, nil
 		},
 	}
-	docService := service.NewDocumentService(&config.Config{}, &mockDocumentRepo{}, repoRepo)
+	docService := service.NewDocumentService(&config.Config{}, &mockDocumentRepo{}, repoRepo, nil)
 	svc := service.NewRepositoryService(&config.Config{}, repoRepo, &mockTaskRepo{}, &mockDocumentRepo{}, nil, nil, docService, nil, analyzer)
 	handler := NewRepositoryHandler(svc)
 	router := gin.New()

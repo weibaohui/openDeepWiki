@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, SaveOutlined, CloseOutlined, MenuOutlined, ClockCircleOutlined, CalendarOutlined, TagsOutlined, CheckOutlined, LinkOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty, Row, Col, Statistic, Tag } from 'antd';
+import { Button, Card, Spin, Layout, Typography, Space, Menu, message, Grid, Drawer, Empty, Row, Col, Statistic, Tag, Rate } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
-import type { Document, Repository, Task } from '../types';
+import type { Document, Repository, Task, DocumentRatingStats } from '../types';
 import { documentApi, repositoryApi, taskApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
@@ -29,6 +29,10 @@ export default function DocViewer() {
     const [messageApi, contextHolder] = message.useMessage();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [versionDrawerOpen, setVersionDrawerOpen] = useState(false);
+    const [ratingStats, setRatingStats] = useState<DocumentRatingStats | null>(null);
+    const [ratingValue, setRatingValue] = useState<number | null>(null);
+    const [ratingLoading, setRatingLoading] = useState(false);
+    const [ratingSubmitting, setRatingSubmitting] = useState(false);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -105,6 +109,27 @@ export default function DocViewer() {
         fetchVersions();
     }, [docId, messageApi, t, versionDrawerOpen]);
 
+    useEffect(() => {
+        const fetchRatingStats = async () => {
+            if (!docId) {
+                setRatingStats(null);
+                return;
+            }
+            setRatingValue(null);
+            setRatingLoading(true);
+            try {
+                const { data } = await documentApi.getRatingStats(Number(docId));
+                setRatingStats(data);
+            } catch (error) {
+                console.error('Failed to fetch rating stats:', error);
+                messageApi.error(t('document.rating_stats_failed', 'Failed to load rating'));
+            } finally {
+                setRatingLoading(false);
+            }
+        };
+        fetchRatingStats();
+    }, [docId, messageApi, t]);
+
     const handleSave = async () => {
         if (!docId) return;
         try {
@@ -115,6 +140,22 @@ export default function DocViewer() {
         } catch (error) {
             console.error('Failed to save document:', error);
             messageApi.error('Failed to save document');
+        }
+    };
+
+    const handleSubmitRating = async (value: number) => {
+        if (!docId) return;
+        setRatingSubmitting(true);
+        try {
+            const { data } = await documentApi.submitRating(Number(docId), value);
+            setRatingStats(data);
+            setRatingValue(value);
+            messageApi.success(t('document.rating_submit_success', 'Rating submitted'));
+        } catch (error) {
+            console.error('Failed to submit rating:', error);
+            messageApi.error(t('document.rating_submit_failed', 'Failed to submit rating'));
+        } finally {
+            setRatingSubmitting(false);
         }
     };
 
@@ -164,6 +205,8 @@ export default function DocViewer() {
             .map((status) => ({ status, count: statusCounts[status] || 0 }))
             .filter((item) => item.count > 0);
     }, [statusCounts]);
+    const averageScore = ratingStats?.average_score ?? 0;
+    const ratingCount = ratingStats?.rating_count ?? 0;
 
     if (loading) {
         return (
@@ -188,6 +231,25 @@ export default function DocViewer() {
                     {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
                 <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
                     {t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
+                <span>
+                    {t('document.rating_title')}: {ratingLoading ? <Spin size="small" /> : (
+                        <Space size={6} style={{ alignItems: 'center' }}>
+                            <Rate allowHalf disabled value={averageScore} />
+                            <span>{t('document.rating_average')}: {averageScore.toFixed(1)}</span>
+                            <span>{t('document.rating_count')}: {ratingCount}</span>
+                        </Space>
+                    )}
+                </span>
+                <span>
+                    {t('document.rating_action')}: <Rate
+                        value={ratingValue ?? undefined}
+                        disabled={ratingSubmitting}
+                        onChange={(value) => {
+                            if (!value) return;
+                            handleSubmitRating(value);
+                        }}
+                    />
+                </span>
                 {repositoryUrl && (
                     <span>
                         <LinkOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
