@@ -25,7 +25,7 @@ type Task struct {
 	ID           uint        `json:"id" gorm:"primaryKey"`
 	RepositoryID uint        `json:"repository_id" gorm:"index;"`
 	Repository   *Repository `json:"repository,omitempty" gorm:"foreignKey:RepositoryID"`
-	Type         string      `json:"type" gorm:"size:50;"` // overview, architecture, api, business-flow, deployment
+	Type         string      `json:"type" gorm:"size:50;"` // 任务类型
 	Title        string      `json:"title" gorm:"size:255"`
 	Status       string      `json:"status" gorm:"size:50;default:pending"` // pending, queued, running, succeeded, failed, canceled
 	ErrorMsg     string      `json:"error_msg" gorm:"size:1000"`
