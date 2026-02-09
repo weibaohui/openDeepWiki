@@ -31,6 +31,8 @@ func Setup(
 
 	api := r.Group("/api")
 	{
+		api.GET("/doc/:id/redirect", docHandler.Redirect)
+
 		repos := api.Group("/repositories")
 		{
 			repos.POST("", repoHandler.Create)

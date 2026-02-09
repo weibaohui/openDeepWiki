@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
@@ -159,6 +160,38 @@ func (s *DocumentService) GetIndex(repoID uint) (string, error) {
 	}
 
 	return s.generateIndex(repo.Name, docs), nil
+}
+
+// GetRedirectURL 获取代码跳转链接
+func (s *DocumentService) GetRedirectURL(docID uint, filePath string) (string, error) {
+	doc, err := s.docRepo.Get(docID)
+	if err != nil {
+		return "", err
+	}
+
+	repo, err := s.repoRepo.GetBasic(doc.RepositoryID)
+	if err != nil {
+		return "", err
+	}
+
+	// 处理仓库 URL
+	repoURL := repo.URL
+	if before, ok :=strings.CutSuffix(repoURL, ".git"); ok  {
+		repoURL = before
+	}
+
+	branch := repo.CloneBranch
+	if branch == "" {
+		branch = "main" // 默认回退
+	}
+
+	// 清理文件路径 (移除开头的 /)
+	filePath = strings.TrimPrefix(filePath, "/")
+
+	// 构造 URL
+	// 假设是 GitHub/GitLab 风格: base/blob/branch/path
+	// TODO 以后要兼容各种类型
+	return fmt.Sprintf("%s/blob/%s/%s", repoURL, branch, filePath), nil
 }
 
 // SubmitRating 提交文档评分并返回统计信息

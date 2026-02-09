@@ -113,6 +113,29 @@ func (h *DocumentHandler) Export(c *gin.Context) {
 	c.Data(http.StatusOK, "application/zip", data)
 }
 
+// Redirect 重定向到原始代码文件
+func (h *DocumentHandler) Redirect(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+		return
+	}
+
+	redirectURL, err := h.service.GetRedirectURL(uint(id), path)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Redirect(http.StatusFound, redirectURL)
+}
+
 // GetIndex 获取仓库文档索引内容
 func (h *DocumentHandler) GetIndex(c *gin.Context) {
 	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
