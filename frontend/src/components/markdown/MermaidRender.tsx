@@ -16,7 +16,7 @@ const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const { themeMode } = useAppConfig();
-  
+
   // 生成唯一 ID，移除冒号以符合 mermaid 要求
   const rawId = useId();
   const uniqueId = `mermaid-${rawId.replace(/:/g, '')}`;
@@ -32,35 +32,50 @@ const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
   }, [themeMode]);
 
   useEffect(() => {
+    let isMounted = true;
+
     const renderChart = async () => {
       if (!code) return;
-      
+
+      // 修复：解码可能存在的 Unicode 转义字符（如 \u003e -> >），防止 Mermaid 解析错误
+      const decodedCode = code.replace(/\\u[\dA-F]{4}/gi, (match) => {
+        return String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16));
+      });
+
+      // 每次渲染生成唯一的 ID，防止 React Strict Mode 下重复 ID 导致 Mermaid 报错
+      const renderId = `${uniqueId}-${Date.now()}`;
+
       try {
-        // 先重置错误
-        setError(null);
-        
         // 尝试渲染
         // mermaid.render 返回 { svg } 对象 (v10+)
         // 注意：mermaid.render 是异步的
-        const { svg } = await mermaid.render(uniqueId, code);
-        setSvg(svg);
+        const { svg } = await mermaid.render(renderId, decodedCode);
+
+        if (isMounted) {
+          setSvg(svg);
+          setError(null);
+        }
       } catch (err) {
-        console.error('Mermaid render error:', err);
-        setError('Failed to render chart');
-        // mermaid 出错时有时会在 DOM 中留下错误信息，
-        // 我们这里捕获错误并显示自定义错误 UI，或者后续考虑显示 mermaid 的默认错误
+        if (isMounted) {
+          console.error('Mermaid render error:', err);
+          setError('Failed to render chart');
+        }
       }
     };
 
     renderChart();
+
+    return () => {
+      isMounted = false;
+    };
   }, [code, uniqueId, themeMode]);
 
   if (error) {
     return (
-      <div style={{ 
-        color: '#ff4d4f', 
-        padding: '12px', 
-        border: '1px solid #ff4d4f', 
+      <div style={{
+        color: '#ff4d4f',
+        padding: '12px',
+        border: '1px solid #ff4d4f',
         borderRadius: '4px',
         backgroundColor: 'rgba(255, 77, 79, 0.05)'
       }}>
@@ -74,8 +89,8 @@ const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
     <div
       className="mermaid-chart"
       dangerouslySetInnerHTML={{ __html: svg }}
-      style={{ 
-        textAlign: 'center', 
+      style={{
+        textAlign: 'center',
         overflowX: 'auto',
         padding: '16px 0',
         backgroundColor: 'transparent'
