@@ -274,7 +274,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelAsync(t *testing.T) {
 			return repo, nil
 		},
 	}
-	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil)
 	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	task, err := service.AnalyzeDatabaseModel(context.Background(), 12)
 	if err != nil {
@@ -324,7 +324,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelFailed(t *testing.T) {
 			return repo, nil
 		},
 	}
-	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo)
+	docService := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil)
 	service := NewRepositoryService(&config.Config{}, repoRepo, taskRepo, &mockDocumentRepo{}, nil, nil, docService, parser, nil)
 	task, err := service.AnalyzeDatabaseModel(context.Background(), 14)
 	if err != nil {

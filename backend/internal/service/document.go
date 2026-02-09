@@ -4,24 +4,29 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
+	"k8s.io/klog/v2"
 )
 
 type DocumentService struct {
-	cfg      *config.Config
-	docRepo  repository.DocumentRepository
-	repoRepo repository.RepoRepository
+	cfg        *config.Config
+	docRepo    repository.DocumentRepository
+	repoRepo   repository.RepoRepository
+	ratingRepo repository.DocumentRatingRepository
 }
 
-func NewDocumentService(cfg *config.Config, docRepo repository.DocumentRepository, repoRepo repository.RepoRepository) *DocumentService {
+// NewDocumentService 创建文档服务
+func NewDocumentService(cfg *config.Config, docRepo repository.DocumentRepository, repoRepo repository.RepoRepository, ratingRepo repository.DocumentRatingRepository) *DocumentService {
 	return &DocumentService{
-		cfg:      cfg,
-		docRepo:  docRepo,
-		repoRepo: repoRepo,
+		cfg:        cfg,
+		docRepo:    docRepo,
+		repoRepo:   repoRepo,
+		ratingRepo: ratingRepo,
 	}
 }
 
@@ -154,4 +159,53 @@ func (s *DocumentService) GetIndex(repoID uint) (string, error) {
 	}
 
 	return s.generateIndex(repo.Name, docs), nil
+}
+
+// SubmitRating 提交文档评分并返回统计信息
+func (s *DocumentService) SubmitRating(documentID uint, score int) (*model.DocumentRatingStats, error) {
+	if s.ratingRepo == nil {
+		return nil, fmt.Errorf("rating repository not configured")
+	}
+	if score < 1 || score > 5 {
+		return nil, fmt.Errorf("score must be between 1 and 5")
+	}
+
+	klog.V(6).Infof("SubmitRating: document_id=%d score=%d", documentID, score)
+
+	latest, err := s.ratingRepo.GetLatestByDocumentID(documentID)
+	if err != nil {
+		return nil, err
+	}
+	if latest != nil && latest.Score == score && time.Since(latest.CreatedAt) <= 10*time.Second {
+		klog.V(6).Infof("SubmitRating: duplicate ignored document_id=%d score=%d", documentID, score)
+		return s.GetRatingStats(documentID)
+	}
+
+	now := time.Now()
+	rating := &model.DocumentRating{
+		DocumentID: documentID,
+		Score:      score,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if err := s.ratingRepo.Create(rating); err != nil {
+		return nil, err
+	}
+
+	klog.V(6).Infof("SubmitRating: created rating_id=%d document_id=%d", rating.ID, documentID)
+	return s.GetRatingStats(documentID)
+}
+
+// GetRatingStats 获取文档评分统计信息
+func (s *DocumentService) GetRatingStats(documentID uint) (*model.DocumentRatingStats, error) {
+	if s.ratingRepo == nil {
+		return nil, fmt.Errorf("rating repository not configured")
+	}
+	stats, err := s.ratingRepo.GetStatsByDocumentID(documentID)
+	if err != nil {
+		return nil, err
+	}
+	stats.AverageScore = math.Round(stats.AverageScore*10) / 10
+	klog.V(6).Infof("GetRatingStats: document_id=%d average=%.1f count=%d", documentID, stats.AverageScore, stats.RatingCount)
+	return stats, nil
 }
