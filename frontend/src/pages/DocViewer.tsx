@@ -278,7 +278,6 @@ export default function DocViewer() {
             .filter((item) => item.count > 0);
     }, [statusCounts]);
     const averageScore = ratingStats?.average_score ?? 0;
-    const ratingCount = ratingStats?.rating_count ?? 0;
 
     if (loading) {
         return (
