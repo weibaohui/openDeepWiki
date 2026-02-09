@@ -272,6 +272,12 @@ export default function DocViewer() {
     const totalVersions = useMemo(() => {
         return documents.reduce((sum, doc) => sum + (doc.version || 0), 0);
     }, [documents]);
+    const recentDocuments = useMemo(() => {
+        return documents
+            .slice()
+            .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+            .slice(0, 5);
+    }, [documents]);
     const statusItems = useMemo(() => {
         return statusOrder
             .map((status) => ({ status, count: statusCounts[status] || 0 }))
@@ -507,7 +513,25 @@ export default function DocViewer() {
                                 </div>
 
                                 <div style={{ marginTop: 16 }}>
-                                    最近更新 最多 5条 title
+                                    <div style={{ fontWeight: 500 }}>{t('document.recent_updates')}</div>
+                                    <div style={{ marginTop: 8 }}>
+                                        {recentDocuments.length === 0 ? (
+                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
+                                        ) : (
+                                            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                                {recentDocuments.map((item) => (
+                                                    <Button
+                                                        key={item.id}
+                                                        type="link"
+                                                        onClick={() => navigate(`/repo/${id}/doc/${item.id}`)}
+                                                        style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                                                    >
+                                                        {item.title}
+                                                    </Button>
+                                                ))}
+                                            </Space>
+                                        )}
+                                    </div>
                                 </div>
                             </Card>
                         ) : editing ? (

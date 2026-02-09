@@ -170,6 +170,8 @@
         "overview_versions": "版本总数",
         "overview_status_group": "状态分组",
         "overview_load_failed": "加载文档概览失败",
+        "recent_updates": "最近更新",
+        "recent_updates_empty": "暂无最近更新",
         "rating_title": "评分",
         "rating_average": "平均",
         "rating_count": "评分次数",

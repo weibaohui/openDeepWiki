@@ -169,6 +169,8 @@
         "overview_versions": "Total Versions",
         "overview_status_group": "Status Summary",
         "overview_load_failed": "Failed to load document overview",
+        "recent_updates": "Recent Updates",
+        "recent_updates_empty": "No recent updates",
         "rating_title": "Rating",
         "rating_average": "Average",
         "rating_count": "Ratings",
