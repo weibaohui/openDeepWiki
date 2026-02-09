@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
+import { useLocation } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, solarizedlight } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -15,6 +16,7 @@ interface MarkdownRenderProps {
 
 const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, style }) => {
   const { themeMode } = useAppConfig();
+  const location = useLocation();
 
   const components: Components = {
     code({ node, inline, className, children, ...props }: any) {
@@ -56,7 +58,13 @@ const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, sty
     a({ node, href, children, ...props }: any) {
       // 处理相对路径的代码链接，增加重定向前缀
       if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('/') && !href.startsWith('#')) {
-        const newHref = `/api/redirect/path?${href}`;
+        let newHref = `/api/doc/{docId}/redirect?path=${href}`;
+        // 从当前路径获取 docId (例如 /repo/xx/doc/docid)
+        const docIdMatch = location.pathname.match(/\/doc\/([^/]+)/);
+        if (docIdMatch && docIdMatch[1]) {
+          newHref = newHref.replace('{docId}', docIdMatch[1]);
+        }
+
         return (
           <a href={newHref} {...props} target="_blank" rel="noopener noreferrer">
             {children}
