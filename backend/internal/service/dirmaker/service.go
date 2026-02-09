@@ -33,36 +33,15 @@ var (
 	ErrNoAgentOutput        = errors.New("Agent 未产生任何输出内容")
 )
 
-// generationResult 表示 Agent 输出的任务生成结果（仅包内使用）。
-type generationResult struct {
-	Dirs            []dirSpec `json:"dirs" yaml:"dirs"`
-	AnalysisSummary string    `json:"analysis_summary" yaml:"analysis_summary"`
-}
-
-// taskSpec 表示 Agent 生成的单个任务定义（仅包内使用）。
-// Type 字段不局限于预定义值，Agent 可根据项目特征自由定义。
-type dirSpec struct {
-	Title     string     `json:"title" yaml:"title"`           // 目录标题，如 "安全分析"
-	SortOrder int        `json:"sort_order" yaml:"sort_order"` // 排序顺序
-	Hint      []hintSpec `json:"hint" yaml:"hint"`
-}
-
-type hintSpec struct {
-	Aspect string `json:"aspect" yaml:"aspect"`
-	Source string `json:"source" yaml:"source"`
-	Detail string `json:"detail" yaml:"detail"`
-}
-
 // Service 目录分析任务生成服务。
 // 基于 Eino ADK 实现，用于分析代码目录并动态生成分析任务。
 type Service struct {
-	factory  *adkagents.AgentFactory
-	taskRepo repository.TaskRepository
-	hintRepo repository.HintRepository
+	factory *adkagents.AgentFactory
+	docRepo repository.DocumentRepository
 }
 
 // New 创建目录分析服务实例。
-func New(cfg *config.Config, taskRepo repository.TaskRepository, hintRepo repository.HintRepository) (*Service, error) {
+func New(cfg *config.Config, docRepo repository.DocumentRepository) (*Service, error) {
 	klog.V(6).Infof("[dirmaker.New] 开始创建目录分析服务")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
@@ -72,14 +51,13 @@ func New(cfg *config.Config, taskRepo repository.TaskRepository, hintRepo reposi
 	}
 
 	return &Service{
-		factory:  factory,
-		taskRepo: taskRepo,
-		hintRepo: hintRepo,
+		factory: factory,
+		docRepo: docRepo,
 	}, nil
 }
 
 // CreateDirs 分析仓库目录并创建目录。
-func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*model.Task, error) {
+func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) (*model.DirMakerGenerationResult, error) {
 	if repo == nil {
 		return nil, fmt.Errorf("%w: repo 为空", ErrInvalidLocalPath)
 	}
@@ -98,47 +76,24 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*mo
 	klog.V(6).Infof("[dirmaker.CreateTasks] 分析完成，生成目录数: %d", len(result.Dirs))
 	klog.V(6).Infof("[dirmaker.CreateTasks] 分析摘要: %s", result.AnalysisSummary)
 
-	createdTasks := make([]*model.Task, 0, len(result.Dirs))
-	var creationErrors []error
-	var hintErrors []error
-
+	//先把目录入库，后续任务完成后，再更新文档内容。
 	for _, spec := range result.Dirs {
-		task := &model.Task{
+		doc := &model.Document{
 			RepositoryID: repo.ID,
 			Title:        spec.Title,
 			Status:       string(statemachine.TaskStatusPending),
-			SortOrder:    spec.SortOrder,
 		}
-
-		if err := s.taskRepo.Create(task); err != nil {
-			creationErrors = append(creationErrors, fmt.Errorf("创建任务 %s 失败: %w", spec.Title, err))
-			continue
+		if err := s.docRepo.Create(doc); err != nil {
+			return nil, fmt.Errorf("创建文档 %s 失败: %w", spec.Title, err)
 		}
-
-		if err := s.saveHint(repo.ID, task, spec); err != nil {
-			hintErrors = append(hintErrors, err)
-		}
-
-		createdTasks = append(createdTasks, task)
+		spec.DocID = doc.ID
 	}
 
-	if len(creationErrors) > 0 {
-		klog.Warningf("[dirmaker.CreateTasks] 部分任务创建失败: 成功=%d, 失败=%d", len(createdTasks), len(creationErrors))
-		if len(createdTasks) == 0 {
-			return nil, fmt.Errorf("%w: %w", ErrTaskCreationFailed, creationErrors[0])
-		}
-	}
-
-	if len(hintErrors) > 0 {
-		klog.Warningf("[dirmaker.CreateTasks] 证据保存出现异常: 数量=%d", len(hintErrors))
-	}
-
-	klog.V(6).Infof("[dirmaker.CreateTasks] 全部完成，成功创建目录数: %d", len(createdTasks))
-	return createdTasks, nil
+	return result, nil
 }
 
 // generateTaskPlan 执行任务生成链路，返回解析后的任务列表结果。
-func (s *Service) genDirList(ctx context.Context, localPath string) (*generationResult, error) {
+func (s *Service) genDirList(ctx context.Context, localPath string) (*model.DirMakerGenerationResult, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
@@ -185,7 +140,7 @@ func (s *Service) genDirList(ctx context.Context, localPath string) (*generation
 }
 
 // parseDirList 从 Agent 输出解析目录生成结果。
-func parseDirList(content string) (*generationResult, error) {
+func parseDirList(content string) (*model.DirMakerGenerationResult, error) {
 	klog.V(6).Infof("[dm.parseList] 开始解析 Agent 输出内容，长度: %d", len(content))
 
 	// 尝试从内容中提取 YAML
@@ -195,7 +150,7 @@ func parseDirList(content string) (*generationResult, error) {
 		return nil, fmt.Errorf("%w: 提取 YAML 失败", ErrYAMLParseFailed)
 	}
 
-	var result generationResult
+	var result model.DirMakerGenerationResult
 	if err := yaml.Unmarshal([]byte(yamlStr), &result); err != nil {
 		klog.Errorf("[dm.parseList] YAML 解析失败: %v", err)
 		return nil, fmt.Errorf("%w: %v", ErrYAMLParseFailed, err)
@@ -205,29 +160,4 @@ func parseDirList(content string) (*generationResult, error) {
 
 	klog.V(6).Infof("[dm.parseList] 解析完成，目录数: %d", len(result.Dirs))
 	return &result, nil
-}
-
-func (s *Service) saveHint(repoID uint, task *model.Task, spec dirSpec) error {
-	if s.hintRepo == nil {
-		return nil
-	}
-	if len(spec.Hint) == 0 {
-		return nil
-	}
-	hints := make([]model.TaskHint, 0, len(spec.Hint))
-	for _, item := range spec.Hint {
-		hints = append(hints, model.TaskHint{
-			RepositoryID: repoID,
-			TaskID:       task.ID,
-			Title:        spec.Title,
-			Aspect:       item.Aspect,
-			Source:       item.Source,
-			Detail:       item.Detail,
-		})
-	}
-	if err := s.hintRepo.CreateBatch(hints); err != nil {
-		klog.V(6).Infof("[dirmaker.CreateTasks] 保存证据失败: taskID=%d, error=%v", task.ID, err)
-		return fmt.Errorf("保存证据失败: %w", err)
-	}
-	return nil
 }

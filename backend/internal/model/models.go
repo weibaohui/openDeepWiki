@@ -24,6 +24,7 @@ type Repository struct {
 type Task struct {
 	ID           uint        `json:"id" gorm:"primaryKey"`
 	RepositoryID uint        `json:"repository_id" gorm:"index;"`
+	DocID        uint        `json:"doc_id" gorm:"index;"` // 关联的文档ID
 	Repository   *Repository `json:"repository,omitempty" gorm:"foreignKey:RepositoryID"`
 	Title        string      `json:"title" gorm:"size:255"`
 	Status       string      `json:"status" gorm:"size:50;default:pending"` // pending, queued, running, succeeded, failed, canceled
@@ -42,6 +43,7 @@ type Document struct {
 	Title        string    `json:"title" gorm:"size:255;"`
 	Filename     string    `json:"filename" gorm:"size:255;"`
 	Content      string    `json:"content" gorm:"type:text"`
+	Status       string    `json:"status" gorm:"size:50;default:pending"` // pending, analyzing, completed, error
 	SortOrder    int       `json:"sort_order" gorm:"default:0"`
 	Version      int       `json:"version" gorm:"default:1;index"`
 	IsLatest     bool      `json:"is_latest" gorm:"default:true;index"`
@@ -72,14 +74,4 @@ type TaskHint struct {
 	Detail       string    `json:"detail" gorm:"type:text"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
-}
-
-// Task types definition
-var TaskTypes = []struct {
-	Type      string
-	Title     string
-	Filename  string
-	SortOrder int
-}{
-	{"overview", "项目概览", "overview.md", 1},
 }

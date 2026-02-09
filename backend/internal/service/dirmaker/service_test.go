@@ -24,43 +24,6 @@ func (m *mockHintRepo) SearchInRepo(repoID uint, keywords []string) ([]model.Tas
 	return nil, nil
 }
 
-func TestServiceSaveHint(t *testing.T) {
-	repo := &mockHintRepo{}
-	svc := &Service{hintRepo: repo}
-	task := &model.Task{ID: 5, RepositoryID: 1}
-	spec := dirSpec{
-		Title: "目录标题",
-		Hint: []hintSpec{
-			{Aspect: "目录结构", Source: "backend/", Detail: "存在服务代码"},
-			{Aspect: "配置", Source: "go.mod", Detail: "识别Go项目"},
-		},
-	}
-
-	if err := svc.saveHint(1, task, spec); err != nil {
-		t.Fatalf("saveHint error: %v", err)
-	}
-	if len(repo.created) != 2 {
-		t.Fatalf("expected 2 hints, got %d", len(repo.created))
-	}
-	if repo.created[0].TaskID != task.ID || repo.created[1].TaskID != task.ID {
-		t.Fatalf("unexpected task id values: %v, %v", repo.created[0].TaskID, repo.created[1].TaskID)
-	}
-}
-
-func TestServiceSaveHintSkipEmpty(t *testing.T) {
-	repo := &mockHintRepo{}
-	svc := &Service{hintRepo: repo}
-	task := &model.Task{ID: 7, RepositoryID: 2}
-	spec := dirSpec{Title: "空证据"}
-
-	if err := svc.saveHint(2, task, spec); err != nil {
-		t.Fatalf("saveHint error: %v", err)
-	}
-	if len(repo.created) != 0 {
-		t.Fatalf("expected no hints, got %d", len(repo.created))
-	}
-}
-
 // TestParseDirListFromYAMLBlock 验证从 YAML 代码块解析目录结果
 func TestParseDirListFromYAMLBlock(t *testing.T) {
 	content := "前置文本\n```yaml\n" +

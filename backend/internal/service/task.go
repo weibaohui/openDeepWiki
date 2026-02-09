@@ -643,21 +643,6 @@ func (s *TaskService) buildTaskSummary(tasks []model.Task) *statemachine.TaskSta
 	return summary
 }
 
-// getTaskDefinition 获取任务定义
-func getTaskDefinition(taskType string) struct {
-	Type      string
-	Title     string
-	Filename  string
-	SortOrder int
-} {
-	for _, t := range model.TaskTypes {
-		if t.Type == taskType {
-			return t
-		}
-	}
-	return model.TaskTypes[0]
-}
-
 // GetOrchestratorStatus 获取编排器状态
 func (s *TaskService) GetOrchestratorStatus() *orchestrator.QueueStatus {
 	if s.orchestrator == nil {

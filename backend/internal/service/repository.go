@@ -18,12 +18,13 @@ import (
 )
 
 type RepositoryService struct {
-	cfg         *config.Config
-	repoRepo    repository.RepoRepository
-	taskRepo    repository.TaskRepository
-	docRepo     repository.DocumentRepository
-	docService  *DocumentService
-	taskService *TaskService
+	cfg          *config.Config
+	repoRepo     repository.RepoRepository
+	taskRepo     repository.TaskRepository
+	docRepo      repository.DocumentRepository
+	taskHintRepo repository.HintRepository
+	docService   *DocumentService
+	taskService  *TaskService
 
 	// 状态机
 	repoStateMachine *statemachine.RepositoryStateMachine
@@ -40,7 +41,7 @@ type RepositoryService struct {
 
 // DirMakerService 目录分析服务接口。
 type DirMakerService interface {
-	CreateDirs(ctx context.Context, repo *model.Repository) ([]*model.Task, error)
+	CreateDirs(ctx context.Context, repo *model.Repository) (*model.DirMakerGenerationResult, error)
 }
 
 type DatabaseModelParser interface {
@@ -52,12 +53,13 @@ type APIAnalyzer interface {
 }
 
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser, apiAnalyzer APIAnalyzer) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser, apiAnalyzer APIAnalyzer) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
 		taskRepo:         taskRepo,
 		docRepo:          docRepo,
+		taskHintRepo:     taskHintRepo,
 		docService:       docService,
 		taskService:      taskService,
 		repoStateMachine: statemachine.NewRepositoryStateMachine(),
@@ -120,19 +122,6 @@ func (s *RepositoryService) Create(req CreateRepoRequest) (*model.Repository, er
 	}
 
 	klog.V(6).Infof("仓库创建成功: repoID=%d, name=%s, url=%s", repo.ID, repo.Name, repo.URL)
-
-	// 创建默认任务
-	for _, taskType := range model.TaskTypes {
-		task := &model.Task{
-			RepositoryID: repo.ID,
-			Title:        taskType.Title,
-			Status:       string(statemachine.TaskStatusPending),
-		}
-		if err := s.taskRepo.Create(task); err != nil {
-			return nil, fmt.Errorf("创建任务失败: %w", err)
-		}
-		klog.V(6).Infof("任务创建成功: taskID=%d,   title=%s", task.ID, task.Title)
-	}
 
 	// 异步克隆仓库
 	go s.cloneRepository(repo.ID)
@@ -429,13 +418,54 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 			klog.Errorf("异步目录分析失败: repoID=%d, error=%v", targetRepo.ID, err)
 			return
 		}
-		klog.V(6).Infof("异步目录分析完成，创建了 %d 个目录: repoID=%d", len(dirs), targetRepo.ID)
+		klog.V(6).Infof("异步目录分析完成，创建了 %d 个目录: repoID=%d", len(dirs.Dirs), targetRepo.ID)
+		//存入Task数据库
+		for _, dir := range dirs.Dirs {
+			task := &model.Task{
+				RepositoryID: targetRepo.ID,
+				DocID:        dir.DocID,
+				Title:        dir.Title,
+				Status:       string(statemachine.TaskStatusPending),
+				SortOrder:    dir.SortOrder,
+			}
+			if err := s.taskRepo.Create(task); err != nil {
+				klog.Errorf("目录分解为任务失败: repoID=%d, docID=%d, error=%v", targetRepo.ID, dir.DocID, err)
+			}
+			if err := s.saveHint(targetRepo.ID, task, dir); err != nil {
+				klog.Errorf("保存任务提示信息失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, task.ID, err)
+			}
+		}
+
 	}(repo)
 
 	klog.V(6).Infof("目录分析任务已异步启动: repoID=%d", repoID)
 	return []*model.Task{}, nil
 }
 
+func (s *RepositoryService) saveHint(repoID uint, task *model.Task, spec *model.DirMakerDirSpec) error {
+	if s.taskHintRepo == nil {
+		return nil
+	}
+	if len(spec.Hint) == 0 {
+		return nil
+	}
+	hints := make([]model.TaskHint, 0, len(spec.Hint))
+	for _, item := range spec.Hint {
+		hints = append(hints, model.TaskHint{
+			RepositoryID: repoID,
+			TaskID:       task.ID,
+			Title:        spec.Title,
+			Aspect:       item.Aspect,
+			Source:       item.Source,
+			Detail:       item.Detail,
+		})
+	}
+	if err := s.taskHintRepo.CreateBatch(hints); err != nil {
+		klog.V(6).Infof("[dirmaker.CreateTasks] 保存任务提示信息失败: taskID=%d, error=%v", task.ID, err)
+		return fmt.Errorf("保存任务提示信息失败: %w", err)
+	}
+	return nil
+}
 func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uint) (*model.Task, error) {
 	klog.V(6).Infof("准备异步分析数据库模型: repoID=%d", repoID)
 
