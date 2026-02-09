@@ -21,6 +21,7 @@ export interface Task {
     type: string;
     title: string;
     status: 'pending' | 'running' | 'completed' | 'succeeded' | 'failed' | 'queued' | 'canceled';
+    doc_id: string,
     error_msg: string;
     sort_order: number;
     started_at: string | null;
@@ -45,8 +46,8 @@ export interface Document {
 }
 
 export interface DocumentRatingStats {
-	average_score: number;
-	rating_count: number;
+    average_score: number;
+    rating_count: number;
 }
 
 

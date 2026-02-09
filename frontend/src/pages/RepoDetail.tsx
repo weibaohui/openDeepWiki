@@ -564,7 +564,7 @@ export default function RepoDetail() {
                                             title={task.title}
                                             description={
                                                 <div>
-                                                    <div>{t(`task.status.${task.status}`)}</div>
+                                                    <div>{t('repository.docId', 'Doc ID')} {task.doc_id} {t(`task.status.${task.status}`)}</div>
                                                     {task.error_msg && <Text type="danger">{task.error_msg}</Text>}
                                                     <Text type="secondary" style={{ fontSize: '12px' }}>
                                                         {t('task.updated_at').replace('{{time}}', formatDateTime(task.updated_at))}

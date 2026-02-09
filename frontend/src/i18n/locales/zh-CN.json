@@ -24,6 +24,7 @@
     "repository": {
         "title": "代码仓库",
         "add": "添加仓库",
+        "docId": "文档",
         "list_title": "仓库列表",
         "url_placeholder": "请输入 GitHub 仓库地址",
         "duplicate_error": "仓库已存在，不能重复添加",
