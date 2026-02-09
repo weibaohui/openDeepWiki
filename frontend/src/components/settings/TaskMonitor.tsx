@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, Table, Tag, Row, Col, Statistic, Button, Space, message } from 'antd';
 import { ReloadOutlined, SyncOutlined, StopOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -11,19 +11,21 @@ export default function TaskMonitor() {
     const [data, setData] = useState<GlobalMonitorData | null>(null);
     const [loading, setLoading] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
+    const hasDataRef = useRef(false);
 
     const fetchData = useCallback(async () => {
-        if (!data) setLoading(true);
+        if (!hasDataRef.current) setLoading(true);
         try {
             const res = await taskApi.monitor();
             setData(res.data);
+            hasDataRef.current = true;
         } catch (error) {
             console.error('Failed to fetch task monitor data:', error);
             // message.error('Failed to fetch monitor data'); // Suppress error on auto refresh
         } finally {
             setLoading(false);
         }
-    }, [data]);
+    }, []);
 
     useEffect(() => {
         fetchData();
