@@ -155,23 +155,23 @@ export default function TaskMonitor() {
             </div>
 
             {data && (
-                <Row gutter={16}>
-                    <Col span={6}>
+                <Row gutter={[16, 16]}>
+                    <Col xs={12} sm={12} md={6}>
                         <Card>
                             <Statistic title={t('taskMonitor.queue_length', 'Queue Length')} value={data.queue_status.queue_length} />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} sm={12} md={6}>
                         <Card>
                             <Statistic title={t('taskMonitor.active_workers', 'Active Workers')} value={data.queue_status.active_workers} />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} sm={12} md={6}>
                         <Card>
                             <Statistic title={t('taskMonitor.priority_queue', 'Priority Queue')} value={data.queue_status.priority_length} />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} sm={12} md={6}>
                         <Card>
                             <Statistic title={t('taskMonitor.active_repos', 'Active Repos')} value={data.queue_status.active_repos} />
                         </Card>
@@ -186,6 +186,7 @@ export default function TaskMonitor() {
                     rowKey="id"
                     pagination={false}
                     loading={loading && !data}
+                    scroll={{ x: 'max-content' }}
                 />
             </Card>
 
@@ -196,6 +197,7 @@ export default function TaskMonitor() {
                     rowKey="id"
                     pagination={false}
                     loading={loading && !data}
+                    scroll={{ x: 'max-content' }}
                 />
             </Card>
         </div>
