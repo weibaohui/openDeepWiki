@@ -477,7 +477,7 @@ export default function DocViewer() {
                 <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
                     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                         {isIndexView ? (
-                            <Card title={t('document.overview_title')}>
+                            <Card  >
                                 <Row gutter={[16, 16]}>
                                     <Col xs={12} sm={12} md={6}>
                                         <Statistic title={t('document.overview_total')} value={totalCount} />
@@ -504,6 +504,10 @@ export default function DocViewer() {
                                             ))}
                                         </Space>
                                     )}
+                                </div>
+
+                                <div style={{ marginTop: 16 }}>
+                                    最近更新 最多 5条 title
                                 </div>
                             </Card>
                         ) : editing ? (
