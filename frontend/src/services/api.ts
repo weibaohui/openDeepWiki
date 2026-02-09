@@ -35,6 +35,7 @@ export const taskApi = {
     run: (id: number) => api.post(`/tasks/${id}/run`),
     enqueue: (id: number) => api.post(`/tasks/${id}/enqueue`),
     retry: (id: number) => api.post(`/tasks/${id}/retry`),
+    regen: (id: number) => api.post(`/tasks/${id}/regen`),
     cancel: (id: number) => api.post(`/tasks/${id}/cancel`),
     reset: (id: number) => api.post(`/tasks/${id}/reset`),
     delete: (id: number) => api.delete(`/tasks/${id}`),

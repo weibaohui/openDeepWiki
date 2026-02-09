@@ -62,9 +62,10 @@ func Setup(
 			tasks.POST("/cleanup", taskHandler.CleanupStuck)        // 清理卡住的任务
 			tasks.GET("/:id", taskHandler.Get)
 			tasks.POST("/:id/run", taskHandler.Run)
-			tasks.POST("/:id/enqueue", taskHandler.Enqueue) // 新增：提交任务到队列
-			tasks.POST("/:id/retry", taskHandler.Retry)     // 新增：重试任务
-			tasks.POST("/:id/cancel", taskHandler.Cancel)   // 新增：取消任务
+			tasks.POST("/:id/enqueue", taskHandler.Enqueue)      // 新增：提交任务到队列
+			tasks.POST("/:id/retry", taskHandler.Retry)          // 新增：重试任务
+			tasks.POST("/:id/regen", taskHandler.ReGenByNewTask) // 新增：重新生成任务
+			tasks.POST("/:id/cancel", taskHandler.Cancel)        // 新增：取消任务
 			tasks.POST("/:id/reset", taskHandler.Reset)
 			tasks.POST("/:id/force-reset", taskHandler.ForceReset) // 强制重置
 			tasks.DELETE("/:id", taskHandler.Delete)               // 删除任务（新增）

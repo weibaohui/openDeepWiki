@@ -20,6 +20,14 @@ func (r *documentRepository) Create(doc *model.Document) error {
 	return r.db.Create(doc).Error
 }
 
+func (r *documentRepository) GetVersions(repoID uint, title string) ([]model.Document, error) {
+	var docs []model.Document
+	err := r.db.Where("repository_id = ? AND title = ?", repoID, title).
+		Order("sort_order").
+		Find(&docs).Error
+	return docs, err
+}
+
 func (r *documentRepository) GetByRepository(repoID uint) ([]model.Document, error) {
 	var docs []model.Document
 	err := r.db.Where("repository_id = ? AND is_latest = ?", repoID, true).
@@ -81,6 +89,41 @@ func (r *documentRepository) CreateVersioned(doc *model.Document) error {
 		doc.IsLatest = true
 		return tx.Create(doc).Error
 	})
+}
+
+func (r *documentRepository) TransferLatest(oldDocID uint, newDocID uint) error {
+
+	// version +1
+	// 找到原TaskID 的对应的version
+	var version int
+	err := r.db.Model(&model.Document{}).Select("version").
+		Where("id = ? ", oldDocID).
+		Scan(&version).Error
+	if err != nil {
+		return err
+	}
+
+	err = r.db.Model(&model.Document{}).
+		Where("id = ? AND is_latest = ?", oldDocID, true).
+		Updates(map[string]interface{}{
+			"is_latest":   false,
+			"updated_at":  time.Now(),
+			"replaced_by": newDocID,
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	// 更新最新文档的version
+	err = r.db.Model(&model.Document{}).
+		Where("id = ?", newDocID).
+		Update("version", version+1).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func (r *documentRepository) UpdateTaskID(docID uint, taskID uint) error {

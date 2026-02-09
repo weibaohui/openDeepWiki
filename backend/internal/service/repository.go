@@ -422,7 +422,7 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 		//存入Task数据库
 
 		for _, dir := range dirs.Dirs {
-			task, err := s.CreateTaskWithDoc(ctx, targetRepo.ID, dir.Title, dir.SortOrder)
+			task, err := s.taskService.CreateTaskWithDoc(ctx, targetRepo.ID, dir.Title, dir.SortOrder)
 			if err != nil {
 				klog.Errorf("创建任务失败: repoID=%d, error=%v", targetRepo.ID, err)
 				continue
@@ -506,7 +506,7 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 		return nil, fmt.Errorf("仓库状态不允许执行数据库模型分析: current=%s", currentStatus)
 	}
 
-	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "数据库模型分析", 10)
+	task, err := s.taskService.CreateTaskWithDoc(ctx, repo.ID, "数据库模型分析", 10)
 	if err != nil {
 		return nil, fmt.Errorf("创建数据库模型分析任务失败: %w", err)
 	}
@@ -569,7 +569,7 @@ func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model
 		return nil, fmt.Errorf("仓库状态不允许执行API接口分析: current=%s", currentStatus)
 	}
 
-	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "API接口分析", 20)
+	task, err := s.taskService.CreateTaskWithDoc(ctx, repo.ID, "API接口分析", 20)
 	if err != nil {
 		return nil, fmt.Errorf("创建API接口分析任务失败: %w", err)
 	}
@@ -660,39 +660,4 @@ func (s *RepositoryService) SetReady(repoID uint) error {
 
 	klog.V(6).Infof("仓库状态已设置为 ready: repoID=%d", repoID)
 	return nil
-}
-
-// CreateTaskWithDoc 创建文档和任务，并建立双向关联
-// 1. 创建文档
-// 2. 创建任务
-// 3. 更新文档关联的任务ID
-func (s *RepositoryService) CreateTaskWithDoc(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
-	doc, err := s.docService.Create(CreateDocumentRequest{
-		RepositoryID: repoID,
-		Title:        title,
-		Filename:     title + ".md",
-		Content:      "",
-		SortOrder:    sortOrder,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("创建文档失败: %w", err)
-	}
-
-	task := &model.Task{
-		RepositoryID: repoID,
-		DocID:        doc.ID,
-		Title:        title,
-		Status:       string(statemachine.TaskStatusPending),
-		SortOrder:    sortOrder,
-	}
-	if err := s.taskRepo.Create(task); err != nil {
-		return nil, fmt.Errorf("创建任务失败: %w", err)
-	}
-
-	if err := s.docService.UpdateTaskID(doc.ID, task.ID); err != nil {
-		// 记录日志但不返回错误，因为任务和文档已创建
-		klog.Errorf("更新文档关联的任务ID失败: docID=%d, taskID=%d, error=%v", doc.ID, task.ID, err)
-	}
-
-	return task, nil
 }

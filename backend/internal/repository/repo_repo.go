@@ -25,7 +25,7 @@ func (r *repoRepository) List() ([]model.Repository, error) {
 
 func (r *repoRepository) Get(id uint) (*model.Repository, error) {
 	var repo model.Repository
-	err := r.db.Preload("Tasks").Preload("Documents").First(&repo, id).Error
+	err := r.db.Preload("Tasks").Preload("Documents", "is_latest = ?", true).First(&repo, id).Error
 	if err != nil {
 		return nil, err
 	}

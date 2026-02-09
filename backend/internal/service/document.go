@@ -43,6 +43,9 @@ type CreateDocumentRequest struct {
 func (s *DocumentService) UpdateTaskID(docID uint, taskID uint) error {
 	return s.docRepo.UpdateTaskID(docID, taskID)
 }
+func (s *DocumentService) TransferLatest(oldDocID uint, newDocID uint) error {
+	return s.docRepo.TransferLatest(oldDocID, newDocID)
+}
 
 func (s *DocumentService) Create(req CreateDocumentRequest) (*model.Document, error) {
 	doc := &model.Document{
@@ -75,7 +78,7 @@ func (s *DocumentService) GetVersions(docID uint) ([]model.Document, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.docRepo.GetByTaskID(doc.TaskID)
+	return s.docRepo.GetVersions(doc.RepositoryID, doc.Title)
 }
 
 func (s *DocumentService) Update(docID uint, content string) (*model.Document, error) {
@@ -86,6 +89,9 @@ func (s *DocumentService) Update(docID uint, content string) (*model.Document, e
 
 	doc.Content = content
 	doc.UpdatedAt = time.Now()
+	if err := s.docRepo.Save(doc); err != nil {
+		return nil, err
+	}
 	return doc, nil
 }
 

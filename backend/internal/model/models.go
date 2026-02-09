@@ -46,6 +46,7 @@ type Document struct {
 	SortOrder    int       `json:"sort_order" gorm:"default:0"`
 	Version      int       `json:"version" gorm:"default:1;index"`
 	IsLatest     bool      `json:"is_latest" gorm:"default:true;index"`
+	ReplacedBy   uint      `json:"replaced_by" gorm:"index;"` //被替换为哪个DocID
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

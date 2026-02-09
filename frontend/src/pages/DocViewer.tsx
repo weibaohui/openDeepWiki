@@ -201,7 +201,7 @@ export default function DocViewer() {
     const handleRegenerate = async () => {
         if (!document?.task_id) return;
         try {
-            await taskApi.retry(document.task_id);
+            await taskApi.regen(document.task_id);
             messageApi.success(t('document.regenerate_started'));
         } catch (error) {
             console.error('文档重新生成失败:', error);

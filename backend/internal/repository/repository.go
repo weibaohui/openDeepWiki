@@ -37,12 +37,14 @@ type TaskRepository interface {
 type DocumentRepository interface {
 	Create(doc *model.Document) error
 	GetByRepository(repoID uint) ([]model.Document, error)
+	GetVersions(repoID uint, title string) ([]model.Document, error)
 	Get(id uint) (*model.Document, error)
 	Save(doc *model.Document) error
 	Delete(id uint) error
 	DeleteByTaskID(taskID uint) error
 	DeleteByRepositoryID(repoID uint) error
 	UpdateTaskID(docID uint, taskID uint) error
+	TransferLatest(oldDocID uint, newDocID uint) error
 
 	CreateVersioned(doc *model.Document) error
 	GetLatestVersionByTaskID(taskID uint) (int, error)

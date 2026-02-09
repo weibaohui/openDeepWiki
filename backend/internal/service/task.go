@@ -376,6 +376,63 @@ func (s *TaskService) Retry(taskID uint) error {
 	return nil
 }
 
+// CreateTaskWithDoc 创建文档和任务，并建立双向关联
+// 1. 创建文档
+// 2. 创建任务
+// 3. 更新文档关联的任务ID
+func (s *TaskService) CreateTaskWithDoc(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
+	doc, err := s.docService.Create(CreateDocumentRequest{
+		RepositoryID: repoID,
+		Title:        title,
+		Filename:     title + ".md",
+		Content:      "",
+		SortOrder:    sortOrder,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("创建文档失败: %w", err)
+	}
+
+	task := &model.Task{
+		RepositoryID: repoID,
+		DocID:        doc.ID,
+		Title:        title,
+		Status:       string(statemachine.TaskStatusPending),
+		SortOrder:    sortOrder,
+	}
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	if err := s.docService.UpdateTaskID(doc.ID, task.ID); err != nil {
+		// 记录日志但不返回错误，因为任务和文档已创建
+		klog.Errorf("更新文档关联的任务ID失败: docID=%d, taskID=%d, error=%v", doc.ID, task.ID, err)
+	}
+
+	return task, nil
+}
+
+// ReGenByNewTask 重新生成任务
+func (s *TaskService) ReGenByNewTask(taskID uint) error {
+	klog.V(6).Infof("重新生成任务: taskID=%d", taskID)
+
+	// 重新获取任务以获取 RepositoryID
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+	oldDocID := task.DocID
+	task, err = s.CreateTaskWithDoc(context.Background(), task.RepositoryID, task.Title, task.SortOrder)
+	if err != nil {
+		return fmt.Errorf("创建任务失败: %w", err)
+	}
+	err = s.docService.TransferLatest(oldDocID, task.DocID)
+	if err != nil {
+		return fmt.Errorf("删除最新文档失败: %w", err)
+	}
+
+	return nil
+}
+
 // Cancel 取消任务
 // 支持取消 Running 和 Queued 状态的任务
 func (s *TaskService) Cancel(taskID uint) error {

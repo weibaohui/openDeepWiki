@@ -185,6 +185,25 @@ func (h *TaskHandler) Retry(c *gin.Context) {
 	})
 }
 
+// ReGenByNewTask 重新生成任务
+func (h *TaskHandler) ReGenByNewTask(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	if err := h.service.ReGenByNewTask(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "task re-generated",
+		"status":  "queued",
+	})
+}
+
 // Cancel 取消任务
 func (h *TaskHandler) Cancel(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
