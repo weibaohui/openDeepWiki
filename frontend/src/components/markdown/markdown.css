@@ -43,7 +43,7 @@
 
 .markdown-body table th {
   font-weight: 600;
-  background-color: var(--ant-color-fill-secondary); /* 使用更柔和的背景色 */
+  background-color: var(--ant-color-bg-container); /* 使用更柔和的背景色 */
   color: var(--ant-color-text-base); /* 确保文字颜色清晰 */
 }
 
