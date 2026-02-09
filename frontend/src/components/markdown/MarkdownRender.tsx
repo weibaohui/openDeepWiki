@@ -53,6 +53,30 @@ const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, sty
         </code>
       );
     },
+    a({ node, href, children, ...props }: any) {
+      // 处理相对路径的代码链接，增加重定向前缀
+      if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('/') && !href.startsWith('#')) {
+        const newHref = `/api/redirect/path?${href}`;
+        return (
+          <a href={newHref} {...props} target="_blank" rel="noopener noreferrer">
+            {children}
+          </a>
+        );
+      }
+
+      // 外部链接在新标签页打开
+      const isExternal = href && (href.startsWith('http') || href.startsWith('mailto:'));
+      return (
+        <a
+          href={href}
+          {...props}
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+        >
+          {children}
+        </a>
+      );
+    },
   };
 
   return (
