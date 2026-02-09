@@ -3,12 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/cloudwego/eino/components/model"
 	"k8s.io/klog/v2"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
@@ -24,9 +27,15 @@ type TaskService struct {
 	taskStateMachine *statemachine.TaskStateMachine
 	repoAggregator   *statemachine.RepositoryStatusAggregator
 	orchestrator     *orchestrator.Orchestrator
+	llm              model.ChatModel
 }
 
 func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService, docGenerator *documentgenerator.Service) *TaskService {
+	llm, err := adkagents.NewLLMChatModel(cfg)
+	if err != nil {
+		klog.Errorf("[task.New] 创建LLM失败: %v", err)
+	}
+
 	return &TaskService{
 		cfg:              cfg,
 		taskRepo:         taskRepo,
@@ -35,6 +44,7 @@ func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repo
 		docGenerator:     docGenerator,
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		repoAggregator:   statemachine.NewRepositoryStatusAggregator(),
+		llm:              llm,
 	}
 }
 
@@ -682,4 +692,107 @@ func (s *TaskService) GetGlobalMonitorData() (*GlobalMonitorData, error) {
 		ActiveTasks: activeTasks,
 		RecentTasks: recentTasks,
 	}, nil
+}
+
+// GenerateUserRequestTitle 使用LLM生成用户需求的标题
+func (s *TaskService) GenerateUserRequestTitle(ctx context.Context, userContent string) (string, error) {
+	if s.llm == nil {
+		return "", fmt.Errorf("LLM未初始化")
+	}
+
+	klog.V(6).Infof("[task.GenerateUserRequestTitle] 开始生成标题: 用户内容=%s", userContent)
+
+	// 构建Prompt
+	prompt := fmt.Sprintf(`你是一个文档标题生成专家。请根据用户的输入，提取核心内容并生成一个简洁、专业的文档标题。
+
+要求：
+1. 标题长度不超过 50 个字符
+2. 标题应该清晰、专业、易于理解
+3. 使用中文或英文（根据用户输入语言）
+4. 只返回标题，不要返回其他内容
+
+用户输入：%s
+
+请生成文档标题：`, userContent)
+
+	// 调用LLM
+	messages := []model.Message{
+		{
+			Role:    model.System,
+			Content: "你是一个专业的文档标题生成专家，擅长从用户需求中提取核心内容并生成简洁的标题。",
+		},
+		{
+			Role:    model.User,
+			Content: prompt,
+		},
+	}
+
+	resp, err := s.llm.Generate(ctx, messages)
+	if err != nil {
+		klog.Errorf("[task.GenerateUserRequestTitle] LLM调用失败: error=%v", err)
+		return "", fmt.Errorf("LLM调用失败: %w", err)
+	}
+
+	// 提取响应内容
+	title := ""
+	if len(resp.Content) > 0 {
+		title = strings.TrimSpace(resp.Content[0].Text)
+	}
+
+	// 截断标题，确保不超过50个字符
+	if len(title) > 50 {
+		title = title[:50]
+		klog.V(6).Infof("[task.GenerateUserRequestTitle] 标题过长，已截断: 原标题=%s, 截断后=%s", title, title[:50])
+		title = title[:50]
+	}
+
+	if title == "" {
+		return "", fmt.Errorf("LLM生成标题为空")
+	}
+
+	klog.V(6).Infof("[task.GenerateUserRequestTitle] 标题生成成功: 标题=%s", title)
+	return title, nil
+}
+
+// CreateUserRequestTask 创建用户需求任务
+func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, userContent string) (*model.Task, error) {
+	klog.V(6).Infof("[task.CreateUserRequestTask] 开始创建用户需求任务: repoID=%d, 用户内容=%s", repoID, userContent)
+
+	// 验证仓库是否存在
+	_, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		klog.Errorf("[task.CreateUserRequestTask] 仓库不存在: repoID=%d, error=%v", repoID, err)
+		return nil, fmt.Errorf("仓库不存在: %w", err)
+	}
+
+	// 使用LLM生成标题
+	title, err := s.GenerateUserRequestTitle(ctx, userContent)
+	if err != nil {
+		klog.Errorf("[task.CreateUserRequestTask] 生成标题失败: error=%v", err)
+		return nil, fmt.Errorf("生成标题失败: %w", err)
+	}
+
+	// 创建任务
+	now := time.Now()
+	task := &model.Task{
+		RepositoryID: repoID,
+		Type:         "user-request",
+		Title:        title,
+		Status:       "pending",
+		SortOrder:    999, // 用户需求任务排在最后
+		ErrorMsg:     "",
+		StartedAt:    nil,
+		CompletedAt:  nil,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	// 保存任务
+	if err := s.taskRepo.Create(task); err != nil {
+		klog.Errorf("[task.CreateUserRequestTask] 保存任务失败: error=%v", err)
+		return nil, fmt.Errorf("保存任务失败: %w", err)
+	}
+
+	klog.V(6).Infof("[task.CreateUserRequestTask] 任务创建成功: taskID=%d, 标题=%s", task.ID, task.Title)
+	return task, nil
 }

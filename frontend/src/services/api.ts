@@ -24,6 +24,7 @@ export const repositoryApi = {
     // 触发API接口分析
     analyzeAPI: (id: number) => api.post<{ task: Task; message: string }>(`/repositories/${id}/api-analyze`),
     setReady: (id: number) => api.post(`/repositories/${id}/set-ready`),
+    createUserRequest: (id: number, content: string) => api.post<{ code: number; message: string; data: Task }>(`/repositories/${id}/user-requests`, { content }),
 };
 
 // Task APIs
