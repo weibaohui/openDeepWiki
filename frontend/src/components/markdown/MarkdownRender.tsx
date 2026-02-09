@@ -2,7 +2,7 @@ import React from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { vscDarkPlus, solarizedlight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useAppConfig } from '@/context/AppConfigContext';
 import MermaidRender from './MermaidRender';
 import './markdown.css'; // 引入样式文件
@@ -26,14 +26,23 @@ const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, sty
       }
 
       if (!inline && match) {
+
+        // 修复：解码可能存在的 Unicode 转义字符（如 \u003e -> >）以及被转义的双引号（\" -> "）
+        const codeContent = String(children)
+          .replace(/\n$/, '')
+          .replace(/\\u[\dA-F]{4}/gi, (match) => {
+            return String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16));
+          })
+          .replace(/\\"/g, '"');
+
         return (
           <SyntaxHighlighter
-            style={themeMode === 'dark' ? vscDarkPlus : vs}
+            style={themeMode === 'dark' ? vscDarkPlus : solarizedlight}
             language={match[1]}
             PreTag="div"
             {...props}
           >
-            {String(children).replace(/\n$/, '')}
+            {codeContent}
           </SyntaxHighlighter>
         );
       }

@@ -77,15 +77,15 @@
 .markdown-body pre:not(:has(div[class*="syntax-highlighter"])) {
   background-color: var(--ant-color-fill-secondary) !important;
   border: 1px solid var(--ant-color-border-secondary) !important;
-  padding: 16px !important;
-  border-radius: 6px;
+  padding: 8px !important;
+  border-radius: 1px;
 }
 
 /* 行内代码优化 */
 .markdown-body :not(pre) > code {
-  background-color: var(--ant-color-fill-tertiary);
-  border: 1px solid var(--ant-color-border-secondary);
-  border-radius: 4px;
+  /* background-color: var(--ant-color-fill-tertiary); */
+  /* border: 1px solid var(--ant-color-border-secondary); */
+  border-radius: 1px;
   padding: 0.2em 0.4em;
   font-size: 85%;
   margin: 0;
