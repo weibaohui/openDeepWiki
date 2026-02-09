@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import MermaidRender from './MermaidRender';
 
 interface MarkdownRenderProps {
@@ -28,7 +29,7 @@ const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, sty
 
   return (
     <div className={`markdown-body ${className || ''}`} style={style}>
-      <ReactMarkdown components={components}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{content}</ReactMarkdown>
     </div>
   );
 };
