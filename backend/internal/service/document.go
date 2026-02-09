@@ -40,6 +40,10 @@ type CreateDocumentRequest struct {
 	SortOrder    int    `json:"sort_order"`
 }
 
+func (s *DocumentService) UpdateTaskID(docID uint, taskID uint) error {
+	return s.docRepo.UpdateTaskID(docID, taskID)
+}
+
 func (s *DocumentService) Create(req CreateDocumentRequest) (*model.Document, error) {
 	doc := &model.Document{
 		RepositoryID: req.RepositoryID,
@@ -81,9 +85,12 @@ func (s *DocumentService) Update(id uint, content string) (*model.Document, erro
 	}
 	doc.Content = content
 	doc.UpdatedAt = time.Now()
-	if err := s.docRepo.Save(doc); err != nil {
+
+	doc.ID = 0 // 重置 ID 为 0，触发创建新版本
+	if err := s.docRepo.CreateVersioned(doc); err != nil {
 		return nil, err
 	}
+
 	return doc, nil
 }
 

@@ -83,6 +83,12 @@ func (r *documentRepository) CreateVersioned(doc *model.Document) error {
 	})
 }
 
+func (r *documentRepository) UpdateTaskID(docID uint, taskID uint) error {
+	return r.db.Model(&model.Document{}).
+		Where("id = ?", docID).
+		Update("task_id", taskID).Error
+}
+
 func (r *documentRepository) GetLatestVersionByTaskID(taskID uint) (int, error) {
 	var maxVersion sql.NullInt64
 	if err := r.db.Model(&model.Document{}).

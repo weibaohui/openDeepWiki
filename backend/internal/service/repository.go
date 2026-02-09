@@ -483,8 +483,20 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 		return nil, fmt.Errorf("仓库状态不允许执行数据库模型分析: current=%s", currentStatus)
 	}
 
+	doc, err := s.docService.Create(CreateDocumentRequest{
+		RepositoryID: repo.ID,
+		Title:        "数据库模型分析",
+		Filename:     "数据库模型分析.md",
+		Content:      "",
+		SortOrder:    10,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("创建数据库模型文档失败: %w", err)
+	}
+
 	task := &model.Task{
 		RepositoryID: repo.ID,
+		DocID:        doc.ID,
 		Title:        "数据库模型分析",
 		Status:       string(statemachine.TaskStatusPending),
 		SortOrder:    10,
@@ -492,6 +504,7 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, fmt.Errorf("创建数据库模型任务失败: %w", err)
 	}
+	s.docService.UpdateTaskID(doc.ID, task.ID)
 
 	go func(targetRepo *model.Repository, targetTask *model.Task) {
 		klog.V(6).Infof("开始异步数据库模型分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)

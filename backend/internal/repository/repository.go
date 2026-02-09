@@ -42,6 +42,7 @@ type DocumentRepository interface {
 	Delete(id uint) error
 	DeleteByTaskID(taskID uint) error
 	DeleteByRepositoryID(repoID uint) error
+	UpdateTaskID(docID uint, taskID uint) error
 
 	CreateVersioned(doc *model.Document) error
 	GetLatestVersionByTaskID(taskID uint) (int, error)
