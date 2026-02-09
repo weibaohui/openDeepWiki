@@ -78,11 +78,22 @@ func (s *DocumentService) GetVersions(docID uint) ([]model.Document, error) {
 	return s.docRepo.GetByTaskID(doc.TaskID)
 }
 
-func (s *DocumentService) Update(id uint, content string) (*model.Document, error) {
-	doc, err := s.docRepo.Get(id)
+func (s *DocumentService) Update(docID uint, content string) (*model.Document, error) {
+	doc, err := s.docRepo.Get(docID)
 	if err != nil {
 		return nil, err
 	}
+	if doc.Content == "" {
+		// 首次创建，直接保存
+		doc.Content = content
+		doc.UpdatedAt = time.Now()
+		if err := s.docRepo.Save(doc); err != nil {
+			return nil, err
+		}
+		return doc, nil
+	}
+
+	// 非首次创建，创建新版本
 	doc.Content = content
 	doc.UpdatedAt = time.Now()
 

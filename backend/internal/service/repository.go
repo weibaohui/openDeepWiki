@@ -435,6 +435,10 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 				klog.Errorf("保存任务提示信息失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, task.ID, err)
 			}
 		}
+		// dirs.AnalysisSummary 保存到提示中
+		if err := s.saveAnalysisSummaryHint(targetRepo.ID, dirs.AnalysisSummary); err != nil {
+			klog.Errorf("保存目录分析总结提示信息失败: repoID=%d, error=%v", targetRepo.ID, err)
+		}
 
 	}(repo)
 
@@ -442,6 +446,28 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 	return []*model.Task{}, nil
 }
 
+func (s *RepositoryService) saveAnalysisSummaryHint(repoID uint, summary string) error {
+	if s.taskHintRepo == nil {
+		return nil
+	}
+	if summary == "" {
+		return nil
+	}
+	hints := make([]model.TaskHint, 0, 1)
+	hints = append(hints, model.TaskHint{
+		RepositoryID: repoID,
+		TaskID:       0,
+		Title:        "目录分析总结",
+		Aspect:       "目录分析总结",
+		Source:       "目录分析",
+		Detail:       summary,
+	})
+	if err := s.taskHintRepo.CreateBatch(hints); err != nil {
+		klog.V(6).Infof("[dirmaker.CreateTasks] 保存任务提示信息失败: repoID=%d, error=%v", repoID, err)
+		return fmt.Errorf("保存目录分析总结提示信息失败: %w", err)
+	}
+	return nil
+}
 func (s *RepositoryService) saveHint(repoID uint, task *model.Task, spec *model.DirMakerDirSpec) error {
 	if s.taskHintRepo == nil {
 		return nil
@@ -483,28 +509,10 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 		return nil, fmt.Errorf("仓库状态不允许执行数据库模型分析: current=%s", currentStatus)
 	}
 
-	doc, err := s.docService.Create(CreateDocumentRequest{
-		RepositoryID: repo.ID,
-		Title:        "数据库模型分析",
-		Filename:     "数据库模型分析.md",
-		Content:      "",
-		SortOrder:    10,
-	})
+	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "数据库模型分析")
 	if err != nil {
-		return nil, fmt.Errorf("创建数据库模型文档失败: %w", err)
+		return nil, fmt.Errorf("创建数据库模型分析任务失败: %w", err)
 	}
-
-	task := &model.Task{
-		RepositoryID: repo.ID,
-		DocID:        doc.ID,
-		Title:        "数据库模型分析",
-		Status:       string(statemachine.TaskStatusPending),
-		SortOrder:    10,
-	}
-	if err := s.taskRepo.Create(task); err != nil {
-		return nil, fmt.Errorf("创建数据库模型任务失败: %w", err)
-	}
-	s.docService.UpdateTaskID(doc.ID, task.ID)
 
 	go func(targetRepo *model.Repository, targetTask *model.Task) {
 		klog.V(6).Infof("开始异步数据库模型分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
@@ -524,14 +532,7 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 			return
 		}
 
-		_, err = s.docService.Create(CreateDocumentRequest{
-			RepositoryID: targetTask.RepositoryID,
-			TaskID:       targetTask.ID,
-			Title:        targetTask.Title,
-			Filename:     targetTask.Title + ".md",
-			Content:      content,
-			SortOrder:    targetTask.SortOrder,
-		})
+		_, err = s.docService.Update(targetTask.DocID, content)
 		if err != nil {
 			completedAt := time.Now()
 			errMsg := fmt.Sprintf("保存数据库模型文档失败: %v", err)
@@ -571,13 +572,8 @@ func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model
 		return nil, fmt.Errorf("仓库状态不允许执行API接口分析: current=%s", currentStatus)
 	}
 
-	task := &model.Task{
-		RepositoryID: repo.ID,
-		Title:        "API接口分析",
-		Status:       string(statemachine.TaskStatusPending),
-		SortOrder:    11,
-	}
-	if err := s.taskRepo.Create(task); err != nil {
+	task, err := s.CreateTaskWithDoc(ctx, repo.ID, "API接口分析")
+	if err != nil {
 		return nil, fmt.Errorf("创建API接口分析任务失败: %w", err)
 	}
 
@@ -599,14 +595,7 @@ func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model
 			return
 		}
 
-		_, err = s.docService.Create(CreateDocumentRequest{
-			RepositoryID: targetTask.RepositoryID,
-			TaskID:       targetTask.ID,
-			Title:        targetTask.Title,
-			Filename:     targetTask.Title + ".md",
-			Content:      content,
-			SortOrder:    targetTask.SortOrder,
-		})
+		_, err = s.docService.Update(targetTask.DocID, content)
 		if err != nil {
 			completedAt := time.Now()
 			errMsg := fmt.Sprintf("保存API接口文档失败: %v", err)
@@ -674,4 +663,39 @@ func (s *RepositoryService) SetReady(repoID uint) error {
 
 	klog.V(6).Infof("仓库状态已设置为 ready: repoID=%d", repoID)
 	return nil
+}
+
+// CreateTaskWithDoc 创建文档和任务，并建立双向关联
+// 1. 创建文档
+// 2. 创建任务
+// 3. 更新文档关联的任务ID
+func (s *RepositoryService) CreateTaskWithDoc(ctx context.Context, repoID uint, title string) (*model.Task, error) {
+	doc, err := s.docService.Create(CreateDocumentRequest{
+		RepositoryID: repoID,
+		Title:        title,
+		Filename:     title + ".md",
+		Content:      "",
+		SortOrder:    10,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("创建文档失败: %w", err)
+	}
+
+	task := &model.Task{
+		RepositoryID: repoID,
+		DocID:        doc.ID,
+		Title:        title,
+		Status:       string(statemachine.TaskStatusPending),
+		SortOrder:    10,
+	}
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	if err := s.docService.UpdateTaskID(doc.ID, task.ID); err != nil {
+		// 记录日志但不返回错误，因为任务和文档已创建
+		klog.Errorf("更新文档关联的任务ID失败: docID=%d, taskID=%d, error=%v", doc.ID, task.ID, err)
+	}
+
+	return task, nil
 }
