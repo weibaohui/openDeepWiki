@@ -74,8 +74,8 @@ type CreateRepoRequest struct {
 }
 
 var (
-	ErrInvalidRepositoryURL    = errors.New("invalid repository url")
-	ErrRepositoryAlreadyExists = errors.New("repository already exists")
+	ErrInvalidRepositoryURL          = errors.New("invalid repository url")
+	ErrRepositoryAlreadyExists       = errors.New("repository already exists")
 	ErrCannotDeleteRepoInvalidStatus = errors.New("无法删除仓库：已完成或正在分析中的仓库不能删除")
 )
 
@@ -125,15 +125,13 @@ func (s *RepositoryService) Create(req CreateRepoRequest) (*model.Repository, er
 	for _, taskType := range model.TaskTypes {
 		task := &model.Task{
 			RepositoryID: repo.ID,
-			Type:         taskType.Type,
 			Title:        taskType.Title,
 			Status:       string(statemachine.TaskStatusPending),
-			SortOrder:    taskType.SortOrder,
 		}
 		if err := s.taskRepo.Create(task); err != nil {
 			return nil, fmt.Errorf("创建任务失败: %w", err)
 		}
-		klog.V(6).Infof("任务创建成功: taskID=%d, type=%s, title=%s", task.ID, task.Type, task.Title)
+		klog.V(6).Infof("任务创建成功: taskID=%d,   title=%s", task.ID, task.Title)
 	}
 
 	// 异步克隆仓库
@@ -457,7 +455,6 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 
 	task := &model.Task{
 		RepositoryID: repo.ID,
-		Type:         "db-model",
 		Title:        "数据库模型分析",
 		Status:       string(statemachine.TaskStatusPending),
 		SortOrder:    10,
@@ -533,7 +530,6 @@ func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model
 
 	task := &model.Task{
 		RepositoryID: repo.ID,
-		Type:         "api",
 		Title:        "API接口分析",
 		Status:       string(statemachine.TaskStatusPending),
 		SortOrder:    11,

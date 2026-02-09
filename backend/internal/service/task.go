@@ -176,7 +176,7 @@ func (s *TaskService) Run(ctx context.Context, taskID uint) error {
 // executeTaskLogic 执行任务的核心逻辑
 // 不包含状态管理，只负责业务逻辑
 func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) error {
-	klog.V(6).Infof("任务信息: taskID=%d, type=%s, title=%s", task.ID, task.Type, task.Title)
+	klog.V(6).Infof("任务信息: taskID=%d, title=%s", task.ID, task.Title)
 
 	// 获取仓库
 	repo, err := s.repoRepo.GetBasic(task.RepositoryID)
@@ -187,7 +187,7 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	klog.V(6).Infof("仓库信息: repoID=%d, name=%s, localPath=%s", repo.ID, repo.Name, repo.LocalPath)
 
 	// 使用 DocumentGeneratorService 生成文档
-	klog.V(6).Infof("开始生成文档: taskType=%s, repoPath=%s", task.Type, repo.LocalPath)
+	klog.V(6).Infof("开始生成文档:  repoPath=%s", repo.LocalPath)
 	content, err := s.docGenerator.Generate(ctx, repo.LocalPath, task.Title, task.ID)
 	if err != nil {
 		klog.Errorf("生成文档失败: taskTitle=%s, error=%v", task.Title, err)
@@ -776,7 +776,6 @@ func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, us
 	now := time.Now()
 	task := &model.Task{
 		RepositoryID: repoID,
-		Type:         "user-request",
 		Title:        title,
 		Status:       "pending",
 		SortOrder:    999, // 用户需求任务排在最后

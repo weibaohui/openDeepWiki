@@ -280,7 +280,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelAsync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AnalyzeDatabaseModel error: %v", err)
 	}
-	if task == nil || task.Type != "db-model" {
+	if task == nil {
 		t.Fatalf("unexpected task: %+v", task)
 	}
 	select {
@@ -330,7 +330,7 @@ func TestRepositoryServiceAnalyzeDatabaseModelFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AnalyzeDatabaseModel error: %v", err)
 	}
-	if task == nil || task.Type != "db-model" {
+	if task == nil {
 		t.Fatalf("unexpected task: %+v", task)
 	}
 	select {

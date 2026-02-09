@@ -42,7 +42,6 @@ type generationResult struct {
 // taskSpec 表示 Agent 生成的单个任务定义（仅包内使用）。
 // Type 字段不局限于预定义值，Agent 可根据项目特征自由定义。
 type dirSpec struct {
-	Type      string     `json:"type" yaml:"type"`             // 目录类型标识，如 "security", "performance", "data-model"
 	Title     string     `json:"title" yaml:"title"`           // 目录标题，如 "安全分析"
 	SortOrder int        `json:"sort_order" yaml:"sort_order"` // 排序顺序
 	Hint      []hintSpec `json:"hint" yaml:"hint"`
@@ -106,14 +105,13 @@ func (s *Service) CreateDirs(ctx context.Context, repo *model.Repository) ([]*mo
 	for _, spec := range result.Dirs {
 		task := &model.Task{
 			RepositoryID: repo.ID,
-			Type:         spec.Type,
 			Title:        spec.Title,
 			Status:       string(statemachine.TaskStatusPending),
 			SortOrder:    spec.SortOrder,
 		}
 
 		if err := s.taskRepo.Create(task); err != nil {
-			creationErrors = append(creationErrors, fmt.Errorf("创建任务 %s 失败: %w", spec.Type, err))
+			creationErrors = append(creationErrors, fmt.Errorf("创建任务 %s 失败: %w", spec.Title, err))
 			continue
 		}
 
