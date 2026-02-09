@@ -49,12 +49,7 @@ export default function TaskMonitor() {
             dataIndex: 'title',
             key: 'title',
         },
-        {
-            title: t('taskMonitor.type', 'Type'),
-            dataIndex: 'type',
-            key: 'type',
-            render: (type) => <Tag>{type}</Tag>
-        },
+
         {
             title: t('taskMonitor.status', 'Status'),
             dataIndex: 'status',
@@ -72,6 +67,7 @@ export default function TaskMonitor() {
             key: 'started_at',
             render: (date) => date ? new Date(date).toLocaleString() : '-'
         },
+
         {
             title: t('taskMonitor.action', 'Action'),
             key: 'action',
@@ -112,6 +108,12 @@ export default function TaskMonitor() {
                 if (status === 'canceled') color = 'default';
                 return <Tag color={color}>{status}</Tag>;
             }
+        },
+        {
+            title: t('taskMonitor.started_at', 'Started At'),
+            dataIndex: 'started_at',
+            key: 'started_at',
+            render: (date) => date ? new Date(date).toLocaleString() : '-'
         },
         {
             title: t('taskMonitor.completed_at', 'Completed At'),
