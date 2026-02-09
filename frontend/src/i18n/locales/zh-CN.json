@@ -171,9 +171,9 @@
         "overview_status_group": "状态分组",
         "overview_load_failed": "加载文档概览失败",
         "rating_title": "评分",
-        "rating_average": "平均分",
+        "rating_average": "平均",
         "rating_count": "评分次数",
-        "rating_action": "我要评分",
+        "rating_action": "评分",
         "rating_submit_success": "评分已提交",
         "rating_submit_failed": "提交评分失败",
         "rating_stats_failed": "加载评分失败"

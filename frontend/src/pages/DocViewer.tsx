@@ -1,43 +1,41 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-// 合并所有图标导入（去重 + 整合）
-import { 
-  ArrowLeftOutlined, 
-  FileTextOutlined, 
-  DownloadOutlined, 
-  EditOutlined, 
-  SaveOutlined, 
-  CloseOutlined, 
-  MenuOutlined, 
-  ClockCircleOutlined, 
-  CalendarOutlined, 
-  TagsOutlined, 
-  CheckOutlined, 
-  LinkOutlined, 
-  ReloadOutlined,
-  PlusOutlined  // 新增的唯一图标
+import {
+    ArrowLeftOutlined,
+    FileTextOutlined,
+    DownloadOutlined,
+    EditOutlined,
+    SaveOutlined,
+    CloseOutlined,
+    MenuOutlined,
+    ClockCircleOutlined,
+    CalendarOutlined,
+    TagsOutlined,
+    CheckOutlined,
+    LinkOutlined,
+    ReloadOutlined,
+    PlusOutlined
 } from '@ant-design/icons';
 
-// 合并所有组件导入（去重 + 整合）
-import { 
-  Button, 
-  Card, 
-  Spin, 
-  Layout, 
-  Typography, 
-  Space, 
-  Menu, 
-  message, 
-  Grid, 
-  Drawer, 
-  Empty, 
-  Row, 
-  Col, 
-  Statistic, 
-  Tag, 
-  Rate,  // 第一组独有的组件
-  Modal, // 第二组独有的组件
-  Input  // 第二组独有的组件
+import {
+    Button,
+    Card,
+    Spin,
+    Layout,
+    Typography,
+    Space,
+    Menu,
+    message,
+    Grid,
+    Drawer,
+    Empty,
+    Row,
+    Col,
+    Statistic,
+    Tag,
+    Rate,
+    Modal,
+    Input
 } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import type { Document, Repository, Task, DocumentRatingStats } from '../types';
@@ -305,25 +303,8 @@ export default function DocViewer() {
                     {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
                 <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
                     {t('document.updated_at')}: {formatDateTime(document.updated_at)}</span>
-                <span>
-                    {t('document.rating_title')}: {ratingLoading ? <Spin size="small" /> : (
-                        <Space size={6} style={{ alignItems: 'center' }}>
-                            <Rate allowHalf disabled value={averageScore} />
-                            <span>{t('document.rating_average')}: {averageScore.toFixed(1)}</span>
-                            <span>{t('document.rating_count')}: {ratingCount}</span>
-                        </Space>
-                    )}
-                </span>
-                <span>
-                    {t('document.rating_action')}: <Rate
-                        value={ratingValue ?? undefined}
-                        disabled={ratingSubmitting}
-                        onChange={(value) => {
-                            if (!value) return;
-                            handleSubmitRating(value);
-                        }}
-                    />
-                </span>
+
+
                 {repositoryUrl && (
                     <span>
                         <LinkOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
@@ -332,6 +313,33 @@ export default function DocViewer() {
                 )}
             </Space>
         </div>
+    ) : null;
+
+    const rateInfo = document ? (
+        <div style={{ marginTop: 50, fontSize: '12px', color: 'var(--ant-color-text-secondary)', backgroundColor: 'var(--ant-color-info-bg)', padding: '12px', borderRadius: '6px' }}>
+            <div>
+                {ratingLoading ? <Spin size="small" /> : (
+                    <Space size={6} style={{ alignItems: 'center' }}>
+                        {t('document.rating_average')}: <Rate allowHalf disabled value={averageScore} />
+                    </Space>
+                )}
+            </div>
+            <div>
+
+                <Space size={6} style={{ alignItems: 'center' }}>
+                    {t('document.rating_action')}:
+                    <Rate
+                        value={ratingValue ?? undefined}
+                        disabled={ratingSubmitting}
+                        onChange={(value) => {
+                            if (!value) return;
+                            handleSubmitRating(value);
+                        }}
+                    />
+                </Space>
+            </div>
+        </div>
+
     ) : null;
 
     const SidebarContent = () => (
@@ -507,12 +515,15 @@ export default function DocViewer() {
                                     onChange={(val) => setEditContent(val || '')}
                                     height={window.innerHeight - 200}
                                 />
+                                {rateInfo}
                             </div>
                         ) : (
                             <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
                                     <MDEditor.Markdown source={document?.content || ''} style={{ background: 'transparent' }} />
+                                    {rateInfo}
+
                                 </div>
                             </Card>
                         )}
