@@ -25,6 +25,7 @@ export default function RepoDetail() {
     const [messageApi, contextHolder] = message.useMessage();
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [retryingMissingDocs, setRetryingMissingDocs] = useState(false);
+    const [retryingFailedTasks, setRetryingFailedTasks] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!id) return;
@@ -237,6 +238,10 @@ export default function RepoDetail() {
         (task) => !getDocumentForTask(task.id) && !['pending', 'running', 'queued'].includes(task.status)
     );
 
+    const retryableFailedTasks = tasks.filter(
+        (task) => task.status === 'failed' && task.error_msg
+    );
+
     const handleRetryMissingDocs = async () => {
         if (retryingMissingDocs || retryableMissingDocTasks.length === 0) return;
         setRetryingMissingDocs(true);
@@ -262,6 +267,33 @@ export default function RepoDetail() {
             messageApi.warning(t('task.retry_missing_docs_empty'));
         }
         setRetryingMissingDocs(false);
+    };
+
+    const handleRetryFailedTasks = async () => {
+        if (retryingFailedTasks || retryableFailedTasks.length === 0) return;
+        setRetryingFailedTasks(true);
+        let successCount = 0;
+        let failureCount = 0;
+        for (const task of retryableFailedTasks) {
+            try {
+                await taskApi.retry(task.id);
+                successCount += 1;
+            } catch (error) {
+                console.error('Failed to retry task:', error);
+                failureCount += 1;
+            }
+        }
+        await fetchData();
+        if (successCount > 0) {
+            messageApi.success(t('task.retry_failed_tasks_success').replace('{{count}}', successCount.toString()));
+        }
+        if (failureCount > 0) {
+            messageApi.error(t('task.retry_failed_tasks_failed').replace('{{count}}', failureCount.toString()));
+        }
+        if (successCount === 0 && failureCount === 0) {
+            messageApi.warning(t('task.retry_failed_tasks_empty'));
+        }
+        setRetryingFailedTasks(false);
     };
 
     const handleExport = async () => {
@@ -432,6 +464,18 @@ export default function RepoDetail() {
                                     disabled={retryingMissingDocs || retryableMissingDocTasks.length === 0}
                                 >
                                     {t('task.retry_missing_docs')}
+                                </Button>
+                            </Tooltip>
+                            <Tooltip title={retryableFailedTasks.length === 0 ? t('task.retry_failed_tasks_empty') : t('task.retry_failed_tasks')}>
+                                <Button
+                                    block
+                                    type="primary"
+                                    icon={<ReloadOutlined />}
+                                    onClick={handleRetryFailedTasks}
+                                    loading={retryingFailedTasks}
+                                    disabled={retryingFailedTasks || retryableFailedTasks.length === 0}
+                                >
+                                    {t('task.retry_failed_tasks')}
                                 </Button>
                             </Tooltip>
                         </Space>

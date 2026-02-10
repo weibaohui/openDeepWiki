@@ -96,6 +96,10 @@
         "retry_missing_docs_success": "已触发 {{count}} 个任务重试",
         "retry_missing_docs_failed": "任务重试失败（{{count}} 个任务）",
         "retry_missing_docs_empty": "暂无可重试任务",
+        "retry_failed_tasks": "重试所有报错任务",
+        "retry_failed_tasks_success": "已触发 {{count}} 个报错任务重试",
+        "retry_failed_tasks_failed": "报错任务重试失败（{{count}} 个任务）",
+        "retry_failed_tasks_empty": "暂无报错任务可重试",
         "status": {
             "pending": "未运行",
             "queued": "已入队等待",

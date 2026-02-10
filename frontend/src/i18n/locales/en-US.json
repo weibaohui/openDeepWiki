@@ -94,6 +94,10 @@
         "retry_missing_docs_success": "Triggered retry for {{count}} tasks",
         "retry_missing_docs_failed": "Failed to retry {{count}} tasks",
         "retry_missing_docs_empty": "No tasks to retry",
+        "retry_failed_tasks": "Retry All Failed Tasks",
+        "retry_failed_tasks_success": "Triggered retry for {{count}} failed tasks",
+        "retry_failed_tasks_failed": "Failed to retry {{count}} failed tasks",
+        "retry_failed_tasks_empty": "No failed tasks to retry",
         "status": {
             "pending": "Pending",
             "running": "Running",
