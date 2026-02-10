@@ -91,3 +91,32 @@ export interface GlobalMonitorData {
     active_tasks: Task[];
     recent_tasks: Task[];
 }
+
+export interface SyncStartData {
+    sync_id: string;
+    repository_id: number;
+    total_tasks: number;
+    status: string;
+}
+
+export interface SyncStatusData {
+    sync_id: string;
+    repository_id: number;
+    total_tasks: number;
+    completed_tasks: number;
+    failed_tasks: number;
+    status: string;
+    current_task: string;
+    started_at: string;
+    updated_at: string;
+}
+
+export interface SyncStartResponse {
+    code: string;
+    data: SyncStartData;
+}
+
+export interface SyncStatusResponse {
+    code: string;
+    data: SyncStatusData;
+}

@@ -1,0 +1,665 @@
+package syncservice
+
+import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+
+	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
+	"gorm.io/gorm"
+	"k8s.io/klog/v2"
+)
+
+type Status struct {
+	SyncID         string
+	RepositoryID   uint
+	TargetServer   string
+	DocumentIDs    []uint
+	ClearTarget    bool
+	TotalTasks     int
+	CompletedTasks int
+	FailedTasks    int
+	Status         string
+	CurrentTask    string
+	StartedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type Service struct {
+	repoRepo  repository.RepoRepository
+	taskRepo  repository.TaskRepository
+	docRepo   repository.DocumentRepository
+	client    *http.Client
+	statusMap map[string]*Status
+	mutex     sync.RWMutex
+}
+
+func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository) *Service {
+	return &Service{
+		repoRepo:  repoRepo,
+		taskRepo:  taskRepo,
+		docRepo:   docRepo,
+		client:    &http.Client{Timeout: 15 * time.Second},
+		statusMap: make(map[string]*Status),
+	}
+}
+
+func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearTarget bool) (*Status, error) {
+	targetServer = strings.TrimSpace(targetServer)
+	if targetServer == "" {
+		return nil, errors.New("目标服务器地址不能为空")
+	}
+	parsed, err := url.Parse(targetServer)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return nil, errors.New("目标服务器地址格式不正确")
+	}
+	targetServer = strings.TrimSuffix(targetServer, "/")
+
+	if _, err := s.repoRepo.GetBasic(repoID); err != nil {
+		return nil, fmt.Errorf("仓库不存在: %w", err)
+	}
+
+	documentIDs = normalizeDocumentIDs(documentIDs)
+	status := &Status{
+		SyncID:       s.newSyncID(),
+		RepositoryID: repoID,
+		TargetServer: targetServer,
+		DocumentIDs:  documentIDs,
+		ClearTarget:  clearTarget,
+		Status:       "in_progress",
+		StartedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	s.setStatus(status)
+
+	klog.V(6).Infof("同步任务已创建: syncID=%s, repoID=%d, target=%s", status.SyncID, repoID, targetServer)
+	if len(documentIDs) > 0 {
+		klog.V(6).Infof("同步任务已启用文档筛选: syncID=%s, repoID=%d, docCount=%d", status.SyncID, repoID, len(documentIDs))
+	}
+	if clearTarget {
+		klog.V(6).Infof("同步任务已启用清空对端: syncID=%s, repoID=%d", status.SyncID, repoID)
+	}
+	go s.runSync(context.Background(), status)
+	return status, nil
+}
+
+func (s *Service) GetStatus(syncID string) (*Status, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	status, ok := s.statusMap[syncID]
+	return status, ok
+}
+
+// CreateOrUpdateRepository 创建或更新仓库基础信息。
+func (s *Service) CreateOrUpdateRepository(ctx context.Context, req syncdto.RepositoryUpsertRequest) (*model.Repository, error) {
+	if req.RepositoryID == 0 {
+		return nil, errors.New("仓库ID不能为空")
+	}
+	repo, err := s.repoRepo.GetBasic(req.RepositoryID)
+	isNew := false
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, repository.ErrNotFound) {
+			repo = &model.Repository{ID: req.RepositoryID}
+			isNew = true
+		} else {
+			return nil, err
+		}
+	}
+
+	createdAt := req.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	updatedAt := req.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = time.Now()
+	}
+
+	repo.Name = req.Name
+	repo.URL = req.URL
+	repo.Description = req.Description
+	repo.CloneBranch = req.CloneBranch
+	repo.CloneCommit = req.CloneCommit
+	repo.SizeMB = req.SizeMB
+	repo.Status = req.Status
+	repo.ErrorMsg = req.ErrorMsg
+	repo.CreatedAt = createdAt
+	repo.UpdatedAt = updatedAt
+
+	if isNew {
+		if err := s.repoRepo.Create(repo); err != nil {
+			return nil, err
+		}
+		klog.V(6).Infof("同步仓库信息已创建: repoID=%d", repo.ID)
+		return repo, nil
+	}
+
+	if err := s.repoRepo.Save(repo); err != nil {
+		return nil, err
+	}
+	klog.V(6).Infof("同步仓库信息已更新: repoID=%d", repo.ID)
+	return repo, nil
+}
+
+func (s *Service) CreateTask(ctx context.Context, req syncdto.TaskCreateRequest) (*model.Task, error) {
+	repo, err := s.repoRepo.GetBasic(req.RepositoryID)
+	if err != nil {
+		return nil, fmt.Errorf("仓库不存在: %w", err)
+	}
+
+	createdAt := req.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	updatedAt := req.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = time.Now()
+	}
+
+	task := &model.Task{
+		RepositoryID: repo.ID,
+		Title:        req.Title,
+		Status:       req.Status,
+		ErrorMsg:     req.ErrorMsg,
+		SortOrder:    req.SortOrder,
+		StartedAt:    req.StartedAt,
+		CompletedAt:  req.CompletedAt,
+		CreatedAt:    createdAt,
+		UpdatedAt:    updatedAt,
+	}
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+func (s *Service) ClearRepositoryData(ctx context.Context, repoID uint) error {
+	if repoID == 0 {
+		return errors.New("仓库ID不能为空")
+	}
+	if _, err := s.repoRepo.GetBasic(repoID); err != nil {
+		return fmt.Errorf("仓库不存在: %w", err)
+	}
+	if err := s.docRepo.DeleteByRepositoryID(repoID); err != nil {
+		return fmt.Errorf("清空文档失败: %w", err)
+	}
+	if err := s.taskRepo.DeleteByRepositoryID(repoID); err != nil {
+		return fmt.Errorf("清空任务失败: %w", err)
+	}
+	klog.V(6).Infof("仓库数据已清空: repoID=%d", repoID)
+	return nil
+}
+
+func (s *Service) CreateDocument(ctx context.Context, req syncdto.DocumentCreateRequest) (*model.Document, error) {
+	_, err := s.repoRepo.GetBasic(req.RepositoryID)
+	if err != nil {
+		return nil, fmt.Errorf("仓库不存在: %w", err)
+	}
+
+	task, err := s.taskRepo.Get(req.TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("任务不存在: %w", err)
+	}
+	if task.RepositoryID != req.RepositoryID {
+		return nil, errors.New("任务与仓库不匹配")
+	}
+
+	createdAt := req.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	updatedAt := req.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = time.Now()
+	}
+
+	doc := &model.Document{
+		RepositoryID: req.RepositoryID,
+		TaskID:       req.TaskID,
+		Title:        req.Title,
+		Filename:     req.Filename,
+		Content:      req.Content,
+		SortOrder:    req.SortOrder,
+		Version:      req.Version,
+		IsLatest:     req.IsLatest,
+		ReplacedBy:   req.ReplacedBy,
+		CreatedAt:    createdAt,
+		UpdatedAt:    updatedAt,
+	}
+	if err := s.docRepo.Create(doc); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+func (s *Service) UpdateTaskDocID(ctx context.Context, taskID uint, docID uint) (*model.Task, error) {
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("任务不存在: %w", err)
+	}
+	task.DocID = docID
+	task.UpdatedAt = time.Now()
+	if err := s.taskRepo.Save(task); err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+// normalizeDocumentIDs 清理文档ID列表，去除无效值并保持去重。
+func normalizeDocumentIDs(documentIDs []uint) []uint {
+	if len(documentIDs) == 0 {
+		return nil
+	}
+	seen := make(map[uint]struct{}, len(documentIDs))
+	out := make([]uint, 0, len(documentIDs))
+	for _, id := range documentIDs {
+		if id == 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+// collectTaskIDsByDocuments 根据文档ID列表收集任务ID集合，并校验文档所属仓库。
+func (s *Service) collectTaskIDsByDocuments(ctx context.Context, repoID uint, documentIDs []uint) (map[uint]struct{}, error) {
+	taskIDs := make(map[uint]struct{}, len(documentIDs))
+	for _, docID := range documentIDs {
+		doc, err := s.docRepo.Get(docID)
+		if err != nil {
+			return nil, fmt.Errorf("文档不存在: docID=%d, error=%w", docID, err)
+		}
+		if doc.RepositoryID != repoID {
+			return nil, fmt.Errorf("文档仓库不匹配: docID=%d, repoID=%d", docID, repoID)
+		}
+		taskIDs[doc.TaskID] = struct{}{}
+	}
+	return taskIDs, nil
+}
+
+// filterTasksByID 根据任务ID集合过滤任务列表。
+func filterTasksByID(tasks []model.Task, taskIDs map[uint]struct{}) []model.Task {
+	if len(taskIDs) == 0 {
+		return nil
+	}
+	filtered := make([]model.Task, 0, len(tasks))
+	for _, task := range tasks {
+		if _, ok := taskIDs[task.ID]; ok {
+			filtered = append(filtered, task)
+		}
+	}
+	return filtered
+}
+
+// filterDocumentsByID 根据文档ID集合过滤文档列表。
+func filterDocumentsByID(docs []model.Document, documentIDs map[uint]struct{}) []model.Document {
+	if len(documentIDs) == 0 {
+		return docs
+	}
+	filtered := make([]model.Document, 0, len(docs))
+	for _, doc := range docs {
+		if _, ok := documentIDs[doc.ID]; ok {
+			filtered = append(filtered, doc)
+		}
+	}
+	return filtered
+}
+
+// selectLatestDocument 选择一组文档中的最新版本，用于更新任务关联文档。
+func selectLatestDocument(docs []model.Document) *model.Document {
+	if len(docs) == 0 {
+		return nil
+	}
+	latest := docs[0]
+	for _, doc := range docs[1:] {
+		if doc.Version > latest.Version || (doc.Version == latest.Version && doc.ID > latest.ID) {
+			latest = doc
+		}
+	}
+	return &latest
+}
+
+func (s *Service) runSync(ctx context.Context, status *Status) {
+	if err := s.checkTarget(ctx, status.TargetServer); err != nil {
+		klog.Errorf("[sync.runSync] 目标服务器连通性验证失败: syncID=%s, error=%v", status.SyncID, err)
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.Status = "failed"
+			s.UpdatedAt = time.Now()
+		})
+		return
+	}
+
+	repo, err := s.repoRepo.GetBasic(status.RepositoryID)
+	if err != nil {
+		klog.Errorf("[sync.runSync] 获取仓库失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.Status = "failed"
+			s.UpdatedAt = time.Now()
+		})
+		return
+	}
+
+	s.updateStatus(status.SyncID, func(s *Status) {
+		s.CurrentTask = "正在同步仓库信息"
+		s.UpdatedAt = time.Now()
+	})
+
+	if err := s.createRemoteRepository(ctx, status.TargetServer, *repo); err != nil {
+		klog.Errorf("[sync.runSync] 创建或更新远端仓库失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.Status = "failed"
+			s.UpdatedAt = time.Now()
+		})
+		return
+	}
+
+	if status.ClearTarget {
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.CurrentTask = "正在清空对端数据"
+			s.UpdatedAt = time.Now()
+		})
+		if err := s.clearRemoteRepository(ctx, status.TargetServer, status.RepositoryID); err != nil {
+			klog.Errorf("[sync.runSync] 清空对端数据失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.Status = "failed"
+				s.UpdatedAt = time.Now()
+			})
+			return
+		}
+	}
+
+	tasks, err := s.taskRepo.GetByRepository(status.RepositoryID)
+	if err != nil {
+		klog.Errorf("[sync.runSync] 获取任务失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.Status = "failed"
+			s.UpdatedAt = time.Now()
+		})
+		return
+	}
+
+	documentIDSet := make(map[uint]struct{}, len(status.DocumentIDs))
+	for _, docID := range status.DocumentIDs {
+		documentIDSet[docID] = struct{}{}
+	}
+	if len(documentIDSet) > 0 {
+		taskIDSet, err := s.collectTaskIDsByDocuments(ctx, status.RepositoryID, status.DocumentIDs)
+		if err != nil {
+			klog.Errorf("[sync.runSync] 文档筛选失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.Status = "failed"
+				s.UpdatedAt = time.Now()
+			})
+			return
+		}
+		tasks = filterTasksByID(tasks, taskIDSet)
+		klog.V(6).Infof("同步任务已按文档筛选: syncID=%s, repoID=%d, taskCount=%d", status.SyncID, status.RepositoryID, len(tasks))
+	}
+
+	s.updateStatus(status.SyncID, func(s *Status) {
+		s.TotalTasks = len(tasks)
+		s.UpdatedAt = time.Now()
+	})
+
+	if len(tasks) == 0 {
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.Status = "completed"
+			s.UpdatedAt = time.Now()
+		})
+		klog.V(6).Infof("同步任务已完成: syncID=%s, repoID=%d, taskCount=0", status.SyncID, status.RepositoryID)
+		return
+	}
+
+	for index, task := range tasks {
+		current := fmt.Sprintf("正在同步任务 %d/%d: %s", index+1, len(tasks), task.Title)
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.CurrentTask = current
+			s.UpdatedAt = time.Now()
+		})
+
+		remoteTaskID, err := s.createRemoteTask(ctx, status.TargetServer, task)
+		if err != nil {
+			klog.Errorf("[sync.runSync] 创建远端任务失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.FailedTasks++
+				s.UpdatedAt = time.Now()
+			})
+			continue
+		}
+
+		docs, err := s.docRepo.GetByTaskID(task.ID)
+		if err != nil {
+			klog.Errorf("[sync.runSync] 获取文档失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.FailedTasks++
+				s.UpdatedAt = time.Now()
+			})
+			continue
+		}
+		docs = filterDocumentsByID(docs, documentIDSet)
+		if len(documentIDSet) > 0 && len(docs) == 0 {
+			klog.Errorf("[sync.runSync] 选中文档为空: syncID=%s, taskID=%d", status.SyncID, task.ID)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.FailedTasks++
+				s.UpdatedAt = time.Now()
+			})
+			continue
+		}
+
+		var latestRemoteDocID uint
+		var latestDoc *model.Document
+		if len(documentIDSet) > 0 {
+			latestDoc = selectLatestDocument(docs)
+		}
+		for _, doc := range docs {
+			remoteDocID, err := s.createRemoteDocument(ctx, status.TargetServer, doc, remoteTaskID)
+			if err != nil {
+				klog.Errorf("[sync.runSync] 创建远端文档失败: syncID=%s, docID=%d, error=%v", status.SyncID, doc.ID, err)
+				s.updateStatus(status.SyncID, func(s *Status) {
+					s.FailedTasks++
+					s.UpdatedAt = time.Now()
+				})
+				continue
+			}
+			if latestDoc != nil && doc.ID == latestDoc.ID {
+				latestRemoteDocID = remoteDocID
+			}
+			if latestDoc == nil && doc.IsLatest {
+				latestRemoteDocID = remoteDocID
+			}
+		}
+
+		if latestRemoteDocID != 0 {
+			if err := s.updateRemoteTaskDocID(ctx, status.TargetServer, remoteTaskID, latestRemoteDocID); err != nil {
+				klog.Errorf("[sync.runSync] 更新远端任务文档ID失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
+				s.updateStatus(status.SyncID, func(s *Status) {
+					s.FailedTasks++
+					s.UpdatedAt = time.Now()
+				})
+				continue
+			}
+		}
+
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.CompletedTasks++
+			s.UpdatedAt = time.Now()
+		})
+	}
+
+	s.updateStatus(status.SyncID, func(s *Status) {
+		if s.FailedTasks > 0 {
+			s.Status = "failed"
+		} else {
+			s.Status = "completed"
+		}
+		s.CurrentTask = ""
+		s.UpdatedAt = time.Now()
+	})
+	klog.V(6).Infof("同步任务已结束: syncID=%s, completed=%d, failed=%d", status.SyncID, status.CompletedTasks, status.FailedTasks)
+}
+
+func (s *Service) checkTarget(ctx context.Context, targetServer string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetServer+"/ping", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("目标服务器响应异常: status=%d, body=%s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// createRemoteRepository 向目标服务创建或更新仓库信息。
+func (s *Service) createRemoteRepository(ctx context.Context, targetServer string, repo model.Repository) error {
+	reqBody := syncdto.RepositoryUpsertRequest{
+		RepositoryID: repo.ID,
+		Name:         repo.Name,
+		URL:          repo.URL,
+		Description:  repo.Description,
+		CloneBranch:  repo.CloneBranch,
+		CloneCommit:  repo.CloneCommit,
+		SizeMB:       repo.SizeMB,
+		Status:       repo.Status,
+		ErrorMsg:     repo.ErrorMsg,
+		CreatedAt:    repo.CreatedAt,
+		UpdatedAt:    repo.UpdatedAt,
+	}
+	var respBody syncdto.RepositoryUpsertResponse
+	if err := s.postJSON(ctx, targetServer+"/repository-upsert", reqBody, &respBody); err != nil {
+		return err
+	}
+	klog.V(6).Infof("远端仓库同步完成: repoID=%d", repo.ID)
+	return nil
+}
+
+func (s *Service) clearRemoteRepository(ctx context.Context, targetServer string, repoID uint) error {
+	reqBody := syncdto.RepositoryClearRequest{
+		RepositoryID: repoID,
+	}
+	var respBody syncdto.RepositoryClearResponse
+	if err := s.postJSON(ctx, targetServer+"/repository-clear", reqBody, &respBody); err != nil {
+		return err
+	}
+	klog.V(6).Infof("远端仓库数据已清空: repoID=%d", repoID)
+	return nil
+}
+
+func (s *Service) createRemoteTask(ctx context.Context, targetServer string, task model.Task) (uint, error) {
+	reqBody := syncdto.TaskCreateRequest{
+		RepositoryID: task.RepositoryID,
+		Title:        task.Title,
+		Status:       task.Status,
+		ErrorMsg:     task.ErrorMsg,
+		SortOrder:    task.SortOrder,
+		StartedAt:    task.StartedAt,
+		CompletedAt:  task.CompletedAt,
+		CreatedAt:    task.CreatedAt,
+		UpdatedAt:    task.UpdatedAt,
+	}
+	var respBody syncdto.TaskCreateResponse
+	if err := s.postJSON(ctx, targetServer+"/task-create", reqBody, &respBody); err != nil {
+		return 0, err
+	}
+	return respBody.Data.TaskID, nil
+}
+
+func (s *Service) createRemoteDocument(ctx context.Context, targetServer string, doc model.Document, remoteTaskID uint) (uint, error) {
+	reqBody := syncdto.DocumentCreateRequest{
+		RepositoryID: doc.RepositoryID,
+		TaskID:       remoteTaskID,
+		Title:        doc.Title,
+		Filename:     doc.Filename,
+		Content:      doc.Content,
+		SortOrder:    doc.SortOrder,
+		Version:      doc.Version,
+		IsLatest:     doc.IsLatest,
+		ReplacedBy:   doc.ReplacedBy,
+		CreatedAt:    doc.CreatedAt,
+		UpdatedAt:    doc.UpdatedAt,
+	}
+	var respBody syncdto.DocumentCreateResponse
+	if err := s.postJSON(ctx, targetServer+"/document-create", reqBody, &respBody); err != nil {
+		return 0, err
+	}
+	return respBody.Data.DocumentID, nil
+}
+
+func (s *Service) updateRemoteTaskDocID(ctx context.Context, targetServer string, taskID uint, docID uint) error {
+	reqBody := syncdto.TaskUpdateDocIDRequest{
+		TaskID:     taskID,
+		DocumentID: docID,
+	}
+	var respBody syncdto.TaskUpdateDocIDResponse
+	return s.postJSON(ctx, targetServer+"/task-update-docid", reqBody, &respBody)
+}
+
+func (s *Service) postJSON(ctx context.Context, url string, reqBody interface{}, respBody interface{}) error {
+	payload, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("请求失败: status=%d, body=%s", resp.StatusCode, string(body))
+	}
+	if respBody != nil {
+		if err := json.NewDecoder(resp.Body).Decode(respBody); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) setStatus(status *Status) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.statusMap[status.SyncID] = status
+}
+
+func (s *Service) updateStatus(syncID string, updater func(status *Status)) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	status, ok := s.statusMap[syncID]
+	if !ok {
+		return
+	}
+	updater(status)
+}
+
+func (s *Service) newSyncID() string {
+	buf := make([]byte, 10)
+	_, _ = rand.Read(buf)
+	return "sync-" + hex.EncodeToString(buf)
+}

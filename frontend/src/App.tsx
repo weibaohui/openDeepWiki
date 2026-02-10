@@ -6,6 +6,7 @@ import RepoDetail from './pages/RepoDetail';
 import DocViewer from './pages/DocViewer';
 import APIKeyManager from './pages/APIKeyManager';
 import Settings from './pages/Settings';
+import Sync from './pages/Sync';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/repo/:id/doc/:docId" element={<DocViewer />} />
           <Route path="/api-keys" element={<APIKeyManager />} />
           <Route path="/settings" element={<Settings />} />
+                    <Route path="/sync" element={<Sync />} />
         </Routes>
       </HashRouter>
     </ThemeProvider>
