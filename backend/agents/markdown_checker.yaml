@@ -23,6 +23,7 @@ instruction: |
       - 删除无效空白字符、乱码
       - 修正语法拼写错误（如链接括号错位、标题无空格）
    4. Mermaid 图表校验：
+      - 必须用mermaid包裹，如```mermaid
       - 检查所有 Mermaid 图表语法是否正确
       - 验证图表类型（如 sequenceDiagram、classDiagram 等）
       - 确保图表语法符合 Mermaid 规范
