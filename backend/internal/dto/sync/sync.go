@@ -6,6 +6,7 @@ type StartRequest struct {
 	TargetServer string `json:"target_server" binding:"required"`
 	RepositoryID uint   `json:"repository_id" binding:"required"`
 	DocumentIDs  []uint `json:"document_ids,omitempty"`
+	ClearTarget  bool   `json:"clear_target,omitempty"`
 }
 
 type StartResponse struct {
@@ -66,6 +67,20 @@ type RepositoryUpsertResponse struct {
 type RepositoryUpsertData struct {
 	RepositoryID uint   `json:"repository_id"`
 	Name         string `json:"name"`
+}
+
+type RepositoryClearRequest struct {
+	RepositoryID uint `json:"repository_id" binding:"required"`
+}
+
+type RepositoryClearResponse struct {
+	Code string              `json:"code"`
+	Data RepositoryClearData `json:"data"`
+	Meta *ResponseMeta       `json:"meta,omitempty"`
+}
+
+type RepositoryClearData struct {
+	RepositoryID uint `json:"repository_id"`
 }
 
 type TaskCreateRequest struct {

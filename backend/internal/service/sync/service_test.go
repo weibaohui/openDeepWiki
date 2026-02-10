@@ -515,6 +515,34 @@ func TestServiceCreateOrUpdateRepositoryUpdate(t *testing.T) {
 	}
 }
 
+func TestServiceClearRepositoryData(t *testing.T) {
+	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
+		9: {ID: 9, Name: "repo-9"},
+	}}
+	taskRepo := &mockTaskRepo{tasks: map[uint]*model.Task{
+		1: {ID: 1, RepositoryID: 9, Title: "任务A"},
+		2: {ID: 2, RepositoryID: 10, Title: "任务B"},
+	}}
+	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
+		3: {ID: 3, RepositoryID: 9, TaskID: 1, Title: "文档A"},
+		4: {ID: 4, RepositoryID: 10, TaskID: 2, Title: "文档B"},
+	}}
+	svc := New(repoRepo, taskRepo, docRepo)
+
+	if err := svc.ClearRepositoryData(nil, 9); err != nil {
+		t.Fatalf("ClearRepositoryData error: %v", err)
+	}
+	if len(taskRepo.tasks) != 1 {
+		t.Fatalf("unexpected task count: %d", len(taskRepo.tasks))
+	}
+	if len(docRepo.docs) != 1 {
+		t.Fatalf("unexpected doc count: %d", len(docRepo.docs))
+	}
+	if taskRepo.tasks[2] == nil || docRepo.docs[4] == nil {
+		t.Fatalf("unexpected remaining data")
+	}
+}
+
 func TestNormalizeDocumentIDs(t *testing.T) {
 	out := normalizeDocumentIDs([]uint{0, 2, 2, 3, 0, 1})
 	if len(out) != 3 {

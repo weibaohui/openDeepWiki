@@ -67,10 +67,11 @@ export const apiKeyApi = {
 };
 
 export const syncApi = {
-    start: (targetServer: string, repositoryId: number, documentIds?: number[]) => api.post<SyncStartResponse>('/sync', {
+    start: (targetServer: string, repositoryId: number, documentIds?: number[], clearTarget?: boolean) => api.post<SyncStartResponse>('/sync', {
         target_server: targetServer,
         repository_id: repositoryId,
         ...(documentIds && documentIds.length > 0 ? { document_ids: documentIds } : {}),
+        ...(clearTarget ? { clear_target: true } : {}),
     }),
     status: (syncId: string) => api.get<SyncStatusResponse>(`/sync/status/${syncId}`),
 };

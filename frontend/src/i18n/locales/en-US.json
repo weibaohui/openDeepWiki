@@ -141,6 +141,7 @@
         "document_created_at": "Created At",
         "document_default_all": "No selection means sync all documents",
         "document_selected": "Selected {{count}} / {{total}}",
+        "clear_target": "Empty Target",
         "start": "Start Sync",
         "start_success": "Sync started",
         "start_failed": "Failed to start sync",

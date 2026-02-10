@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, SyncOutlined } from '@ant-design/icons';
-import { Button, Card, Grid, Input, Layout, List, message, Progress, Select, Space, Table, Tag, Typography } from 'antd';
+import { Button, Card, Checkbox, Grid, Input, Layout, List, message, Progress, Select, Space, Table, Tag, Typography } from 'antd';
 import type { Document, Repository, SyncStatusData, Task } from '../types';
 import { documentApi, repositoryApi, syncApi, taskApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
@@ -25,6 +25,7 @@ export default function Sync() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loadingDocuments, setLoadingDocuments] = useState(false);
     const [selectedDocumentIds, setSelectedDocumentIds] = useState<number[]>([]);
+    const [clearTarget, setClearTarget] = useState(false);
     const [syncId, setSyncId] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<SyncStatusData | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
@@ -95,7 +96,7 @@ export default function Sync() {
             key: 'created_at',
             render: (value: string) => formatDateTime(value),
         },
-    ]), [navigate, repositoryId, t, taskStatusMap]);
+    ]), [repositoryId, t, taskStatusMap]);
 
     useEffect(() => {
         const fetchRepositories = async () => {
@@ -204,7 +205,12 @@ export default function Sync() {
 
         setStarting(true);
         try {
-            const response = await syncApi.start(targetServer.trim(), repositoryId, selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined);
+            const response = await syncApi.start(
+                targetServer.trim(),
+                repositoryId,
+                selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+                clearTarget
+            );
             const data = response.data.data;
             setSyncId(data.sync_id);
             setSyncStatus({
@@ -320,6 +326,11 @@ export default function Sync() {
                                     ? t('sync.document_selected').replace('{{count}}', String(selectedDocumentIds.length)).replace('{{total}}', String(documents.length))
                                     : t('sync.document_default_all')}
                             </Text>
+                        </div>
+                        <div>
+                            <Checkbox checked={clearTarget} onChange={(e) => setClearTarget(e.target.checked)}>
+                                {t('sync.clear_target')}
+                            </Checkbox>
                         </div>
                         <Button type="primary" onClick={handleStartSync} loading={starting}>
                             {t('sync.start')}

@@ -24,6 +24,7 @@ func (h *SyncHandler) RegisterRoutes(router *gin.RouterGroup) {
 		syncGroup.POST("", h.Start)
 		syncGroup.GET("/status/:sync_id", h.Status)
 		syncGroup.POST("/repository-upsert", h.RepositoryUpsert)
+		syncGroup.POST("/repository-clear", h.RepositoryClear)
 		syncGroup.POST("/task-create", h.TaskCreate)
 		syncGroup.POST("/document-create", h.DocumentCreate)
 		syncGroup.POST("/task-update-docid", h.TaskUpdateDocID)
@@ -41,7 +42,7 @@ func (h *SyncHandler) Start(c *gin.Context) {
 		return
 	}
 
-	status, err := h.service.Start(c.Request.Context(), req.TargetServer, req.RepositoryID, req.DocumentIDs)
+	status, err := h.service.Start(c.Request.Context(), req.TargetServer, req.RepositoryID, req.DocumentIDs, req.ClearTarget)
 	if err != nil {
 		klog.Errorf("[sync.Start] 启动同步失败: error=%v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -103,6 +104,27 @@ func (h *SyncHandler) RepositoryUpsert(c *gin.Context) {
 		Data: syncdto.RepositoryUpsertData{
 			RepositoryID: repo.ID,
 			Name:         repo.Name,
+		},
+	})
+}
+
+func (h *SyncHandler) RepositoryClear(c *gin.Context) {
+	var req syncdto.RepositoryClearRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.ClearRepositoryData(c.Request.Context(), req.RepositoryID); err != nil {
+		klog.Errorf("[sync.RepositoryClear] 清空仓库数据失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, syncdto.RepositoryClearResponse{
+		Code: "OK",
+		Data: syncdto.RepositoryClearData{
+			RepositoryID: req.RepositoryID,
 		},
 	})
 }

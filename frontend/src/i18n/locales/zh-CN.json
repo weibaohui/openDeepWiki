@@ -143,6 +143,7 @@
         "document_created_at": "创建时间",
         "document_default_all": "未选择文档时默认同步全部",
         "document_selected": "已选择 {{count}} / {{total}}",
+        "clear_target": "清空目标",
         "start": "开始同步",
         "start_success": "同步已启动",
         "start_failed": "启动同步失败",

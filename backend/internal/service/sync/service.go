@@ -27,6 +27,7 @@ type Status struct {
 	RepositoryID   uint
 	TargetServer   string
 	DocumentIDs    []uint
+	ClearTarget    bool
 	TotalTasks     int
 	CompletedTasks int
 	FailedTasks    int
@@ -55,7 +56,7 @@ func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository,
 	}
 }
 
-func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint) (*Status, error) {
+func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearTarget bool) (*Status, error) {
 	targetServer = strings.TrimSpace(targetServer)
 	if targetServer == "" {
 		return nil, errors.New("目标服务器地址不能为空")
@@ -76,6 +77,7 @@ func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, d
 		RepositoryID: repoID,
 		TargetServer: targetServer,
 		DocumentIDs:  documentIDs,
+		ClearTarget:  clearTarget,
 		Status:       "in_progress",
 		StartedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -85,6 +87,9 @@ func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, d
 	klog.V(6).Infof("同步任务已创建: syncID=%s, repoID=%d, target=%s", status.SyncID, repoID, targetServer)
 	if len(documentIDs) > 0 {
 		klog.V(6).Infof("同步任务已启用文档筛选: syncID=%s, repoID=%d, docCount=%d", status.SyncID, repoID, len(documentIDs))
+	}
+	if clearTarget {
+		klog.V(6).Infof("同步任务已启用清空对端: syncID=%s, repoID=%d", status.SyncID, repoID)
 	}
 	go s.runSync(context.Background(), status)
 	return status, nil
@@ -178,6 +183,23 @@ func (s *Service) CreateTask(ctx context.Context, req syncdto.TaskCreateRequest)
 		return nil, err
 	}
 	return task, nil
+}
+
+func (s *Service) ClearRepositoryData(ctx context.Context, repoID uint) error {
+	if repoID == 0 {
+		return errors.New("仓库ID不能为空")
+	}
+	if _, err := s.repoRepo.GetBasic(repoID); err != nil {
+		return fmt.Errorf("仓库不存在: %w", err)
+	}
+	if err := s.docRepo.DeleteByRepositoryID(repoID); err != nil {
+		return fmt.Errorf("清空文档失败: %w", err)
+	}
+	if err := s.taskRepo.DeleteByRepositoryID(repoID); err != nil {
+		return fmt.Errorf("清空任务失败: %w", err)
+	}
+	klog.V(6).Infof("仓库数据已清空: repoID=%d", repoID)
+	return nil
 }
 
 func (s *Service) CreateDocument(ctx context.Context, req syncdto.DocumentCreateRequest) (*model.Document, error) {
@@ -347,6 +369,21 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 		return
 	}
 
+	if status.ClearTarget {
+		s.updateStatus(status.SyncID, func(s *Status) {
+			s.CurrentTask = "正在清空对端数据"
+			s.UpdatedAt = time.Now()
+		})
+		if err := s.clearRemoteRepository(ctx, status.TargetServer, status.RepositoryID); err != nil {
+			klog.Errorf("[sync.runSync] 清空对端数据失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.Status = "failed"
+				s.UpdatedAt = time.Now()
+			})
+			return
+		}
+	}
+
 	tasks, err := s.taskRepo.GetByRepository(status.RepositoryID)
 	if err != nil {
 		klog.Errorf("[sync.runSync] 获取任务失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
@@ -514,6 +551,18 @@ func (s *Service) createRemoteRepository(ctx context.Context, targetServer strin
 		return err
 	}
 	klog.V(6).Infof("远端仓库同步完成: repoID=%d", repo.ID)
+	return nil
+}
+
+func (s *Service) clearRemoteRepository(ctx context.Context, targetServer string, repoID uint) error {
+	reqBody := syncdto.RepositoryClearRequest{
+		RepositoryID: repoID,
+	}
+	var respBody syncdto.RepositoryClearResponse
+	if err := s.postJSON(ctx, targetServer+"/repository-clear", reqBody, &respBody); err != nil {
+		return err
+	}
+	klog.V(6).Infof("远端仓库数据已清空: repoID=%d", repoID)
 	return nil
 }
 

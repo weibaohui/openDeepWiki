@@ -202,3 +202,37 @@ func TestSyncHandlerRepositoryUpsert(t *testing.T) {
 		t.Fatalf("unexpected response: %+v", resp.Data)
 	}
 }
+
+func TestSyncHandlerRepositoryClear(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repoRepo := &mockSyncRepoRepo{repos: map[uint]*model.Repository{
+		8: {ID: 8, Name: "repo-8"},
+	}}
+	taskRepo := &mockSyncTaskRepo{}
+	docRepo := &mockSyncDocRepo{}
+	svc := syncservice.New(repoRepo, taskRepo, docRepo)
+	handler := NewSyncHandler(svc)
+	router := gin.New()
+	router.POST("/sync/repository-clear", handler.RepositoryClear)
+
+	payload := syncdto.RepositoryClearRequest{RepositoryID: 8}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload error: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/sync/repository-clear", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	var resp syncdto.RepositoryClearResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response error: %v", err)
+	}
+	if resp.Data.RepositoryID != 8 {
+		t.Fatalf("unexpected response: %+v", resp.Data)
+	}
+}
