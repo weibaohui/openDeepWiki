@@ -20,6 +20,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/dirmaker"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/problemanalyzer"
 )
 
 func main() {
@@ -73,6 +74,11 @@ func main() {
 		log.Fatalf("Failed to initialize api analyzer service: %v", err)
 	}
 
+	problemAnalyzerService, err := problemanalyzer.New(cfg, hintRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize problem analyzer service: %v", err)
+	}
+
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService, docGeneratorService)
 
 	// 初始化目录分析服务
@@ -89,7 +95,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelParserService, apiAnalyzerService)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelParserService, apiAnalyzerService, problemAnalyzerService)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)
