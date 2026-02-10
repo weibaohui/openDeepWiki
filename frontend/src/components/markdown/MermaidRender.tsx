@@ -42,6 +42,14 @@ const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
         return String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16));
       });
 
+      // 修复：移除 [] 中的 ()，防止 Mermaid 解析错误
+      const sanitizedCode = decodedCode.replace(/\[([^\]]*?)\]/g, (match, content) => {
+        if (content.includes('(') || content.includes(')')) {
+          return `[${content.replace(/[()]/g, '')}]`;
+        }
+        return match;
+      });
+
       // 每次渲染生成唯一的 ID，防止 React Strict Mode 下重复 ID 导致 Mermaid 报错
       const renderId = `${uniqueId}-${Date.now()}`;
 
@@ -49,7 +57,7 @@ const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
         // 尝试渲染
         // mermaid.render 返回 { svg } 对象 (v10+)
         // 注意：mermaid.render 是异步的
-        const { svg } = await mermaid.render(renderId, decodedCode);
+        const { svg } = await mermaid.render(renderId, sanitizedCode);
 
         if (isMounted) {
           setSvg(svg);
