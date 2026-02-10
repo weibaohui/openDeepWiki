@@ -409,7 +409,7 @@ tools:
    - search_files # 特征检索工具：搜索仓库内特征性文件/依赖
    - list_skills # 技能列表工具：获取所有已注册技能
    - run_terminal_command # 终端命令执行工具：执行shell命令，如uv run <script>、python3 <script>、ls、cat、grep等
-maxIterations: 80
+maxIterations: 100
 # models:
 #    - cat
 #    - dsfree

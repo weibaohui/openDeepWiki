@@ -218,4 +218,4 @@ tools:
   - search_files # 特征检索工具：搜索仓库内特征性文件/依赖
   - list_skills # 技能列表工具：获取所有已注册技能
   - run_terminal_command # 终端命令执行工具：执行shell命令，如uv run <script>、python3 <script>、ls、cat、grep等
-maxIterations: 80 # 精简迭代次数，适配代码仓库分析的常规复杂度（原30次冗余）
+maxIterations: 100 # 精简迭代次数，适配代码仓库分析的常规复杂度（原30次冗余）
