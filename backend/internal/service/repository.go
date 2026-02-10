@@ -38,6 +38,7 @@ type RepositoryService struct {
 	dbModelParser   DatabaseModelParser
 	apiAnalyzer     APIAnalyzer
 	problemAnalyzer ProblemAnalyzer
+	titleRewriter   TitleRewriter
 }
 
 // DirMakerService 目录分析服务接口。
@@ -57,8 +58,12 @@ type ProblemAnalyzer interface {
 	Generate(ctx context.Context, localPath string, problem string, repoID uint, taskID uint) (string, error)
 }
 
+type TitleRewriter interface {
+	RewriteTitle(ctx context.Context, docID uint) (string, string, bool, error)
+}
+
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser, apiAnalyzer APIAnalyzer, problemAnalyzer ProblemAnalyzer) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser, apiAnalyzer APIAnalyzer, problemAnalyzer ProblemAnalyzer, titleRewriter TitleRewriter) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
@@ -74,6 +79,7 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		dbModelParser:    dbModelParser,
 		apiAnalyzer:      apiAnalyzer,
 		problemAnalyzer:  problemAnalyzer,
+		titleRewriter:    titleRewriter,
 	}
 }
 
@@ -687,6 +693,15 @@ func (s *RepositoryService) AnalyzeProblem(ctx context.Context, repoID uint, pro
 		}
 		s.updateRepositoryStatusAfterTask(targetRepo.ID)
 		klog.V(6).Infof("异步问题分析完成: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
+
+		//进行标题重写
+		if s.titleRewriter != nil {
+			_,_,_, err := s.titleRewriter.RewriteTitle(context.Background(), targetTask.DocID)
+			if err != nil {
+				klog.Errorf("标题重写失败: repoID=%d, taskID=%d, docID=%d, error=%v", targetRepo.ID, targetTask.ID, targetTask.DocID, err)
+			}  
+		}
+
 	}(repo, task, problem)
 
 	klog.V(6).Infof("问题分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
