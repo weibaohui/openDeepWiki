@@ -170,7 +170,7 @@ func (h *RepositoryHandler) AnalyzeAPI(c *gin.Context) {
 }
 
 type AnalyzeProblemRequest struct {
-	Problem string `json:"problem" binding:"required"`
+	Content string `json:"content" binding:"required"`
 }
 
 // AnalyzeProblem 处理问题分析的触发请求。
@@ -188,7 +188,7 @@ func (h *RepositoryHandler) AnalyzeProblem(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.service.AnalyzeProblem(ctx, uint(id), req.Problem)
+	task, err := h.service.AnalyzeProblem(ctx, uint(id), req.Content)
 	if err != nil {
 		klog.Errorf("AnalyzeProblem failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
