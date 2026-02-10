@@ -169,6 +169,38 @@ func (h *RepositoryHandler) AnalyzeAPI(c *gin.Context) {
 	})
 }
 
+type AnalyzeProblemRequest struct {
+	Problem string `json:"problem" binding:"required"`
+}
+
+// AnalyzeProblem 处理问题分析的触发请求。
+func (h *RepositoryHandler) AnalyzeProblem(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req AnalyzeProblemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "problem is required"})
+		return
+	}
+
+	ctx := context.Background()
+	task, err := h.service.AnalyzeProblem(ctx, uint(id), req.Problem)
+	if err != nil {
+		klog.Errorf("AnalyzeProblem failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "problem analysis started",
+		"task":    task,
+	})
+}
+
 func (h *RepositoryHandler) SetReady(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
