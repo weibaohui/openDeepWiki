@@ -14,6 +14,7 @@ func Setup(
 	taskHandler *handler.TaskHandler,
 	docHandler *handler.DocumentHandler,
 	apiKeyHandler *handler.APIKeyHandler,
+	syncHandler *handler.SyncHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -82,6 +83,9 @@ func Setup(
 
 		// API Key 管理
 		apiKeyHandler.RegisterRoutes(api)
+
+		// 数据同步
+		syncHandler.RegisterRoutes(api)
 	}
 
 	// 设置前端静态文件路由（嵌入式）

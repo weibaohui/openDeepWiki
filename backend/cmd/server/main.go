@@ -21,6 +21,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/problemanalyzer"
+	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/titlerewriter"
 )
 
@@ -108,6 +109,8 @@ func main() {
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
+	syncService := syncservice.New(repoRepo, taskRepo, docRepo)
+	syncHandler := handler.NewSyncHandler(syncService)
 
 	// 初始化 EnhancedModelProvider 并设置到 Manager
 	manager, err := adkagents.GetOrCreateInstance(cfg)
@@ -124,7 +127,7 @@ func main() {
 	cleanupStuckTasks(taskService)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

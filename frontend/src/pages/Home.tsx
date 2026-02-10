@@ -5,6 +5,7 @@ import {
     PlusOutlined,
     GithubOutlined,
     SettingOutlined,
+    SyncOutlined,
     BookOutlined,
     BranchesOutlined,
     ClockCircleOutlined,
@@ -119,6 +120,7 @@ export default function Home() {
                     <Space size={screens.md ? 'middle' : 'small'}>
                         <LanguageSwitcher />
                         <ThemeSwitcher />
+                        <Button type="text" icon={<SyncOutlined />} onClick={() => navigate('/sync')} title={t('sync.title')} />
                         <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/settings')} />
                     </Space>
                 </Header>

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -64,6 +64,14 @@ export const apiKeyApi = {
     delete: (id: number) => api.delete(`/api-keys/${id}`),
     updateStatus: (id: number, status: string) => api.patch(`/api-keys/${id}/status`, { status }),
     getStats: () => api.get<APIKeyStats>('/api-keys/stats'),
+};
+
+export const syncApi = {
+    start: (targetServer: string, repositoryId: number) => api.post<SyncStartResponse>('/sync', {
+        target_server: targetServer,
+        repository_id: repositoryId,
+    }),
+    status: (syncId: string) => api.get<SyncStatusResponse>(`/sync/status/${syncId}`),
 };
 
 export default api;
