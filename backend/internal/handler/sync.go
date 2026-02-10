@@ -41,7 +41,7 @@ func (h *SyncHandler) Start(c *gin.Context) {
 		return
 	}
 
-	status, err := h.service.Start(c.Request.Context(), req.TargetServer, req.RepositoryID)
+	status, err := h.service.Start(c.Request.Context(), req.TargetServer, req.RepositoryID, req.DocumentIDs)
 	if err != nil {
 		klog.Errorf("[sync.Start] 启动同步失败: error=%v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

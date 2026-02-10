@@ -514,3 +514,96 @@ func TestServiceCreateOrUpdateRepositoryUpdate(t *testing.T) {
 		t.Fatalf("unexpected repo: %+v", repo)
 	}
 }
+
+func TestNormalizeDocumentIDs(t *testing.T) {
+	out := normalizeDocumentIDs([]uint{0, 2, 2, 3, 0, 1})
+	if len(out) != 3 {
+		t.Fatalf("unexpected length: %d", len(out))
+	}
+	if out[0] != 2 || out[1] != 3 || out[2] != 1 {
+		t.Fatalf("unexpected order: %v", out)
+	}
+}
+
+func TestFilterTasksByID(t *testing.T) {
+	tasks := []model.Task{
+		{ID: 1, Title: "任务1"},
+		{ID: 2, Title: "任务2"},
+		{ID: 3, Title: "任务3"},
+	}
+	taskIDs := map[uint]struct{}{
+		1: {},
+		3: {},
+	}
+	filtered := filterTasksByID(tasks, taskIDs)
+	if len(filtered) != 2 {
+		t.Fatalf("unexpected length: %d", len(filtered))
+	}
+	if filtered[0].ID != 1 || filtered[1].ID != 3 {
+		t.Fatalf("unexpected tasks: %v", filtered)
+	}
+}
+
+func TestFilterDocumentsByID(t *testing.T) {
+	docs := []model.Document{
+		{ID: 10, Title: "文档1"},
+		{ID: 11, Title: "文档2"},
+		{ID: 12, Title: "文档3"},
+	}
+	docIDs := map[uint]struct{}{
+		11: {},
+	}
+	filtered := filterDocumentsByID(docs, docIDs)
+	if len(filtered) != 1 {
+		t.Fatalf("unexpected length: %d", len(filtered))
+	}
+	if filtered[0].ID != 11 {
+		t.Fatalf("unexpected docs: %v", filtered)
+	}
+}
+
+func TestSelectLatestDocument(t *testing.T) {
+	docs := []model.Document{
+		{ID: 1, Version: 1},
+		{ID: 3, Version: 2},
+		{ID: 2, Version: 2},
+	}
+	latest := selectLatestDocument(docs)
+	if latest == nil {
+		t.Fatalf("expected latest document")
+	}
+	if latest.ID != 3 {
+		t.Fatalf("unexpected latest: %v", latest.ID)
+	}
+}
+
+func TestCollectTaskIDsByDocuments(t *testing.T) {
+	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
+		1: {ID: 1, RepositoryID: 7, TaskID: 10},
+		2: {ID: 2, RepositoryID: 7, TaskID: 11},
+	}}
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo)
+	taskIDs, err := svc.collectTaskIDsByDocuments(nil, 7, []uint{1, 2})
+	if err != nil {
+		t.Fatalf("collectTaskIDsByDocuments error: %v", err)
+	}
+	if len(taskIDs) != 2 {
+		t.Fatalf("unexpected taskIDs size: %d", len(taskIDs))
+	}
+	if _, ok := taskIDs[10]; !ok {
+		t.Fatalf("missing task id 10")
+	}
+	if _, ok := taskIDs[11]; !ok {
+		t.Fatalf("missing task id 11")
+	}
+}
+
+func TestCollectTaskIDsByDocumentsMismatch(t *testing.T) {
+	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
+		1: {ID: 1, RepositoryID: 8, TaskID: 10},
+	}}
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo)
+	if _, err := svc.collectTaskIDsByDocuments(nil, 7, []uint{1}); err == nil {
+		t.Fatalf("expected error")
+	}
+}

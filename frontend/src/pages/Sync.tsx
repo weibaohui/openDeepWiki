@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, SyncOutlined } from '@ant-design/icons';
-import { Button, Card, Grid, Input, Layout, List, message, Progress, Select, Space, Tag, Typography } from 'antd';
-import type { Repository, SyncStatusData } from '../types';
-import { repositoryApi, syncApi } from '../services/api';
+import { Button, Card, Grid, Input, Layout, List, message, Progress, Select, Space, Table, Tag, Typography } from 'antd';
+import type { Document, Repository, SyncStatusData, Task } from '../types';
+import { documentApi, repositoryApi, syncApi, taskApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { useAppConfig } from '@/context/AppConfigContext';
@@ -21,6 +21,10 @@ export default function Sync() {
     const [loadingRepos, setLoadingRepos] = useState(false);
     const [targetServer, setTargetServer] = useState('');
     const [repositoryId, setRepositoryId] = useState<number | undefined>(undefined);
+    const [documents, setDocuments] = useState<Document[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [loadingDocuments, setLoadingDocuments] = useState(false);
+    const [selectedDocumentIds, setSelectedDocumentIds] = useState<number[]>([]);
     const [syncId, setSyncId] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<SyncStatusData | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
@@ -40,6 +44,59 @@ export default function Sync() {
         return Math.round((syncStatus.completed_tasks / syncStatus.total_tasks) * 100);
     }, [syncStatus]);
 
+    const taskStatusMap = useMemo(() => {
+        const map: Record<number, Task['status']> = {};
+        tasks.forEach((task) => {
+            map[task.id] = task.status;
+        });
+        return map;
+    }, [tasks]);
+
+    const formatDateTime = (dateStr: string) => {
+        if (!dateStr) return '-';
+        return new Date(dateStr).toLocaleString();
+    };
+
+    const getStatusColor = (status?: Task['status']) => {
+        if (!status) return 'default';
+        if (status === 'succeeded' || status === 'completed') return 'success';
+        if (status === 'failed') return 'error';
+        if (status === 'running') return 'processing';
+        return 'default';
+    };
+
+    const documentColumns = useMemo(() => ([
+        {
+            title: t('sync.document_title'),
+            dataIndex: 'title',
+            key: 'title',
+            render: (_: string, record: Document) => (
+                <Button
+                    type="link"
+                    style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                    onClick={() => window.open(`/#/repo/${repositoryId}/doc/${record.id}`, '_blank')}
+                >
+                    {record.title}
+                </Button>
+            ),
+        },
+        {
+            title: t('sync.document_status'),
+            dataIndex: 'status',
+            key: 'status',
+            render: (_: string, record: Document) => {
+                const status = taskStatusMap[record.task_id];
+                return <Tag color={getStatusColor(status)}>{status ? t(`task.status.${status}`) : '-'}</Tag>;
+            },
+        },
+        {
+            title: t('sync.document_created_at'),
+            dataIndex: 'created_at',
+            key: 'created_at',
+            render: (value: string) => formatDateTime(value),
+        },
+    ]), [navigate, repositoryId, t, taskStatusMap]);
+
     useEffect(() => {
         const fetchRepositories = async () => {
             setLoadingRepos(true);
@@ -55,6 +112,31 @@ export default function Sync() {
         };
         fetchRepositories();
     }, []);
+
+    useEffect(() => {
+        if (!repositoryId) {
+            setDocuments([]);
+            setTasks([]);
+            setSelectedDocumentIds([]);
+            return;
+        }
+        setLoadingDocuments(true);
+        Promise.all([
+            documentApi.getByRepository(repositoryId),
+            taskApi.getByRepository(repositoryId),
+        ]).then(([docRes, taskRes]) => {
+            const docs = Array.isArray(docRes.data) ? docRes.data : [];
+            const repoTasks = Array.isArray(taskRes.data) ? taskRes.data : [];
+            setDocuments(docs);
+            setTasks(repoTasks);
+            setSelectedDocumentIds([]);
+        }).catch(() => {
+            setDocuments([]);
+            setTasks([]);
+        }).finally(() => {
+            setLoadingDocuments(false);
+        });
+    }, [repositoryId]);
 
     useEffect(() => {
         if (!syncId) return;
@@ -122,7 +204,7 @@ export default function Sync() {
 
         setStarting(true);
         try {
-            const response = await syncApi.start(targetServer.trim(), repositoryId);
+            const response = await syncApi.start(targetServer.trim(), repositoryId, selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined);
             const data = response.data.data;
             setSyncId(data.sync_id);
             setSyncStatus({
@@ -199,6 +281,45 @@ export default function Sync() {
                                     </Select.Option>
                                 ))}
                             </Select>
+                        </div>
+                        <div>
+                            <Text>{t('sync.document')}</Text>
+                            <Select
+                                mode="multiple"
+                                style={{ width: '100%' }}
+                                placeholder={t('sync.document_placeholder')}
+                                value={selectedDocumentIds}
+                                onChange={(value) => setSelectedDocumentIds(value as number[])}
+                                options={documents.map((doc) => ({
+                                    value: doc.id,
+                                    label: doc.title,
+                                }))}
+                                disabled={!repositoryId}
+                                loading={loadingDocuments}
+                                dropdownRender={() => (
+                                    <div style={{ padding: 8 }}>
+                                        <Table
+                                            dataSource={documents}
+                                            columns={documentColumns}
+                                            rowKey="id"
+                                            pagination={false}
+                                            size="small"
+                                            loading={loadingDocuments}
+                                            scroll={{ y: 240 }}
+                                            rowSelection={{
+                                                selectedRowKeys: selectedDocumentIds,
+                                                onChange: (keys) => setSelectedDocumentIds(keys as number[]),
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                maxTagCount="responsive"
+                            />
+                            <Text type="secondary">
+                                {selectedDocumentIds.length > 0
+                                    ? t('sync.document_selected').replace('{{count}}', String(selectedDocumentIds.length)).replace('{{total}}', String(documents.length))
+                                    : t('sync.document_default_all')}
+                            </Text>
                         </div>
                         <Button type="primary" onClick={handleStartSync} loading={starting}>
                             {t('sync.start')}

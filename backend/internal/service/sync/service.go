@@ -26,6 +26,7 @@ type Status struct {
 	SyncID         string
 	RepositoryID   uint
 	TargetServer   string
+	DocumentIDs    []uint
 	TotalTasks     int
 	CompletedTasks int
 	FailedTasks    int
@@ -54,7 +55,7 @@ func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository,
 	}
 }
 
-func (s *Service) Start(ctx context.Context, targetServer string, repoID uint) (*Status, error) {
+func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint) (*Status, error) {
 	targetServer = strings.TrimSpace(targetServer)
 	if targetServer == "" {
 		return nil, errors.New("目标服务器地址不能为空")
@@ -69,10 +70,12 @@ func (s *Service) Start(ctx context.Context, targetServer string, repoID uint) (
 		return nil, fmt.Errorf("仓库不存在: %w", err)
 	}
 
+	documentIDs = normalizeDocumentIDs(documentIDs)
 	status := &Status{
 		SyncID:       s.newSyncID(),
 		RepositoryID: repoID,
 		TargetServer: targetServer,
+		DocumentIDs:  documentIDs,
 		Status:       "in_progress",
 		StartedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -80,6 +83,9 @@ func (s *Service) Start(ctx context.Context, targetServer string, repoID uint) (
 	s.setStatus(status)
 
 	klog.V(6).Infof("同步任务已创建: syncID=%s, repoID=%d, target=%s", status.SyncID, repoID, targetServer)
+	if len(documentIDs) > 0 {
+		klog.V(6).Infof("同步任务已启用文档筛选: syncID=%s, repoID=%d, docCount=%d", status.SyncID, repoID, len(documentIDs))
+	}
 	go s.runSync(context.Background(), status)
 	return status, nil
 }
@@ -229,6 +235,84 @@ func (s *Service) UpdateTaskDocID(ctx context.Context, taskID uint, docID uint) 
 	return task, nil
 }
 
+// normalizeDocumentIDs 清理文档ID列表，去除无效值并保持去重。
+func normalizeDocumentIDs(documentIDs []uint) []uint {
+	if len(documentIDs) == 0 {
+		return nil
+	}
+	seen := make(map[uint]struct{}, len(documentIDs))
+	out := make([]uint, 0, len(documentIDs))
+	for _, id := range documentIDs {
+		if id == 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+// collectTaskIDsByDocuments 根据文档ID列表收集任务ID集合，并校验文档所属仓库。
+func (s *Service) collectTaskIDsByDocuments(ctx context.Context, repoID uint, documentIDs []uint) (map[uint]struct{}, error) {
+	taskIDs := make(map[uint]struct{}, len(documentIDs))
+	for _, docID := range documentIDs {
+		doc, err := s.docRepo.Get(docID)
+		if err != nil {
+			return nil, fmt.Errorf("文档不存在: docID=%d, error=%w", docID, err)
+		}
+		if doc.RepositoryID != repoID {
+			return nil, fmt.Errorf("文档仓库不匹配: docID=%d, repoID=%d", docID, repoID)
+		}
+		taskIDs[doc.TaskID] = struct{}{}
+	}
+	return taskIDs, nil
+}
+
+// filterTasksByID 根据任务ID集合过滤任务列表。
+func filterTasksByID(tasks []model.Task, taskIDs map[uint]struct{}) []model.Task {
+	if len(taskIDs) == 0 {
+		return nil
+	}
+	filtered := make([]model.Task, 0, len(tasks))
+	for _, task := range tasks {
+		if _, ok := taskIDs[task.ID]; ok {
+			filtered = append(filtered, task)
+		}
+	}
+	return filtered
+}
+
+// filterDocumentsByID 根据文档ID集合过滤文档列表。
+func filterDocumentsByID(docs []model.Document, documentIDs map[uint]struct{}) []model.Document {
+	if len(documentIDs) == 0 {
+		return docs
+	}
+	filtered := make([]model.Document, 0, len(docs))
+	for _, doc := range docs {
+		if _, ok := documentIDs[doc.ID]; ok {
+			filtered = append(filtered, doc)
+		}
+	}
+	return filtered
+}
+
+// selectLatestDocument 选择一组文档中的最新版本，用于更新任务关联文档。
+func selectLatestDocument(docs []model.Document) *model.Document {
+	if len(docs) == 0 {
+		return nil
+	}
+	latest := docs[0]
+	for _, doc := range docs[1:] {
+		if doc.Version > latest.Version || (doc.Version == latest.Version && doc.ID > latest.ID) {
+			latest = doc
+		}
+	}
+	return &latest
+}
+
 func (s *Service) runSync(ctx context.Context, status *Status) {
 	if err := s.checkTarget(ctx, status.TargetServer); err != nil {
 		klog.Errorf("[sync.runSync] 目标服务器连通性验证失败: syncID=%s, error=%v", status.SyncID, err)
@@ -273,6 +357,24 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 		return
 	}
 
+	documentIDSet := make(map[uint]struct{}, len(status.DocumentIDs))
+	for _, docID := range status.DocumentIDs {
+		documentIDSet[docID] = struct{}{}
+	}
+	if len(documentIDSet) > 0 {
+		taskIDSet, err := s.collectTaskIDsByDocuments(ctx, status.RepositoryID, status.DocumentIDs)
+		if err != nil {
+			klog.Errorf("[sync.runSync] 文档筛选失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.Status = "failed"
+				s.UpdatedAt = time.Now()
+			})
+			return
+		}
+		tasks = filterTasksByID(tasks, taskIDSet)
+		klog.V(6).Infof("同步任务已按文档筛选: syncID=%s, repoID=%d, taskCount=%d", status.SyncID, status.RepositoryID, len(tasks))
+	}
+
 	s.updateStatus(status.SyncID, func(s *Status) {
 		s.TotalTasks = len(tasks)
 		s.UpdatedAt = time.Now()
@@ -313,8 +415,21 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 			})
 			continue
 		}
+		docs = filterDocumentsByID(docs, documentIDSet)
+		if len(documentIDSet) > 0 && len(docs) == 0 {
+			klog.Errorf("[sync.runSync] 选中文档为空: syncID=%s, taskID=%d", status.SyncID, task.ID)
+			s.updateStatus(status.SyncID, func(s *Status) {
+				s.FailedTasks++
+				s.UpdatedAt = time.Now()
+			})
+			continue
+		}
 
 		var latestRemoteDocID uint
+		var latestDoc *model.Document
+		if len(documentIDSet) > 0 {
+			latestDoc = selectLatestDocument(docs)
+		}
 		for _, doc := range docs {
 			remoteDocID, err := s.createRemoteDocument(ctx, status.TargetServer, doc, remoteTaskID)
 			if err != nil {
@@ -325,7 +440,10 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 				})
 				continue
 			}
-			if doc.IsLatest {
+			if latestDoc != nil && doc.ID == latestDoc.ID {
+				latestRemoteDocID = remoteDocID
+			}
+			if latestDoc == nil && doc.IsLatest {
 				latestRemoteDocID = remoteDocID
 			}
 		}

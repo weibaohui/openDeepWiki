@@ -5,6 +5,7 @@ import "time"
 type StartRequest struct {
 	TargetServer string `json:"target_server" binding:"required"`
 	RepositoryID uint   `json:"repository_id" binding:"required"`
+	DocumentIDs  []uint `json:"document_ids,omitempty"`
 }
 
 type StartResponse struct {
