@@ -352,7 +352,43 @@ export default function DocViewer() {
 
     const SidebarContent = () => (
         <>
-            <div style={{ padding: '16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
+            <div style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid var(--ant-color-border-secondary)',
+                backgroundColor: 'var(--ant-color-bg-container)'
+            }}>
+                {repository?.name && (
+                    <div>
+                        <Text strong style={{ fontSize: '14px', display: 'block', marginBottom: 6 }}>
+                            {repository.name}
+                        </Text>
+                        {repositoryUrl && (
+                            <Space size={8} align="center" wrap>
+                                <Button
+                                    type="text"
+                                    icon={<ExportOutlined />}
+                                    onClick={() => window.open(repositoryUrl, '_blank')}
+                                    size="small"
+                                    style={{ padding: '0 4px', color: 'var(--ant-color-text-secondary)' }}
+                                    title={t('common.open_repository')}
+                                />
+                                <Button
+                                    type="text"
+                                    icon={<CopyOutlined />}
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(repositoryUrl);
+                                        messageApi.success(t('common.copy_success'));
+                                    }}
+                                    size="small"
+                                    style={{ padding: '0 4px', color: 'var(--ant-color-text-secondary)' }}
+                                    title={t('common.copy_repository_url')}
+                                />
+                            </Space>
+                        )}
+                    </div>
+                )}
+            </div>
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
                 <Button
                     type="text"
                     icon={<ArrowLeftOutlined />}
@@ -404,16 +440,16 @@ export default function DocViewer() {
         <Layout style={{ minHeight: '100vh' }}>
             {contextHolder}
             {screens.lg ? (
-                <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
+                <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)', overflow: 'auto', height: '100vh' }}>
                     <SidebarContent />
                 </Sider>
             ) : (
                 <Drawer
-                    title={t('repository.docs')}
+                    title={repository?.name || t('repository.docs')}
                     placement="left"
                     onClose={() => setMobileMenuOpen(false)}
                     open={mobileMenuOpen}
-                    width={250}
+                    width={280}
                     styles={{ body: { padding: 0 } }}
                 >
                     <SidebarContent />
@@ -443,43 +479,9 @@ export default function DocViewer() {
                                 style={{ marginRight: 8 }}
                             />
                         )}
-                        <div>
-                            {repository?.name && (
-                                <div style={{ marginBottom: 6 }}>
-                                    <Space size={8} align="center">
-                                        <Text type="secondary" style={{ fontSize: '14px' }}>
-                                            {repository.name}
-                                        </Text>
-                                        {repositoryUrl && (
-                                            <Space size={4}>
-                                                <Button
-                                                    type="text"
-                                                    icon={<ExportOutlined />}
-                                                    onClick={() => window.open(repositoryUrl, '_blank')}
-                                                    size="small"
-                                                    style={{ padding: '0 4px' }}
-                                                    title={t('common.open_repository')}
-                                                />
-                                                <Button
-                                                    type="text"
-                                                    icon={<CopyOutlined />}
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(repositoryUrl);
-                                                        messageApi.success(t('common.copy_success'));
-                                                    }}
-                                                    size="small"
-                                                    style={{ padding: '0 4px' }}
-                                                    title={t('common.copy_repository_url')}
-                                                />
-                                            </Space>
-                                        )}
-                                    </Space>
-                                </div>
-                            )}
-                            <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {isIndexView ? t('document.overview_title') : document?.title}
-                            </Title>
-                        </div>
+                        <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {isIndexView ? t('document.overview_title') : document?.title}
+                        </Title>
                     </div>
                     {!isIndexView && document && (
                         <Space size="small">
