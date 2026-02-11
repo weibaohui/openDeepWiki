@@ -403,7 +403,7 @@ func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title
 	task := &model.Task{
 		RepositoryID: repoID,
 		DocID:        doc.ID,
-		Title:        docTitle, //任务标题，不限制长度，prompt会提取文档标题作为提示词一部分
+		Title:        title, //任务标题，不限制长度，prompt会提取文档标题作为提示词一部分
 		WriterName:   domain.DefaultWriter,
 		TaskType:     domain.DocWrite,
 		Status:       string(statemachine.TaskStatusPending),
