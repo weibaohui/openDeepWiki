@@ -287,6 +287,12 @@ export default function DocViewer() {
             .filter((item) => item.count > 0);
     }, [statusCounts]);
     const averageScore = ratingStats?.average_score ?? 0;
+    const lastUpdatedDocument = useMemo(() => {
+        if (documents.length === 0) return null;
+        return documents.reduce((latest, doc) => {
+            return new Date(doc.updated_at) > new Date(latest.updated_at) ? doc : latest;
+        });
+    }, [documents]);
 
     if (loading) {
         return (
@@ -396,7 +402,18 @@ export default function DocViewer() {
                     block
                     style={{ textAlign: 'left' }}
                 >
-                    {t('nav.home')}
+                    {t('common.back')}
+                </Button>
+            </div>
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
+                <Button
+                    type="text"
+                    icon={<FileTextOutlined />}
+                    onClick={() => navigate(`/repo/${id}`)}
+                    block
+                    style={{ textAlign: 'left' }}
+                >
+                    {t('nav.overview')}
                 </Button>
             </div>
 
@@ -525,34 +542,60 @@ export default function DocViewer() {
                             <>
                                 <Card>
                                     {repository?.name && (
-                                        <div style={{ marginBottom: 24 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                                <Title level={3} style={{ margin: 0, fontSize: '20px' }}>
+                                        <div style={{ marginBottom: 32 }}>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <Title level={3} style={{ margin: 0, fontSize: '24px', marginBottom: 12 }}>
                                                     {repository.name}
                                                 </Title>
-                                                {repositoryUrl && (
-                                                    <Space size={8} align="center">
-                                                        <Button
-                                                            type="text"
-                                                            icon={<ExportOutlined />}
-                                                            onClick={() => window.open(repositoryUrl, '_blank')}
-                                                            size="middle"
-                                                            style={{ color: 'var(--ant-color-text-secondary)' }}
-                                                            title={t('common.open_repository')}
-                                                        />
-                                                        <Button
-                                                            type="text"
-                                                            icon={<CopyOutlined />}
-                                                            onClick={() => {
-                                                                navigator.clipboard.writeText(repositoryUrl);
-                                                                messageApi.success(t('common.copy_success'));
-                                                            }}
-                                                            size="middle"
-                                                            style={{ color: 'var(--ant-color-text-secondary)' }}
-                                                            title={t('common.copy_repository_url')}
-                                                        />
-                                                    </Space>
-                                                )}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                                    {repositoryUrl && (
+                                                        <Space size={6} align="center">
+                                                            <Button
+                                                                type="text"
+                                                                icon={<ExportOutlined />}
+                                                                onClick={() => window.open(repositoryUrl, '_blank')}
+                                                                size="middle"
+                                                                style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                                title={t('common.open_repository')}
+                                                            />
+                                                            <Button
+                                                                type="text"
+                                                                icon={<CopyOutlined />}
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(repositoryUrl);
+                                                                    messageApi.success(t('common.copy_success'));
+                                                                }}
+                                                                size="middle"
+                                                                style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                                title={t('common.copy_repository_url')}
+                                                            />
+                                                        </Space>
+                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '14px', color: 'var(--ant-color-text-secondary)', marginLeft: 'auto' }}>
+                                                        {lastUpdatedDocument && (
+                                                            <Space size={6} align="center">
+                                                                <ClockCircleOutlined style={{ fontSize: '14px' }} />
+                                                                <Text style={{ fontSize: '13px' }}>
+                                                                    {t('document.updated_at')}: {formatDateTime(lastUpdatedDocument.updated_at)}
+                                                                </Text>
+                                                            </Space>
+                                                        )}
+                                                        {repository.clone_branch && (
+                                                            <Space size={6} align="center">
+                                                                <Tag color="blue" style={{ margin: 0 }}>
+                                                                    {repository.clone_branch}
+                                                                </Tag>
+                                                            </Space>
+                                                        )}
+                                                        {repository.clone_commit_id && (
+                                                            <Space size={6} align="center">
+                                                                <Tag color="default" style={{ margin: 0, fontFamily: 'monospace' }}>
+                                                                    {repository.clone_commit_id.substring(0, 8)}
+                                                                </Tag>
+                                                            </Space>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     )}

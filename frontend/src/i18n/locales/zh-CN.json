@@ -23,7 +23,8 @@
     "nav": {
         "home": "首页",
         "repositories": "仓库列表",
-        "settings": "设置"
+        "settings": "设置",
+        "overview": "概览"
     },
     "repository": {
         "title": "代码仓库",

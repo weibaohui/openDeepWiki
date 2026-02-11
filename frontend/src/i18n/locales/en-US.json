@@ -23,7 +23,8 @@
     "nav": {
         "home": "Home",
         "repositories": "Repositories",
-        "settings": "Settings"
+        "settings": "Settings",
+        "overview": "Overview"
     },
     "repository": {
         "title": "Repositories",
