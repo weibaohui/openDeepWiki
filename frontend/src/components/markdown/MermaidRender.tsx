@@ -36,18 +36,20 @@ const fixMermaidNodeQuotes = (mermaidCode: string): string => {
     }
 
     const nodeId = mermaidCode.slice(idStart, index);
-    if (mermaidCode[index] !== '[') {
+    const openBracket = mermaidCode[index];
+    if (openBracket !== '[' && openBracket !== '{') {
       result += nodeId;
       continue;
     }
 
+    const closeBracket = openBracket === '[' ? ']' : '}';
     let depth = 1;
     let cursor = index + 1;
     while (cursor < mermaidCode.length && depth > 0) {
       const char = mermaidCode[cursor];
-      if (char === '[') {
+      if (char === openBracket) {
         depth += 1;
-      } else if (char === ']') {
+      } else if (char === closeBracket) {
         depth -= 1;
       }
       cursor += 1;
@@ -62,13 +64,15 @@ const fixMermaidNodeQuotes = (mermaidCode: string): string => {
     const trimmedContent = content.trim();
     const isQuoted = trimmedContent.startsWith('"') && trimmedContent.endsWith('"');
     const hasNonEdgeBracket =
-      content.indexOf('[') > 0 || (content.includes(']') && content.lastIndexOf(']') < content.length - 1);
-    const needsQuotes = content.includes('#') || hasNonEdgeBracket;
+      openBracket === '['
+        ? content.indexOf('[') > 0 || (content.includes(']') && content.lastIndexOf(']') < content.length - 1)
+        : false;
+    const needsQuotes = content.includes('#') || content.includes('@') || hasNonEdgeBracket;
 
     if (needsQuotes && !isQuoted) {
-      result += `${nodeId}["${content}"]`;
+      result += `${nodeId}${openBracket}"${content}"${closeBracket}`;
     } else {
-      result += `${nodeId}[${content}]`;
+      result += `${nodeId}${openBracket}${content}${closeBracket}`;
     }
 
     index = cursor;
