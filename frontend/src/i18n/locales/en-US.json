@@ -116,7 +116,11 @@
         "updated_just_now": "just now",
         "updated_minutes_ago": "{{minutes}} minutes ago",
         "updated_hours_ago": "{{hours}} hours ago",
-        "updated_days_ago": "{{days}} days ago"
+        "updated_days_ago": "{{days}} days ago",
+        "duration": "Duration",
+        "duration_hour": "h",
+        "duration_minute": "m",
+        "duration_second": "s"
     },
     "settings": {
         "title": "Settings",
@@ -172,6 +176,7 @@
         "status": "Status",
         "started_at": "Started At",
         "completed_at": "Completed At",
+        "duration": "Duration",
         "error": "Error",
         "action": "Action",
         "cancel": "Cancel",
