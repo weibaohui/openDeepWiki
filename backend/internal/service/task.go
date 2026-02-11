@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
@@ -24,6 +25,7 @@ type TaskService struct {
 	repoAggregator   *statemachine.RepositoryStatusAggregator
 	orchestrator     *orchestrator.Orchestrator
 	writers          []domain.Writer // 多个写入器，用于不同的文档类型
+	schedulerOnce    sync.Once
 }
 
 var ErrRunAfterNotSatisfied = errors.New("runAfter依赖未满足")
@@ -139,6 +141,60 @@ func (s *TaskService) Enqueue(taskID uint) error {
 	_ = s.UpdateRepositoryStatus(task.RepositoryID)
 
 	return nil
+}
+
+func (s *TaskService) StartPendingTaskScheduler(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = 10 * time.Second
+	}
+	s.schedulerOnce.Do(func() {
+		if s.orchestrator == nil {
+			klog.V(6).Infof("编排器未初始化，跳过Pending任务定时入队")
+			return
+		}
+		klog.V(6).Infof("启动Pending任务定时入队: interval=%s", interval)
+		ticker := time.NewTicker(interval)
+		go func() {
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					klog.V(6).Infof("Pending任务定时入队已停止: error=%v", ctx.Err())
+					return
+				case <-ticker.C:
+					s.enqueuePendingTasks(ctx)
+				}
+			}
+		}()
+	})
+}
+
+func (s *TaskService) enqueuePendingTasks(ctx context.Context) {
+	tasks, err := s.taskRepo.GetByStatus(string(statemachine.TaskStatusPending))
+	if err != nil {
+		klog.V(6).Infof("获取Pending任务失败: error=%v", err)
+		return
+	}
+	if len(tasks) == 0 {
+		return
+	}
+	klog.V(6).Infof("发现Pending任务: count=%d", len(tasks))
+	for _, task := range tasks {
+		select {
+		case <-ctx.Done():
+			klog.V(6).Infof("Pending任务入队被中断: error=%v", ctx.Err())
+			return
+		default:
+		}
+		if err := s.Enqueue(task.ID); err != nil {
+			if errors.Is(err, ErrRunAfterNotSatisfied) {
+				continue
+			}
+			klog.V(6).Infof("Pending任务入队失败: taskID=%d, error=%v", task.ID, err)
+			continue
+		}
+		klog.V(6).Infof("Pending任务已入队: taskID=%d", task.ID)
+	}
 }
 
 // CheckRunAfterSatisfied 检查任务RunAfter依赖是否满足

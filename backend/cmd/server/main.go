@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -126,6 +127,7 @@ func main() {
 
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
+	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
 	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler)

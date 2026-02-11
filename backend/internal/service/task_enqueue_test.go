@@ -280,3 +280,30 @@ func TestTaskServiceEnqueueRunAfterSatisfied(t *testing.T) {
 		t.Fatalf("queue length should be 1, got %d", got)
 	}
 }
+
+func TestTaskServiceEnqueuePendingTasks(t *testing.T) {
+	taskRepo := &mockTaskRepo{tasks: map[uint]*model.Task{
+		1: {ID: 1, RepositoryID: 1, Status: string(statemachine.TaskStatusSucceeded)},
+		2: {ID: 2, RepositoryID: 1, Status: string(statemachine.TaskStatusPending), RunAfter: 1},
+		3: {ID: 3, RepositoryID: 1, Status: string(statemachine.TaskStatusPending)},
+	}}
+	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
+		1: {ID: 1, Status: string(statemachine.RepoStatusReady)},
+	}}
+	svc := NewTaskService(&config.Config{}, taskRepo, repoRepo, nil)
+	o, _ := orchestrator.NewOrchestrator(1, &fakeExecutor{})
+	defer o.Stop()
+	svc.SetOrchestrator(o)
+
+	svc.enqueuePendingTasks(context.Background())
+
+	if taskRepo.tasks[2].Status != string(statemachine.TaskStatusQueued) {
+		t.Fatalf("task 2 status should be queued, got %s", taskRepo.tasks[2].Status)
+	}
+	if taskRepo.tasks[3].Status != string(statemachine.TaskStatusQueued) {
+		t.Fatalf("task 3 status should be queued, got %s", taskRepo.tasks[3].Status)
+	}
+	if got := o.GetQueueStatus().QueueLength; got != 2 {
+		t.Fatalf("queue length should be 2, got %d", got)
+	}
+}
