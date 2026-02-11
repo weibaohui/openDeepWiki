@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
+	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"gorm.io/driver/mysql"
@@ -13,25 +14,28 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func InitDB(dbType, dsn string) (*gorm.DB, error) {
+func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 
-	switch dbType {
+	switch cfg.Database.Type {
 	case "mysql":
-		dialector = mysql.Open(dsn)
+		dialector = mysql.Open(cfg.Database.DSN)
 	default:
 		// 使用 github.com/glebarez/sqlite 驱动
-		dialector = sqlite.Open(dsn)
+		dialector = sqlite.Open(cfg.Database.DSN)
 	}
-
+	lc := logger.Config{
+		SlowThreshold:             time.Second, // 慢 SQL 阈值
+		LogLevel:                  logger.Info, // 日志级别
+		IgnoreRecordNotFoundError: true,        // 忽略记录未找到错误
+		Colorful:                  true,        // 禁用彩色打印
+	}
+	if cfg.Server.Mode != "debug" {
+		lc.LogLevel = logger.Error
+	}
 	customLogger := logger.New(
 		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-		logger.Config{
-			SlowThreshold:             time.Second, // 慢 SQL 阈值
-			LogLevel:                  logger.Info, // 日志级别
-			IgnoreRecordNotFoundError: true,        // 忽略记录未找到错误
-			Colorful:                  true,        // 禁用彩色打印
-		},
+		lc,
 	)
 
 	db, err := gorm.Open(dialector, &gorm.Config{

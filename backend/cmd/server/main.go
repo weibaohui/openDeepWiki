@@ -38,7 +38,7 @@ func main() {
 	}
 
 	// 初始化数据库
-	db, err := database.InitDB(cfg.Database.Type, cfg.Database.DSN)
+	db, err := database.InitDB(cfg)
 
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -103,7 +103,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, docService)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService, taskService)

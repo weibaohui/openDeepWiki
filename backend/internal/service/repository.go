@@ -22,8 +22,6 @@ type RepositoryService struct {
 	taskRepo     repository.TaskRepository
 	docRepo      repository.DocumentRepository
 	taskHintRepo repository.HintRepository
-	docService   *DocumentService
-	taskService  *TaskService
 
 	// 状态机
 	repoStateMachine *statemachine.RepositoryStateMachine
@@ -34,15 +32,13 @@ type RepositoryService struct {
 }
 
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, docService *DocumentService) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
 		taskRepo:         taskRepo,
 		docRepo:          docRepo,
 		taskHintRepo:     taskHintRepo,
-		docService:       docService,
-		taskService:      taskService,
 		repoStateMachine: statemachine.NewRepositoryStateMachine(),
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
