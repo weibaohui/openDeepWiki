@@ -2,6 +2,7 @@ package database
 
 import (
 	"github.com/glebarez/sqlite"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -29,5 +30,8 @@ func InitDB(dbType, dsn string) (*gorm.DB, error) {
 	if err := db.AutoMigrate(&model.APIKey{}); err != nil {
 		return nil, err
 	}
+
+	//把Task表中没有记录的，都改为DefaultWriter
+	db.Model(&model.Task{}).Where("writer IS NULL or writer = '' ").Update("writer", string(domain.DefaultWriter))
 	return db, nil
 }

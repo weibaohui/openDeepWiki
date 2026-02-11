@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 )
 
 type Repository struct {
@@ -22,18 +24,19 @@ type Repository struct {
 }
 
 type Task struct {
-	ID           uint        `json:"id" gorm:"primaryKey"`
-	RepositoryID uint        `json:"repository_id" gorm:"index;"`
-	DocID        uint        `json:"doc_id" gorm:"index;"` // 关联的文档ID
-	Repository   *Repository `json:"repository,omitempty" gorm:"foreignKey:RepositoryID"`
-	Title        string      `json:"title" gorm:"size:255"`
-	Status       string      `json:"status" gorm:"size:50;default:pending"` // pending, queued, running, succeeded, failed, canceled
-	ErrorMsg     string      `json:"error_msg" gorm:"size:1000"`
-	SortOrder    int         `json:"sort_order" gorm:"default:0"`
-	StartedAt    *time.Time  `json:"started_at" gorm:"column:started_at"`
-	CompletedAt  *time.Time  `json:"completed_at" gorm:"column:completed_at"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	ID           uint              `json:"id" gorm:"primaryKey"`
+	RepositoryID uint              `json:"repository_id" gorm:"index;"`
+	DocID        uint              `json:"doc_id" gorm:"index;"` // 关联的文档ID
+	Repository   *Repository       `json:"repository,omitempty" gorm:"foreignKey:RepositoryID"`
+	WriterName   domain.WriterName `json:"writer_name" gorm:"size:255;default:DefaultWriter"` // 关联的写入器名称
+	Title        string            `json:"title" gorm:"size:255"`
+	Status       string            `json:"status" gorm:"size:50;default:pending"` // pending, queued, running, succeeded, failed, canceled
+	ErrorMsg     string            `json:"error_msg" gorm:"size:1000"`
+	SortOrder    int               `json:"sort_order" gorm:"default:0"`
+	StartedAt    *time.Time        `json:"started_at" gorm:"column:started_at"`
+	CompletedAt  *time.Time        `json:"completed_at" gorm:"column:completed_at"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at"`
 }
 
 type Document struct {

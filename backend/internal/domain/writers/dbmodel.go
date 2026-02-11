@@ -1,71 +1,62 @@
-package dbmodelparser
+package writers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 )
 
-const (
-	agentExplorer = "db_model_explorer"
-	agentMdCheck  = "markdown_checker"
-	agentDocCheck = "document_checker"
-)
-
-var (
-	ErrInvalidLocalPath     = errors.New("invalid local path")
-	ErrAgentExecutionFailed = errors.New("agent execution failed")
-	ErrNoAgentOutput        = errors.New("no agent output")
-)
-
-type Service struct {
+type dbModelWriter struct {
 	factory  *adkagents.AgentFactory
 	hintRepo repository.HintRepository
+	taskRepo repository.TaskRepository
 }
 
-func New(cfg *config.Config, hintRepo repository.HintRepository) (*Service, error) {
-	klog.V(6).Infof("[dbmodel.New] 创建数据库模型解析服务")
+func NewDBModelWriter(cfg *config.Config, hintRepo repository.HintRepository, taskRepo repository.TaskRepository) (*dbModelWriter, error) {
+	klog.V(6).Infof("[NewDBModelWriter] 创建数据库模型解析服务")
 	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
-		klog.Errorf("[dbmodel.New] 创建 AgentFactory 失败: %v", err)
+		klog.Errorf("[NewDBModelWriter] 创建 AgentFactory 失败: %v", err)
 		return nil, fmt.Errorf("create AgentFactory failed: %w", err)
 	}
-	return &Service{
+	return &dbModelWriter{
 		factory:  factory,
 		hintRepo: hintRepo,
+		taskRepo: taskRepo,
 	}, nil
 }
 
-func (s *Service) Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+func (s *dbModelWriter) Name() domain.WriterName {
+	return domain.DBModelWriter
+}
+
+func (s *dbModelWriter) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
 	if localPath == "" {
-		return "", fmt.Errorf("%w: local path is empty", ErrInvalidLocalPath)
+		return "", fmt.Errorf("%w: local path is empty", domain.ErrInvalidLocalPath)
 	}
 	if title == "" {
-		return "", fmt.Errorf("%w: title is empty", ErrInvalidLocalPath)
-	}
-	if repoID == 0 {
-		return "", fmt.Errorf("%w: repo id is empty", ErrInvalidLocalPath)
+		return "", fmt.Errorf("%w: title is empty", domain.ErrInvalidLocalPath)
 	}
 
-	klog.V(6).Infof("[dbmodel.Generate] 开始生成文档: 仓库路径=%s, 标题=%s, 任务ID=%d", localPath, title, taskID)
-	markdown, err := s.genDocument(ctx, localPath, title, repoID, taskID)
+	klog.V(6).Infof("[%s] 开始生成文档: 仓库路径=%s, 标题=%s, 任务ID=%d", s.Name(), localPath, title, taskID)
+	markdown, err := s.genDocument(ctx, localPath, title, taskID)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
+		return "", fmt.Errorf("%w: %w", domain.ErrAgentExecutionFailed, err)
 	}
 
-	klog.V(6).Infof("[dbmodel.Generate] 文档生成完成: 内容长度=%d", len(markdown))
+	klog.V(6).Infof("[%s] 文档生成完成: 内容长度=%d", s.Name(), len(markdown))
 	return markdown, nil
 }
 
-func (s *Service) genDocument(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+func (s *dbModelWriter) genDocument(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	adk.AddSessionValue(ctx, "document_title", title)
 	adk.AddSessionValue(ctx, "task_id", taskID)
@@ -75,15 +66,19 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		s.factory,
 		"db_model_parser_sequential_agent",
 		"db model parser sequential agent - explore database models then validate markdown",
-		agentExplorer,
-		agentDocCheck,
-		agentMdCheck,
+		domain.AgentDBModelExplorer,
+		domain.AgentDocCheck,
+		domain.AgentMdCheck,
 	)
 	if err != nil {
-		return "", fmt.Errorf("create agent failed: %w", err)
+		return "", fmt.Errorf("[%s] create agent failed: %w", s.Name(), err)
 	}
 
-	hintYAML := s.buildHintYAML(repoID)
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return "", fmt.Errorf("[%s] get task by id failed: %w", s.Name(), err)
+	}
+	hintYAML := s.buildHintYAML(task.RepositoryID)
 	var hintSection string
 	if hintYAML == "" {
 		hintSection = ""
@@ -111,14 +106,14 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", fmt.Errorf("agent execution error: %w", err)
 	}
 	if lastContent == "" {
-		return "", ErrNoAgentOutput
+		return "", domain.ErrNoAgentOutput
 	}
 
 	klog.V(8).Infof("[dbmodel.genDocument] Agent 输出内容: \n%s\n", lastContent)
 	return lastContent, nil
 }
 
-func (s *Service) buildHintYAML(repoID uint) string {
+func (s *dbModelWriter) buildHintYAML(repoID uint) string {
 	if s.hintRepo == nil || repoID == 0 {
 		return ""
 	}
@@ -171,11 +166,4 @@ func dbKeywords() []string {
 		"字段",
 		"数据模型",
 	}
-}
-
-func safe(value string) string {
-	if value == "" {
-		return "(无)"
-	}
-	return value
 }

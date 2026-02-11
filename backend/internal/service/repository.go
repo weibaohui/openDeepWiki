@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/git"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
@@ -35,9 +36,9 @@ type RepositoryService struct {
 
 	// 目录分析服务
 	dirMakerService DirMakerService
-	dbModelParser   DatabaseModelParser
-	apiAnalyzer     APIAnalyzer
-	problemAnalyzer ProblemAnalyzer
+	dbModelWriter   domain.Writer
+	apiWriter       domain.Writer
+	problemAnalyzer domain.Writer
 	titleRewriter   TitleRewriter
 }
 
@@ -46,16 +47,8 @@ type DirMakerService interface {
 	CreateDirs(ctx context.Context, repo *model.Repository) (*model.DirMakerGenerationResult, error)
 }
 
-type DatabaseModelParser interface {
-	Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
-}
-
 type APIAnalyzer interface {
 	Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
-}
-
-type ProblemAnalyzer interface {
-	Generate(ctx context.Context, localPath string, problem string, repoID uint, taskID uint) (string, error)
 }
 
 type TitleRewriter interface {
@@ -63,7 +56,7 @@ type TitleRewriter interface {
 }
 
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser DatabaseModelParser, apiAnalyzer APIAnalyzer, problemAnalyzer ProblemAnalyzer, titleRewriter TitleRewriter) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser domain.Writer, apiWriter domain.Writer, problemAnalyzer domain.Writer, titleRewriter TitleRewriter) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
@@ -76,8 +69,8 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 		dirMakerService:  dirMakerService,
-		dbModelParser:    dbModelParser,
-		apiAnalyzer:      apiAnalyzer,
+		dbModelWriter:    dbModelParser,
+		apiWriter:        apiWriter,
 		problemAnalyzer:  problemAnalyzer,
 		titleRewriter:    titleRewriter,
 	}

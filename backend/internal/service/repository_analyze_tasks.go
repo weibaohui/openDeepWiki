@@ -14,13 +14,13 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 		taskTitle: "数据库模型分析",
 		sortOrder: 10,
 		validate: func() error {
-			if s.dbModelParser == nil || s.docService == nil {
+			if s.dbModelWriter == nil || s.docService == nil {
 				return fmt.Errorf("数据库模型解析服务未初始化")
 			}
 			return nil
 		},
 		generator: func(ctx context.Context, repo *model.Repository, task *model.Task) (string, error) {
-			return s.dbModelParser.Generate(ctx, repo.LocalPath, task.Title, repo.ID, task.ID)
+			return s.dbModelWriter.Generate(ctx, repo.LocalPath, task.Title, task.ID)
 		},
 	})
 }
@@ -31,13 +31,13 @@ func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model
 		taskTitle: "API接口分析",
 		sortOrder: 20,
 		validate: func() error {
-			if s.apiAnalyzer == nil || s.docService == nil {
+			if s.apiWriter == nil || s.docService == nil {
 				return fmt.Errorf("API接口分析服务未初始化")
 			}
 			return nil
 		},
 		generator: func(ctx context.Context, repo *model.Repository, task *model.Task) (string, error) {
-			return s.apiAnalyzer.Generate(ctx, repo.LocalPath, task.Title, repo.ID, task.ID)
+			return s.apiWriter.Generate(ctx, repo.LocalPath, task.Title, task.ID)
 		},
 	})
 }
@@ -62,7 +62,7 @@ func (s *RepositoryService) AnalyzeProblem(ctx context.Context, repoID uint, pro
 			return nil
 		},
 		generator: func(ctx context.Context, repo *model.Repository, task *model.Task) (string, error) {
-			return s.problemAnalyzer.Generate(ctx, repo.LocalPath, problem, repo.ID, task.ID)
+			return s.problemAnalyzer.Generate(ctx, repo.LocalPath, problem, task.ID)
 		},
 		afterSuccess: func(ctx context.Context, repo *model.Repository, task *model.Task) error {
 			//进行标题重写

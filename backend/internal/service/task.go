@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 	"k8s.io/klog/v2"
@@ -21,29 +19,42 @@ type TaskService struct {
 	taskRepo         repository.TaskRepository
 	repoRepo         repository.RepoRepository
 	docService       *DocumentService
-	docGenerator     *documentgenerator.Service
 	taskStateMachine *statemachine.TaskStateMachine
 	repoAggregator   *statemachine.RepositoryStatusAggregator
 	orchestrator     *orchestrator.Orchestrator
-	llm              einomodel.ToolCallingChatModel
+	writers          []domain.Writer // 多个写入器，用于不同的文档类型
 }
 
-func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService, docGenerator *documentgenerator.Service) *TaskService {
-	llm, err := adkagents.NewLLMChatModel(cfg)
-	if err != nil {
-		klog.Errorf("[task.New] 创建LLM失败: %v", err)
-	}
+func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService) *TaskService {
 
 	return &TaskService{
 		cfg:              cfg,
 		taskRepo:         taskRepo,
 		repoRepo:         repoRepo,
 		docService:       docService,
-		docGenerator:     docGenerator,
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		repoAggregator:   statemachine.NewRepositoryStatusAggregator(),
-		llm:              llm,
 	}
+}
+
+func (s *TaskService) AddWriters(writers ...domain.Writer) {
+	for _, w := range writers {
+		for _, existing := range s.writers {
+			if existing.Name() == w.Name() {
+				klog.Errorf("[task.AddWriter] 写入器 %s 已存在", w.Name())
+				return
+			}
+		}
+	}
+	s.writers = append(s.writers, writers...)
+}
+func (s *TaskService) GetWriter(name domain.WriterName) (domain.Writer, error) {
+	for _, w := range s.writers {
+		if w.Name() == name {
+			return w, nil
+		}
+	}
+	return nil, fmt.Errorf("写入器 %s 不存在", name)
 }
 
 // SetOrchestrator 设置任务编排器
@@ -179,12 +190,18 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	}
 	klog.V(6).Infof("仓库信息: repoID=%d, name=%s, localPath=%s", repo.ID, repo.Name, repo.LocalPath)
 
-	// 使用 DocumentGeneratorService 生成文档
-	klog.V(6).Infof("开始生成文档:  repoPath=%s", repo.LocalPath)
-	content, err := s.docGenerator.Generate(ctx, repo.LocalPath, task.Title, task.ID)
+	//找到具体的writer
+	writer, err := s.GetWriter(task.WriterName)
 	if err != nil {
-		klog.Errorf("生成文档失败: taskTitle=%s, error=%v", task.Title, err)
-		return fmt.Errorf("生成文档失败: %w", err)
+		klog.Errorf("获取写入器失败: writerName=%s, error=%v", task.WriterName, err)
+		return fmt.Errorf("获取写入器失败: %w", err)
+	}
+
+	// 调用写入器生成文档
+	content, err := writer.Generate(ctx, repo.LocalPath, task.Title, task.ID)
+	if err != nil {
+		klog.Errorf("写入器生成文档失败: writerName=%s, taskTitle=%s, error=%v", task.WriterName, task.Title, err)
+		return fmt.Errorf("写入器生成文档失败: %w", err)
 	}
 	klog.V(6).Infof("文档生成完成: taskTitle=%s, contentLength=%d", task.Title, len(content))
 

@@ -9,18 +9,15 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain/writers"
 	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/database"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/router"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/apianalyzer"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/dbmodelparser"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/dirmaker"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/documentgenerator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/problemanalyzer"
 	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/titlerewriter"
 )
@@ -60,33 +57,32 @@ func main() {
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 
-	// 初始化文档生成服务
-	docGeneratorService, err := documentgenerator.New(cfg, hintRepo)
-	if err != nil {
-		log.Fatalf("Failed to initialize document generator service: %v", err)
-	}
-
-	dbModelParserService, err := dbmodelparser.New(cfg, hintRepo)
-	if err != nil {
-		log.Fatalf("Failed to initialize db model parser service: %v", err)
-	}
-
-	apiAnalyzerService, err := apianalyzer.New(cfg, hintRepo)
-	if err != nil {
-		log.Fatalf("Failed to initialize api analyzer service: %v", err)
-	}
-
-	problemAnalyzerService, err := problemanalyzer.New(cfg, hintRepo)
-	if err != nil {
-		log.Fatalf("Failed to initialize problem analyzer service: %v", err)
-	}
-
 	titleRewriterService, err := titlerewriter.New(cfg, docRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize title rewriter service: %v", err)
 	}
 
-	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService, docGeneratorService)
+	userRequestWriter, err := writers.NewUserRequestWriter(cfg, hintRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize user request writer service: %v", err)
+	}
+	defaultWriter, err := writers.NewDefaultWriter(cfg, hintRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize document generator service: %v", err)
+	}
+	dbModelWriter, err := writers.NewDBModelWriter(cfg, hintRepo, taskRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize db model writer service: %v", err)
+	}
+	apiWriter, err := writers.NewAPIWriter(cfg, hintRepo, taskRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize api analyzer service: %v", err)
+	}
+	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
+	taskService.AddWriters(userRequestWriter)
+	taskService.AddWriters(defaultWriter)
+	taskService.AddWriters(dbModelWriter)
+	taskService.AddWriters(apiWriter)
 
 	// 初始化目录分析服务
 	dirMakerService, err := dirmaker.New(cfg, docRepo)
@@ -102,7 +98,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelParserService, apiAnalyzerService, problemAnalyzerService, titleRewriterService)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelWriter, apiWriter, userRequestWriter, titleRewriterService)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)

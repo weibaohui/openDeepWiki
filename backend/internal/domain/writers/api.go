@@ -1,66 +1,57 @@
-package apianalyzer
+package writers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 )
 
-const (
-	agentExplorer = "api_explorer"
-	agentDocCheck = "document_checker"
-	agentMdCheck  = "markdown_checker"
-)
-
-var (
-	ErrInvalidLocalPath     = errors.New("invalid local path")
-	ErrAgentExecutionFailed = errors.New("agent execution failed")
-	ErrNoAgentOutput        = errors.New("no agent output")
-)
-
-type Service struct {
+type apiWriter struct {
 	factory  *adkagents.AgentFactory
 	hintRepo repository.HintRepository
+	taskRepo repository.TaskRepository
 }
 
 // New 创建API接口分析服务实例。
-func New(cfg *config.Config, hintRepo repository.HintRepository) (*Service, error) {
+func NewAPIWriter(cfg *config.Config, hintRepo repository.HintRepository, taskRepo repository.TaskRepository) (*apiWriter, error) {
 	klog.V(6).Infof("[apianalyzer.New] 创建API接口分析服务")
 	factory, err := adkagents.NewAgentFactory(cfg)
 	if err != nil {
 		klog.Errorf("[apianalyzer.New] 创建 AgentFactory 失败: %v", err)
 		return nil, fmt.Errorf("create AgentFactory failed: %w", err)
 	}
-	return &Service{
+	return &apiWriter{
 		factory:  factory,
 		hintRepo: hintRepo,
+		taskRepo: taskRepo,
 	}, nil
 }
 
+func (s *apiWriter) Name() domain.WriterName {
+	return domain.APIWriter
+}
+
 // Generate 生成API接口分析文档。
-func (s *Service) Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+func (s *apiWriter) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
 	if localPath == "" {
-		return "", fmt.Errorf("%w: local path is empty", ErrInvalidLocalPath)
+		return "", fmt.Errorf("%w: local path is empty", domain.ErrInvalidLocalPath)
 	}
 	if title == "" {
-		return "", fmt.Errorf("%w: title is empty", ErrInvalidLocalPath)
-	}
-	if repoID == 0 {
-		return "", fmt.Errorf("%w: repo id is empty", ErrInvalidLocalPath)
+		return "", fmt.Errorf("%w: title is empty", domain.ErrInvalidLocalPath)
 	}
 
 	klog.V(6).Infof("[apianalyzer.Generate] 开始生成文档: 仓库路径=%s, 标题=%s, 任务ID=%d", localPath, title, taskID)
-	markdown, err := s.genDocument(ctx, localPath, title, repoID, taskID)
+	markdown, err := s.genDocument(ctx, localPath, title, taskID)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrAgentExecutionFailed, err)
+		return "", fmt.Errorf("%w: %w", domain.ErrAgentExecutionFailed, err)
 	}
 
 	klog.V(6).Infof("[apianalyzer.Generate] 文档生成完成: 内容长度=%d", len(markdown))
@@ -68,7 +59,7 @@ func (s *Service) Generate(ctx context.Context, localPath string, title string, 
 }
 
 // genDocument 负责调用Agent并返回最终文档内容。
-func (s *Service) genDocument(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error) {
+func (s *apiWriter) genDocument(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	adk.AddSessionValue(ctx, "document_title", title)
 	adk.AddSessionValue(ctx, "task_id", taskID)
@@ -78,15 +69,19 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		s.factory,
 		"api_parser_sequential_agent",
 		"api parser sequential agent - explore http APIs then validate document and markdown",
-		agentExplorer,
-		agentDocCheck,
-		agentMdCheck,
+		domain.AgentAPIExplorer,
+		domain.AgentDocCheck,
+		domain.AgentMdCheck,
 	)
 	if err != nil {
 		return "", fmt.Errorf("create agent failed: %w", err)
 	}
 
-	hintYAML := s.buildHintYAML(repoID)
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return "", fmt.Errorf("[%s] get task by id failed: %w", s.Name(), err)
+	}
+	hintYAML := s.buildHintYAML(task.RepositoryID)
 	var hintSection string
 	if hintYAML == "" {
 		hintSection = ""
@@ -116,7 +111,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 		return "", fmt.Errorf("agent execution error: %w", err)
 	}
 	if lastContent == "" {
-		return "", ErrNoAgentOutput
+		return "", domain.ErrNoAgentOutput
 	}
 
 	klog.V(8).Infof("[apianalyzer.genDocument] Agent 输出内容: \n%s\n", lastContent)
@@ -124,7 +119,7 @@ func (s *Service) genDocument(ctx context.Context, localPath string, title strin
 }
 
 // buildHintYAML 构建API接口分析线索的YAML输入。
-func (s *Service) buildHintYAML(repoID uint) string {
+func (s *apiWriter) buildHintYAML(repoID uint) string {
 	if s.hintRepo == nil || repoID == 0 {
 		return ""
 	}
@@ -180,12 +175,4 @@ func apiKeywords() []string {
 		"PUT",
 		"DELETE",
 	}
-}
-
-// safe 统一将空字段转换为占位描述。
-func safe(value string) string {
-	if value == "" {
-		return "(无)"
-	}
-	return value
 }
