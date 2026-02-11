@@ -40,6 +40,7 @@ func main() {
 
 	// 初始化数据库
 	db, err := database.InitDB(cfg.Database.Type, cfg.Database.DSN)
+
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
