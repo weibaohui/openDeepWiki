@@ -395,26 +395,24 @@ export default function DocViewer() {
                 )}
             </div>
             <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
-                <Button
-                    type="text"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={() => navigate(`/`)}
-                    block
-                    style={{ textAlign: 'left' }}
-                >
-                    {t('common.back')}
-                </Button>
-            </div>
-            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
-                <Button
-                    type="text"
-                    icon={<FileTextOutlined />}
-                    onClick={() => navigate(`/repo/${id}`)}
-                    block
-                    style={{ textAlign: 'left' }}
-                >
-                    {t('nav.overview')}
-                </Button>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <Button
+                        type="text"
+                        icon={<ArrowLeftOutlined />}
+                        onClick={() => navigate(`/`)}
+                        style={{ flex: 1, textAlign: 'center' }}
+                    >
+                        {t('common.back')}
+                    </Button>
+                    <Button
+                        type="text"
+                        icon={<FileTextOutlined />}
+                        onClick={() => navigate(`/repo/${id}/index`)}
+                        style={{ flex: 1, textAlign: 'center' }}
+                    >
+                        {t('nav.overview')}
+                    </Button>
+                </div>
             </div>
 
             {documents.length === 0 ? (
