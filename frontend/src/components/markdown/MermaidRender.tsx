@@ -12,6 +12,71 @@ interface MermaidRenderProps {
   code: string;
 }
 
+/**
+ * 修复 Mermaid 节点文本中包含特殊符号且未加引号的情况，自动为节点文本添加双引号
+ */
+const fixMermaidNodeQuotes = (mermaidCode: string): string => {
+  const idCharPattern = /[A-Za-z0-9_]/;
+  let result = '';
+  let index = 0;
+
+  while (index < mermaidCode.length) {
+    const currentChar = mermaidCode[index];
+
+    if (!idCharPattern.test(currentChar)) {
+      result += currentChar;
+      index += 1;
+      continue;
+    }
+
+    const idStart = index;
+    index += 1;
+    while (index < mermaidCode.length && idCharPattern.test(mermaidCode[index])) {
+      index += 1;
+    }
+
+    const nodeId = mermaidCode.slice(idStart, index);
+    if (mermaidCode[index] !== '[') {
+      result += nodeId;
+      continue;
+    }
+
+    let depth = 1;
+    let cursor = index + 1;
+    while (cursor < mermaidCode.length && depth > 0) {
+      const char = mermaidCode[cursor];
+      if (char === '[') {
+        depth += 1;
+      } else if (char === ']') {
+        depth -= 1;
+      }
+      cursor += 1;
+    }
+
+    if (depth !== 0) {
+      result += nodeId;
+      continue;
+    }
+
+    const content = mermaidCode.slice(index + 1, cursor - 1);
+    const trimmedContent = content.trim();
+    const isQuoted = trimmedContent.startsWith('"') && trimmedContent.endsWith('"');
+    const hasNonEdgeBracket =
+      content.indexOf('[') > 0 || (content.includes(']') && content.lastIndexOf(']') < content.length - 1);
+    const needsQuotes = content.includes('#') || hasNonEdgeBracket;
+
+    if (needsQuotes && !isQuoted) {
+      result += `${nodeId}["${content}"]`;
+    } else {
+      result += `${nodeId}[${content}]`;
+    }
+
+    index = cursor;
+  }
+
+  return result;
+};
+
 const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +115,8 @@ const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
         return match;
       });
 
+      const quotedCode = fixMermaidNodeQuotes(sanitizedCode);
+
       // 每次渲染生成唯一的 ID，防止 React Strict Mode 下重复 ID 导致 Mermaid 报错
       const renderId = `${uniqueId}-${Date.now()}`;
 
@@ -57,7 +124,7 @@ const MermaidRender: React.FC<MermaidRenderProps> = ({ code }) => {
         // 尝试渲染
         // mermaid.render 返回 { svg } 对象 (v10+)
         // 注意：mermaid.render 是异步的
-        const { svg } = await mermaid.render(renderId, sanitizedCode);
+        const { svg } = await mermaid.render(renderId, quotedCode);
 
         if (isMounted) {
           setSvg(svg);
