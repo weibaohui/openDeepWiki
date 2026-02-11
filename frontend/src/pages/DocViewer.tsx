@@ -359,7 +359,7 @@ export default function DocViewer() {
             }}>
                 {repository?.name && (
                     <div>
-                        <Text strong style={{ fontSize: '14px', display: 'block', marginBottom: 6 }}>
+                        <Text strong style={{ fontSize: '18px', display: 'block', marginBottom: 6 }}>
                             {repository.name}
                         </Text>
                         {repositoryUrl && (
@@ -522,78 +522,112 @@ export default function DocViewer() {
                 <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
                     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                         {isIndexView ? (
-                            <Card  >
-                                <Row gutter={[16, 16]}>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_total')} value={totalCount} />
-                                    </Col>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_completed')} value={completedCount} />
-                                    </Col>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_pending')} value={pendingCount} />
-                                    </Col>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_versions')} value={totalVersions} />
-                                    </Col>
-                                </Row>
-                                <div style={{ marginTop: 16 }}>
-                                    {statusItems.length === 0 ? (
-                                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.empty', '暂无数据')} />
-                                    ) : (
-                                        <Space wrap size={[8, 8]}>
-                                            {statusItems.map((item) => (
-                                                <Tag key={item.status} color="processing">
-                                                    {t(`task.status.${item.status}`)} {item.count}
-                                                </Tag>
-                                            ))}
-                                        </Space>
+                            <>
+                                <Card>
+                                    {repository?.name && (
+                                        <div style={{ marginBottom: 24 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                <Title level={3} style={{ margin: 0, fontSize: '20px' }}>
+                                                    {repository.name}
+                                                </Title>
+                                                {repositoryUrl && (
+                                                    <Space size={8} align="center">
+                                                        <Button
+                                                            type="text"
+                                                            icon={<ExportOutlined />}
+                                                            onClick={() => window.open(repositoryUrl, '_blank')}
+                                                            size="middle"
+                                                            style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                            title={t('common.open_repository')}
+                                                        />
+                                                        <Button
+                                                            type="text"
+                                                            icon={<CopyOutlined />}
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(repositoryUrl);
+                                                                messageApi.success(t('common.copy_success'));
+                                                            }}
+                                                            size="middle"
+                                                            style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                            title={t('common.copy_repository_url')}
+                                                        />
+                                                    </Space>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
-                                </div>
-
-                                <div style={{ marginTop: 16 }}>
-                                    <div style={{ fontWeight: 500 }}>{t('document.recent_updates')}</div>
-                                    <div style={{ marginTop: 8 }}>
-                                        {recentDocuments.length === 0 ? (
-                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
+                                    <Row gutter={[16, 16]}>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_total')} value={totalCount} />
+                                        </Col>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_completed')} value={completedCount} />
+                                        </Col>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_pending')} value={pendingCount} />
+                                        </Col>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_versions')} value={totalVersions} />
+                                        </Col>
+                                    </Row>
+                                    <div style={{ marginTop: 16 }}>
+                                        {statusItems.length === 0 ? (
+                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.empty', '暂无数据')} />
                                         ) : (
-                                            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                                                {recentDocuments.map((item) => (
-                                                    <Button
-                                                        key={item.id}
-                                                        type="link"
-                                                        onClick={() => navigate(`/repo/${id}/doc/${item.id}`)}
-                                                        style={{ padding: 0, height: 'auto', textAlign: 'left' }}
-                                                    >
-                                                        {item.title}
-                                                    </Button>
+                                            <Space wrap size={[8, 8]}>
+                                                {statusItems.map((item) => (
+                                                    <Tag key={item.status} color="processing">
+                                                        {t(`task.status.${item.status}`)} {item.count}
+                                                    </Tag>
                                                 ))}
                                             </Space>
                                         )}
                                     </div>
-                                </div>
-                            </Card>
+
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ fontWeight: 500 }}>{t('document.recent_updates')}</div>
+                                        <div style={{ marginTop: 8 }}>
+                                            {recentDocuments.length === 0 ? (
+                                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
+                                            ) : (
+                                                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                                    {recentDocuments.map((item) => (
+                                                        <Button
+                                                            key={item.id}
+                                                            type="link"
+                                                            onClick={() => navigate(`/repo/${id}/doc/${item.id}`)}
+                                                            style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                                                        >
+                                                            {item.title}
+                                                        </Button>
+                                                    ))}
+                                                </Space>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Card>
+                            </>
                         ) : editing ? (
                             <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
-                                {metaInfo}
-                                <MDEditor
-                                    value={editContent}
-                                    onChange={(val) => setEditContent(val || '')}
-                                    height={window.innerHeight - 200}
-                                />
-                                {rateInfo}
-                            </div>
-                        ) : (
-                            <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
-                                <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
+                                    <MDEditor
+                                        value={editContent}
+                                        onChange={(val) => setEditContent(val || '')}
+                                        height={window.innerHeight - 200}
+                                    />
                                     {rateInfo}
-
                                 </div>
-                            </Card>
+                            ) : (
+                                <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
+                                    <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                        {metaInfo}
+                                        <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
+                                        {rateInfo}
+
+                                    </div>
+                                </Card>
                         )}
-                    </div>
+                            </div>
                 </Content>
             </Layout>
             <Drawer
