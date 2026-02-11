@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -10,7 +9,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
-	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/git"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
@@ -33,30 +31,10 @@ type RepositoryService struct {
 
 	// 编排器
 	orchestrator *orchestrator.Orchestrator
-
-	// 目录分析服务
-	dirMakerService DirMakerService
-	dbModelWriter   domain.Writer
-	apiWriter       domain.Writer
-	problemAnalyzer domain.Writer
-	titleRewriter   domain.Writer
-}
-
-// DirMakerService 目录分析服务接口。
-type DirMakerService interface {
-	CreateDirs(ctx context.Context, repo *model.Repository) (*model.DirMakerGenerationResult, error)
-}
-
-type APIAnalyzer interface {
-	Generate(ctx context.Context, localPath string, title string, repoID uint, taskID uint) (string, error)
-}
-
-type TitleRewriter interface {
-	RewriteTitle(ctx context.Context, docID uint) (string, string, bool, error)
 }
 
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser domain.Writer, apiWriter domain.Writer, problemAnalyzer domain.Writer, titleRewriter domain.Writer) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, docService *DocumentService) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
@@ -68,11 +46,6 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		repoStateMachine: statemachine.NewRepositoryStateMachine(),
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
-		dirMakerService:  dirMakerService,
-		dbModelWriter:    dbModelParser,
-		apiWriter:        apiWriter,
-		problemAnalyzer:  problemAnalyzer,
-		titleRewriter:    titleRewriter,
 	}
 }
 

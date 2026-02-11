@@ -23,12 +23,15 @@ type Writer interface {
 
 // 错误定义
 var (
-	ErrInvalidLocalPath     = errors.New("invalid local path")
-	ErrAgentExecutionFailed = errors.New("agent execution failed")
-	ErrEmptyContent         = errors.New("empty content")
-	ErrNoAgentOutput        = errors.New("no agent output")
-	ErrYAMLParseFailed      = errors.New("YAML parse failed")
-	ErrTaskCreationFailed   = errors.New("task creation failed")
+	ErrInvalidLocalPath         = errors.New("invalid local path")
+	ErrAgentExecutionFailed     = errors.New("agent execution failed")
+	ErrEmptyContent             = errors.New("empty content")
+	ErrNoAgentOutput            = errors.New("no agent output")
+	ErrYAMLParseFailed          = errors.New("YAML parse failed")
+	ErrTaskNotFound             = errors.New("task not found")
+	ErrRepoNotFound             = errors.New("repo not found")
+	ErrTaskCreationFailed       = errors.New("task creation failed")
+	ErrDirMakerGenerationFailed = errors.New("dir maker generation failed")
 )
 
 // Agent 名称常量

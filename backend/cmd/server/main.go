@@ -9,7 +9,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
-	"github.com/weibaohui/opendeepwiki/backend/internal/domain/dirmaker"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain/writers"
 	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
@@ -78,18 +77,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize api analyzer service: %v", err)
 	}
+
+	// 初始化目录分析服务
+	tocWriter, err := writers.NewTocWriter(cfg, docRepo, repoRepo, taskRepo, hintRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
+	}
+
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
 	taskService.AddWriters(userRequestWriter)
 	taskService.AddWriters(defaultWriter)
 	taskService.AddWriters(dbModelWriter)
 	taskService.AddWriters(apiWriter)
 	taskService.AddWriters(titleRewriter)
+	taskService.AddWriters(tocWriter)
 
-	// 初始化目录分析服务
-	dirMakerService, err := dirmaker.New(cfg, docRepo)
-	if err != nil {
-		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
-	}
+	// 设置目录分析服务的任务服务
+	tocWriter.SetTaskService(taskService)
 
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
@@ -99,7 +103,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelWriter, apiWriter, userRequestWriter, titleRewriter)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, docService)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService, taskService)

@@ -206,12 +206,17 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	}
 	klog.V(6).Infof("文档生成完成: taskTitle=%s, contentLength=%d", task.Title, len(content))
 
-	_, err = s.docService.Update(task.DocID, content)
+	if task.TaskType == domain.DocWrite {
+		//文档编制需要回写文档内容。
+		// 标题重新、目录编制，不需要更新doc 内容
+		_, err = s.docService.Update(task.DocID, content)
 
-	if err != nil {
-		klog.V(6).Infof("保存文档失败: error=%v", err)
-		return fmt.Errorf("保存文档失败: %w", err)
+		if err != nil {
+			klog.V(6).Infof("保存文档失败: error=%v", err)
+			return fmt.Errorf("保存文档失败: %w", err)
+		}
 	}
+
 	return nil
 }
 
@@ -384,7 +389,7 @@ func (s *TaskService) Retry(taskID uint) error {
 // 1. 创建文档
 // 2. 创建任务
 // 3. 更新文档关联的任务ID
-func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
+func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title string, sortOrder int, writerNames ...domain.WriterName) (*model.Task, error) {
 	docTitle := strings.TrimSpace(title)
 	if len([]rune(docTitle)) > 20 {
 		docTitle = string([]rune(docTitle)[:20])
@@ -409,6 +414,12 @@ func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title
 		Status:       string(statemachine.TaskStatusPending),
 		SortOrder:    sortOrder,
 	}
+
+	//指定Writer
+	if len(writerNames) > 0 {
+		task.WriterName = writerNames[0]
+	}
+
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, fmt.Errorf("[CreateDocWriteTask] 创建任务失败: %w", err)
 	}

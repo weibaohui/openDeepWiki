@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 	"k8s.io/klog/v2"
 )
@@ -115,7 +116,7 @@ func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	tasks, err := h.service.AnalyzeDirectory(ctx, uint(id))
+	task, err := h.taskService.CreateTocWriteTask(ctx, uint(id), "目录分析", 10)
 	if err != nil {
 		klog.Errorf("AnalyzeDirectory failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -124,7 +125,7 @@ func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "directory analysis started",
-		"tasks":   tasks,
+		"task":    task,
 	})
 }
 
@@ -136,7 +137,7 @@ func (h *RepositoryHandler) AnalyzeDatabaseModel(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.service.AnalyzeDatabaseModel(ctx, uint(id))
+	task, err := h.taskService.CreateDocWriteTask(ctx, uint(id), "数据库模型分析", 20, domain.DBModelWriter)
 	if err != nil {
 		klog.Errorf("AnalyzeDatabaseModel failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -158,9 +159,9 @@ func (h *RepositoryHandler) AnalyzeAPI(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.service.AnalyzeAPI(ctx, uint(id))
+	task, err := h.taskService.CreateDocWriteTask(ctx, uint(id), "API接口分析", 20, domain.APIWriter)
 	if err != nil {
-		klog.Errorf("AnalyzeAPI failed: %v", err)
+		klog.Errorf("CreateDocWriteTask failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -175,8 +176,8 @@ type AnalyzeProblemRequest struct {
 	Content string `json:"content" binding:"required"`
 }
 
-// AnalyzeProblem 处理问题分析的触发请求。
-func (h *RepositoryHandler) AnalyzeProblem(c *gin.Context) {
+// AnalyzeUserRequest 处理问题分析的触发请求。
+func (h *RepositoryHandler) AnalyzeUserRequest(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
