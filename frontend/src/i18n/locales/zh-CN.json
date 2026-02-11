@@ -118,7 +118,11 @@
         "updated_just_now": "刚刚",
         "updated_minutes_ago": "{{minutes}} 分钟前",
         "updated_hours_ago": "{{hours}} 小时前",
-        "updated_days_ago": "{{days}} 天前"
+        "updated_days_ago": "{{days}} 天前",
+        "duration": "耗时",
+        "duration_hour": "小时",
+        "duration_minute": "分钟",
+        "duration_second": "秒"
     },
     "settings": {
         "title": "设置",
@@ -174,6 +178,7 @@
         "status": "状态",
         "started_at": "开始时间",
         "completed_at": "完成时间",
+        "duration": "耗时",
         "error": "错误",
         "action": "操作",
         "cancel": "取消",

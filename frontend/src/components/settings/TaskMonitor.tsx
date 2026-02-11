@@ -37,6 +37,23 @@ export default function TaskMonitor() {
         return () => clearInterval(interval);
     }, [autoRefresh, fetchData]);
 
+    const formatDuration = (startedAt?: string | null, completedAt?: string | null) => {
+        if (!startedAt) return '-';
+        const startMs = new Date(startedAt).getTime();
+        if (Number.isNaN(startMs)) return '-';
+        const endMs = completedAt ? new Date(completedAt).getTime() : Date.now();
+        if (Number.isNaN(endMs) || endMs < startMs) return '-';
+        const totalSeconds = Math.floor((endMs - startMs) / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const parts = [];
+        if (hours > 0) parts.push(`${hours}${t('task.duration_hour')}`);
+        if (minutes > 0 || hours > 0) parts.push(`${minutes}${t('task.duration_minute')}`);
+        parts.push(`${seconds}${t('task.duration_second')}`);
+        return parts.join(' ');
+    };
+
     const activeColumns: ColumnsType<Task> = [
         {
             title: t('taskMonitor.repository', 'Repository'),
@@ -66,6 +83,11 @@ export default function TaskMonitor() {
             dataIndex: 'started_at',
             key: 'started_at',
             render: (date) => date ? new Date(date).toLocaleString() : '-'
+        },
+        {
+            title: t('taskMonitor.duration', 'Duration'),
+            key: 'duration',
+            render: (_, record) => formatDuration(record.started_at, record.completed_at)
         },
 
         {
@@ -120,6 +142,11 @@ export default function TaskMonitor() {
             dataIndex: 'completed_at',
             key: 'completed_at',
             render: (date) => date ? new Date(date).toLocaleString() : '-'
+        },
+        {
+            title: t('taskMonitor.duration', 'Duration'),
+            key: 'duration',
+            render: (_, record) => formatDuration(record.started_at, record.completed_at)
         },
         {
             title: t('taskMonitor.error', 'Error'),

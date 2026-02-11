@@ -350,6 +350,23 @@ export default function RepoDetail() {
         }
     };
 
+    const formatDuration = (startedAt?: string | null, completedAt?: string | null) => {
+        if (!startedAt) return '-';
+        const startMs = new Date(startedAt).getTime();
+        if (Number.isNaN(startMs)) return '-';
+        const endMs = completedAt ? new Date(completedAt).getTime() : Date.now();
+        if (Number.isNaN(endMs) || endMs < startMs) return '-';
+        const totalSeconds = Math.floor((endMs - startMs) / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const parts = [];
+        if (hours > 0) parts.push(`${hours}${t('task.duration_hour')}`);
+        if (minutes > 0 || hours > 0) parts.push(`${minutes}${t('task.duration_minute')}`);
+        parts.push(`${seconds}${t('task.duration_second')}`);
+        return parts.join(' ');
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -612,6 +629,9 @@ export default function RepoDetail() {
                                                     {task.error_msg && <Text type="danger">{task.error_msg}</Text>}
                                                     <Text type="secondary" style={{ fontSize: '12px' }}>
                                                         {t('task.updated_at').replace('{{time}}', formatDateTime(task.updated_at))}
+                                                    </Text>
+                                                    <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>
+                                                        {t('task.duration')} {formatDuration(task.started_at, task.completed_at)}
                                                     </Text>
                                                 </div>
                                             }
