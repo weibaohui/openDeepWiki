@@ -14,7 +14,9 @@ import {
     CheckOutlined,
     LinkOutlined,
     ReloadOutlined,
-    PlusOutlined
+    PlusOutlined,
+    ExportOutlined,
+    CopyOutlined
 } from '@ant-design/icons';
 
 import {
@@ -44,7 +46,7 @@ import { documentApi, repositoryApi, taskApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content, Sider } = Layout;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 const statusOrder = ['pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'canceled'] as const;
 type TaskStatus = Task['status'];
@@ -285,6 +287,12 @@ export default function DocViewer() {
             .filter((item) => item.count > 0);
     }, [statusCounts]);
     const averageScore = ratingStats?.average_score ?? 0;
+    const lastUpdatedDocument = useMemo(() => {
+        if (documents.length === 0) return null;
+        return documents.reduce((latest, doc) => {
+            return new Date(doc.updated_at) > new Date(latest.updated_at) ? doc : latest;
+        });
+    }, [documents]);
 
     if (loading) {
         return (
@@ -350,16 +358,61 @@ export default function DocViewer() {
 
     const SidebarContent = () => (
         <>
-            <div style={{ padding: '16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
-                <Button
-                    type="text"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={() => navigate(`/`)}
-                    block
-                    style={{ textAlign: 'left' }}
-                >
-                    {t('nav.home')}
-                </Button>
+            <div style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid var(--ant-color-border-secondary)',
+                backgroundColor: 'var(--ant-color-bg-container)'
+            }}>
+                {repository?.name && (
+                    <div>
+                        <Text strong style={{ fontSize: '18px', display: 'block', marginBottom: 6 }}>
+                            {repository.name}
+                        </Text>
+                        {repositoryUrl && (
+                            <Space size={8} align="center" wrap>
+                                <Button
+                                    type="text"
+                                    icon={<ExportOutlined />}
+                                    onClick={() => window.open(repositoryUrl, '_blank')}
+                                    size="small"
+                                    style={{ padding: '0 4px', color: 'var(--ant-color-text-secondary)' }}
+                                    title={t('common.open_repository')}
+                                />
+                                <Button
+                                    type="text"
+                                    icon={<CopyOutlined />}
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(repositoryUrl);
+                                        messageApi.success(t('common.copy_success'));
+                                    }}
+                                    size="small"
+                                    style={{ padding: '0 4px', color: 'var(--ant-color-text-secondary)' }}
+                                    title={t('common.copy_repository_url')}
+                                />
+                            </Space>
+                        )}
+                    </div>
+                )}
+            </div>
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--ant-color-border-secondary)' }}>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <Button
+                        type="text"
+                        icon={<ArrowLeftOutlined />}
+                        onClick={() => navigate(`/`)}
+                        style={{ flex: 1, textAlign: 'center' }}
+                    >
+                        {t('common.back')}
+                    </Button>
+                    <Button
+                        type="text"
+                        icon={<FileTextOutlined />}
+                        onClick={() => navigate(`/repo/${id}/index`)}
+                        style={{ flex: 1, textAlign: 'center' }}
+                    >
+                        {t('nav.overview')}
+                    </Button>
+                </div>
             </div>
 
             {documents.length === 0 ? (
@@ -402,16 +455,16 @@ export default function DocViewer() {
         <Layout style={{ minHeight: '100vh' }}>
             {contextHolder}
             {screens.lg ? (
-                <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
+                <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)', overflow: 'auto', height: '100vh' }}>
                     <SidebarContent />
                 </Sider>
             ) : (
                 <Drawer
-                    title={t('repository.docs')}
+                    title={repository?.name || t('repository.docs')}
                     placement="left"
                     onClose={() => setMobileMenuOpen(false)}
                     open={mobileMenuOpen}
-                    width={250}
+                    width={280}
                     styles={{ body: { padding: 0 } }}
                 >
                     <SidebarContent />
@@ -484,78 +537,138 @@ export default function DocViewer() {
                 <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
                     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                         {isIndexView ? (
-                            <Card  >
-                                <Row gutter={[16, 16]}>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_total')} value={totalCount} />
-                                    </Col>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_completed')} value={completedCount} />
-                                    </Col>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_pending')} value={pendingCount} />
-                                    </Col>
-                                    <Col xs={12} sm={12} md={6}>
-                                        <Statistic title={t('document.overview_versions')} value={totalVersions} />
-                                    </Col>
-                                </Row>
-                                <div style={{ marginTop: 16 }}>
-                                    {statusItems.length === 0 ? (
-                                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.empty', '暂无数据')} />
-                                    ) : (
-                                        <Space wrap size={[8, 8]}>
-                                            {statusItems.map((item) => (
-                                                <Tag key={item.status} color="processing">
-                                                    {t(`task.status.${item.status}`)} {item.count}
-                                                </Tag>
-                                            ))}
-                                        </Space>
+                            <>
+                                <Card>
+                                    {repository?.name && (
+                                        <div style={{ marginBottom: 32 }}>
+                                            <div style={{ marginBottom: 16 }}>
+                                                <Title level={3} style={{ margin: 0, fontSize: '24px', marginBottom: 12 }}>
+                                                    {repository.name}
+                                                </Title>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                                    {repositoryUrl && (
+                                                        <Space size={6} align="center">
+                                                            <Button
+                                                                type="text"
+                                                                icon={<ExportOutlined />}
+                                                                onClick={() => window.open(repositoryUrl, '_blank')}
+                                                                size="middle"
+                                                                style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                                title={t('common.open_repository')}
+                                                            />
+                                                            <Button
+                                                                type="text"
+                                                                icon={<CopyOutlined />}
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(repositoryUrl);
+                                                                    messageApi.success(t('common.copy_success'));
+                                                                }}
+                                                                size="middle"
+                                                                style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                                title={t('common.copy_repository_url')}
+                                                            />
+                                                        </Space>
+                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '14px', color: 'var(--ant-color-text-secondary)', marginLeft: 'auto' }}>
+                                                        {lastUpdatedDocument && (
+                                                            <Space size={6} align="center">
+                                                                <ClockCircleOutlined style={{ fontSize: '14px' }} />
+                                                                <Text style={{ fontSize: '13px' }}>
+                                                                    {t('document.updated_at')}: {formatDateTime(lastUpdatedDocument.updated_at)}
+                                                                </Text>
+                                                            </Space>
+                                                        )}
+                                                        {repository.clone_branch && (
+                                                            <Space size={6} align="center">
+                                                                <Tag color="blue" style={{ margin: 0 }}>
+                                                                    {repository.clone_branch}
+                                                                </Tag>
+                                                            </Space>
+                                                        )}
+                                                        {repository.clone_commit_id && (
+                                                            <Space size={6} align="center">
+                                                                <Tag color="default" style={{ margin: 0, fontFamily: 'monospace' }}>
+                                                                    {repository.clone_commit_id.substring(0, 8)}
+                                                                </Tag>
+                                                            </Space>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
-                                </div>
-
-                                <div style={{ marginTop: 16 }}>
-                                    <div style={{ fontWeight: 500 }}>{t('document.recent_updates')}</div>
-                                    <div style={{ marginTop: 8 }}>
-                                        {recentDocuments.length === 0 ? (
-                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
+                                    <Row gutter={[16, 16]}>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_total')} value={totalCount} />
+                                        </Col>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_completed')} value={completedCount} />
+                                        </Col>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_pending')} value={pendingCount} />
+                                        </Col>
+                                        <Col xs={12} sm={12} md={6}>
+                                            <Statistic title={t('document.overview_versions')} value={totalVersions} />
+                                        </Col>
+                                    </Row>
+                                    <div style={{ marginTop: 16 }}>
+                                        {statusItems.length === 0 ? (
+                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.empty', '暂无数据')} />
                                         ) : (
-                                            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                                                {recentDocuments.map((item) => (
-                                                    <Button
-                                                        key={item.id}
-                                                        type="link"
-                                                        onClick={() => navigate(`/repo/${id}/doc/${item.id}`)}
-                                                        style={{ padding: 0, height: 'auto', textAlign: 'left' }}
-                                                    >
-                                                        {item.title}
-                                                    </Button>
+                                            <Space wrap size={[8, 8]}>
+                                                {statusItems.map((item) => (
+                                                    <Tag key={item.status} color="processing">
+                                                        {t(`task.status.${item.status}`)} {item.count}
+                                                    </Tag>
                                                 ))}
                                             </Space>
                                         )}
                                     </div>
-                                </div>
-                            </Card>
+
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ fontWeight: 500 }}>{t('document.recent_updates')}</div>
+                                        <div style={{ marginTop: 8 }}>
+                                            {recentDocuments.length === 0 ? (
+                                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
+                                            ) : (
+                                                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                                    {recentDocuments.map((item) => (
+                                                        <Button
+                                                            key={item.id}
+                                                            type="link"
+                                                            onClick={() => navigate(`/repo/${id}/doc/${item.id}`)}
+                                                            style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                                                        >
+                                                            {item.title}
+                                                        </Button>
+                                                    ))}
+                                                </Space>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Card>
+                            </>
                         ) : editing ? (
                             <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
-                                {metaInfo}
-                                <MDEditor
-                                    value={editContent}
-                                    onChange={(val) => setEditContent(val || '')}
-                                    height={window.innerHeight - 200}
-                                />
-                                {rateInfo}
-                            </div>
-                        ) : (
-                            <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
-                                <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
+                                    <MDEditor
+                                        value={editContent}
+                                        onChange={(val) => setEditContent(val || '')}
+                                        height={window.innerHeight - 200}
+                                    />
                                     {rateInfo}
-
                                 </div>
-                            </Card>
+                            ) : (
+                                <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
+                                    <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                        {metaInfo}
+                                        <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
+                                        {rateInfo}
+
+                                    </div>
+                                </Card>
                         )}
-                    </div>
+                            </div>
                 </Content>
             </Layout>
             <Drawer
