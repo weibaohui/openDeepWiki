@@ -39,7 +39,7 @@ type RepositoryService struct {
 	dbModelWriter   domain.Writer
 	apiWriter       domain.Writer
 	problemAnalyzer domain.Writer
-	titleRewriter   TitleRewriter
+	titleRewriter   domain.Writer
 }
 
 // DirMakerService 目录分析服务接口。
@@ -56,7 +56,7 @@ type TitleRewriter interface {
 }
 
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser domain.Writer, apiWriter domain.Writer, problemAnalyzer domain.Writer, titleRewriter TitleRewriter) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, taskService *TaskService, dirMakerService DirMakerService, docService *DocumentService, dbModelParser domain.Writer, apiWriter domain.Writer, problemAnalyzer domain.Writer, titleRewriter domain.Writer) *RepositoryService {
 	return &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,

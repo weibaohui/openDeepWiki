@@ -12,6 +12,7 @@ var (
 	DBModelWriter     WriterName = "DBModelWriter"
 	APIWriter         WriterName = "APIWriter"
 	UserRequestWriter WriterName = "UserRequestWriter"
+	TitleRewriter     WriterName = "TitleRewriter"
 )
 
 type Writer interface {
@@ -36,4 +37,5 @@ const (
 	AgentMdCheck         = "markdown_checker"
 	AgentProblemSolver   = "problem_solver"
 	AgentAPIExplorer     = "api_explorer"
+	AgentTitleRewriter   = "title_rewriter"
 )

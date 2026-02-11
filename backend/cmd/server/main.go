@@ -19,7 +19,6 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/dirmaker"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/titlerewriter"
 )
 
 func main() {
@@ -57,7 +56,7 @@ func main() {
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 
-	titleRewriterService, err := titlerewriter.New(cfg, docRepo)
+	titleRewriter, err := writers.NewTitleRewriter(cfg, docRepo, taskRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize title rewriter service: %v", err)
 	}
@@ -83,6 +82,7 @@ func main() {
 	taskService.AddWriters(defaultWriter)
 	taskService.AddWriters(dbModelWriter)
 	taskService.AddWriters(apiWriter)
+	taskService.AddWriters(titleRewriter)
 
 	// 初始化目录分析服务
 	dirMakerService, err := dirmaker.New(cfg, docRepo)
@@ -98,7 +98,7 @@ func main() {
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelWriter, apiWriter, userRequestWriter, titleRewriterService)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelWriter, apiWriter, userRequestWriter, titleRewriter)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoService)

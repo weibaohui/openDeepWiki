@@ -67,7 +67,7 @@ func (s *RepositoryService) AnalyzeProblem(ctx context.Context, repoID uint, pro
 		afterSuccess: func(ctx context.Context, repo *model.Repository, task *model.Task) error {
 			//进行标题重写
 			if s.titleRewriter != nil {
-				_, _, _, err := s.titleRewriter.RewriteTitle(ctx, task.DocID)
+				_, err := s.titleRewriter.Generate(ctx, repo.LocalPath, "", task.ID)
 				if err != nil {
 					klog.Errorf("标题重写失败: repoID=%d, taskID=%d, docID=%d, error=%v", repo.ID, task.ID, task.DocID, err)
 				}
