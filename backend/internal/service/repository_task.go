@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"time"
 
 	"k8s.io/klog/v2"
 
@@ -86,28 +85,4 @@ func (s *RepositoryService) RunAllTasks(repoID uint) error {
 	klog.V(6).Infof("成功提交 %d 个任务到编排器: repoID=%d", len(jobs), repoID)
 
 	return nil
-}
-
-// updateTaskStatus 更新任务状态并保存关键字段。
-func (s *RepositoryService) updateTaskStatus(task *model.Task, targetStatus statemachine.TaskStatus, startedAt *time.Time, completedAt *time.Time, errorMsg *string) error {
-	if err := s.taskStateMachine.Transition(statemachine.TaskStatus(task.Status), targetStatus, task.ID); err == nil {
-		task.Status = string(targetStatus)
-	}
-	if startedAt != nil {
-		task.StartedAt = startedAt
-	}
-	if completedAt != nil {
-		task.CompletedAt = completedAt
-	}
-	if errorMsg != nil {
-		task.ErrorMsg = *errorMsg
-	}
-	return s.taskRepo.Save(task)
-}
-
-// updateRepositoryStatusAfterTask 在任务状态变更后更新仓库状态。
-func (s *RepositoryService) updateRepositoryStatusAfterTask(repoID uint) {
-	if s.taskService != nil {
-		_ = s.taskService.UpdateRepositoryStatus(repoID)
-	}
 }
