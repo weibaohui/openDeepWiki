@@ -63,19 +63,15 @@ func (s *RepositoryService) executeAnalyzeTaskAsync(repo *model.Repository, task
 	klog.V(6).Infof("开始异步%s: repoID=%d, taskID=%d", spec.taskTitle, repo.ID, task.ID)
 	startedAt := time.Now()
 	clearErrMsg := ""
-	taskLabel := spec.taskTitle
-	if taskLabel == "" {
-		taskLabel = spec.taskTitle
-	}
+
 	if err := s.updateTaskStatus(task, statemachine.TaskStatusRunning, &startedAt, nil, &clearErrMsg); err != nil {
-		klog.Errorf("更新%s任务状态失败: taskID=%d, error=%v", taskLabel, task.ID, err)
+		klog.Errorf("更新%s任务状态失败: taskID=%d, error=%v", spec.taskTitle, task.ID, err)
 	}
 
 	execCtx := context.Background()
 	content, err := spec.generator(execCtx, repo, task)
 	if err != nil {
 		completedAt := time.Now()
-
 		errMsg := fmt.Sprintf("%s失败: %v", spec.taskTitle, err)
 		_ = s.updateTaskStatus(task, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
 		s.updateRepositoryStatusAfterTask(repo.ID)
@@ -86,7 +82,6 @@ func (s *RepositoryService) executeAnalyzeTaskAsync(repo *model.Repository, task
 	_, err = s.docService.Update(task.DocID, content)
 	if err != nil {
 		completedAt := time.Now()
-
 		errMsg := fmt.Sprintf("保存%s文档失败: %v", spec.taskTitle, err)
 		_ = s.updateTaskStatus(task, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
 		s.updateRepositoryStatusAfterTask(repo.ID)
@@ -96,7 +91,7 @@ func (s *RepositoryService) executeAnalyzeTaskAsync(repo *model.Repository, task
 
 	completedAt := time.Now()
 	if err := s.updateTaskStatus(task, statemachine.TaskStatusSucceeded, nil, &completedAt, nil); err != nil {
-		klog.Errorf("更新%s任务完成状态失败: taskID=%d, error=%v", taskLabel, task.ID, err)
+		klog.Errorf("更新%s任务完成状态失败: taskID=%d, error=%v", spec.taskTitle, task.ID, err)
 	}
 	s.updateRepositoryStatusAfterTask(repo.ID)
 	klog.V(6).Infof("异步%s完成: repoID=%d, taskID=%d", spec.taskTitle, repo.ID, task.ID)

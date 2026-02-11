@@ -28,7 +28,6 @@ func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uin
 // AnalyzeAPI 异步触发API接口分析任务。
 func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model.Task, error) {
 	return s.runAnalyzeTask(ctx, repoID, analyzeTaskSpec{
-
 		taskTitle: "API接口分析",
 		sortOrder: 20,
 		validate: func() error {
