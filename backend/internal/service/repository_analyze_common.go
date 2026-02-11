@@ -47,7 +47,7 @@ func (s *RepositoryService) runAnalyzeTask(ctx context.Context, repoID uint, spe
 		return nil, err
 	}
 
-	task, err := s.taskService.CreateTaskWithDoc(ctx, repo.ID, spec.taskTitle, spec.sortOrder)
+	task, err := s.taskService.CreateDocWriteTask(ctx, repo.ID, spec.taskTitle, spec.sortOrder)
 	if err != nil {
 		return nil, fmt.Errorf("创建%s任务失败: %w", spec.taskTitle, err)
 	}

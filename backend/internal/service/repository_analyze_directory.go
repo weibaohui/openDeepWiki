@@ -30,7 +30,7 @@ func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) (
 		//存入Task数据库
 
 		for _, dir := range dirs.Dirs {
-			task, err := s.taskService.CreateTaskWithDoc(ctx, targetRepo.ID, dir.Title, dir.SortOrder)
+			task, err := s.taskService.CreateDocWriteTask(ctx, targetRepo.ID, dir.Title, dir.SortOrder)
 			if err != nil {
 				klog.Errorf("创建任务失败: repoID=%d, error=%v", targetRepo.ID, err)
 				continue

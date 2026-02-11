@@ -12,12 +12,14 @@ import (
 )
 
 type RepositoryHandler struct {
-	service *service.RepositoryService
+	service     *service.RepositoryService
+	taskService *service.TaskService
 }
 
-func NewRepositoryHandler(service *service.RepositoryService) *RepositoryHandler {
+func NewRepositoryHandler(service *service.RepositoryService, taskService *service.TaskService) *RepositoryHandler {
 	return &RepositoryHandler{
-		service: service,
+		service:     service,
+		taskService: taskService,
 	}
 }
 
@@ -188,9 +190,9 @@ func (h *RepositoryHandler) AnalyzeProblem(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.service.AnalyzeProblem(ctx, uint(id), req.Content)
+	task, err := h.taskService.CreateUserRequestTask(ctx, uint(id), req.Content, 30)
 	if err != nil {
-		klog.Errorf("AnalyzeProblem failed: %v", err)
+		klog.Errorf("CreateUserRequestTask failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

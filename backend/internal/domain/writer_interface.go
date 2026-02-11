@@ -13,6 +13,7 @@ var (
 	APIWriter         WriterName = "APIWriter"
 	UserRequestWriter WriterName = "UserRequestWriter"
 	TitleRewriter     WriterName = "TitleRewriter"
+	TocWriter         WriterName = "TocWriter" //TODO 未实现
 )
 
 type Writer interface {

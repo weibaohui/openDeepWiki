@@ -101,7 +101,7 @@ func main() {
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, taskService, dirMakerService, docService, dbModelWriter, apiWriter, userRequestWriter, titleRewriter)
 
 	// 初始化 Handler
-	repoHandler := handler.NewRepositoryHandler(repoService)
+	repoHandler := handler.NewRepositoryHandler(repoService, taskService)
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
