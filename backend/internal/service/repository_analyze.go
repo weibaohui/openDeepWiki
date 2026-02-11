@@ -11,20 +11,109 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 )
 
+type analyzeTaskSpec struct {
+	sortOrder    int
+	taskTitle    string
+	validate     func() error
+	generator    func(ctx context.Context, repo *model.Repository, task *model.Task) (string, error)
+	afterSuccess func(ctx context.Context, repo *model.Repository, task *model.Task) error
+}
+
+// prepareAnalyzeRepository 获取仓库并校验是否允许执行分析任务。
+func (s *RepositoryService) prepareAnalyzeRepository(repoID uint, analyzeName string) (*model.Repository, error) {
+	repo, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		return nil, fmt.Errorf("获取仓库失败: %w", err)
+	}
+	currentStatus := statemachine.RepositoryStatus(repo.Status)
+	if !statemachine.CanExecuteTasks(currentStatus) {
+		return nil, fmt.Errorf("仓库状态不允许执行%s: current=%s", analyzeName, currentStatus)
+	}
+	return repo, nil
+}
+
+// runAnalyzeTask 创建任务并异步执行分析流程。
+func (s *RepositoryService) runAnalyzeTask(ctx context.Context, repoID uint, spec analyzeTaskSpec) (*model.Task, error) {
+	if spec.validate != nil {
+		if err := spec.validate(); err != nil {
+			return nil, err
+		}
+	}
+
+	klog.V(6).Infof("准备异步分析%s: repoID=%d", spec.taskTitle, repoID)
+
+	repo, err := s.prepareAnalyzeRepository(repoID, spec.taskTitle)
+	if err != nil {
+		return nil, err
+	}
+
+	task, err := s.taskService.CreateTaskWithDoc(ctx, repo.ID, spec.taskTitle, spec.sortOrder)
+	if err != nil {
+		return nil, fmt.Errorf("创建%s任务失败: %w", spec.taskTitle, err)
+	}
+
+	go s.executeAnalyzeTaskAsync(repo, task, spec)
+
+	klog.V(6).Infof("%s已异步启动: repoID=%d, taskID=%d", spec.taskTitle, repoID, task.ID)
+	return task, nil
+}
+
+// executeAnalyzeTaskAsync 执行分析任务并更新任务与仓库状态。
+func (s *RepositoryService) executeAnalyzeTaskAsync(repo *model.Repository, task *model.Task, spec analyzeTaskSpec) {
+	klog.V(6).Infof("开始异步%s: repoID=%d, taskID=%d", spec.taskTitle, repo.ID, task.ID)
+	startedAt := time.Now()
+	clearErrMsg := ""
+	taskLabel := spec.taskTitle
+	if taskLabel == "" {
+		taskLabel = spec.taskTitle
+	}
+	if err := s.updateTaskStatus(task, statemachine.TaskStatusRunning, &startedAt, nil, &clearErrMsg); err != nil {
+		klog.Errorf("更新%s任务状态失败: taskID=%d, error=%v", taskLabel, task.ID, err)
+	}
+
+	execCtx := context.Background()
+	content, err := spec.generator(execCtx, repo, task)
+	if err != nil {
+		completedAt := time.Now()
+
+		errMsg := fmt.Sprintf("%s失败: %v", spec.taskTitle, err)
+		_ = s.updateTaskStatus(task, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
+		s.updateRepositoryStatusAfterTask(repo.ID)
+		klog.Errorf("异步%s失败: repoID=%d, taskID=%d, error=%v", spec.taskTitle, repo.ID, task.ID, err)
+		return
+	}
+
+	_, err = s.docService.Update(task.DocID, content)
+	if err != nil {
+		completedAt := time.Now()
+
+		errMsg := fmt.Sprintf("保存%s文档失败: %v", spec.taskTitle, err)
+		_ = s.updateTaskStatus(task, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
+		s.updateRepositoryStatusAfterTask(repo.ID)
+		klog.Errorf("保存%s文档失败: repoID=%d, taskID=%d, error=%v", spec.taskTitle, repo.ID, task.ID, err)
+		return
+	}
+
+	completedAt := time.Now()
+	if err := s.updateTaskStatus(task, statemachine.TaskStatusSucceeded, nil, &completedAt, nil); err != nil {
+		klog.Errorf("更新%s任务完成状态失败: taskID=%d, error=%v", taskLabel, task.ID, err)
+	}
+	s.updateRepositoryStatusAfterTask(repo.ID)
+	klog.V(6).Infof("异步%s完成: repoID=%d, taskID=%d", spec.taskTitle, repo.ID, task.ID)
+
+	if spec.afterSuccess != nil {
+		_ = spec.afterSuccess(execCtx, repo, task)
+	}
+}
+
 // AnalyzeDirectory 分析目录并创建任务
 func (s *RepositoryService) AnalyzeDirectory(ctx context.Context, repoID uint) ([]*model.Task, error) {
 	klog.V(6).Infof("准备异步分析目录并创建任务: repoID=%d", repoID)
 
 	// 获取仓库基本信息
-	repo, err := s.repoRepo.GetBasic(repoID)
+	repo, err := s.prepareAnalyzeRepository(repoID, "目录分析")
 	if err != nil {
-		return nil, fmt.Errorf("获取仓库失败: %w", err)
-	}
-
-	// 检查仓库状态
-	currentStatus := statemachine.RepositoryStatus(repo.Status)
-	if !statemachine.CanExecuteTasks(currentStatus) {
-		return nil, fmt.Errorf("仓库状态不允许执行目录分析: current=%s", currentStatus)
+		return nil, err
 	}
 
 	go func(targetRepo *model.Repository) {
@@ -108,208 +197,70 @@ func (s *RepositoryService) saveHint(repoID uint, task *model.Task, spec *model.
 }
 
 func (s *RepositoryService) AnalyzeDatabaseModel(ctx context.Context, repoID uint) (*model.Task, error) {
-	klog.V(6).Infof("准备异步分析数据库模型: repoID=%d", repoID)
-
-	if s.dbModelParser == nil || s.docService == nil {
-		return nil, fmt.Errorf("数据库模型解析服务未初始化")
-	}
-
-	repo, err := s.repoRepo.GetBasic(repoID)
-	if err != nil {
-		return nil, fmt.Errorf("获取仓库失败: %w", err)
-	}
-
-	currentStatus := statemachine.RepositoryStatus(repo.Status)
-	if !statemachine.CanExecuteTasks(currentStatus) {
-		return nil, fmt.Errorf("仓库状态不允许执行数据库模型分析: current=%s", currentStatus)
-	}
-
-	task, err := s.taskService.CreateTaskWithDoc(ctx, repo.ID, "数据库模型分析", 10)
-	if err != nil {
-		return nil, fmt.Errorf("创建数据库模型分析任务失败: %w", err)
-	}
-
-	go func(targetRepo *model.Repository, targetTask *model.Task) {
-		klog.V(6).Infof("开始异步数据库模型分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
-		startedAt := time.Now()
-		clearErrMsg := ""
-		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusRunning, &startedAt, nil, &clearErrMsg); err != nil {
-			klog.Errorf("更新数据库模型任务状态失败: taskID=%d, error=%v", targetTask.ID, err)
-		}
-
-		content, err := s.dbModelParser.Generate(context.Background(), targetRepo.LocalPath, targetTask.Title, targetRepo.ID, targetTask.ID)
-		if err != nil {
-			completedAt := time.Now()
-			errMsg := fmt.Sprintf("数据库模型解析失败: %v", err)
-			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
-			s.updateRepositoryStatusAfterTask(targetRepo.ID)
-			klog.Errorf("异步数据库模型分析失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
-			return
-		}
-
-		_, err = s.docService.Update(targetTask.DocID, content)
-		if err != nil {
-			completedAt := time.Now()
-			errMsg := fmt.Sprintf("保存数据库模型文档失败: %v", err)
-			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
-			s.updateRepositoryStatusAfterTask(targetRepo.ID)
-			klog.Errorf("保存数据库模型文档失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
-			return
-		}
-
-		completedAt := time.Now()
-		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusSucceeded, nil, &completedAt, nil); err != nil {
-			klog.Errorf("更新数据库模型任务完成状态失败: taskID=%d, error=%v", targetTask.ID, err)
-		}
-		s.updateRepositoryStatusAfterTask(targetRepo.ID)
-		klog.V(6).Infof("异步数据库模型分析完成: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
-	}(repo, task)
-
-	klog.V(6).Infof("数据库模型分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
-	return task, nil
+	return s.runAnalyzeTask(ctx, repoID, analyzeTaskSpec{
+		taskTitle: "数据库模型分析",
+		sortOrder: 10,
+		validate: func() error {
+			if s.dbModelParser == nil || s.docService == nil {
+				return fmt.Errorf("数据库模型解析服务未初始化")
+			}
+			return nil
+		},
+		generator: func(ctx context.Context, repo *model.Repository, task *model.Task) (string, error) {
+			return s.dbModelParser.Generate(ctx, repo.LocalPath, task.Title, repo.ID, task.ID)
+		},
+	})
 }
 
 // AnalyzeAPI 异步触发API接口分析任务。
 func (s *RepositoryService) AnalyzeAPI(ctx context.Context, repoID uint) (*model.Task, error) {
-	klog.V(6).Infof("准备异步分析API接口: repoID=%d", repoID)
+	return s.runAnalyzeTask(ctx, repoID, analyzeTaskSpec{
 
-	if s.apiAnalyzer == nil || s.docService == nil {
-		return nil, fmt.Errorf("API接口分析服务未初始化")
-	}
-
-	repo, err := s.repoRepo.GetBasic(repoID)
-	if err != nil {
-		return nil, fmt.Errorf("获取仓库失败: %w", err)
-	}
-
-	currentStatus := statemachine.RepositoryStatus(repo.Status)
-	if !statemachine.CanExecuteTasks(currentStatus) {
-		return nil, fmt.Errorf("仓库状态不允许执行API接口分析: current=%s", currentStatus)
-	}
-
-	task, err := s.taskService.CreateTaskWithDoc(ctx, repo.ID, "API接口分析", 20)
-	if err != nil {
-		return nil, fmt.Errorf("创建API接口分析任务失败: %w", err)
-	}
-
-	go func(targetRepo *model.Repository, targetTask *model.Task) {
-		klog.V(6).Infof("开始异步API接口分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
-		startedAt := time.Now()
-		clearErrMsg := ""
-		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusRunning, &startedAt, nil, &clearErrMsg); err != nil {
-			klog.Errorf("更新API接口分析任务状态失败: taskID=%d, error=%v", targetTask.ID, err)
-		}
-
-		content, err := s.apiAnalyzer.Generate(context.Background(), targetRepo.LocalPath, targetTask.Title, targetRepo.ID, targetTask.ID)
-		if err != nil {
-			completedAt := time.Now()
-			errMsg := fmt.Sprintf("API接口分析失败: %v", err)
-			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
-			s.updateRepositoryStatusAfterTask(targetRepo.ID)
-			klog.Errorf("异步API接口分析失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
-			return
-		}
-
-		_, err = s.docService.Update(targetTask.DocID, content)
-		if err != nil {
-			completedAt := time.Now()
-			errMsg := fmt.Sprintf("保存API接口文档失败: %v", err)
-			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
-			s.updateRepositoryStatusAfterTask(targetRepo.ID)
-			klog.Errorf("保存API接口文档失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
-			return
-		}
-
-		completedAt := time.Now()
-		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusSucceeded, nil, &completedAt, nil); err != nil {
-			klog.Errorf("更新API接口分析任务完成状态失败: taskID=%d, error=%v", targetTask.ID, err)
-		}
-		s.updateRepositoryStatusAfterTask(targetRepo.ID)
-		klog.V(6).Infof("异步API接口分析完成: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
-	}(repo, task)
-
-	klog.V(6).Infof("API接口分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
-	return task, nil
+		taskTitle: "API接口分析",
+		sortOrder: 20,
+		validate: func() error {
+			if s.apiAnalyzer == nil || s.docService == nil {
+				return fmt.Errorf("API接口分析服务未初始化")
+			}
+			return nil
+		},
+		generator: func(ctx context.Context, repo *model.Repository, task *model.Task) (string, error) {
+			return s.apiAnalyzer.Generate(ctx, repo.LocalPath, task.Title, repo.ID, task.ID)
+		},
+	})
 }
 
 // AnalyzeProblem 异步触发问题分析任务。
 func (s *RepositoryService) AnalyzeProblem(ctx context.Context, repoID uint, problem string) (*model.Task, error) {
-	klog.V(6).Infof("准备异步分析问题: repoID=%d", repoID)
-
-	if s.problemAnalyzer == nil || s.docService == nil {
-		return nil, fmt.Errorf("问题分析服务未初始化")
-	}
-
-	repo, err := s.repoRepo.GetBasic(repoID)
-	if err != nil {
-		return nil, fmt.Errorf("获取仓库失败: %w", err)
-	}
-
-	currentStatus := statemachine.RepositoryStatus(repo.Status)
-	if !statemachine.CanExecuteTasks(currentStatus) {
-		return nil, fmt.Errorf("仓库状态不允许执行问题分析: current=%s", currentStatus)
-	}
-
 	// 截取问题前20个字符作为标题
 	title := "问题分析: " + problem
-	// 简单的截断，避免过长
 	if len(title) > 50 {
 		runes := []rune(title)
 		if len(runes) > 47 {
 			title = string(runes[:47]) + "..."
 		}
 	}
-
-	task, err := s.taskService.CreateTaskWithDoc(ctx, repo.ID, title, 30)
-	if err != nil {
-		return nil, fmt.Errorf("创建问题分析任务失败: %w", err)
-	}
-
-	go func(targetRepo *model.Repository, targetTask *model.Task, problemStmt string) {
-		klog.V(6).Infof("开始异步问题分析: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
-		startedAt := time.Now()
-		clearErrMsg := ""
-		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusRunning, &startedAt, nil, &clearErrMsg); err != nil {
-			klog.Errorf("更新问题分析任务状态失败: taskID=%d, error=%v", targetTask.ID, err)
-		}
-
-		content, err := s.problemAnalyzer.Generate(context.Background(), targetRepo.LocalPath, problemStmt, targetRepo.ID, targetTask.ID)
-		if err != nil {
-			completedAt := time.Now()
-			errMsg := fmt.Sprintf("问题分析失败: %v", err)
-			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
-			s.updateRepositoryStatusAfterTask(targetRepo.ID)
-			klog.Errorf("异步问题分析失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
-			return
-		}
-
-		_, err = s.docService.Update(targetTask.DocID, content)
-		if err != nil {
-			completedAt := time.Now()
-			errMsg := fmt.Sprintf("保存问题分析文档失败: %v", err)
-			_ = s.updateTaskStatus(targetTask, statemachine.TaskStatusFailed, nil, &completedAt, &errMsg)
-			s.updateRepositoryStatusAfterTask(targetRepo.ID)
-			klog.Errorf("保存问题分析文档失败: repoID=%d, taskID=%d, error=%v", targetRepo.ID, targetTask.ID, err)
-			return
-		}
-
-		completedAt := time.Now()
-		if err := s.updateTaskStatus(targetTask, statemachine.TaskStatusSucceeded, nil, &completedAt, nil); err != nil {
-			klog.Errorf("更新问题分析任务完成状态失败: taskID=%d, error=%v", targetTask.ID, err)
-		}
-		s.updateRepositoryStatusAfterTask(targetRepo.ID)
-		klog.V(6).Infof("异步问题分析完成: repoID=%d, taskID=%d", targetRepo.ID, targetTask.ID)
-
-		//进行标题重写
-		if s.titleRewriter != nil {
-			_, _, _, err := s.titleRewriter.RewriteTitle(context.Background(), targetTask.DocID)
-			if err != nil {
-				klog.Errorf("标题重写失败: repoID=%d, taskID=%d, docID=%d, error=%v", targetRepo.ID, targetTask.ID, targetTask.DocID, err)
+	return s.runAnalyzeTask(ctx, repoID, analyzeTaskSpec{
+		taskTitle: title,
+		sortOrder: 30,
+		validate: func() error {
+			if s.problemAnalyzer == nil || s.docService == nil {
+				return fmt.Errorf("问题分析服务未初始化")
 			}
-		}
-
-	}(repo, task, problem)
-
-	klog.V(6).Infof("问题分析已异步启动: repoID=%d, taskID=%d", repoID, task.ID)
-	return task, nil
+			return nil
+		},
+		generator: func(ctx context.Context, repo *model.Repository, task *model.Task) (string, error) {
+			return s.problemAnalyzer.Generate(ctx, repo.LocalPath, problem, repo.ID, task.ID)
+		},
+		afterSuccess: func(ctx context.Context, repo *model.Repository, task *model.Task) error {
+			//进行标题重写
+			if s.titleRewriter != nil {
+				_, _, _, err := s.titleRewriter.RewriteTitle(ctx, task.DocID)
+				if err != nil {
+					klog.Errorf("标题重写失败: repoID=%d, taskID=%d, docID=%d, error=%v", repo.ID, task.ID, task.DocID, err)
+				}
+			}
+			return nil
+		},
+	})
 }
