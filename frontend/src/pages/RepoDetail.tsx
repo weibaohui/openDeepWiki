@@ -230,12 +230,13 @@ export default function RepoDetail() {
         });
     };
 
-    const getDocumentForTask = (taskId: number) => {
-        return documents.find((doc) => doc.task_id === taskId);
+    const getDocumentForTask = (task: Task) => {
+        if (task.task_type === 'TocWrite') return undefined;
+        return documents.find((doc) => doc.task_id === task.id);
     };
 
     const retryableMissingDocTasks = tasks.filter(
-        (task) => !getDocumentForTask(task.id) && !['pending', 'running', 'queued'].includes(task.status)
+        (task) => task.task_type !== 'TocWrite' && !getDocumentForTask(task) && !['pending', 'running', 'queued'].includes(task.status)
     );
 
     const retryableFailedTasks = tasks.filter(
@@ -365,6 +366,11 @@ export default function RepoDetail() {
         if (minutes > 0 || hours > 0) parts.push(`${minutes}${t('task.duration_minute')}`);
         parts.push(`${seconds}${t('task.duration_second')}`);
         return parts.join(' ');
+    };
+
+    const formatTaskType = (taskType?: string) => {
+        if (!taskType) return '-';
+        return t(`task.type.${taskType}`, taskType);
     };
 
     if (loading) {
@@ -611,11 +617,11 @@ export default function RepoDetail() {
                                                     type="text"
                                                     icon={<FileTextOutlined />}
                                                     onClick={() => {
-                                                        const doc = getDocumentForTask(task.id);
+                                                        const doc = getDocumentForTask(task);
                                                         if (doc) navigate(`/repo/${id}/doc/${doc.id}`);
                                                     }}
-                                                    disabled={!getDocumentForTask(task.id)}
-                                                    style={{ color: getDocumentForTask(task.id) ? 'var(--ant-color-success)' : undefined }}
+                                                    disabled={!getDocumentForTask(task)}
+                                                    style={{ color: getDocumentForTask(task) ? 'var(--ant-color-success)' : undefined }}
                                                 />
                                             </Tooltip>
                                         ]}
@@ -625,7 +631,15 @@ export default function RepoDetail() {
                                             title={task.title}
                                             description={
                                                 <div>
-                                                    <div>{t('repository.docId', 'Doc ID')} {task.doc_id} {t(`task.status.${task.status}`)}</div>
+                                                    {task.task_type !== 'TocWrite' && (
+                                                        <div>{t('repository.docId', 'Doc ID')} {task.doc_id} {t(`task.status.${task.status}`)}</div>
+                                                    )}
+                                                    <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>
+                                                        {t('task.writer_name', 'Writer')} {task.writer_name || '-'}
+                                                    </Text>
+                                                    <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>
+                                                        {t('task.task_type', 'Task Type')} {formatTaskType(task.task_type)}
+                                                    </Text>
                                                     {task.error_msg && <Text type="danger">{task.error_msg}</Text>}
                                                     <Text type="secondary" style={{ fontSize: '12px' }}>
                                                         {t('task.updated_at').replace('{{time}}', formatDateTime(task.updated_at))}

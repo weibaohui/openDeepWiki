@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Table, Tag, Row, Col, Statistic, Button, Space, message } from 'antd';
 import { ReloadOutlined, SyncOutlined, StopOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -8,6 +9,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 
 export default function TaskMonitor() {
     const { t } = useAppConfig();
+    const navigate = useNavigate();
     const [data, setData] = useState<GlobalMonitorData | null>(null);
     const [loading, setLoading] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
@@ -54,6 +56,23 @@ export default function TaskMonitor() {
         return parts.join(' ');
     };
 
+    const formatTaskType = (taskType?: string) => {
+        if (!taskType) return '-';
+        return t(`task.type.${taskType}`, taskType);
+    };
+
+    const getDocLink = (task: Task) => {
+        if (task.task_type === 'TocWrite') return null;
+        const docId = Number(task.doc_id);
+        if (!task.repository_id || !docId) return null;
+        return `/repo/${task.repository_id}/doc/${docId}`;
+    };
+
+    const truncateTitle = (title?: string) => {
+        if (!title) return '';
+        return title.length > 6 ? `${title.slice(0, 6)}...` : title;
+    };
+
     const activeColumns: ColumnsType<Task> = [
         {
             title: t('taskMonitor.repository', 'Repository'),
@@ -65,6 +84,27 @@ export default function TaskMonitor() {
             title: t('taskMonitor.task', 'Task'),
             dataIndex: 'title',
             key: 'title',
+            render: (_, record) => {
+                const docLink = getDocLink(record);
+                if (!docLink) return truncateTitle(record.title);
+                return (
+                    <Button type="link" onClick={() => navigate(docLink)}>
+                        {truncateTitle(record.title)}
+                    </Button>
+                );
+            }
+        },
+        {
+            title: t('taskMonitor.writer', 'Writer'),
+            dataIndex: 'writer_name',
+            key: 'writer_name',
+            render: (value) => value || '-'
+        },
+        {
+            title: t('taskMonitor.type', 'Type'),
+            dataIndex: 'task_type',
+            key: 'task_type',
+            render: (value) => formatTaskType(value)
         },
 
         {
@@ -118,6 +158,27 @@ export default function TaskMonitor() {
             title: t('taskMonitor.task', 'Task'),
             dataIndex: 'title',
             key: 'title',
+            render: (_, record) => {
+                const docLink = getDocLink(record);
+                if (!docLink) return truncateTitle(record.title);
+                return (
+                    <Button type="link" onClick={() => navigate(docLink)}>
+                        {truncateTitle(record.title)}
+                    </Button>
+                );
+            }
+        },
+        {
+            title: t('taskMonitor.writer', 'Writer'),
+            dataIndex: 'writer_name',
+            key: 'writer_name',
+            render: (value) => value || '-'
+        },
+        {
+            title: t('taskMonitor.type', 'Type'),
+            dataIndex: 'task_type',
+            key: 'task_type',
+            render: (value) => formatTaskType(value)
         },
         {
             title: t('taskMonitor.status', 'Status'),

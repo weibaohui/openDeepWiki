@@ -18,6 +18,8 @@ export interface Repository {
 export interface Task {
     id: number;
     repository_id: number;
+    writer_name?: string;
+    task_type?: string;
     type: string;
     title: string;
     status: 'pending' | 'running' | 'completed' | 'succeeded' | 'failed' | 'queued' | 'canceled';

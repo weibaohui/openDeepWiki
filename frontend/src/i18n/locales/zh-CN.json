@@ -114,6 +114,13 @@
             "canceled": "已取消",
             "completed": "已完成"
         },
+        "writer_name": "写入器",
+        "task_type": "任务类型",
+        "type": {
+            "DocWrite": "文档生成",
+            "TocWrite": "目录编制",
+            "TitleRewrite": "标题重写"
+        },
         "delete": "删除",
         "delete_confirm_title": "确认删除任务",
         "delete_confirm_content": "确定要删除这个任务吗？删除后将无法恢复。",
@@ -179,6 +186,7 @@
         "recent_tasks": "最近任务 (最近 20 条)",
         "repository": "仓库",
         "task": "任务",
+        "writer": "写入器",
         "type": "类型",
         "status": "状态",
         "started_at": "开始时间",
