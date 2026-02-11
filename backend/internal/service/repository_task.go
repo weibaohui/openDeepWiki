@@ -49,9 +49,31 @@ func (s *RepositoryService) RunAllTasks(repoID uint) error {
 
 	klog.V(6).Infof("找到 %d 个待执行任务: repoID=%d", len(pendingTasks), repoID)
 
+	readyTasks := make([]*model.Task, 0, len(pendingTasks))
+	for _, task := range pendingTasks {
+		if task.RunAfter == 0 {
+			readyTasks = append(readyTasks, task)
+			continue
+		}
+		runAfterTask, err := s.taskRepo.Get(task.RunAfter)
+		if err != nil {
+			klog.V(6).Infof("RunAfter依赖检查失败，任务暂不入队: taskID=%d, runAfter=%d, error=%v", task.ID, task.RunAfter, err)
+			continue
+		}
+		if runAfterTask.Status != string(statemachine.TaskStatusSucceeded) {
+			klog.V(6).Infof("RunAfter依赖未满足，任务暂不入队: taskID=%d, runAfter=%d, status=%s", task.ID, task.RunAfter, runAfterTask.Status)
+			continue
+		}
+		readyTasks = append(readyTasks, task)
+	}
+	if len(readyTasks) == 0 {
+		klog.V(6).Infof("仓库没有可入队任务: repoID=%d", repoID)
+		return nil
+	}
+
 	// 先将所有pending任务状态更新为queued，然后提交到编排器队列
 	// 按sort_order顺序处理，保证执行顺序
-	for _, task := range pendingTasks {
+	for _, task := range readyTasks {
 		// 状态迁移: pending -> queued
 		oldStatus := statemachine.TaskStatus(task.Status)
 		newStatus := statemachine.TaskStatusQueued
@@ -71,8 +93,8 @@ func (s *RepositoryService) RunAllTasks(repoID uint) error {
 	}
 
 	// 将所有queued任务提交到编排器队列
-	jobs := make([]*orchestrator.Job, 0, len(pendingTasks))
-	for _, task := range pendingTasks {
+	jobs := make([]*orchestrator.Job, 0, len(readyTasks))
+	for _, task := range readyTasks {
 		job := orchestrator.NewTaskJob(task.ID, task.RepositoryID)
 		jobs = append(jobs, job)
 	}
