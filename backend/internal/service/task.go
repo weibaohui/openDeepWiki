@@ -3,11 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	einomodel "github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
@@ -727,64 +725,4 @@ func (s *TaskService) GetGlobalMonitorData() (*GlobalMonitorData, error) {
 		ActiveTasks: activeTasks,
 		RecentTasks: recentTasks,
 	}, nil
-}
-
-// GenerateUserRequestTitle 使用LLM生成用户需求的标题
-func (s *TaskService) GenerateUserRequestTitle(ctx context.Context, userContent string) (string, error) {
-	if s.llm == nil {
-		return "", fmt.Errorf("LLM未初始化")
-	}
-
-	klog.V(6).Infof("[task.GenerateUserRequestTitle] 开始生成标题: 用户内容=%s", userContent)
-
-	// 构建Prompt
-	prompt := fmt.Sprintf(`你是一个文档标题生成专家。请根据用户的输入，提取核心内容并生成一个简洁、专业的文档标题。
-
-要求：
-1. 标题长度不超过 50 个字符
-2. 标题应该清晰、专业、易于理解
-3. 使用中文或英文（根据用户输入语言）
-4. 只返回标题，不要返回其他内容
-
-用户输入：%s
-
-请生成文档标题：`, userContent)
-
-	// 调用LLM
-	messages := []*schema.Message{
-		{
-			Role:    schema.System,
-			Content: "你是一个专业的文档标题生成专家，擅长从用户需求中提取核心内容并生成简洁的标题。",
-		},
-		{
-			Role:    schema.User,
-			Content: prompt,
-		},
-	}
-
-	resp, err := s.llm.Generate(ctx, messages)
-	if err != nil {
-		klog.Errorf("[task.GenerateUserRequestTitle] LLM调用失败: error=%v", err)
-		return "", fmt.Errorf("LLM调用失败: %w", err)
-	}
-
-	// 提取响应内容
-	title := ""
-	if len(resp.Content) > 0 {
-		title = strings.TrimSpace(resp.Content)
-	}
-
-	// 截断标题，确保不超过50个字符
-	if len(title) > 50 {
-		title = title[:50]
-		klog.V(6).Infof("[task.GenerateUserRequestTitle] 标题过长，已截断: 原标题=%s, 截断后=%s", title, title[:50])
-		title = title[:50]
-	}
-
-	if title == "" {
-		return "", fmt.Errorf("LLM生成标题为空")
-	}
-
-	klog.V(6).Infof("[task.GenerateUserRequestTitle] 标题生成成功: 标题=%s", title)
-	return title, nil
 }
