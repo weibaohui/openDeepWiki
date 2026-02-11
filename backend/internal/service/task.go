@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,6 +25,8 @@ type TaskService struct {
 	orchestrator     *orchestrator.Orchestrator
 	writers          []domain.Writer // 多个写入器，用于不同的文档类型
 }
+
+var ErrRunAfterNotSatisfied = errors.New("runAfter依赖未满足")
 
 func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService) *TaskService {
 
@@ -61,6 +64,9 @@ func (s *TaskService) GetWriter(name domain.WriterName) (domain.Writer, error) {
 // 用于解决循环依赖问题
 func (s *TaskService) SetOrchestrator(o *orchestrator.Orchestrator) {
 	s.orchestrator = o
+	if o != nil {
+		o.SetDependencyChecker(s)
+	}
 }
 
 // GetByRepository 获取仓库的所有任务
@@ -84,6 +90,14 @@ func (s *TaskService) Enqueue(taskID uint) error {
 	task, err := s.taskRepo.Get(taskID)
 	if err != nil {
 		return fmt.Errorf("获取任务失败: %w", err)
+	}
+	allowed, runAfterID, runAfterStatus, err := s.CheckRunAfterSatisfied(taskID)
+	if err != nil {
+		return fmt.Errorf("RunAfter依赖检查失败: %w", err)
+	}
+	if !allowed {
+		klog.V(6).Infof("RunAfter依赖未满足，任务暂不入队: taskID=%d, runAfter=%d, status=%s", taskID, runAfterID, runAfterStatus)
+		return ErrRunAfterNotSatisfied
 	}
 
 	// 状态迁移: pending -> queued
@@ -125,6 +139,25 @@ func (s *TaskService) Enqueue(taskID uint) error {
 	_ = s.UpdateRepositoryStatus(task.RepositoryID)
 
 	return nil
+}
+
+// CheckRunAfterSatisfied 检查任务RunAfter依赖是否满足
+func (s *TaskService) CheckRunAfterSatisfied(taskID uint) (bool, uint, string, error) {
+	task, err := s.taskRepo.Get(taskID)
+	if err != nil {
+		return false, 0, "", fmt.Errorf("获取任务失败: %w", err)
+	}
+	if task.RunAfter == 0 {
+		return true, 0, "", nil
+	}
+	runAfterTask, err := s.taskRepo.Get(task.RunAfter)
+	if err != nil {
+		return false, task.RunAfter, "", fmt.Errorf("获取RunAfter任务失败: %w", err)
+	}
+	if runAfterTask.Status == string(statemachine.TaskStatusSucceeded) {
+		return true, task.RunAfter, runAfterTask.Status, nil
+	}
+	return false, task.RunAfter, runAfterTask.Status, nil
 }
 
 // Run 执行任务（由编排器调用）

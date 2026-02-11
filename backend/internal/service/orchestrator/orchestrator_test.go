@@ -17,6 +17,17 @@ func (f *fakeExecutor) ExecuteTask(ctx context.Context, taskID uint) error {
 	return f.err
 }
 
+type fakeDependencyChecker struct {
+	allowed        bool
+	runAfterID     uint
+	runAfterStatus string
+	err            error
+}
+
+func (f *fakeDependencyChecker) CheckRunAfterSatisfied(taskID uint) (bool, uint, string, error) {
+	return f.allowed, f.runAfterID, f.runAfterStatus, f.err
+}
+
 func TestTryDispatchRepoLockedMaxRetries(t *testing.T) {
 	executor := &fakeExecutor{}
 	o, _ := NewOrchestrator(1, executor)
@@ -95,5 +106,35 @@ func TestExecuteJobStopsOnTimeout(t *testing.T) {
 	}
 	if elapsed > 500*time.Millisecond {
 		t.Fatalf("executeJob took too long: %v", elapsed)
+	}
+}
+
+// TestTryDispatchWithRunAfterNotSatisfied 验证依赖未满足时不会分发任务
+func TestTryDispatchWithRunAfterNotSatisfied(t *testing.T) {
+	executor := &fakeExecutor{}
+	o, _ := NewOrchestrator(1, executor)
+	o.retryTicker.Stop()
+	defer o.pool.Release()
+
+	o.SetDependencyChecker(&fakeDependencyChecker{
+		allowed:        false,
+		runAfterID:     10,
+		runAfterStatus: "running",
+	})
+
+	job := &Job{
+		TaskID:     4,
+		RetryCount: 0,
+		MaxRetries: 3,
+		Timeout:    10 * time.Millisecond,
+	}
+
+	o.tryDispatch(job)
+
+	if got := o.retryQueue.Len(); got != 1 {
+		t.Fatalf("retry queue should be 1, got %d", got)
+	}
+	if atomic.LoadInt32(&executor.calls) != 0 {
+		t.Fatalf("executor should not be called, got %d", executor.calls)
 	}
 }

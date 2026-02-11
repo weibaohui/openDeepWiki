@@ -29,6 +29,11 @@ type TaskExecutor interface {
 	ExecuteTask(ctx context.Context, taskID uint) error
 }
 
+// TaskDependencyChecker 定义任务依赖检查接口
+type TaskDependencyChecker interface {
+	CheckRunAfterSatisfied(taskID uint) (bool, uint, string, error)
+}
+
 // -----------------------------
 // Orchestrator
 // -----------------------------
@@ -40,6 +45,8 @@ type Orchestrator struct {
 	pool *ants.Pool
 
 	executor TaskExecutor
+
+	dependencyChecker TaskDependencyChecker
 
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -153,6 +160,11 @@ func (o *Orchestrator) Stop() {
 
 		klog.V(6).Infof("Orchestrator stopped completely")
 	})
+}
+
+// SetDependencyChecker 设置任务依赖检查器
+func (o *Orchestrator) SetDependencyChecker(checker TaskDependencyChecker) {
+	o.dependencyChecker = checker
 }
 
 // -----------------------------
@@ -289,6 +301,23 @@ func (o *Orchestrator) processRetryQueue() {
 // 行为：当达到重试上限时直接放弃，并打印中文日志
 // tryDispatch 精简为只负责分发，不操作 RetryCount
 func (o *Orchestrator) tryDispatch(job *Job) {
+	if o.dependencyChecker != nil {
+		allowed, runAfterID, runAfterStatus, err := o.dependencyChecker.CheckRunAfterSatisfied(job.TaskID)
+		if err != nil {
+			klog.V(6).Infof("任务依赖检查失败，暂不分发: taskID=%d, runAfter=%d, error=%v", job.TaskID, runAfterID, err)
+			if enqueueErr := o.retryQueue.Enqueue(job); enqueueErr != nil {
+				klog.Errorf("任务依赖检查失败后重试入队失败: taskID=%d, error=%v", job.TaskID, enqueueErr)
+			}
+			return
+		}
+		if !allowed {
+			klog.V(6).Infof("任务依赖未满足，暂不分发: taskID=%d, runAfter=%d, status=%s", job.TaskID, runAfterID, runAfterStatus)
+			if enqueueErr := o.retryQueue.Enqueue(job); enqueueErr != nil {
+				klog.Errorf("任务依赖未满足后重试入队失败: taskID=%d, error=%v", job.TaskID, enqueueErr)
+			}
+			return
+		}
+	}
 
 	if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
 		klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
