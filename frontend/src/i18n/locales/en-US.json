@@ -14,7 +14,11 @@
         "no": "No",
         "required": "Required",
         "actions": "Actions",
-        "empty": "No data"
+        "empty": "No data",
+        "open_repository": "Open Repository",
+        "copy_repository_url": "Copy Repository URL",
+        "copy_success": "Copied successfully",
+        "repository_url_empty": "Repository URL is empty"
     },
     "nav": {
         "home": "Home",

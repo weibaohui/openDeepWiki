@@ -14,7 +14,11 @@
         "no": "否",
         "required": "必填项",
         "actions": "操作",
-        "empty": "暂无数据"
+        "empty": "暂无数据",
+        "open_repository": "打开仓库",
+        "copy_repository_url": "复制仓库地址",
+        "copy_success": "复制成功",
+        "repository_url_empty": "仓库地址为空"
     },
     "nav": {
         "home": "首页",

@@ -14,7 +14,9 @@ import {
     CheckOutlined,
     LinkOutlined,
     ReloadOutlined,
-    PlusOutlined
+    PlusOutlined,
+    ExportOutlined,
+    CopyOutlined
 } from '@ant-design/icons';
 
 import {
@@ -44,7 +46,7 @@ import { documentApi, repositoryApi, taskApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content, Sider } = Layout;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 const statusOrder = ['pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'canceled'] as const;
 type TaskStatus = Task['status'];
@@ -441,9 +443,43 @@ export default function DocViewer() {
                                 style={{ marginRight: 8 }}
                             />
                         )}
-                        <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {isIndexView ? t('document.overview_title') : document?.title}
-                        </Title>
+                        <div>
+                            {repository?.name && (
+                                <div style={{ marginBottom: 6 }}>
+                                    <Space size={8} align="center">
+                                        <Text type="secondary" style={{ fontSize: '14px' }}>
+                                            {repository.name}
+                                        </Text>
+                                        {repositoryUrl && (
+                                            <Space size={4}>
+                                                <Button
+                                                    type="text"
+                                                    icon={<ExportOutlined />}
+                                                    onClick={() => window.open(repositoryUrl, '_blank')}
+                                                    size="small"
+                                                    style={{ padding: '0 4px' }}
+                                                    title={t('common.open_repository')}
+                                                />
+                                                <Button
+                                                    type="text"
+                                                    icon={<CopyOutlined />}
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(repositoryUrl);
+                                                        messageApi.success(t('common.copy_success'));
+                                                    }}
+                                                    size="small"
+                                                    style={{ padding: '0 4px' }}
+                                                    title={t('common.copy_repository_url')}
+                                                />
+                                            </Space>
+                                        )}
+                                    </Space>
+                                </div>
+                            )}
+                            <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {isIndexView ? t('document.overview_title') : document?.title}
+                            </Title>
+                        </div>
                     </div>
                     {!isIndexView && document && (
                         <Space size="small">
