@@ -385,10 +385,9 @@ func (s *TaskService) Retry(taskID uint) error {
 // 2. 创建任务
 // 3. 更新文档关联的任务ID
 func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
-
 	docTitle := strings.TrimSpace(title)
-	if len(docTitle) > 20 {
-		docTitle = docTitle[:20]
+	if len([]rune(docTitle)) > 20 {
+		docTitle = string([]rune(docTitle)[:20])
 	}
 	doc, err := s.docService.Create(CreateDocumentRequest{
 		RepositoryID: repoID,
@@ -467,13 +466,7 @@ func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, co
 	// 首先创建一个分析任务，分析任务的结果会被用于创建文档
 	// 创建一个titleRewrite 任务，将标题进行重写
 
-	title := strings.TrimSpace(content)
-	//截取标题前20个字符
-	if len(title) > 20 {
-		title = title[:20]
-	}
-
-	task1, err := s.CreateDocWriteTask(ctx, repoID, title, sortOrder)
+	task1, err := s.CreateDocWriteTask(ctx, repoID, content, sortOrder)
 	if err != nil {
 		return nil, fmt.Errorf("[CreateUserRequestTask] 创建任务失败: %w", err)
 	}
@@ -484,7 +477,7 @@ func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, co
 	}
 
 	// 创建一个titleRewrite 任务，将标题进行重写
-	task2, err := s.CreateTitleRewriteTask(ctx, repoID, title, task1.ID, sortOrder)
+	task2, err := s.CreateTitleRewriteTask(ctx, repoID, content, task1.ID, sortOrder)
 	if err != nil {
 		return nil, fmt.Errorf("[CreateUserRequestTask] 创建任务失败: %w", err)
 	}
