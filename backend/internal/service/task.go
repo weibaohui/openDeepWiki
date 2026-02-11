@@ -399,6 +399,8 @@ func (s *TaskService) CreateTaskWithDoc(ctx context.Context, repoID uint, title 
 		RepositoryID: repoID,
 		DocID:        doc.ID,
 		Title:        title,
+		WriterName:   domain.DefaultWriter,
+		TaskType:     domain.Doc,
 		Status:       string(statemachine.TaskStatusPending),
 		SortOrder:    sortOrder,
 	}

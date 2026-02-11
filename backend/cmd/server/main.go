@@ -9,6 +9,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain/dirmaker"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain/writers"
 	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
@@ -16,7 +17,6 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/router"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/dirmaker"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
 )

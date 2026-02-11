@@ -26,10 +26,14 @@ var (
 	ErrAgentExecutionFailed = errors.New("agent execution failed")
 	ErrEmptyContent         = errors.New("empty content")
 	ErrNoAgentOutput        = errors.New("no agent output")
+	ErrYAMLParseFailed      = errors.New("YAML parse failed")
+	ErrTaskCreationFailed   = errors.New("task creation failed")
 )
 
 // Agent 名称常量
 const (
+	AgentTocEditor       = "toc_editor"         // 目录制定者
+	AgentTocChecker      = "toc_checker"        // 目录校验 Agent
 	AgentGen             = "document_generator" // 文档生成 Agent
 	AgentCheck           = "markdown_checker"   // Markdown 校验 Agent
 	AgentDocCheck        = "document_checker"   // 文档校验 Agent

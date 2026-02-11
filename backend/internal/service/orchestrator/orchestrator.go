@@ -237,6 +237,8 @@ func (o *Orchestrator) dispatchLoop() {
 			if !ok {
 				continue
 			}
+			// TODO 获取TASK，检查其RunAfter 的任务是否已完成，若未完成，则不入队
+			// job.TaskID
 			o.tryDispatch(job)
 		}
 	}
@@ -287,6 +289,7 @@ func (o *Orchestrator) processRetryQueue() {
 // 行为：当达到重试上限时直接放弃，并打印中文日志
 // tryDispatch 精简为只负责分发，不操作 RetryCount
 func (o *Orchestrator) tryDispatch(job *Job) {
+
 	if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
 		klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
 		return
@@ -297,10 +300,6 @@ func (o *Orchestrator) tryDispatch(job *Job) {
 		if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
 			klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
 			return
-		}
-		job.RetryCount++
-		if err := o.retryQueue.Enqueue(job); err != nil {
-			klog.Errorf("重试任务入队失败: taskID=%d, err=%v", job.TaskID, err)
 		}
 	}
 
