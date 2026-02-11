@@ -393,7 +393,7 @@ func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title
 		RepositoryID: repoID,
 		Title:        docTitle, //文章标题，限制长度
 		Filename:     docTitle + ".md",
-		Content:      "",
+		Content:      title, //文档内容，初始为空，后续会被填充
 		SortOrder:    sortOrder,
 	})
 	if err != nil {
@@ -440,11 +440,12 @@ func (s *TaskService) CreateTocWriteTask(ctx context.Context, repoID uint, title
 }
 
 // CreateTitleRewriteTask 创建标题重写任务
-func (s *TaskService) CreateTitleRewriteTask(ctx context.Context, repoID uint, title string, runAfter uint, sortOrder int) (*model.Task, error) {
+func (s *TaskService) CreateTitleRewriteTask(ctx context.Context, repoID uint, title string, runAfter uint, docId uint, sortOrder int) (*model.Task, error) {
 	// 创建标题重写任务
 	task := &model.Task{
 		RepositoryID: repoID,
 		Title:        title,
+		DocID:        docId,
 		WriterName:   domain.TitleRewriter,
 		TaskType:     domain.TitleRewrite,
 		RunAfter:     runAfter,
@@ -477,7 +478,7 @@ func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, co
 	}
 
 	// 创建一个titleRewrite 任务，将标题进行重写
-	task2, err := s.CreateTitleRewriteTask(ctx, repoID, content, task1.ID, sortOrder)
+	task2, err := s.CreateTitleRewriteTask(ctx, repoID, content, task1.ID, task1.DocID, sortOrder)
 	if err != nil {
 		return nil, fmt.Errorf("[CreateUserRequestTask] 创建任务失败: %w", err)
 	}

@@ -294,15 +294,22 @@ func (o *Orchestrator) tryDispatch(job *Job) {
 		klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
 		return
 	}
-	job.RetryCount++
-	if err := o.retryQueue.Enqueue(job); err != nil {
+	if err := o.pool.Submit(func() {
+		o.executeJob(job)
+	}); err == nil {
+		return
+	} else {
 		klog.Errorf("提交任务到协程池失败: taskID=%d, err=%v", job.TaskID, err)
-		if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
-			klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
-			return
-		}
 	}
 
+	if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
+		klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
+		return
+	}
+	job.RetryCount++
+	if err := o.retryQueue.Enqueue(job); err != nil {
+		klog.Errorf("任务重试入队失败: taskID=%d, err=%v", job.TaskID, err)
+	}
 }
 
 // executeJob 统一控制重试

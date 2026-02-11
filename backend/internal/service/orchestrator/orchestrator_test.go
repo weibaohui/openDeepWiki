@@ -35,6 +35,9 @@ func TestTryDispatchRepoLockedMaxRetries(t *testing.T) {
 	if got := o.retryQueue.Len(); got != 0 {
 		t.Fatalf("retry queue should be empty, got %d", got)
 	}
+	if atomic.LoadInt32(&executor.calls) != 0 {
+		t.Fatalf("executor should not be called, got %d", executor.calls)
+	}
 	if job.RetryCount != 1 {
 		t.Fatalf("retry count should remain 1, got %d", job.RetryCount)
 	}
@@ -55,11 +58,18 @@ func TestTryDispatchRepoLockedEnqueueRetry(t *testing.T) {
 
 	o.tryDispatch(job)
 
-	if got := o.retryQueue.Len(); got != 1 {
-		t.Fatalf("retry queue should have 1 job, got %d", got)
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if atomic.LoadInt32(&executor.calls) > 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
-	if job.RetryCount != 1 {
-		t.Fatalf("retry count should be 1, got %d", job.RetryCount)
+	if got := o.retryQueue.Len(); got != 0 {
+		t.Fatalf("retry queue should be empty, got %d", got)
+	}
+	if atomic.LoadInt32(&executor.calls) != 1 {
+		t.Fatalf("executor should be called once, got %d", executor.calls)
 	}
 }
 
