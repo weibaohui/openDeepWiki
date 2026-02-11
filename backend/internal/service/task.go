@@ -69,15 +69,10 @@ func (s *TaskService) Get(id uint) (*model.Task, error) {
 
 // Enqueue 提交任务到编排器队列
 // 这是新的任务提交方式，通过编排器控制执行
-func (s *TaskService) Enqueue(taskID, repositoryID uint) error {
+func (s *TaskService) Enqueue(taskID uint) error {
 	task, err := s.taskRepo.Get(taskID)
 	if err != nil {
 		return fmt.Errorf("获取任务失败: %w", err)
-	}
-
-	// 验证 repositoryID 是否匹配
-	if task.RepositoryID != repositoryID {
-		return fmt.Errorf("repository ID mismatch: expected %d, got %d", task.RepositoryID, repositoryID)
 	}
 
 	// 状态迁移: pending -> queued
@@ -116,7 +111,7 @@ func (s *TaskService) Enqueue(taskID, repositoryID uint) error {
 	}
 
 	// 更新仓库状态
-	_ = s.UpdateRepositoryStatus(repositoryID)
+	_ = s.UpdateRepositoryStatus(task.RepositoryID)
 
 	return nil
 }
@@ -359,15 +354,8 @@ func (s *TaskService) Retry(taskID uint) error {
 		return fmt.Errorf("重置任务失败: %w", err)
 	}
 
-	// 重新获取任务以获取 RepositoryID
-	task, err := s.taskRepo.Get(taskID)
-	if err != nil {
-		return fmt.Errorf("获取任务失败: %w", err)
-	}
-
 	// 2. 重新入队
-	// 默认优先级为0
-	if err := s.Enqueue(taskID, task.RepositoryID); err != nil {
+	if err := s.Enqueue(taskID); err != nil {
 		return fmt.Errorf("任务入队失败: %w", err)
 	}
 
@@ -454,7 +442,7 @@ func (s *TaskService) Cancel(taskID uint) error {
 	// worker在取出任务执行时，应该检查数据库状态（目前worker逻辑依赖外部调用CancelTask来终止上下文）
 	// TODO: 最好在worker执行前增加一次状态检查
 	if oldStatus == statemachine.TaskStatusRunning {
-		if s.orchestrator.CancelTask(taskID, task.RepositoryID) {
+		if s.orchestrator.CancelTask(taskID) {
 			klog.V(6).Infof("已触发运行中任务的取消: taskID=%d", taskID)
 		} else {
 			klog.Warningf("尝试取消运行中任务，但编排器中未找到: taskID=%d", taskID)

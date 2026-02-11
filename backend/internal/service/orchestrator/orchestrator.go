@@ -15,12 +15,11 @@ import (
 // Job 定义
 // -----------------------------
 type Job struct {
-	TaskID       uint
-	RepositoryID uint
-	EnqueuedAt   time.Time
-	RetryCount   int
-	MaxRetries   int
-	Timeout      time.Duration
+	TaskID     uint
+	EnqueuedAt time.Time
+	RetryCount int
+	MaxRetries int
+	Timeout    time.Duration
 }
 
 // -----------------------------
@@ -40,16 +39,13 @@ type Orchestrator struct {
 
 	pool *ants.Pool
 
-	repoConcurrency map[uint]bool
-	repoMutex       sync.Mutex
-
 	executor TaskExecutor
 
 	ctx      context.Context
 	cancel   context.CancelFunc
 	stopOnce sync.Once
 
-	activeCancellations map[string]context.CancelFunc
+	activeCancellations map[uint]context.CancelFunc
 	cancelMutex         sync.Mutex
 }
 
@@ -62,25 +58,17 @@ var (
 	ErrRepoLocked          = errors.New("repository is locked by another task")
 )
 
-// -----------------------------
-// 工具函数
-// -----------------------------
-func getTaskKey(taskID, repoID uint) string {
-	return fmt.Sprintf("%d:%d", taskID, repoID)
-}
-
 // NewTaskJob
 // 说明：创建一个新的任务对象，初始化重试次数、最大重试次数与自定义超时
 // 参数：taskID 任务ID；repositoryID 仓库ID
 // 返回：*Job 初始化后的任务对象
 func NewTaskJob(taskID, repositoryID uint) *Job {
 	return &Job{
-		TaskID:       taskID,
-		RepositoryID: repositoryID,
-		EnqueuedAt:   time.Now(),
-		RetryCount:   0,
-		MaxRetries:   5,
-		Timeout:      30 * time.Minute,
+		TaskID:     taskID,
+		EnqueuedAt: time.Now(),
+		RetryCount: 0,
+		MaxRetries: 5,
+		Timeout:    30 * time.Minute,
 	}
 }
 
@@ -108,8 +96,7 @@ func NewOrchestrator(maxWorkers int, executor TaskExecutor) (*Orchestrator, erro
 		retryQueue:          retryQ,
 		retryTicker:         time.NewTicker(500 * time.Millisecond),
 		pool:                pool,
-		repoConcurrency:     make(map[uint]bool),
-		activeCancellations: make(map[string]context.CancelFunc),
+		activeCancellations: make(map[uint]context.CancelFunc),
 		executor:            executor,
 		ctx:                 ctx,
 		cancel:              cancel,
@@ -180,11 +167,11 @@ func (o *Orchestrator) EnqueueJob(job *Job) error {
 
 	if err := o.jobQueue.Enqueue(job); err != nil {
 		if errors.Is(err, ErrQueueFull) {
-			klog.Warningf("Job queue full: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
+			klog.Warningf("Job queue full: taskID=%d", job.TaskID)
 		}
 		return err
 	}
-	klog.V(6).Infof("Job enqueued: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
+	klog.V(6).Infof("Job enqueued: taskID=%d", job.TaskID)
 	return nil
 }
 
@@ -205,32 +192,32 @@ func (o *Orchestrator) EnqueueBatch(jobs []*Job) error {
 // -----------------------------
 // 取消任务
 // -----------------------------
-func (o *Orchestrator) registerCancel(taskID, repoID uint, cancel context.CancelFunc) {
+func (o *Orchestrator) registerCancel(taskID uint, cancel context.CancelFunc) {
 	o.cancelMutex.Lock()
 	defer o.cancelMutex.Unlock()
-	o.activeCancellations[getTaskKey(taskID, repoID)] = cancel
+	o.activeCancellations[taskID] = cancel
 }
 
-func (o *Orchestrator) unregisterCancel(taskID, repoID uint) {
+func (o *Orchestrator) unregisterCancel(taskID uint) {
 	o.cancelMutex.Lock()
 	defer o.cancelMutex.Unlock()
-	delete(o.activeCancellations, getTaskKey(taskID, repoID))
+	delete(o.activeCancellations, taskID)
 }
 
-func (o *Orchestrator) CancelTask(taskID, repoID uint) bool {
+func (o *Orchestrator) CancelTask(taskID uint) bool {
 	o.cancelMutex.Lock()
-	cancel, ok := o.activeCancellations[getTaskKey(taskID, repoID)]
+	cancel, ok := o.activeCancellations[taskID]
 	o.cancelMutex.Unlock()
 	if !ok {
 		return false
 	}
 
-	klog.V(6).Infof("Cancelling task: taskID=%d, repoID=%d", taskID, repoID)
+	klog.V(6).Infof("Cancelling task: taskID=%d", taskID)
 	cancel()
 
 	select {
 	case <-time.After(5 * time.Second):
-		klog.Warningf("Task cancel timeout: taskID=%d, repoID=%d", taskID, repoID)
+		klog.Warningf("Task cancel timeout: taskID=%d", taskID)
 	case <-o.ctx.Done():
 	}
 
@@ -280,8 +267,8 @@ func (o *Orchestrator) processRetryQueue() {
 				func() {
 					defer func() {
 						if r := recover(); r != nil {
-							klog.Errorf("Retry dispatch panic: taskID=%d, repoID=%d, err=%v",
-								job.TaskID, job.RepositoryID, r)
+							klog.Errorf("Retry dispatch panic: taskID=%d, err=%v",
+								job.TaskID, r)
 						}
 					}()
 					o.tryDispatch(job)
@@ -300,50 +287,31 @@ func (o *Orchestrator) processRetryQueue() {
 // 行为：当达到重试上限时直接放弃，并打印中文日志
 // tryDispatch 精简为只负责分发，不操作 RetryCount
 func (o *Orchestrator) tryDispatch(job *Job) {
-	if !o.acquireRepoLock(job.RepositoryID) {
-		if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
-			klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, repoID=%d, retry=%d/%d", job.TaskID, job.RepositoryID, job.RetryCount, job.MaxRetries)
-			return
-		}
-		job.RetryCount++
-		if err := o.retryQueue.Enqueue(job); err != nil {
-			klog.Errorf("重试任务入队失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
-		}
+	if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
+		klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
 		return
 	}
-
-	lockReleased := false
-	defer func() {
-		if !lockReleased {
-			o.releaseRepoLock(job.RepositoryID)
-		}
-	}()
-
-	err := o.pool.Submit(func() {
-		lockReleased = true
-		defer o.releaseRepoLock(job.RepositoryID)
-		o.executeJob(job)
-	})
-
-	if err != nil {
-		klog.Errorf("提交任务到协程池失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
+	job.RetryCount++
+	if err := o.retryQueue.Enqueue(job); err != nil {
+		klog.Errorf("提交任务到协程池失败: taskID=%d, err=%v", job.TaskID, err)
 		if job.MaxRetries <= 0 || job.RetryCount >= job.MaxRetries {
-			klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, repoID=%d, retry=%d/%d", job.TaskID, job.RepositoryID, job.RetryCount, job.MaxRetries)
+			klog.Warningf("任务重试已达上限，放弃入队: taskID=%d, retry=%d/%d", job.TaskID, job.RetryCount, job.MaxRetries)
 			return
 		}
 		job.RetryCount++
 		if err := o.retryQueue.Enqueue(job); err != nil {
-			klog.Errorf("重试任务入队失败: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, err)
+			klog.Errorf("重试任务入队失败: taskID=%d, err=%v", job.TaskID, err)
 		}
 	}
+
 }
 
 // executeJob 统一控制重试
 func (o *Orchestrator) executeJob(job *Job) {
 	defer func() {
 		if r := recover(); r != nil {
-			klog.Errorf("Task panic recovered: taskID=%d, repoID=%d, err=%v", job.TaskID, job.RepositoryID, r)
-			o.unregisterCancel(job.TaskID, job.RepositoryID)
+			klog.Errorf("Task panic recovered: taskID=%d, err=%v", job.TaskID, r)
+			o.unregisterCancel(job.TaskID)
 		}
 	}()
 
@@ -356,15 +324,15 @@ func (o *Orchestrator) executeJob(job *Job) {
 	runCtx, manualCancel := context.WithCancel(ctx)
 	defer manualCancel()
 
-	o.registerCancel(job.TaskID, job.RepositoryID, manualCancel)
-	defer o.unregisterCancel(job.TaskID, job.RepositoryID)
+	o.registerCancel(job.TaskID, manualCancel)
+	defer o.unregisterCancel(job.TaskID)
 
 	for i := job.RetryCount; i < job.MaxRetries; i++ {
 		job.RetryCount = i // 每次尝试前更新 RetryCount
 
 		err := o.executor.ExecuteTask(runCtx, job.TaskID)
 		if err == nil {
-			klog.V(6).Infof("Task completed: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
+			klog.V(6).Infof("Task completed: taskID=%d", job.TaskID)
 			return
 		}
 
@@ -373,37 +341,18 @@ func (o *Orchestrator) executeJob(job *Job) {
 			backoff = 20 * time.Minute
 		}
 
-		klog.Warningf("任务重试失败: taskID=%d, repoID=%d, retry=%d/%d, err=%v, backoff=%v",
-			job.TaskID, job.RepositoryID, i+1, job.MaxRetries, err, backoff)
+		klog.Warningf("任务重试失败: taskID=%d, retry=%d/%d, err=%v, backoff=%v",
+			job.TaskID, i+1, job.MaxRetries, err, backoff)
 
 		select {
 		case <-runCtx.Done():
-			klog.Warningf("任务被取消或超时: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
+			klog.Warningf("任务被取消或超时: taskID=%d", job.TaskID)
 			return
 		case <-time.After(backoff):
 		}
 	}
 
-	klog.Errorf("任务执行失败且超过重试上限: taskID=%d, repoID=%d", job.TaskID, job.RepositoryID)
-}
-
-// -----------------------------
-// Repo Lock
-// -----------------------------
-func (o *Orchestrator) acquireRepoLock(repoID uint) bool {
-	o.repoMutex.Lock()
-	defer o.repoMutex.Unlock()
-	if o.repoConcurrency[repoID] {
-		return false
-	}
-	o.repoConcurrency[repoID] = true
-	return true
-}
-
-func (o *Orchestrator) releaseRepoLock(repoID uint) {
-	o.repoMutex.Lock()
-	defer o.repoMutex.Unlock()
-	delete(o.repoConcurrency, repoID)
+	klog.Errorf("任务执行失败且超过重试上限: taskID=%d", job.TaskID)
 }
 
 // -----------------------------
@@ -416,12 +365,9 @@ type QueueStatus struct {
 }
 
 func (o *Orchestrator) GetQueueStatus() *QueueStatus {
-	o.repoMutex.Lock()
-	defer o.repoMutex.Unlock()
 	return &QueueStatus{
 		QueueLength:   o.jobQueue.Len(),
 		ActiveWorkers: o.pool.Running(),
-		ActiveRepos:   len(o.repoConcurrency),
 	}
 }
 

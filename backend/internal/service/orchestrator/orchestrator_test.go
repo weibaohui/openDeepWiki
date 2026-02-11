@@ -19,21 +19,15 @@ func (f *fakeExecutor) ExecuteTask(ctx context.Context, taskID uint) error {
 
 func TestTryDispatchRepoLockedMaxRetries(t *testing.T) {
 	executor := &fakeExecutor{}
-	o,_ := NewOrchestrator(1, executor)
+	o, _ := NewOrchestrator(1, executor)
 	o.retryTicker.Stop()
 	defer o.pool.Release()
 
-	repoID := uint(10)
-	o.repoMutex.Lock()
-	o.repoConcurrency[repoID] = true
-	o.repoMutex.Unlock()
-
 	job := &Job{
-		TaskID:       1,
-		RepositoryID: repoID,
-		RetryCount:   1,
-		MaxRetries:   1,
-		Timeout:      10 * time.Millisecond,
+		TaskID:     1,
+		RetryCount: 1,
+		MaxRetries: 1,
+		Timeout:    10 * time.Millisecond,
 	}
 
 	o.tryDispatch(job)
@@ -48,21 +42,15 @@ func TestTryDispatchRepoLockedMaxRetries(t *testing.T) {
 
 func TestTryDispatchRepoLockedEnqueueRetry(t *testing.T) {
 	executor := &fakeExecutor{}
-	o,_ := NewOrchestrator(1, executor)
+	o, _ := NewOrchestrator(1, executor)
 	o.retryTicker.Stop()
 	defer o.pool.Release()
 
-	repoID := uint(11)
-	o.repoMutex.Lock()
-	o.repoConcurrency[repoID] = true
-	o.repoMutex.Unlock()
-
 	job := &Job{
-		TaskID:       2,
-		RepositoryID: repoID,
-		RetryCount:   0,
-		MaxRetries:   1,
-		Timeout:      10 * time.Millisecond,
+		TaskID:     2,
+		RetryCount: 0,
+		MaxRetries: 1,
+		Timeout:    10 * time.Millisecond,
 	}
 
 	o.tryDispatch(job)
@@ -77,16 +65,15 @@ func TestTryDispatchRepoLockedEnqueueRetry(t *testing.T) {
 
 func TestExecuteJobStopsOnTimeout(t *testing.T) {
 	executor := &fakeExecutor{err: context.DeadlineExceeded}
-	o,_ := NewOrchestrator(1, executor)
+	o, _ := NewOrchestrator(1, executor)
 	o.retryTicker.Stop()
 	defer o.pool.Release()
 
 	job := &Job{
-		TaskID:       3,
-		RepositoryID: 12,
-		RetryCount:   0,
-		MaxRetries:   3,
-		Timeout:      50 * time.Millisecond,
+		TaskID:     3,
+		RetryCount: 0,
+		MaxRetries: 3,
+		Timeout:    50 * time.Millisecond,
 	}
 
 	start := time.Now()

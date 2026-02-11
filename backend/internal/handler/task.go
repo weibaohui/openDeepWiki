@@ -63,14 +63,14 @@ func (h *TaskHandler) Enqueue(c *gin.Context) {
 	}
 
 	// 获取任务信息
-	task, err := h.service.Get(uint(id))
+	_, err = h.service.Get(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
 		return
 	}
 
 	// 提交任务到编排器队列
-	if err := h.service.Enqueue(uint(id), task.RepositoryID); err != nil {
+	if err := h.service.Enqueue(uint(id)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -91,14 +91,14 @@ func (h *TaskHandler) Run(c *gin.Context) {
 	}
 
 	// 获取任务信息
-	task, err := h.service.Get(uint(id))
+	_, err = h.service.Get(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
 		return
 	}
 
 	// 提交任务到编排器队列
-	if err := h.service.Enqueue(uint(id), task.RepositoryID); err != nil {
+	if err := h.service.Enqueue(uint(id)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
