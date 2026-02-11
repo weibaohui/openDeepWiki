@@ -63,7 +63,7 @@ const fixMermaidNodeQuotes = (mermaidCode: string): string => {
     const isQuoted = trimmedContent.startsWith('"') && trimmedContent.endsWith('"');
     const hasNonEdgeBracket =
       content.indexOf('[') > 0 || (content.includes(']') && content.lastIndexOf(']') < content.length - 1);
-    const needsQuotes = content.includes('#') || hasNonEdgeBracket;
+    const needsQuotes = content.includes('#') || content.includes('@') || hasNonEdgeBracket;
 
     if (needsQuotes && !isQuoted) {
       result += `${nodeId}["${content}"]`;
