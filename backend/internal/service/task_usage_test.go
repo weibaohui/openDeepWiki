@@ -30,6 +30,11 @@ func (m *mockTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) 
 	return nil
 }
 
+// Upsert 根据 task_id 插入或更新任务用量记录
+func (m *mockTaskUsageRepo) Upsert(ctx context.Context, usage *model.TaskUsage) error {
+	return m.Create(ctx, usage)
+}
+
 // TestTaskUsageServiceRecordUsageSuccess 验证记录成功
 func TestTaskUsageServiceRecordUsageSuccess(t *testing.T) {
 	repo := &mockTaskUsageRepo{}

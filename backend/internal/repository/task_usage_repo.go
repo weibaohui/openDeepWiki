@@ -38,3 +38,16 @@ func (r *taskUsageRepository) GetByTaskID(ctx context.Context, taskID uint) (*mo
 	}
 	return &usage, nil
 }
+
+// Upsert 根据 task_id 插入或更新任务用量记录
+// 如果存在该 task_id 的记录，则删除旧记录并插入新记录（覆盖逻辑）
+func (r *taskUsageRepository) Upsert(ctx context.Context, usage *model.TaskUsage) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 先删除该 task_id 的所有旧记录
+		if err := tx.Where("task_id = ?", usage.TaskID).Delete(&model.TaskUsage{}).Error; err != nil {
+			return err
+		}
+		// 插入新记录
+		return tx.Create(usage).Error
+	})
+}
