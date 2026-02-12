@@ -348,6 +348,9 @@ func (s *TaskService) succeedTask(task *model.Task) error {
 	// 任务完成后更新仓库状态
 	_ = s.UpdateRepositoryStatus(task.RepositoryID)
 
+	if s.bus == nil {
+		return nil
+	}
 	// 发布任务完成事件
 	s.bus.Publish(context.Background(), eventbus.TaskEventWriteComplete, eventbus.TaskEvent{
 		Type:         eventbus.TaskEventWriteComplete,
@@ -389,6 +392,9 @@ func (s *TaskService) failTask(task *model.Task, errMsg string) error {
 	// 任务失败后更新仓库状态
 	_ = s.UpdateRepositoryStatus(task.RepositoryID)
 
+	if s.bus == nil {
+		return nil
+	}
 	// 发布任务失败事件
 	s.bus.Publish(context.Background(), eventbus.TaskEventWriteFailed, eventbus.TaskEvent{
 		Type:         eventbus.TaskEventWriteFailed,
