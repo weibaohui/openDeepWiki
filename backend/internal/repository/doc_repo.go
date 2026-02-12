@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
@@ -184,15 +185,11 @@ func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage,
 			SUM(task_usages.completion_tokens) as completion_tokens,
 			SUM(task_usages.total_tokens) as total_tokens,
 			SUM(task_usages.cached_tokens) as cached_tokens,
-			SUM(task_usages.reasoning_tokens) as reasoning_tokens,
-			GROUP_CONCAT(DISTINCT task_usages.api_key_name, ', ') as api_key_names
+			SUM(task_usages.reasoning_tokens) as reasoning_tokens
 		`).
 		Scan(&result).Error
 
 	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -200,6 +197,20 @@ func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage,
 	if result.TotalTokens == 0 {
 		return nil, nil
 	}
+
+	//查询APIKeyNames
+	var apiKeyNames []string
+	err = r.db.Table("task_usages").
+		Joins("JOIN documents ON documents.task_id = task_usages.task_id").
+		Where("documents.id = ?", docID).
+		Select("DISTINCT task_usages.api_key_name as api_key_names").
+		Scan(&apiKeyNames).Error
+
+	if err != nil {
+		return nil, err
+	}
+	// 合并APIKeyNames
+	result.APIKeyNames = strings.Join(apiKeyNames, ", ")
 
 	return &model.TaskUsage{
 		PromptTokens:     result.PromptTokens,
