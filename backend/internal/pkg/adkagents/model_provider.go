@@ -2,8 +2,6 @@ package adkagents
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -202,45 +200,8 @@ func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*Mode
 	}, nil
 }
 
-// IsRateLimitError 判断错误是否为 Rate Limit 错误
-func (p *EnhancedModelProviderImpl) IsRateLimitError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errMsg := err.Error()
-	errMsg = strings.ToLower(errMsg)
-	// 检查 HTTP 状态码
-	if strings.Contains(errMsg, "429") {
-		return true
-	}
-
-	// 检查错误消息
-	rateLimitKeywords := []string{
-		"rate limit",
-		"quota exceeded",
-		"too many requests",
-		"rate-limited",
-		"request rate exceeded",
-		"请求次数超过限制",
-		"超过限制",
-		"每分钟请求次数",
-	}
-
-	lowerMsg := strings.ToLower(errMsg)
-	for _, keyword := range rateLimitKeywords {
-		if strings.Contains(lowerMsg, keyword) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // MarkModelUnavailable 标记模型为不可用
-func (p *EnhancedModelProviderImpl) MarkModelUnavailable(modelName string, resetTime time.Time) error {
-	ctx := context.Background()
-
+func (p *EnhancedModelProviderImpl) MarkModelUnavailable(ctx context.Context, modelName string, resetTime time.Time) error {
 	// 获取 API Key 配置
 	apiKey, err := p.apiKeyRepo.GetByName(ctx, modelName)
 	if err != nil {
@@ -299,12 +260,3 @@ func (p *EnhancedModelProviderImpl) GetNextModel(ctx context.Context, currentMod
 	// 没有下一个模型
 	return nil, ErrNoAvailableModel
 }
-
-// ErrAPIKeyNotFound API Key 不存在错误
-var ErrAPIKeyNotFound = fmt.Errorf("api key not found")
-
-// ErrModelUnavailable 模型不可用错误
-var ErrModelUnavailable = fmt.Errorf("model unavailable")
-
-// ErrNoAvailableModel 没有可用模型错误
-var ErrNoAvailableModel = fmt.Errorf("no available model")

@@ -58,10 +58,8 @@ type ModelProvider interface {
 	DefaultModel() *openai.ChatModel
 	// GetModelPool 获取模型池
 	GetModelPool(ctx context.Context, names []string) ([]*ModelWithMetadata, error)
-	// IsRateLimitError 判断是否为 Rate Limit 错误
-	IsRateLimitError(err error) bool
 	// MarkModelUnavailable 标记模型为不可用
-	MarkModelUnavailable(modelName string, resetTime time.Time) error
+	MarkModelUnavailable(ctx context.Context, modelName string, resetTime time.Time) error
 	// GetNextModel 获取下一个可用模型
 	GetNextModel(ctx context.Context, currentModelName string, poolNames []string) (*ModelWithMetadata, error)
 }

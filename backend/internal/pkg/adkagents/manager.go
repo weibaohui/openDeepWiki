@@ -77,7 +77,9 @@ func newManagerInternal(cfg *config.Config) (*Manager, error) {
 func (m *Manager) SetEnhancedModelProvider(provider *EnhancedModelProviderImpl) {
 	m.enhancedModelProvider = provider
 	if provider != nil {
-		provider.switcher.SetModelProvider(provider)
+		// 为 switcher 设置 RateLimiter
+		rateLimiter := NewRateLimiter(provider)
+		provider.switcher.SetRateLimiter(rateLimiter)
 	}
 }
 
@@ -251,7 +253,9 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 			MaxRetries: 3,
 			IsRetryAble: func(ctx context.Context, err error) bool {
 				klog.V(6).Infof("[Manager] IsRetryAble check: %v", err)
-				if m.enhancedModelProvider != nil && m.enhancedModelProvider.IsRateLimitError(err) {
+				// 使用 RateLimiter 判断是否为 Rate Limit 错误
+				rateLimiter := NewRateLimiter(m.enhancedModelProvider)
+				if rateLimiter.IsRateLimitError(err) {
 					klog.Warningf("[Manager] IsRetryAble: rate limit error detected, retrying...")
 					return true
 				}
