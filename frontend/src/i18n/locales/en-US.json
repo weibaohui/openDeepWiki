@@ -146,6 +146,11 @@
     "sync": {
         "title": "Data Sync",
         "form_title": "Sync Settings",
+        "local_sync_url": "Local Sync URL",
+        "local_sync_url_desc": "Paste this URL into the 'Target Server' input of another instance to sync this instance's data to that instance.",
+        "copy": "Copy",
+        "copy_success": "Copied successfully",
+        "copy_failed": "Copy failed, please copy manually",
         "target_server": "Target Server",
         "target_server_placeholder": "e.g. http://b-server/api/sync",
         "repository": "Repository",
