@@ -52,6 +52,18 @@ export interface DocumentRatingStats {
     rating_count: number;
 }
 
+export interface TaskUsage {
+    id: number;
+    task_id: number;
+    api_key_name: string;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cached_tokens: number;
+    reasoning_tokens: number;
+    created_at: string;
+}
+
 
 export type ThemeMode = 'default' | 'dark' | 'compact';
 

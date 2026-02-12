@@ -26,12 +26,12 @@ type TaskService struct {
 	orchestrator     *orchestrator.Orchestrator
 	writers          []domain.Writer // 多个写入器，用于不同的文档类型
 	schedulerOnce    sync.Once
+	taskUsageService TaskUsageService
 }
 
 var ErrRunAfterNotSatisfied = errors.New("runAfter依赖未满足")
 
 func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService) *TaskService {
-
 	return &TaskService{
 		cfg:              cfg,
 		taskRepo:         taskRepo,
@@ -39,6 +39,7 @@ func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repo
 		docService:       docService,
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		repoAggregator:   statemachine.NewRepositoryStatusAggregator(),
+		taskUsageService: NewTaskUsageService(repository.NewTaskUsageRepository(nil)),
 	}
 }
 
@@ -790,4 +791,9 @@ func (s *TaskService) GetGlobalMonitorData() (*GlobalMonitorData, error) {
 		ActiveTasks: activeTasks,
 		RecentTasks: recentTasks,
 	}, nil
+}
+
+// GetTaskUsageService 获取任务用量服务
+func (s *TaskService) GetTaskUsageService() TaskUsageService {
+	return s.taskUsageService
 }

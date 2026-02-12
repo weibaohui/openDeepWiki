@@ -249,3 +249,8 @@ func (s *DocumentService) GetRatingStats(documentID uint) (*model.DocumentRating
 	klog.V(6).Infof("GetRatingStats: document_id=%d average=%.1f count=%d", documentID, stats.AverageScore, stats.RatingCount)
 	return stats, nil
 }
+
+// GetTokenUsage 获取文档的 Token 用量数据
+func (s *DocumentService) GetTokenUsage(docID uint) (*model.TaskUsage, error) {
+	return s.docRepo.GetTokenUsageByDocID(docID)
+}

@@ -13,6 +13,7 @@ import (
 // TaskUsageService 任务用量服务接口
 type TaskUsageService interface {
 	RecordUsage(ctx context.Context, taskID uint, apiKeyName string, usage *schema.TokenUsage) error
+	GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error)
 }
 
 type taskUsageService struct {
@@ -52,4 +53,12 @@ func (s *taskUsageService) RecordUsage(ctx context.Context, taskID uint, apiKeyN
 	}
 	klog.V(6).Infof("任务用量记录成功：taskID=%d, 模型=%s", taskID, apiKeyName)
 	return nil
+}
+
+// GetByTaskID 根据 task_id 获取任务用量
+func (s *taskUsageService) GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error) {
+	if taskID == 0 {
+		return nil, nil
+	}
+	return s.repo.GetByTaskID(ctx, taskID)
 }

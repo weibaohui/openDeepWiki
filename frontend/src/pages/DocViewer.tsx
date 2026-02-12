@@ -16,7 +16,11 @@ import {
     ReloadOutlined,
     PlusOutlined,
     ExportOutlined,
-    CopyOutlined
+    CopyOutlined,
+    DatabaseOutlined,
+    ArrowUpOutlined,
+    ArrowDownOutlined,
+    RobotOutlined
 } from '@ant-design/icons';
 
 import {
@@ -41,7 +45,7 @@ import {
 } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownRender from '@/components/markdown/MarkdownRender';
-import type { Document, Repository, Task, DocumentRatingStats } from '../types';
+import type { Document, Repository, Task, DocumentRatingStats, TaskUsage } from '../types';
 import { documentApi, repositoryApi, taskApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
@@ -74,6 +78,8 @@ export default function DocViewer() {
     const [userRequestModalOpen, setUserRequestModalOpen] = useState(false);
     const [userRequestContent, setUserRequestContent] = useState('');
     const [userRequestLoading, setUserRequestLoading] = useState(false);
+    const [tokenUsage, setTokenUsage] = useState<TaskUsage | null>(null);
+    const [tokenUsageLoading, setTokenUsageLoading] = useState(false);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -170,6 +176,26 @@ export default function DocViewer() {
         };
         fetchRatingStats();
     }, [docId, messageApi, t]);
+
+    useEffect(() => {
+        const fetchTokenUsage = async () => {
+            if (!docId) {
+                setTokenUsage(null);
+                return;
+            }
+            setTokenUsageLoading(true);
+            try {
+                const { data } = await documentApi.getTokenUsage(Number(docId));
+                setTokenUsage(data);
+            } catch (error) {
+                console.error('Failed to fetch token usage:', error);
+                // 不显示错误，静默失败
+            } finally {
+                setTokenUsageLoading(false);
+            }
+        };
+        fetchTokenUsage();
+    }, [docId]);
 
     const handleSave = async () => {
         if (!docId) return;
@@ -354,6 +380,50 @@ export default function DocViewer() {
             </div>
         </div>
 
+    ) : null;
+
+    const tokenUsageInfo = tokenUsage ? (
+        <div style={{
+            marginTop: 12,
+            fontSize: '12px',
+            color: 'var(--ant-color-text-secondary)',
+            backgroundColor: 'var(--ant-color-info-bg)',
+            padding: '12px',
+            borderRadius: '6px'
+        }}>
+            {tokenUsageLoading ? <Spin size="small" /> : (
+                <Space direction="vertical" size={6}>
+                    <div>
+                        <Space size={6}>
+                            <DatabaseOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                            <span>{t('document.token_total')}:</span>
+                            <Text strong>{tokenUsage.total_tokens.toLocaleString()}</Text>
+                        </Space>
+                    </div>
+                    <div>
+                        <Space size={6}>
+                            <ArrowUpOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                            <span>{t('document.token_input')}:</span>
+                            <Text strong>{tokenUsage.prompt_tokens.toLocaleString()}</Text>
+                        </Space>
+                    </div>
+                    <div>
+                        <Space size={6}>
+                            <ArrowDownOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                            <span>{t('document.token_output')}:</span>
+                            <Text strong>{tokenUsage.completion_tokens.toLocaleString()}</Text>
+                        </Space>
+                    </div>
+                    <div>
+                        <Space size={6}>
+                            <RobotOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                            <span>{t('document.token_model')}:</span>
+                            <Text strong>{tokenUsage.api_key_name}</Text>
+                        </Space>
+                    </div>
+                </Space>
+            )}
+        </div>
     ) : null;
 
     const SidebarContent = () => (
@@ -657,6 +727,7 @@ export default function DocViewer() {
                                         height={window.innerHeight - 200}
                                     />
                                     {rateInfo}
+                                    {tokenUsageInfo}
                                 </div>
                             ) : (
                                 <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
@@ -664,6 +735,7 @@ export default function DocViewer() {
                                         {metaInfo}
                                         <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
                                         {rateInfo}
+                                        {tokenUsageInfo}
 
                                     </div>
                                 </Card>

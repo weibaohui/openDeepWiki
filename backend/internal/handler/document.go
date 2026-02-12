@@ -196,3 +196,24 @@ func (h *DocumentHandler) GetRatingStats(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, stats)
 }
+
+// GetTokenUsage 获取文档的 Token 用量数据
+func (h *DocumentHandler) GetTokenUsage(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "message": "invalid document id"})
+		return
+	}
+
+	usage, err := h.service.GetTokenUsage(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "message": "failed to get token usage"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    usage,
+	})
+}

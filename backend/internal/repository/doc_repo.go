@@ -162,3 +162,22 @@ func (r *documentRepository) GetByTaskID(taskID uint) ([]model.Document, error) 
 		Find(&docs).Error
 	return docs, err
 }
+
+// GetTokenUsageByDocID 根据 document_id 获取关联的 Token 用量数据
+// 通过关联 Task 和 TaskUsage 表查询
+func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, error) {
+	var usage model.TaskUsage
+	err := r.db.Table("task_usages").
+		Joins("JOIN tasks ON tasks.id = task_usages.task_id").
+		Joins("JOIN documents ON documents.task_id = tasks.id").
+		Where("documents.id = ?", docID).
+		Order("task_usages.id DESC").
+		First(&usage).Error
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &usage, nil
+}
