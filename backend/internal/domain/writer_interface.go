@@ -13,7 +13,7 @@ var (
 	APIWriter         WriterName = "APIWriter"
 	UserRequestWriter WriterName = "UserRequestWriter"
 	TitleRewriter     WriterName = "TitleRewriter"
-	TocWriter         WriterName = "TocWriter" //TODO 未实现
+	TocWriter         WriterName = "TocWriter"
 )
 
 type Writer interface {
@@ -41,9 +41,9 @@ const (
 	AgentGen             = "document_generator" // 文档生成 Agent
 	AgentCheck           = "markdown_checker"   // Markdown 校验 Agent
 	AgentDocCheck        = "document_checker"   // 文档校验 Agent
-	AgentDBModelExplorer = "db_model_explorer"
-	AgentMdCheck         = "markdown_checker"
-	AgentProblemSolver   = "problem_solver"
-	AgentAPIExplorer     = "api_explorer"
-	AgentTitleRewriter   = "title_rewriter"
+	AgentDBModelExplorer = "db_model_explorer"  // 数据库模型探索 Agent
+	AgentMdCheck         = "markdown_checker"   // Markdown 校验 Agent
+	AgentProblemSolver   = "problem_solver"     // 问题解决 Agent
+	AgentAPIExplorer     = "api_explorer"       // API 探索 Agent
+	AgentTitleRewriter   = "title_rewriter"     // 标题重写 Agent
 )

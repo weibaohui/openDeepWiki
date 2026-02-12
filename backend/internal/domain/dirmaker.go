@@ -1,4 +1,4 @@
-package model
+package domain
 
 // generationResult 表示 Agent 输出的任务生成结果（仅包内使用）。
 type DirMakerGenerationResult struct {
