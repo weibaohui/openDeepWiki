@@ -172,6 +172,7 @@ func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage,
 		TotalTokens      int
 		CachedTokens     int
 		ReasoningTokens  int
+		APIKeyNames      string
 	}
 
 	err := r.db.Table("task_usages").
@@ -183,7 +184,8 @@ func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage,
 			SUM(task_usages.completion_tokens) as completion_tokens,
 			SUM(task_usages.total_tokens) as total_tokens,
 			SUM(task_usages.cached_tokens) as cached_tokens,
-			SUM(task_usages.reasoning_tokens) as reasoning_tokens
+			SUM(task_usages.reasoning_tokens) as reasoning_tokens,
+			GROUP_CONCAT(DISTINCT task_usages.api_key_name SEPARATOR ', ') as api_key_names
 		`).
 		Scan(&result).Error
 
@@ -205,5 +207,6 @@ func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage,
 		TotalTokens:      result.TotalTokens,
 		CachedTokens:     result.CachedTokens,
 		ReasoningTokens:  result.ReasoningTokens,
+		APIKeyName:       result.APIKeyNames,
 	}, nil
 }
