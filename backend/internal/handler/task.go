@@ -10,12 +10,14 @@ import (
 )
 
 type TaskHandler struct {
-	service *service.TaskService
+	service         *service.TaskService
+	taskUsageService service.TaskUsageService
 }
 
 func NewTaskHandler(service *service.TaskService) *TaskHandler {
 	return &TaskHandler{
-		service: service,
+		service:         service,
+		taskUsageService: service.GetTaskUsageService(),
 	}
 }
 
@@ -308,4 +310,25 @@ func (h *TaskHandler) Monitor(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, data)
+}
+
+// GetTaskUsage 获取任务 Token 用量
+func (h *TaskHandler) GetTaskUsage(c *gin.Context) {
+	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "message": "invalid task id"})
+		return
+	}
+
+	usage, err := h.taskUsageService.GetByTaskID(c.Request.Context(), uint(taskID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "message": "failed to get task usage"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    usage,
+	})
 }

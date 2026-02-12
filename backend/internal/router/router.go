@@ -79,6 +79,7 @@ func Setup(
 			docs.PUT("/:id", docHandler.Update)
 			docs.POST("/:id/ratings", docHandler.SubmitRating)
 			docs.GET("/:id/ratings/stats", docHandler.GetRatingStats)
+			docs.GET("/:id/token-usage", docHandler.GetTokenUsage)
 		}
 
 		// API Key 管理

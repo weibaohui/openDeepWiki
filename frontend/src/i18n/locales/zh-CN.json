@@ -230,7 +230,11 @@
         "rating_action": "评分",
         "rating_submit_success": "评分已提交",
         "rating_submit_failed": "提交评分失败",
-        "rating_stats_failed": "加载评分失败"
+        "rating_stats_failed": "加载评分失败",
+        "token_total": "总 Token",
+        "token_input": "输入 Token",
+        "token_output": "输出 Token",
+        "token_model": "使用模型"
     },
     "banner": {
         "title": "本项目为开源项目",

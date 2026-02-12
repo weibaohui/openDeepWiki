@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -50,6 +50,7 @@ export const documentApi = {
     update: (id: number, content: string) => api.put<Document>(`/documents/${id}`, { content }),
     submitRating: (id: number, score: number) => api.post<DocumentRatingStats>(`/documents/${id}/ratings`, { score }),
     getRatingStats: (id: number) => api.get<DocumentRatingStats>(`/documents/${id}/ratings/stats`),
+    getTokenUsage: (id: number) => api.get<{ code: number; message: string; data: TaskUsage | null }>(`/documents/${id}/token-usage`).then(res => res.data),
     getIndex: (repoId: number) => api.get<{ content: string }>(`/repositories/${repoId}/documents/index`),
     export: (repoId: number) => api.get(`/repositories/${repoId}/documents/export`, { responseType: 'blob' }),
 };
