@@ -12,7 +12,6 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain/writers"
 	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
-	"github.com/weibaohui/opendeepwiki/backend/internal/eventsubscriber"
 	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/database"
@@ -21,6 +20,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
+	"github.com/weibaohui/opendeepwiki/backend/internal/subscriber"
 )
 
 func main() {
@@ -61,6 +61,7 @@ func main() {
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 	taskUsageService := service.NewTaskUsageService(taskUsageRepo)
 
+	//初始化系列Writer
 	titleRewriter, err := writers.NewTitleRewriter(cfg, docRepo, taskRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize title rewriter service: %v", err)
@@ -88,6 +89,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}
+	//初始化系列Writer结束
 
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
 	taskService.AddWriters(userRequestWriter)
@@ -96,14 +98,7 @@ func main() {
 	taskService.AddWriters(apiWriter)
 	taskService.AddWriters(titleRewriter)
 	taskService.AddWriters(tocWriter)
-
-	// 设置目录分析服务的任务服务
 	tocWriter.SetTaskService(taskService)
-
-	//注册bus
-	bus := eventbus.NewBus()
-	taskEventSubscriber := eventsubscriber.NewTaskEventSubscriber(taskService)
-	taskEventSubscriber.Register(bus)
 
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
@@ -112,11 +107,18 @@ func main() {
 	taskService.SetOrchestrator(orchestrator.GetGlobalOrchestrator())
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
+	//注册TaskEventBus
+	taskEventBus := eventbus.NewTaskEventBus()
+	subscriber.NewTaskEventSubscriber(taskService).Register(taskEventBus)
+
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo)
+	//注册RepoEventBus
+	repoEventBus := eventbus.NewRepositoryEventBus()
+	subscriber.NewRepositoryEventSubscriber(taskService, repoService).Register(repoEventBus)
 
 	// 初始化 Handler
-	repoHandler := handler.NewRepositoryHandler(bus, repoService, taskService)
+	repoHandler := handler.NewRepositoryHandler(repoEventBus, taskEventBus, repoService, taskService)
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)

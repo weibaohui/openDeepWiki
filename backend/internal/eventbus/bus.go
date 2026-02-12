@@ -5,28 +5,32 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+
+	"k8s.io/klog/v2"
 )
 
-type Bus struct {
+type Handler[E any] func(ctx context.Context, event E) error
+
+type Bus[K comparable, E any] struct {
 	mutex       sync.RWMutex
-	subscribers map[TaskEventType]map[uint64]TaskEventHandler
+	subscribers map[K]map[uint64]Handler[E]
 	counter     uint64
 }
 
-func NewBus() *Bus {
-	return &Bus{
-		subscribers: make(map[TaskEventType]map[uint64]TaskEventHandler),
+func NewBus[K comparable, E any]() *Bus[K, E] {
+	return &Bus[K, E]{
+		subscribers: make(map[K]map[uint64]Handler[E]),
 	}
 }
 
-func (b *Bus) Subscribe(eventType TaskEventType, handler TaskEventHandler) func() {
+func (b *Bus[K, E]) Subscribe(eventType K, handler Handler[E]) func() {
 	if handler == nil {
 		return func() {}
 	}
 	id := atomic.AddUint64(&b.counter, 1)
 	b.mutex.Lock()
 	if b.subscribers[eventType] == nil {
-		b.subscribers[eventType] = make(map[uint64]TaskEventHandler)
+		b.subscribers[eventType] = make(map[uint64]Handler[E])
 	}
 	b.subscribers[eventType][id] = handler
 	b.mutex.Unlock()
@@ -43,10 +47,11 @@ func (b *Bus) Subscribe(eventType TaskEventType, handler TaskEventHandler) func(
 	}
 }
 
-func (b *Bus) Publish(ctx context.Context, event TaskEvent) error {
+func (b *Bus[K, E]) Publish(ctx context.Context, eventType K, event E) error {
+	klog.V(6).Infof("广播 事件: type=%v, event=%v", eventType, event)
 	b.mutex.RLock()
-	handlersMap := b.subscribers[event.Type]
-	handlers := make([]TaskEventHandler, 0, len(handlersMap))
+	handlersMap := b.subscribers[eventType]
+	handlers := make([]Handler[E], 0, len(handlersMap))
 	for _, handler := range handlersMap {
 		handlers = append(handlers, handler)
 	}

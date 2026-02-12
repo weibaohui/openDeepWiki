@@ -1,4 +1,4 @@
-package eventsubscriber
+package subscriber
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func NewTaskEventSubscriber(taskService taskEventService) *TaskEventSubscriber {
 	return &TaskEventSubscriber{taskService: taskService}
 }
 
-func (s *TaskEventSubscriber) Register(bus *eventbus.Bus) {
+func (s *TaskEventSubscriber) Register(bus *eventbus.TaskEventBus) {
 	if bus == nil {
 		return
 	}

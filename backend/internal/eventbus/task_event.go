@@ -1,10 +1,6 @@
 package eventbus
 
-import (
-	"context"
-
-	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
-)
+import "github.com/weibaohui/opendeepwiki/backend/internal/domain"
 
 type TaskEventType string
 
@@ -25,4 +21,9 @@ type TaskEvent struct {
 	WriterName   domain.WriterName
 }
 
-type TaskEventHandler func(ctx context.Context, event TaskEvent) error
+type TaskEventHandler = Handler[TaskEvent]
+type TaskEventBus = Bus[TaskEventType, TaskEvent]
+
+func NewTaskEventBus() *TaskEventBus {
+	return NewBus[TaskEventType, TaskEvent]()
+}

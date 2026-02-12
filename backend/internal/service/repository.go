@@ -33,7 +33,7 @@ type RepositoryService struct {
 
 // NewRepositoryService 创建仓库服务实例。
 func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository) *RepositoryService {
-	return &RepositoryService{
+	rs := &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
 		taskRepo:         taskRepo,
@@ -43,6 +43,7 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 	}
+	return rs
 }
 
 type CreateRepoRequest struct {

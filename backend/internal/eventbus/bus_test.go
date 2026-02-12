@@ -7,7 +7,7 @@ import (
 )
 
 func TestBusPublishBroadcast(t *testing.T) {
-	bus := NewBus()
+	bus := NewTaskEventBus()
 	calledA := false
 	calledB := false
 
@@ -20,7 +20,7 @@ func TestBusPublishBroadcast(t *testing.T) {
 		return nil
 	})
 
-	if err := bus.Publish(context.Background(), TaskEvent{Type: TaskEventDocWrite}); err != nil {
+	if err := bus.Publish(context.Background(), TaskEventDocWrite, TaskEvent{Type: TaskEventDocWrite}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !calledA || !calledB {
@@ -29,7 +29,7 @@ func TestBusPublishBroadcast(t *testing.T) {
 }
 
 func TestBusUnsubscribe(t *testing.T) {
-	bus := NewBus()
+	bus := NewTaskEventBus()
 	called := false
 	unsubscribe := bus.Subscribe(TaskEventDocWrite, func(ctx context.Context, event TaskEvent) error {
 		called = true
@@ -37,7 +37,7 @@ func TestBusUnsubscribe(t *testing.T) {
 	})
 	unsubscribe()
 
-	if err := bus.Publish(context.Background(), TaskEvent{Type: TaskEventDocWrite}); err != nil {
+	if err := bus.Publish(context.Background(), TaskEventDocWrite, TaskEvent{Type: TaskEventDocWrite}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if called {
@@ -46,7 +46,7 @@ func TestBusUnsubscribe(t *testing.T) {
 }
 
 func TestBusPublishJoinErrors(t *testing.T) {
-	bus := NewBus()
+	bus := NewTaskEventBus()
 	bus.Subscribe(TaskEventDocWrite, func(ctx context.Context, event TaskEvent) error {
 		return errors.New("err-a")
 	})
@@ -54,7 +54,7 @@ func TestBusPublishJoinErrors(t *testing.T) {
 		return errors.New("err-b")
 	})
 
-	if err := bus.Publish(context.Background(), TaskEvent{Type: TaskEventDocWrite}); err == nil {
+	if err := bus.Publish(context.Background(), TaskEventDocWrite, TaskEvent{Type: TaskEventDocWrite}); err == nil {
 		t.Fatalf("expected error")
 	}
 }

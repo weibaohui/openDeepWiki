@@ -14,14 +14,16 @@ import (
 )
 
 type RepositoryHandler struct {
-	bus         *eventbus.Bus
+	repoBus     *eventbus.RepositoryEventBus
+	taskBus     *eventbus.TaskEventBus
 	service     *service.RepositoryService
 	taskService *service.TaskService
 }
 
-func NewRepositoryHandler(bus *eventbus.Bus, service *service.RepositoryService, taskService *service.TaskService) *RepositoryHandler {
+func NewRepositoryHandler(repoBus *eventbus.RepositoryEventBus, taskBus *eventbus.TaskEventBus, service *service.RepositoryService, taskService *service.TaskService) *RepositoryHandler {
 	return &RepositoryHandler{
-		bus:         bus,
+		repoBus:     repoBus,
+		taskBus:     taskBus,
 		service:     service,
 		taskService: taskService,
 	}
@@ -47,20 +49,11 @@ func (h *RepositoryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	go func() {
-		// 异步克隆仓库
-		if err := h.service.CloneRepository(repo.ID); err != nil {
-			klog.Errorf("CloneRepository failed: %v", err)
-			return
-		}
-
-		// 异步创建目录分析任务
-		_, err = h.taskService.CreateTocWriteTask(context.TODO(), uint(repo.ID), "目录分析", 10)
-		if err != nil {
-			klog.Errorf("AnalyzeDirectory failed: %v", err)
-			return
-		}
-	}()
+	ctx := context.Background()
+	h.repoBus.Publish(ctx, eventbus.RepositoryEventAdded, eventbus.RepositoryEvent{
+		Type:         eventbus.RepositoryEventAdded,
+		RepositoryID: repo.ID,
+	})
 
 	c.JSON(http.StatusCreated, repo)
 }
@@ -155,7 +148,7 @@ func (h *RepositoryHandler) AnalyzeDatabaseModel(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	h.bus.Publish(ctx, eventbus.TaskEvent{
+	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
 		Type:         eventbus.TaskEventDocWrite,
 		RepositoryID: uint(id),
 		Title:        "数据库模型分析",
@@ -177,7 +170,7 @@ func (h *RepositoryHandler) AnalyzeAPI(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	h.bus.Publish(ctx, eventbus.TaskEvent{
+	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
 		Type:         eventbus.TaskEventDocWrite,
 		RepositoryID: uint(id),
 		Title:        "API接口分析",
@@ -209,7 +202,7 @@ func (h *RepositoryHandler) AnalyzeUserRequest(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	h.bus.Publish(ctx, eventbus.TaskEvent{
+	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
 		Type:         eventbus.TaskEventDocWrite,
 		RepositoryID: uint(id),
 		Title:        "用户问题分析",
@@ -246,7 +239,8 @@ func (h *RepositoryHandler) Clone(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.CloneRepository(uint(id)); err != nil {
+	ctx := context.Background()
+	if err := h.service.CloneRepository(ctx, uint(id)); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
