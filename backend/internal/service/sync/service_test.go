@@ -269,6 +269,11 @@ func (m *mockDocRepo) Delete(id uint) error {
 	return nil
 }
 
+// GetTokenUsageByDocID 根据 document_id 获取 Token 用量数据
+func (m *mockDocRepo) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, error) {
+	return nil, nil
+}
+
 // DeleteByTaskID 删除任务下的文档
 func (m *mockDocRepo) DeleteByTaskID(taskID uint) error {
 	if m.err != nil {

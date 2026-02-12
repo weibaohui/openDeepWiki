@@ -133,6 +133,11 @@ func (m *mockSyncDocRepo) GetVersions(repoID uint, title string) ([]model.Docume
 // Get 获取文档
 func (m *mockSyncDocRepo) Get(id uint) (*model.Document, error) { return nil, repository.ErrNotFound }
 
+// GetTokenUsageByDocID 根据 document_id 获取 Token 用量数据
+func (m *mockSyncDocRepo) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, error) {
+	return nil, nil
+}
+
 // Save 保存文档
 func (m *mockSyncDocRepo) Save(doc *model.Document) error { return nil }
 

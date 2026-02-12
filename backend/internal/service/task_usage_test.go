@@ -15,6 +15,11 @@ type mockTaskUsageRepo struct {
 	LastUsage    *model.TaskUsage
 }
 
+// GetByTaskID 根据 task_id 查询任务用量记录
+func (m *mockTaskUsageRepo) GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error) {
+	return nil, nil
+}
+
 // Create 创建任务用量记录
 func (m *mockTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) error {
 	m.CreateCalled++
