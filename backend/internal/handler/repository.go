@@ -44,6 +44,21 @@ func (h *RepositoryHandler) Create(c *gin.Context) {
 		return
 	}
 
+	go func() {
+		// 异步克隆仓库
+		if err := h.service.CloneRepository(repo.ID); err != nil {
+			klog.Errorf("CloneRepository failed: %v", err)
+			return
+		}
+
+		// 异步创建目录分析任务
+		_, err = h.taskService.CreateTocWriteTask(context.TODO(), uint(repo.ID), "目录分析", 10)
+		if err != nil {
+			klog.Errorf("AnalyzeDirectory failed: %v", err)
+			return
+		}
+	}()
+
 	c.JSON(http.StatusCreated, repo)
 }
 

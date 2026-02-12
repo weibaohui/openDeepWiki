@@ -97,9 +97,6 @@ func (s *RepositoryService) Create(req CreateRepoRequest) (*model.Repository, er
 
 	klog.V(6).Infof("仓库创建成功: repoID=%d, name=%s, url=%s", repo.ID, repo.Name, repo.URL)
 
-	// 异步克隆仓库
-	go s.cloneRepository(repo.ID)
-
 	return repo, nil
 }
 
