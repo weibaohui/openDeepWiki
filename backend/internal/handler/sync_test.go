@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -168,13 +169,25 @@ func (m *mockSyncDocRepo) ClearLatestByTaskID(taskID uint) error { return nil }
 // GetByTaskID 按任务获取文档
 func (m *mockSyncDocRepo) GetByTaskID(taskID uint) ([]model.Document, error) { return nil, nil }
 
+type mockSyncTaskUsageRepo struct{}
+
+// Create 新增任务用量记录
+func (m *mockSyncTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) error { return nil }
+
+// GetByTaskID 根据 task_id 查询任务用量记录
+func (m *mockSyncTaskUsageRepo) GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error) { return nil, nil }
+
+// Upsert 根据 task_id 插入或更新任务用量记录
+func (m *mockSyncTaskUsageRepo) Upsert(ctx context.Context, usage *model.TaskUsage) error { return nil }
+
 // TestSyncHandlerRepositoryUpsert 验证仓库同步接口创建仓库成功
 func TestSyncHandlerRepositoryUpsert(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repoRepo := &mockSyncRepoRepo{}
 	taskRepo := &mockSyncTaskRepo{}
 	docRepo := &mockSyncDocRepo{}
-	svc := syncservice.New(repoRepo, taskRepo, docRepo)
+	taskUsageRepo := &mockSyncTaskUsageRepo{}
+	svc := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo)
 	handler := NewSyncHandler(svc)
 	router := gin.New()
 	router.POST("/sync/repository-upsert", handler.RepositoryUpsert)
@@ -215,7 +228,8 @@ func TestSyncHandlerRepositoryClear(t *testing.T) {
 	}}
 	taskRepo := &mockSyncTaskRepo{}
 	docRepo := &mockSyncDocRepo{}
-	svc := syncservice.New(repoRepo, taskRepo, docRepo)
+	taskUsageRepo := &mockSyncTaskUsageRepo{}
+	svc := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo)
 	handler := NewSyncHandler(svc)
 	router := gin.New()
 	router.POST("/sync/repository-clear", handler.RepositoryClear)

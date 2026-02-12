@@ -69,4 +69,5 @@ type HintRepository interface {
 type TaskUsageRepository interface {
 	Create(ctx context.Context, usage *model.TaskUsage) error
 	GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error)
+	Upsert(ctx context.Context, usage *model.TaskUsage) error
 }

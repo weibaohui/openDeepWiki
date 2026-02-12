@@ -28,6 +28,7 @@ func (h *SyncHandler) RegisterRoutes(router *gin.RouterGroup) {
 		syncGroup.POST("/task-create", h.TaskCreate)
 		syncGroup.POST("/document-create", h.DocumentCreate)
 		syncGroup.POST("/task-update-docid", h.TaskUpdateDocID)
+		syncGroup.POST("/task-usage-create", h.TaskUsageCreate)
 	}
 }
 
@@ -196,6 +197,29 @@ func (h *SyncHandler) TaskUpdateDocID(c *gin.Context) {
 		Data: syncdto.TaskUpdateDocIDData{
 			TaskID:     task.ID,
 			DocumentID: task.DocID,
+		},
+	})
+}
+
+// TaskUsageCreate 创建或覆盖任务用量记录
+func (h *SyncHandler) TaskUsageCreate(c *gin.Context) {
+	var req syncdto.TaskUsageCreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	usage, err := h.service.CreateTaskUsage(c.Request.Context(), req)
+	if err != nil {
+		klog.Errorf("[sync.TaskUsageCreate] 创建任务用量失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, syncdto.TaskUsageCreateResponse{
+		Code: "OK",
+		Data: syncdto.TaskUsageCreateData{
+			TaskID: usage.TaskID,
 		},
 	})
 }

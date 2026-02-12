@@ -38,21 +38,23 @@ type Status struct {
 }
 
 type Service struct {
-	repoRepo  repository.RepoRepository
-	taskRepo  repository.TaskRepository
-	docRepo   repository.DocumentRepository
-	client    *http.Client
-	statusMap map[string]*Status
-	mutex     sync.RWMutex
+	repoRepo       repository.RepoRepository
+	taskRepo       repository.TaskRepository
+	docRepo        repository.DocumentRepository
+	taskUsageRepo  repository.TaskUsageRepository
+	client         *http.Client
+	statusMap      map[string]*Status
+	mutex          sync.RWMutex
 }
 
-func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository) *Service {
+func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository) *Service {
 	return &Service{
-		repoRepo:  repoRepo,
-		taskRepo:  taskRepo,
-		docRepo:   docRepo,
-		client:    &http.Client{Timeout: 15 * time.Second},
-		statusMap: make(map[string]*Status),
+		repoRepo:       repoRepo,
+		taskRepo:       taskRepo,
+		docRepo:        docRepo,
+		taskUsageRepo:  taskUsageRepo,
+		client:         &http.Client{Timeout: 15 * time.Second},
+		statusMap:      make(map[string]*Status),
 	}
 }
 
@@ -496,6 +498,21 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 			}
 		}
 
+		// 同步任务用量数据（覆盖逻辑）
+		usage, err := s.GetTaskUsageByTaskID(ctx, task.ID)
+		if err != nil {
+			klog.Errorf("[sync.runSync] 获取任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
+		} else if usage != nil {
+			if err := s.createRemoteTaskUsage(ctx, status.TargetServer, remoteTaskID, usage); err != nil {
+				klog.Errorf("[sync.runSync] 同步任务用量失败: syncID=%s, sourceTaskID=%d, remoteTaskID=%d, error=%v", status.SyncID, task.ID, remoteTaskID, err)
+				s.updateStatus(status.SyncID, func(s *Status) {
+					s.FailedTasks++
+					s.UpdatedAt = time.Now()
+				})
+				continue
+			}
+		}
+
 		s.updateStatus(status.SyncID, func(s *Status) {
 			s.CompletedTasks++
 			s.UpdatedAt = time.Now()
@@ -613,6 +630,56 @@ func (s *Service) updateRemoteTaskDocID(ctx context.Context, targetServer string
 	}
 	var respBody syncdto.TaskUpdateDocIDResponse
 	return s.postJSON(ctx, targetServer+"/task-update-docid", reqBody, &respBody)
+}
+
+func (s *Service) createRemoteTaskUsage(ctx context.Context, targetServer string, remoteTaskID uint, usage *model.TaskUsage) error {
+	reqBody := syncdto.TaskUsageCreateRequest{
+		TaskID:           remoteTaskID,  // 使用对端的 taskID
+		APIKeyName:       usage.APIKeyName,
+		PromptTokens:     usage.PromptTokens,
+		CompletionTokens: usage.CompletionTokens,
+		TotalTokens:      usage.TotalTokens,
+		CachedTokens:     usage.CachedTokens,
+		ReasoningTokens:  usage.ReasoningTokens,
+		CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
+	}
+	var respBody syncdto.TaskUsageCreateResponse
+	if err := s.postJSON(ctx, targetServer+"/task-usage-create", reqBody, &respBody); err != nil {
+		return err
+	}
+	klog.V(6).Infof("远端任务用量同步完成: sourceTaskID=%d, remoteTaskID=%d", usage.TaskID, remoteTaskID)
+	return nil
+}
+
+// GetTaskUsageByTaskID 根据 task_id 获取任务用量记录
+func (s *Service) GetTaskUsageByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error) {
+	return s.taskUsageRepo.GetByTaskID(ctx, taskID)
+}
+
+// CreateTaskUsage 创建任务用量记录
+func (s *Service) CreateTaskUsage(ctx context.Context, req syncdto.TaskUsageCreateRequest) (*model.TaskUsage, error) {
+	// 解析 created_at 时间
+	createdAt, err := time.Parse(time.RFC3339Nano, req.CreatedAt)
+	if err != nil {
+		createdAt = time.Now()
+	}
+
+	usage := &model.TaskUsage{
+		TaskID:           req.TaskID,
+		APIKeyName:       req.APIKeyName,
+		PromptTokens:     req.PromptTokens,
+		CompletionTokens: req.CompletionTokens,
+		TotalTokens:      req.TotalTokens,
+		CachedTokens:     req.CachedTokens,
+		ReasoningTokens:  req.ReasoningTokens,
+		CreatedAt:        createdAt,
+	}
+
+	// 使用 Upsert 方法实现覆盖逻辑
+	if err := s.taskUsageRepo.Upsert(ctx, usage); err != nil {
+		return nil, err
+	}
+	return usage, nil
 }
 
 func (s *Service) postJSON(ctx context.Context, url string, reqBody interface{}, respBody interface{}) error {
