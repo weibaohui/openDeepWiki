@@ -80,3 +80,15 @@ type TaskHint struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
+
+type TaskUsage struct {
+	ID               uint      `json:"id" gorm:"primaryKey"`
+	TaskID           uint      `json:"task_id" gorm:"index;not null"`
+	APIKeyName       string    `json:"api_key_name" gorm:"size:255;index;not null"`
+	PromptTokens     int       `json:"prompt_tokens"`
+	CompletionTokens int       `json:"completion_tokens"`
+	TotalTokens      int       `json:"total_tokens"`
+	CachedTokens     int       `json:"cached_tokens"`
+	ReasoningTokens  int       `json:"reasoning_tokens"`
+	CreatedAt        time.Time `json:"created_at"`
+}

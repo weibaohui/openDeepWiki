@@ -106,6 +106,17 @@ func (p *ProxyChatModel) Generate(ctx context.Context, input []*schema.Message, 
 		return nil, err
 	}
 
+	if result != nil && result.ResponseMeta != nil && result.ResponseMeta.Usage != nil {
+		taskID, ok := ctx.Value("taskID").(uint)
+		if !ok {
+			klog.Infof("任务用量记录失败：未在上下文中获取到 taskID")
+		} else if p.provider.taskUsageService != nil {
+			if err := p.provider.taskUsageService.RecordUsage(ctx, taskID, currentModel.LLMModel, result.ResponseMeta.Usage); err != nil {
+				klog.Infof("任务用量记录失败：taskID=%d, 模型=%s, err=%v", taskID, currentModel.LLMModel, err)
+			}
+		}
+		klog.V(6).Infof("模型返回用量：model=%s, usage=%v", currentModel.LLMModel, result.ResponseMeta.Usage)
+	}
 	// 记录请求
 	if currentModel.APIKeyID > 0 {
 		_ = p.provider.apiKeyService.RecordRequest(ctx, currentModel.APIKeyID, true)

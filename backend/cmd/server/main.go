@@ -52,10 +52,12 @@ func main() {
 	ratingRepo := repository.NewDocumentRatingRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	hintRepo := repository.NewHintRepository(db)
+	taskUsageRepo := repository.NewTaskUsageRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
+	taskUsageService := service.NewTaskUsageService(taskUsageRepo)
 
 	titleRewriter, err := writers.NewTitleRewriter(cfg, docRepo, taskRepo)
 	if err != nil {
@@ -119,7 +121,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get manager: %v", err)
 	}
-	enhancedModelProvider, err := adkagents.NewEnhancedModelProvider(cfg, apiKeyRepo, apiKeyService)
+	enhancedModelProvider, err := adkagents.NewEnhancedModelProvider(cfg, apiKeyRepo, apiKeyService, taskUsageService)
 	if err != nil {
 		log.Fatalf("Failed to create enhanced model provider: %v", err)
 	}

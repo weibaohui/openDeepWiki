@@ -16,13 +16,14 @@ import (
 
 // EnhancedModelProviderImpl 增强的模型提供者实现
 type EnhancedModelProviderImpl struct {
-	config          *config.Config
-	apiKeyRepo      repository.APIKeyRepository
-	apiKeyService   APIKeyService
-	defaultModel    *ModelWithMetadata
-	modelCache      map[string]*ModelWithMetadata
-	modelCacheMutex sync.RWMutex
-	switcher        *ModelSwitcher
+	config           *config.Config
+	apiKeyRepo       repository.APIKeyRepository
+	apiKeyService    APIKeyService
+	taskUsageService TaskUsageService
+	defaultModel     *ModelWithMetadata
+	modelCache       map[string]*ModelWithMetadata
+	modelCacheMutex  sync.RWMutex
+	switcher         *ModelSwitcher
 }
 
 // NewEnhancedModelProvider 创建增强的模型提供者
@@ -30,6 +31,7 @@ func NewEnhancedModelProvider(
 	cfg *config.Config,
 	apiKeyRepo repository.APIKeyRepository,
 	apiKeyService APIKeyService,
+	taskUsageService TaskUsageService,
 ) (*EnhancedModelProviderImpl, error) {
 	// 创建默认模型
 	defaultChatModel, err := NewLLMChatModel(cfg)
@@ -38,9 +40,10 @@ func NewEnhancedModelProvider(
 	}
 
 	provider := &EnhancedModelProviderImpl{
-		config:        cfg,
-		apiKeyRepo:    apiKeyRepo,
-		apiKeyService: apiKeyService,
+		config:           cfg,
+		apiKeyRepo:       apiKeyRepo,
+		apiKeyService:    apiKeyService,
+		taskUsageService: taskUsageService,
 		defaultModel: &ModelWithMetadata{
 			ChatModel:  *defaultChatModel,
 			APIKeyName: "default",
@@ -195,6 +198,7 @@ func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*Mode
 		ChatModel:  *chatModel,
 		APIKeyName: apiKey.Name,
 		APIKeyID:   apiKey.ID,
+		LLMModel: apiKey.Model,
 	}, nil
 }
 

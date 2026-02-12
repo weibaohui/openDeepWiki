@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -62,4 +63,8 @@ type HintRepository interface {
 	CreateBatch(hints []model.TaskHint) error
 	GetByTaskID(taskID uint) ([]model.TaskHint, error)
 	SearchInRepo(repoID uint, keywords []string) ([]model.TaskHint, error)
+}
+
+type TaskUsageRepository interface {
+	Create(ctx context.Context, usage *model.TaskUsage) error
 }

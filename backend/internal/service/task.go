@@ -286,6 +286,7 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 		return fmt.Errorf("获取写入器失败: %w", err)
 	}
 
+	ctx = context.WithValue(ctx, "taskID", task.ID)
 	// 调用写入器生成文档
 	content, err := writer.Generate(ctx, repo.LocalPath, task.Title, task.ID)
 	if err != nil {

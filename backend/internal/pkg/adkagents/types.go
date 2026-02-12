@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino/schema"
 )
 
 // ExitConfig 退出条件配置
@@ -31,11 +32,17 @@ type APIKeyService interface {
 	RecordRequest(ctx context.Context, apiKeyID uint, success bool) error
 }
 
+// TaskUsageService 任务用量记录接口（避免循环导入）
+type TaskUsageService interface {
+	RecordUsage(ctx context.Context, taskID uint, apiKeyName string, usage *schema.TokenUsage) error
+}
+
 // ModelWithMetadata 带有元数据的模型包装器
 type ModelWithMetadata struct {
 	openai.ChatModel
 	APIKeyName string
 	APIKeyID   uint
+	LLMModel   string
 }
 
 // Name 返回模型名称
