@@ -107,20 +107,24 @@ func main() {
 	taskService.SetOrchestrator(orchestrator.GetGlobalOrchestrator())
 	defer orchestrator.ShutdownGlobalOrchestrator()
 
-	//注册TaskEventBus
+	// 初始化任务事件总线
 	taskEventBus := eventbus.NewTaskEventBus()
 	subscriber.NewTaskEventSubscriber(taskService).Register(taskEventBus)
-
+	taskService.SetEventBus(taskEventBus)
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo)
 	//注册RepoEventBus
 	repoEventBus := eventbus.NewRepositoryEventBus()
 	subscriber.NewRepositoryEventSubscriber(taskService, repoService).Register(repoEventBus)
 
+	// 初始化文档事件总线
+	docEventBus := eventbus.NewDocEventBus()
+	subscriber.NewDocEventSubscriber(taskEventBus).Register(docEventBus)
+
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoEventBus, taskEventBus, repoService, taskService)
 	taskHandler := handler.NewTaskHandler(taskService)
-	docHandler := handler.NewDocumentHandler(docService)
+	docHandler := handler.NewDocumentHandler(docEventBus, docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	syncService := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo)
 	syncHandler := handler.NewSyncHandler(syncService)
