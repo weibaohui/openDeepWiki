@@ -185,7 +185,7 @@ func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage,
 			SUM(task_usages.total_tokens) as total_tokens,
 			SUM(task_usages.cached_tokens) as cached_tokens,
 			SUM(task_usages.reasoning_tokens) as reasoning_tokens,
-			GROUP_CONCAT(DISTINCT task_usages.api_key_name SEPARATOR ', ') as api_key_names
+			GROUP_CONCAT(DISTINCT task_usages.api_key_name, ', ') as api_key_names
 		`).
 		Scan(&result).Error
 
