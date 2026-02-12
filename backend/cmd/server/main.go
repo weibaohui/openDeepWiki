@@ -11,6 +11,8 @@ import (
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain/writers"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventsubscriber"
 	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/database"
@@ -98,6 +100,11 @@ func main() {
 	// 设置目录分析服务的任务服务
 	tocWriter.SetTaskService(taskService)
 
+	//注册bus
+	bus := eventbus.NewBus()
+	taskEventSubscriber := eventsubscriber.NewTaskEventSubscriber(taskService)
+	taskEventSubscriber.Register(bus)
+
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
 	taskExecutor := &taskExecutorAdapter{taskService: taskService}
@@ -109,7 +116,7 @@ func main() {
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo)
 
 	// 初始化 Handler
-	repoHandler := handler.NewRepositoryHandler(repoService, taskService)
+	repoHandler := handler.NewRepositoryHandler(bus, repoService, taskService)
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)

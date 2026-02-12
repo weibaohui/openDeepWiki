@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 	"k8s.io/klog/v2"
@@ -118,4 +119,43 @@ func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, co
 	klog.V(6).Infof("[CreateUserRequestTask] 任务入队成功: taskID=%d, titleRewriteTaskID=%d", task1.ID, task2.ID)
 	return task1, nil
 
+}
+
+func (s *TaskService) PublishDocWriteTaskEvent(ctx context.Context, repoID uint, title string, sortOrder int, writerName domain.WriterName) error {
+	return s.PublishTaskEvent(ctx, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventDocWrite,
+		RepositoryID: repoID,
+		Title:        title,
+		SortOrder:    sortOrder,
+		WriterName:   writerName,
+	})
+}
+
+func (s *TaskService) PublishTocWriteTaskEvent(ctx context.Context, repoID uint, title string, sortOrder int) error {
+	return s.PublishTaskEvent(ctx, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventTocWrite,
+		RepositoryID: repoID,
+		Title:        title,
+		SortOrder:    sortOrder,
+	})
+}
+
+func (s *TaskService) PublishTitleRewriteTaskEvent(ctx context.Context, repoID uint, title string, runAfter uint, docID uint, sortOrder int) error {
+	return s.PublishTaskEvent(ctx, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventTitleRewrite,
+		RepositoryID: repoID,
+		Title:        title,
+		RunAfter:     runAfter,
+		DocID:        docID,
+		SortOrder:    sortOrder,
+	})
+}
+
+func (s *TaskService) PublishUserRequestTaskEvent(ctx context.Context, repoID uint, content string, sortOrder int) error {
+	return s.PublishTaskEvent(ctx, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventUserRequest,
+		RepositoryID: repoID,
+		Title:        content,
+		SortOrder:    sortOrder,
+	})
 }

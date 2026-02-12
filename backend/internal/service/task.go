@@ -9,6 +9,7 @@ import (
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
@@ -27,12 +28,13 @@ type TaskService struct {
 	writers          []domain.Writer // 多个写入器，用于不同的文档类型
 	schedulerOnce    sync.Once
 	taskUsageService TaskUsageService
+	taskEventBus     *eventbus.Bus
 }
 
 var ErrRunAfterNotSatisfied = errors.New("runAfter依赖未满足")
 
 func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService) *TaskService {
-	return &TaskService{
+	service := &TaskService{
 		cfg:              cfg,
 		taskRepo:         taskRepo,
 		repoRepo:         repoRepo,
@@ -41,6 +43,7 @@ func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repo
 		repoAggregator:   statemachine.NewRepositoryStatusAggregator(),
 		taskUsageService: NewTaskUsageService(repository.NewTaskUsageRepository(nil)),
 	}
+	return service
 }
 
 func (s *TaskService) AddWriters(writers ...domain.Writer) {
@@ -61,6 +64,13 @@ func (s *TaskService) GetWriter(name domain.WriterName) (domain.Writer, error) {
 		}
 	}
 	return nil, fmt.Errorf("写入器 %s 不存在", name)
+}
+
+func (s *TaskService) PublishTaskEvent(ctx context.Context, event eventbus.TaskEvent) error {
+	if s.taskEventBus == nil {
+		return fmt.Errorf("任务事件总线未初始化")
+	}
+	return s.taskEventBus.Publish(ctx, event)
 }
 
 // SetOrchestrator 设置任务编排器
