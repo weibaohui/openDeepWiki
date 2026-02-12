@@ -5,14 +5,14 @@ import "github.com/weibaohui/opendeepwiki/backend/internal/domain"
 type TaskEventType string
 
 const (
-	TaskEventDocWrite               TaskEventType = "DocWrite"               // 文档写入
-	TaskEventTocWrite               TaskEventType = "TocWrite"               // 目录写入
-	TaskEventTitleRewrite           TaskEventType = "TitleRewrite"           // 标题重写
-	TaskEventUserRequest            TaskEventType = "UserRequest"            // 用户请求
-	TaskEventWriteComplete          TaskEventType = "WriteComplete"          // 文档写入完成
-	TaskEventWriteFailed            TaskEventType = "WriteFailed"            // 文档写入失败
-	TaskEventRegenerate             TaskEventType = "Regenerate"             // 文档重新生成  //TODO 做成一个功能
-	TaskEventAgentDiscusstionRating TaskEventType = "AgentDiscusstionRating" // 智能体讨论文章质量 //TODO 待实现
+	TaskEventDocWrite              TaskEventType = "DocWrite"              // 文档写入
+	TaskEventTocWrite              TaskEventType = "TocWrite"              // 目录写入
+	TaskEventTitleRewrite          TaskEventType = "TitleRewrite"          // 标题重写
+	TaskEventUserRequest           TaskEventType = "UserRequest"           // 用户请求
+	TaskEventWriteComplete         TaskEventType = "WriteComplete"         // 文档写入完成
+	TaskEventWriteFailed           TaskEventType = "WriteFailed"           // 文档写入失败
+	TaskEventRegenerate            TaskEventType = "Regenerate"            // 文档重新生成  //TODO 做成一个功能
+	TaskEventAgentDiscussionRating TaskEventType = "AgentDiscussionRating" // 智能体讨论文章质量 //TODO 待实现
 )
 
 type TaskEvent struct {
