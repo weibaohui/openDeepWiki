@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
@@ -38,23 +39,23 @@ type Status struct {
 }
 
 type Service struct {
-	repoRepo       repository.RepoRepository
-	taskRepo       repository.TaskRepository
-	docRepo        repository.DocumentRepository
-	taskUsageRepo  repository.TaskUsageRepository
-	client         *http.Client
-	statusMap      map[string]*Status
-	mutex          sync.RWMutex
+	repoRepo      repository.RepoRepository
+	taskRepo      repository.TaskRepository
+	docRepo       repository.DocumentRepository
+	taskUsageRepo repository.TaskUsageRepository
+	client        *http.Client
+	statusMap     map[string]*Status
+	mutex         sync.RWMutex
 }
 
 func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository) *Service {
 	return &Service{
-		repoRepo:       repoRepo,
-		taskRepo:       taskRepo,
-		docRepo:        docRepo,
-		taskUsageRepo:  taskUsageRepo,
-		client:         &http.Client{Timeout: 15 * time.Second},
-		statusMap:      make(map[string]*Status),
+		repoRepo:      repoRepo,
+		taskRepo:      taskRepo,
+		docRepo:       docRepo,
+		taskUsageRepo: taskUsageRepo,
+		client:        &http.Client{Timeout: 15 * time.Second},
+		statusMap:     make(map[string]*Status),
 	}
 }
 
@@ -112,7 +113,7 @@ func (s *Service) CreateOrUpdateRepository(ctx context.Context, req syncdto.Repo
 	repo, err := s.repoRepo.GetBasic(req.RepositoryID)
 	isNew := false
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, domain.ErrRecordNotFound) {
 			repo = &model.Repository{ID: req.RepositoryID}
 			isNew = true
 		} else {
@@ -634,7 +635,7 @@ func (s *Service) updateRemoteTaskDocID(ctx context.Context, targetServer string
 
 func (s *Service) createRemoteTaskUsage(ctx context.Context, targetServer string, remoteTaskID uint, usage *model.TaskUsage) error {
 	reqBody := syncdto.TaskUsageCreateRequest{
-		TaskID:           remoteTaskID,  // 使用对端的 taskID
+		TaskID:           remoteTaskID, // 使用对端的 taskID
 		APIKeyName:       usage.APIKeyName,
 		PromptTokens:     usage.PromptTokens,
 		CompletionTokens: usage.CompletionTokens,

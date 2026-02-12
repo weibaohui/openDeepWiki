@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
-	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/statemachine"
 )
@@ -64,7 +64,7 @@ func (m *mockTaskRepo) Get(id uint) (*model.Task, error) {
 	}
 	task, ok := m.tasks[id]
 	if !ok {
-		return nil, repository.ErrNotFound
+		return nil, domain.ErrRecordNotFound
 	}
 	return task, nil
 }
@@ -192,7 +192,7 @@ func (m *mockRepoRepo) Get(id uint) (*model.Repository, error) {
 	}
 	repo, ok := m.repos[id]
 	if !ok {
-		return nil, repository.ErrNotFound
+		return nil, domain.ErrRecordNotFound
 	}
 	return repo, nil
 }

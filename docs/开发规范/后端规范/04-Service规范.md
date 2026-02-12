@@ -53,7 +53,7 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 func (s *userService) Create(ctx context.Context, req CreateUserRequest) (*UserDTO, error) {
     // 1. 业务规则校验
     existing, err := s.userRepo.GetByEmail(ctx, req.Email)
-    if err != nil && !errors.Is(err, repository.ErrNotFound) {
+    if err != nil && !errors.Is(err, domain.ErrRecordNotFound) {
         return nil, fmt.Errorf("failed to check email: %w", err)
     }
     if existing != nil {

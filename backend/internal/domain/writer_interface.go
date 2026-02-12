@@ -32,6 +32,7 @@ var (
 	ErrRepoNotFound             = errors.New("repo not found")
 	ErrTaskCreationFailed       = errors.New("task creation failed")
 	ErrDirMakerGenerationFailed = errors.New("dir maker generation failed")
+	ErrRecordNotFound           = errors.New("record not found")
 )
 
 // Agent 名称常量

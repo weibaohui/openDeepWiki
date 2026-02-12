@@ -2,14 +2,10 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 )
-
-// ErrNotFound 记录不存在错误
-var ErrNotFound = errors.New("record not found")
 
 type RepoRepository interface {
 	Create(repo *model.Repository) error
