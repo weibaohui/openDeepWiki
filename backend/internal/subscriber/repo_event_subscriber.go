@@ -37,12 +37,14 @@ func (s *RepositoryEventSubscriber) handleRepoAdded(ctx context.Context, event e
 	// 异步克隆仓库
 	if err := s.repoService.CloneRepository(ctx, event.RepositoryID); err != nil {
 		klog.Errorf("CloneRepository failed: %v", err)
+		return err
 	}
 
 	// 异步创建目录分析任务
 	_, err := s.taskService.CreateTocWriteTask(ctx, event.RepositoryID, "目录分析", 10)
 	if err != nil {
 		klog.Errorf("CreateTocWriteTask failed: %v", err)
+		return err
 	}
 
 	klog.V(6).Infof("仓库事件处理成功: type=%s, repoID=%d", event.Type, event.RepositoryID)
