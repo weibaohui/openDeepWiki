@@ -9,6 +9,7 @@ import (
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
@@ -27,12 +28,13 @@ type TaskService struct {
 	writers          []domain.Writer // 多个写入器，用于不同的文档类型
 	schedulerOnce    sync.Once
 	taskUsageService TaskUsageService
+	bus              *eventbus.TaskEventBus
 }
 
 var ErrRunAfterNotSatisfied = errors.New("runAfter依赖未满足")
 
 func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repoRepo repository.RepoRepository, docService *DocumentService) *TaskService {
-	return &TaskService{
+	service := &TaskService{
 		cfg:              cfg,
 		taskRepo:         taskRepo,
 		repoRepo:         repoRepo,
@@ -41,6 +43,8 @@ func NewTaskService(cfg *config.Config, taskRepo repository.TaskRepository, repo
 		repoAggregator:   statemachine.NewRepositoryStatusAggregator(),
 		taskUsageService: NewTaskUsageService(repository.NewTaskUsageRepository(nil)),
 	}
+
+	return service
 }
 
 func (s *TaskService) AddWriters(writers ...domain.Writer) {
@@ -70,6 +74,11 @@ func (s *TaskService) SetOrchestrator(o *orchestrator.Orchestrator) {
 	if o != nil {
 		o.SetDependencyChecker(s)
 	}
+}
+
+// SetEventBus 设置任务事件总线
+func (s *TaskService) SetEventBus(bus *eventbus.TaskEventBus) {
+	s.bus = bus
 }
 
 // GetByRepository 获取仓库的所有任务
@@ -339,6 +348,22 @@ func (s *TaskService) succeedTask(task *model.Task) error {
 	// 任务完成后更新仓库状态
 	_ = s.UpdateRepositoryStatus(task.RepositoryID)
 
+	if s.bus == nil {
+		return nil
+	}
+	// 发布任务完成事件
+	s.bus.Publish(context.Background(), eventbus.TaskEventWriteComplete, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventWriteComplete,
+		RepositoryID: task.RepositoryID,
+		Title:        task.Title,
+		SortOrder:    task.SortOrder,
+		RunAfter:     task.RunAfter,
+		DocID:        task.DocID,
+		WriterName:   task.WriterName,
+		TaskID:       task.ID,
+		TaskType:     task.TaskType,
+	})
+
 	return nil
 }
 
@@ -366,6 +391,22 @@ func (s *TaskService) failTask(task *model.Task, errMsg string) error {
 
 	// 任务失败后更新仓库状态
 	_ = s.UpdateRepositoryStatus(task.RepositoryID)
+
+	if s.bus == nil {
+		return nil
+	}
+	// 发布任务失败事件
+	s.bus.Publish(context.Background(), eventbus.TaskEventWriteFailed, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventWriteFailed,
+		RepositoryID: task.RepositoryID,
+		Title:        task.Title,
+		SortOrder:    task.SortOrder,
+		RunAfter:     task.RunAfter,
+		DocID:        task.DocID,
+		WriterName:   task.WriterName,
+		TaskID:       task.ID,
+		TaskType:     task.TaskType,
+	})
 
 	return nil
 }

@@ -55,7 +55,7 @@ func TestDocumentHandlerSubmitRating(t *testing.T) {
 		},
 	}
 	docService := service.NewDocumentService(&config.Config{}, nil, nil, ratingRepo)
-	handler := NewDocumentHandler(docService)
+	handler := NewDocumentHandler(nil, docService)
 	router := gin.New()
 	router.POST("/documents/:id/ratings", handler.SubmitRating)
 
@@ -89,7 +89,7 @@ func TestDocumentHandlerGetRatingStats(t *testing.T) {
 		},
 	}
 	docService := service.NewDocumentService(&config.Config{}, nil, nil, ratingRepo)
-	handler := NewDocumentHandler(docService)
+	handler := NewDocumentHandler(nil, docService)
 	router := gin.New()
 	router.GET("/documents/:id/ratings/stats", handler.GetRatingStats)
 

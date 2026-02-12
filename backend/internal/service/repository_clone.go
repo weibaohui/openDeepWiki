@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -12,7 +13,7 @@ import (
 )
 
 // CloneRepository 手动触发克隆仓库（用于克隆失败的仓库）
-func (s *RepositoryService) CloneRepository(repoID uint) error {
+func (s *RepositoryService) CloneRepository(ctx context.Context, repoID uint) error {
 	repo, err := s.repoRepo.GetBasic(repoID)
 	if err != nil {
 		return fmt.Errorf("获取仓库失败: %w", err)
