@@ -404,6 +404,7 @@ func TestServiceCreateTaskSuccess(t *testing.T) {
 	req := syncdto.TaskCreateRequest{
 		RepositoryID: 1,
 		Title:        "任务A",
+		Outline:      "提纲A",
 		Status:       "completed",
 		SortOrder:    2,
 		CreatedAt:    time.Now().Add(-time.Hour),
@@ -417,7 +418,7 @@ func TestServiceCreateTaskSuccess(t *testing.T) {
 	if task.ID == 0 {
 		t.Fatalf("expected task id")
 	}
-	if task.RepositoryID != 1 || task.Title != "任务A" || task.Status != "completed" {
+	if task.RepositoryID != 1 || task.Title != "任务A" || task.Status != "completed" || task.Outline != "提纲A" {
 		t.Fatalf("unexpected task: %+v", task)
 	}
 }
@@ -692,7 +693,7 @@ func TestBuildPullExportDataWithFilter(t *testing.T) {
 		1: {ID: 1, Name: "repo-1", URL: "https://example.com/repo-1", CreatedAt: now, UpdatedAt: now},
 	}}
 	taskRepo := &mockTaskRepo{tasks: map[uint]*model.Task{
-		10: {ID: 10, RepositoryID: 1, Title: "任务A", Status: "completed", CreatedAt: now, UpdatedAt: now},
+		10: {ID: 10, RepositoryID: 1, Title: "任务A", Outline: "提纲A", Status: "completed", CreatedAt: now, UpdatedAt: now},
 		11: {ID: 11, RepositoryID: 1, Title: "任务B", Status: "running", CreatedAt: now, UpdatedAt: now},
 	}}
 	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
@@ -713,6 +714,9 @@ func TestBuildPullExportDataWithFilter(t *testing.T) {
 	}
 	if len(export.Tasks) != 1 || export.Tasks[0].TaskID != 10 {
 		t.Fatalf("unexpected tasks: %+v", export.Tasks)
+	}
+	if export.Tasks[0].Outline != "提纲A" {
+		t.Fatalf("unexpected task outline: %+v", export.Tasks[0])
 	}
 	if len(export.Documents) != 1 || export.Documents[0].DocumentID != 100 {
 		t.Fatalf("unexpected documents: %+v", export.Documents)

@@ -15,7 +15,7 @@ import (
 // 1. 创建文档
 // 2. 创建任务
 // 3. 更新文档关联的任务ID
-func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title string, sortOrder int, writerNames ...domain.WriterName) (*model.Task, error) {
+func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title string, outline string, sortOrder int, writerNames ...domain.WriterName) (*model.Task, error) {
 	docTitle := strings.TrimSpace(title)
 	if len([]rune(docTitle)) > 20 {
 		docTitle = string([]rune(docTitle)[:20])
@@ -24,7 +24,7 @@ func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title
 		RepositoryID: repoID,
 		Title:        docTitle, //文章标题，限制长度
 		Filename:     docTitle + ".md",
-		Content:      title, //文档内容，初始为空，后续会被填充
+		Content:      fmt.Sprintf("%s\n%s", title, outline), //文档内容，初始为空，后续会被填充
 		SortOrder:    sortOrder,
 	})
 	if err != nil {
@@ -35,6 +35,7 @@ func (s *TaskService) CreateDocWriteTask(ctx context.Context, repoID uint, title
 		RepositoryID: repoID,
 		DocID:        doc.ID,
 		Title:        title, //任务标题，不限制长度，prompt会提取文档标题作为提示词一部分
+		Outline:      outline,
 		WriterName:   domain.DefaultWriter,
 		TaskType:     domain.DocWrite,
 		Status:       string(statemachine.TaskStatusPending),
@@ -104,7 +105,7 @@ func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, co
 	// 首先创建一个分析任务，分析任务的结果会被用于创建文档
 	// 创建一个titleRewrite 任务，将标题进行重写
 
-	task1, err := s.CreateDocWriteTask(ctx, repoID, content, sortOrder)
+	task1, err := s.CreateDocWriteTask(ctx, repoID, content, content, sortOrder)
 	if err != nil {
 		return nil, fmt.Errorf("[CreateUserRequestTask] 创建任务失败: %w", err)
 	}
@@ -119,4 +120,3 @@ func (s *TaskService) CreateUserRequestTask(ctx context.Context, repoID uint, co
 	return task1, nil
 
 }
- 

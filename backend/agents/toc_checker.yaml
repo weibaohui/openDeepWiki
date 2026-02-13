@@ -38,6 +38,7 @@ instruction: |
   dirs:
    - title: 目录标题的中文名称
      sort_order: 数字排序（递增，从1开始）
+     outline: 针对该标题的写作提纲（多行字符串）
      hint:
        - aspect: 决策维度（如目录结构/核心文件/配置说明等）
          source: |
@@ -49,6 +50,10 @@ instruction: |
   dirs:
    - title: 项目简介与定位
      sort_order: 1
+     outline: |
+       - 项目目标与定位
+       - 典型使用场景
+       - 适用人群与价值
      hint:
        - aspect: 核心说明文件
          source: |

@@ -12,6 +12,7 @@ type DirMakerDirSpec struct {
 	Title     string             `json:"title" yaml:"title"`           // 目录标题，如 "安全分析"
 	SortOrder int                `json:"sort_order" yaml:"sort_order"` // 排序顺序
 	Hint      []DirMakerHintSpec `json:"hint" yaml:"hint"`
+	Outline   string             `json:"outline" yaml:"outline"`
 	DocID     uint               `json:"doc_id" yaml:"doc_id"` // 关联的文档ID 保存到数据库后才有
 }
 

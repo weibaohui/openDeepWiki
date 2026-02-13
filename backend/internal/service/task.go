@@ -526,7 +526,7 @@ func (s *TaskService) ReGenByNewTask(taskID uint) error {
 		return fmt.Errorf("获取任务失败: %w", err)
 	}
 	oldDocID := task.DocID
-	task, err = s.CreateDocWriteTask(context.Background(), task.RepositoryID, task.Title, task.SortOrder)
+	task, err = s.CreateDocWriteTask(context.Background(), task.RepositoryID, task.Title, task.Outline, task.SortOrder)
 	if err != nil {
 		return fmt.Errorf("创建任务失败: %w", err)
 	}

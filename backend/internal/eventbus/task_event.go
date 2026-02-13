@@ -19,6 +19,7 @@ type TaskEvent struct {
 	Type         TaskEventType
 	RepositoryID uint
 	Title        string
+	Outline      string
 	SortOrder    int
 	RunAfter     uint
 	DocID        uint

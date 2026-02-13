@@ -31,6 +31,7 @@ type Task struct {
 	WriterName   domain.WriterName `json:"writer_name" gorm:"size:255;default:DefaultWriter"` // 关联的写入器名称
 	TaskType     domain.TaskType   `json:"task_type" gorm:"size:50;"`                         // 任务类型，生成文档，重写标题，生成目录
 	Title        string            `json:"title" gorm:"type:text"`                            // 不限制，标题可以为空，可以重写
+	Outline      string            `json:"outline" gorm:"type:text"`
 	Status       string            `json:"status" gorm:"size:50;default:pending"`             // pending, queued, running, succeeded, failed, canceled
 	RunAfter     uint              `json:"run_after"`                                         // 必须在哪个任务完成后才可以运行
 	ErrorMsg     string            `json:"error_msg" gorm:"size:1000"`

@@ -18,9 +18,10 @@ import (
 type defaultWriter struct {
 	factory  *adkagents.AgentFactory
 	hintRepo repository.HintRepository
+	taskRepo repository.TaskRepository
 }
 
-func NewDefaultWriter(cfg *config.Config, hintRepo repository.HintRepository) (*defaultWriter, error) {
+func NewDefaultWriter(cfg *config.Config, hintRepo repository.HintRepository, taskRepo repository.TaskRepository) (*defaultWriter, error) {
 	klog.V(6).Infof("[dgen.New] creating document generator service")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
@@ -32,6 +33,7 @@ func NewDefaultWriter(cfg *config.Config, hintRepo repository.HintRepository) (*
 	return &defaultWriter{
 		factory:  factory,
 		hintRepo: hintRepo,
+		taskRepo: taskRepo,
 	}, nil
 }
 
@@ -78,6 +80,12 @@ func (s *defaultWriter) genDocument(ctx context.Context, localPath string, title
 		return "", fmt.Errorf("create agent failed: %w", err)
 	}
 
+	outline := ""
+	// 从任务中获取大纲
+	if task, err := s.taskRepo.Get(taskID); err == nil && task.Outline != "" {
+		outline = fmt.Sprintf("编写大纲: %s\n", task.Outline)
+	}
+
 	hintPrompt := s.buildHintPrompt(taskID)
 
 	initialMessage := fmt.Sprintf(`请帮我分析这个代码仓库，并生成一份技术文档。
@@ -85,12 +93,12 @@ func (s *defaultWriter) genDocument(ctx context.Context, localPath string, title
 仓库地址: %s
 文档标题: %s
 %s
-
+%s
 请按以下步骤执行：
 1. 分析仓库代码，关注可能与标题所示含义相关的内容
 2. 编写详细的技术文档，使用 Markdown 格式
 
-`, localPath, title, hintPrompt)
+`, localPath, title, outline, hintPrompt)
 
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
@@ -120,6 +128,7 @@ func (s *defaultWriter) buildHintPrompt(taskID uint) string {
 		klog.V(6).Infof("[dgen.buildHintPrompt] 读取任务证据失败: taskID=%d, error=%v", taskID, err)
 		return ""
 	}
+
 	if len(hints) == 0 {
 		return ""
 	}
