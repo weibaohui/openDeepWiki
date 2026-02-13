@@ -267,15 +267,19 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 		},
 		Tasks:      make([]syncdto.PullTaskData, 0, len(tasks)),
 		Documents:  make([]syncdto.PullDocumentData, 0, len(docs)),
-		TaskUsages: make([]syncdto.PullTaskUsageData, 0, len(tasks)),
+		TaskUsages: make([]syncdto.PullTaskUsageData, 0),
 	}
 	for _, task := range tasks {
 		export.Tasks = append(export.Tasks, syncdto.PullTaskData{
 			TaskID:       task.ID,
 			RepositoryID: task.RepositoryID,
+			DocID:        task.DocID,
+			WriterName:   string(task.WriterName),
+			TaskType:     string(task.TaskType),
 			Title:        task.Title,
 			Outline:      task.Outline,
 			Status:       task.Status,
+			RunAfter:     task.RunAfter,
 			ErrorMsg:     task.ErrorMsg,
 			SortOrder:    task.SortOrder,
 			StartedAt:    task.StartedAt,
@@ -283,12 +287,13 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 			CreatedAt:    task.CreatedAt,
 			UpdatedAt:    task.UpdatedAt,
 		})
-		usage, err := s.taskUsageRepo.GetByTaskID(ctx, task.ID)
+		usages, err := s.taskUsageRepo.GetByTaskIDList(ctx, task.ID)
 		if err != nil {
 			return syncdto.PullExportData{}, err
 		}
-		if usage != nil {
+		for _, usage := range usages {
 			export.TaskUsages = append(export.TaskUsages, syncdto.PullTaskUsageData{
+				ID:               usage.ID,
 				TaskID:           usage.TaskID,
 				APIKeyName:       usage.APIKeyName,
 				PromptTokens:     usage.PromptTokens,
@@ -385,17 +390,57 @@ func (s *Service) CreateTask(ctx context.Context, req syncdto.TaskCreateRequest)
 		updatedAt = time.Now()
 	}
 
+	writerName := domain.WriterName(req.WriterName)
+	if writerName == "" {
+		writerName = domain.DefaultWriter
+	}
+	taskType := domain.TaskType(req.TaskType)
+	if taskType == "" {
+		taskType = domain.DocWrite
+	}
+
 	task := &model.Task{
+		ID:           req.TaskID,
 		RepositoryID: repo.ID,
+		DocID:        req.DocID,
+		WriterName:   writerName,
+		TaskType:     taskType,
 		Title:        req.Title,
 		Outline:      req.Outline,
 		Status:       req.Status,
+		RunAfter:     req.RunAfter,
 		ErrorMsg:     req.ErrorMsg,
 		SortOrder:    req.SortOrder,
 		StartedAt:    req.StartedAt,
 		CompletedAt:  req.CompletedAt,
 		CreatedAt:    createdAt,
 		UpdatedAt:    updatedAt,
+	}
+	if req.TaskID != 0 {
+		existing, err := s.taskRepo.Get(req.TaskID)
+		if err == nil {
+			existing.RepositoryID = task.RepositoryID
+			existing.DocID = task.DocID
+			existing.WriterName = task.WriterName
+			existing.TaskType = task.TaskType
+			existing.Title = task.Title
+			existing.Outline = task.Outline
+			existing.Status = task.Status
+			existing.RunAfter = task.RunAfter
+			existing.ErrorMsg = task.ErrorMsg
+			existing.SortOrder = task.SortOrder
+			existing.StartedAt = task.StartedAt
+			existing.CompletedAt = task.CompletedAt
+			existing.CreatedAt = task.CreatedAt
+			existing.UpdatedAt = task.UpdatedAt
+			if err := s.taskRepo.Save(existing); err != nil {
+				return nil, err
+			}
+			return existing, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) && !errors.Is(err, domain.ErrRecordNotFound) {
+			return nil, err
+		}
 	}
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, err
@@ -444,6 +489,7 @@ func (s *Service) CreateDocument(ctx context.Context, req syncdto.DocumentCreate
 	}
 
 	doc := &model.Document{
+		ID:           req.DocumentID,
 		RepositoryID: req.RepositoryID,
 		TaskID:       req.TaskID,
 		Title:        req.Title,
@@ -455,6 +501,29 @@ func (s *Service) CreateDocument(ctx context.Context, req syncdto.DocumentCreate
 		ReplacedBy:   req.ReplacedBy,
 		CreatedAt:    createdAt,
 		UpdatedAt:    updatedAt,
+	}
+	if req.DocumentID != 0 {
+		existing, err := s.docRepo.Get(req.DocumentID)
+		if err == nil {
+			existing.RepositoryID = doc.RepositoryID
+			existing.TaskID = doc.TaskID
+			existing.Title = doc.Title
+			existing.Filename = doc.Filename
+			existing.Content = doc.Content
+			existing.SortOrder = doc.SortOrder
+			existing.Version = doc.Version
+			existing.IsLatest = doc.IsLatest
+			existing.ReplacedBy = doc.ReplacedBy
+			existing.CreatedAt = doc.CreatedAt
+			existing.UpdatedAt = doc.UpdatedAt
+			if err := s.docRepo.Save(existing); err != nil {
+				return nil, err
+			}
+			return existing, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) && !errors.Is(err, domain.ErrRecordNotFound) {
+			return nil, err
+		}
 	}
 	if err := s.docRepo.Create(doc); err != nil {
 		return nil, err
@@ -715,12 +784,11 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 			}
 		}
 
-		// 同步任务用量数据（覆盖逻辑）
-		usage, err := s.GetTaskUsageByTaskID(ctx, task.ID)
+		taskUsages, err := s.GetTaskUsagesByTaskID(ctx, task.ID)
 		if err != nil {
 			klog.Errorf("[sync.runSync] 获取任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
-		} else if usage != nil {
-			if err := s.createRemoteTaskUsage(ctx, status.TargetServer, remoteTaskID, usage); err != nil {
+		} else if len(taskUsages) > 0 {
+			if err := s.createRemoteTaskUsages(ctx, status.TargetServer, remoteTaskID, taskUsages); err != nil {
 				klog.Errorf("[sync.runSync] 同步任务用量失败: syncID=%s, sourceTaskID=%d, remoteTaskID=%d, error=%v", status.SyncID, task.ID, remoteTaskID, err)
 				s.updateStatus(status.SyncID, func(s *Status) {
 					s.FailedTasks++
@@ -828,9 +896,9 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 	}
 
 	docIDMap := make(map[uint]uint, len(export.Documents))
-	usageByTaskID := make(map[uint]syncdto.PullTaskUsageData, len(export.TaskUsages))
+	usageByTaskID := make(map[uint][]syncdto.PullTaskUsageData, len(export.TaskUsages))
 	for _, usage := range export.TaskUsages {
-		usageByTaskID[usage.TaskID] = usage
+		usageByTaskID[usage.TaskID] = append(usageByTaskID[usage.TaskID], usage)
 	}
 	for index, task := range export.Tasks {
 		current := fmt.Sprintf("正在同步任务 %d/%d: %s", index+1, len(export.Tasks), task.Title)
@@ -840,10 +908,15 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 		})
 
 		localTask, err := s.CreateTask(ctx, syncdto.TaskCreateRequest{
+			TaskID:       task.TaskID,
 			RepositoryID: repo.ID,
+			DocID:        task.DocID,
+			WriterName:   task.WriterName,
+			TaskType:     task.TaskType,
 			Title:        task.Title,
 			Outline:      task.Outline,
 			Status:       task.Status,
+			RunAfter:     task.RunAfter,
 			ErrorMsg:     task.ErrorMsg,
 			SortOrder:    task.SortOrder,
 			StartedAt:    task.StartedAt,
@@ -860,16 +933,24 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 			continue
 		}
 
-		if usage, ok := usageByTaskID[task.TaskID]; ok {
+		if usages, ok := usageByTaskID[task.TaskID]; ok {
+			usageItems := make([]syncdto.TaskUsageCreateItem, 0, len(usages))
+			for _, usage := range usages {
+				usageItems = append(usageItems, syncdto.TaskUsageCreateItem{
+					ID:               usage.ID,
+					TaskID:           localTask.ID,
+					APIKeyName:       usage.APIKeyName,
+					PromptTokens:     usage.PromptTokens,
+					CompletionTokens: usage.CompletionTokens,
+					TotalTokens:      usage.TotalTokens,
+					CachedTokens:     usage.CachedTokens,
+					ReasoningTokens:  usage.ReasoningTokens,
+					CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
+				})
+			}
 			_, err := s.CreateTaskUsage(ctx, syncdto.TaskUsageCreateRequest{
-				TaskID:           localTask.ID,
-				APIKeyName:       usage.APIKeyName,
-				PromptTokens:     usage.PromptTokens,
-				CompletionTokens: usage.CompletionTokens,
-				TotalTokens:      usage.TotalTokens,
-				CachedTokens:     usage.CachedTokens,
-				ReasoningTokens:  usage.ReasoningTokens,
-				CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
+				TaskID:     localTask.ID,
+				TaskUsages: usageItems,
 			})
 			if err != nil {
 				klog.Errorf("[sync.runPullSync] 同步任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
@@ -882,6 +963,7 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 		localDocs := make([]model.Document, 0)
 		for _, doc := range taskDocs[task.TaskID] {
 			createdDoc, err := s.CreateDocument(ctx, syncdto.DocumentCreateRequest{
+				DocumentID:   doc.DocumentID,
 				RepositoryID: repo.ID,
 				TaskID:       localTask.ID,
 				Title:        doc.Title,
@@ -1063,10 +1145,15 @@ func (s *Service) clearRemoteRepository(ctx context.Context, targetServer string
 
 func (s *Service) createRemoteTask(ctx context.Context, targetServer string, task model.Task) (uint, error) {
 	reqBody := syncdto.TaskCreateRequest{
+		TaskID:       task.ID,
 		RepositoryID: task.RepositoryID,
+		DocID:        task.DocID,
+		WriterName:   string(task.WriterName),
+		TaskType:     string(task.TaskType),
 		Title:        task.Title,
 		Outline:      task.Outline,
 		Status:       task.Status,
+		RunAfter:     task.RunAfter,
 		ErrorMsg:     task.ErrorMsg,
 		SortOrder:    task.SortOrder,
 		StartedAt:    task.StartedAt,
@@ -1083,6 +1170,7 @@ func (s *Service) createRemoteTask(ctx context.Context, targetServer string, tas
 
 func (s *Service) createRemoteDocument(ctx context.Context, targetServer string, doc model.Document, remoteTaskID uint) (uint, error) {
 	reqBody := syncdto.DocumentCreateRequest{
+		DocumentID:   doc.ID,
 		RepositoryID: doc.RepositoryID,
 		TaskID:       remoteTaskID,
 		Title:        doc.Title,
@@ -1111,38 +1199,82 @@ func (s *Service) updateRemoteTaskDocID(ctx context.Context, targetServer string
 	return s.postJSON(ctx, targetServer+"/task-update-docid", reqBody, &respBody)
 }
 
-func (s *Service) createRemoteTaskUsage(ctx context.Context, targetServer string, remoteTaskID uint, usage *model.TaskUsage) error {
+// createRemoteTaskUsages 同步任务用量列表到对端
+func (s *Service) createRemoteTaskUsages(ctx context.Context, targetServer string, remoteTaskID uint, usages []model.TaskUsage) error {
+	if len(usages) == 0 {
+		return nil
+	}
+	items := make([]syncdto.TaskUsageCreateItem, 0, len(usages))
+	for _, usage := range usages {
+		items = append(items, syncdto.TaskUsageCreateItem{
+			ID:               usage.ID,
+			TaskID:           remoteTaskID,
+			APIKeyName:       usage.APIKeyName,
+			PromptTokens:     usage.PromptTokens,
+			CompletionTokens: usage.CompletionTokens,
+			TotalTokens:      usage.TotalTokens,
+			CachedTokens:     usage.CachedTokens,
+			ReasoningTokens:  usage.ReasoningTokens,
+			CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
+		})
+	}
 	reqBody := syncdto.TaskUsageCreateRequest{
-		TaskID:           remoteTaskID, // 使用对端的 taskID
-		APIKeyName:       usage.APIKeyName,
-		PromptTokens:     usage.PromptTokens,
-		CompletionTokens: usage.CompletionTokens,
-		TotalTokens:      usage.TotalTokens,
-		CachedTokens:     usage.CachedTokens,
-		ReasoningTokens:  usage.ReasoningTokens,
-		CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
+		TaskID:     remoteTaskID,
+		TaskUsages: items,
 	}
 	var respBody syncdto.TaskUsageCreateResponse
 	if err := s.postJSON(ctx, targetServer+"/task-usage-create", reqBody, &respBody); err != nil {
 		return err
 	}
-	klog.V(6).Infof("远端任务用量同步完成: sourceTaskID=%d, remoteTaskID=%d", usage.TaskID, remoteTaskID)
+	klog.V(6).Infof("远端任务用量同步完成: sourceTaskID=%d, remoteTaskID=%d, count=%d", usages[0].TaskID, remoteTaskID, len(usages))
 	return nil
 }
 
-// GetTaskUsageByTaskID 根据 task_id 获取任务用量记录
-func (s *Service) GetTaskUsageByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error) {
-	return s.taskUsageRepo.GetByTaskID(ctx, taskID)
+// GetTaskUsagesByTaskID 获取任务的用量记录列表
+func (s *Service) GetTaskUsagesByTaskID(ctx context.Context, taskID uint) ([]model.TaskUsage, error) {
+	return s.taskUsageRepo.GetByTaskIDList(ctx, taskID)
 }
 
-// CreateTaskUsage 创建任务用量记录
+// CreateTaskUsage 创建或覆盖任务用量记录
 func (s *Service) CreateTaskUsage(ctx context.Context, req syncdto.TaskUsageCreateRequest) (*model.TaskUsage, error) {
-	// 解析 created_at 时间
+	if len(req.TaskUsages) > 0 {
+		taskID := req.TaskID
+		usages := make([]model.TaskUsage, 0, len(req.TaskUsages))
+		for _, item := range req.TaskUsages {
+			if taskID == 0 {
+				taskID = item.TaskID
+			}
+			if item.TaskID != taskID {
+				return nil, fmt.Errorf("task_id 不一致: %d != %d", item.TaskID, taskID)
+			}
+			createdAt, err := time.Parse(time.RFC3339Nano, item.CreatedAt)
+			if err != nil {
+				createdAt = time.Now()
+			}
+			usages = append(usages, model.TaskUsage{
+				ID:               item.ID,
+				TaskID:           taskID,
+				APIKeyName:       item.APIKeyName,
+				PromptTokens:     item.PromptTokens,
+				CompletionTokens: item.CompletionTokens,
+				TotalTokens:      item.TotalTokens,
+				CachedTokens:     item.CachedTokens,
+				ReasoningTokens:  item.ReasoningTokens,
+				CreatedAt:        createdAt,
+			})
+		}
+		if err := s.taskUsageRepo.UpsertMany(ctx, usages); err != nil {
+			return nil, err
+		}
+		return &model.TaskUsage{TaskID: taskID}, nil
+	}
+	if req.TaskID == 0 {
+		return nil, fmt.Errorf("task_id 不能为空")
+	}
 	createdAt, err := time.Parse(time.RFC3339Nano, req.CreatedAt)
 	if err != nil {
 		createdAt = time.Now()
 	}
-
 	usage := &model.TaskUsage{
 		TaskID:           req.TaskID,
 		APIKeyName:       req.APIKeyName,
@@ -1153,8 +1285,6 @@ func (s *Service) CreateTaskUsage(ctx context.Context, req syncdto.TaskUsageCrea
 		ReasoningTokens:  req.ReasoningTokens,
 		CreatedAt:        createdAt,
 	}
-
-	// 使用 Upsert 方法实现覆盖逻辑
 	if err := s.taskUsageRepo.Upsert(ctx, usage); err != nil {
 		return nil, err
 	}

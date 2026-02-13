@@ -32,8 +32,8 @@ type Task struct {
 	TaskType     domain.TaskType   `json:"task_type" gorm:"size:50;"`                         // 任务类型，生成文档，重写标题，生成目录
 	Title        string            `json:"title" gorm:"type:text"`                            // 不限制，标题可以为空，可以重写
 	Outline      string            `json:"outline" gorm:"type:text"`
-	Status       string            `json:"status" gorm:"size:50;default:pending"`             // pending, queued, running, succeeded, failed, canceled
-	RunAfter     uint              `json:"run_after"`                                         // 必须在哪个任务完成后才可以运行
+	Status       string            `json:"status" gorm:"size:50;default:pending"` // pending, queued, running, succeeded, failed, canceled
+	RunAfter     uint              `json:"run_after"`                             // 必须在哪个任务完成后才可以运行
 	ErrorMsg     string            `json:"error_msg" gorm:"size:1000"`
 	SortOrder    int               `json:"sort_order" gorm:"default:0"`
 	StartedAt    *time.Time        `json:"started_at" gorm:"column:started_at"`
@@ -51,7 +51,7 @@ type Document struct {
 	Content      string    `json:"content" gorm:"type:text"`
 	SortOrder    int       `json:"sort_order" gorm:"default:0"`
 	Version      int       `json:"version" gorm:"default:1;index"`
-	IsLatest     bool      `json:"is_latest" gorm:"default:true;index"`
+	IsLatest     bool      `json:"is_latest" gorm:"index"`
 	ReplacedBy   uint      `json:"replaced_by" gorm:"index;"` //被替换为哪个DocID
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

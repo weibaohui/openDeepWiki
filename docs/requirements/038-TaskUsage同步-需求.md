@@ -5,6 +5,7 @@
 | 修改人 | 修改时间 | 修改内容 |
 | ------ | -------- | -------- |
 | AI | 2026-02-12 | 初始版本 |
+| AI | 2026-02-13 | 增补多条 TaskUsage 覆盖同步与全字段传输要求 |
 
 ## 一、背景（Why）
 
@@ -13,10 +14,10 @@
 ## 二、目标（What，必须可验证）
 
 - [x] 支持在数据同步时同步 TaskUsage 表
-- [ ] TaskUsage 数据按 taskID 进行同步，使用对端的 taskID
-- [ ] 同步时采用覆盖逻辑（而非追加），保持数据一致性
-- [ ] TaskUsage 同步失败不影响主同步流程，仅记录失败日志
-- [ ] 不新增对外 API 接口，仅在现有同步接口中扩展功能
+- [x] TaskUsage 数据按 taskID 进行同步，使用对端的 taskID
+- [x] 同步时采用覆盖逻辑（而非追加），保持数据一致性
+- [x] TaskUsage 同步失败不影响主同步流程，仅记录失败日志
+- [x] 不新增对外 API 接口，仅在现有同步接口中扩展功能
 
 ## 三、非目标（Explicitly Out of Scope）
 
@@ -45,7 +46,8 @@
 
 ### 4.4 同步字段
 
-同步的 TaskUsage 包含以下字段：
+同步的 TaskUsage 包含以下字段（单条/多条均需支持）：
+- id：TaskUsage 记录ID
 - task_id：对端的任务ID（非本端）
 - api_key_name：使用的模型名称
 - prompt_tokens：提示词 token 数量
@@ -54,6 +56,11 @@
 - cached_tokens：缓存 token 数量
 - reasoning_tokens：推理 token 数量
 - created_at：记录创建时间
+
+### 4.6 Task/Document 全字段传输
+
+- Task 同步需完整传输 task_id、doc_id、writer_name、task_type、run_after 等字段
+- Document 同步需完整传输 document_id 以及版本与替换关系字段
 
 ### 4.5 错误处理
 
