@@ -352,12 +352,17 @@ func (m *mockDocRepo) GetByTaskID(taskID uint) ([]model.Document, error) {
 type mockTaskUsageRepo struct {
 	usages map[uint][]model.TaskUsage
 	err    error
+	nextID uint
 }
 
 // Create 新增任务用量记录
 func (m *mockTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) error {
 	if m.err != nil {
 		return m.err
+	}
+	if usage.ID == 0 {
+		m.nextID++
+		usage.ID = m.nextID
 	}
 	if m.usages == nil {
 		m.usages = make(map[uint][]model.TaskUsage)
@@ -397,6 +402,10 @@ func (m *mockTaskUsageRepo) Upsert(ctx context.Context, usage *model.TaskUsage) 
 	if m.err != nil {
 		return m.err
 	}
+	if usage.ID == 0 {
+		m.nextID++
+		usage.ID = m.nextID
+	}
 	if m.usages == nil {
 		m.usages = make(map[uint][]model.TaskUsage)
 	}
@@ -415,6 +424,12 @@ func (m *mockTaskUsageRepo) UpsertMany(ctx context.Context, usages []model.TaskU
 	taskID := usages[0].TaskID
 	if m.usages == nil {
 		m.usages = make(map[uint][]model.TaskUsage)
+	}
+	for i := range usages {
+		if usages[i].ID == 0 {
+			m.nextID++
+			usages[i].ID = m.nextID
+		}
 	}
 	delete(m.usages, taskID)
 	m.usages[taskID] = usages
@@ -460,7 +475,7 @@ func TestServiceCreateTaskUsageBatch(t *testing.T) {
 		TaskID: 7,
 		TaskUsages: []syncdto.TaskUsageCreateItem{
 			{
-				ID:               1,
+				ID:               1001,
 				TaskID:           7,
 				APIKeyName:       "gpt-4",
 				PromptTokens:     10,
@@ -471,7 +486,7 @@ func TestServiceCreateTaskUsageBatch(t *testing.T) {
 				CreatedAt:        now.Format(time.RFC3339Nano),
 			},
 			{
-				ID:               2,
+				ID:               1002,
 				TaskID:           7,
 				APIKeyName:       "gpt-4o",
 				PromptTokens:     5,
