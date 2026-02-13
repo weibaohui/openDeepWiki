@@ -175,9 +175,7 @@ type mockSyncTaskUsageRepo struct{}
 func (m *mockSyncTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) error { return nil }
 
 // GetByTaskID 根据 task_id 查询任务用量记录
-func (m *mockSyncTaskUsageRepo) GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error) {
-	return nil, nil
-}
+func (m *mockSyncTaskUsageRepo) GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error) { return nil, nil }
 
 // Upsert 根据 task_id 插入或更新任务用量记录
 func (m *mockSyncTaskUsageRepo) Upsert(ctx context.Context, usage *model.TaskUsage) error { return nil }

@@ -39,23 +39,23 @@ type Status struct {
 }
 
 type Service struct {
-	repoRepo      repository.RepoRepository
-	taskRepo      repository.TaskRepository
-	docRepo       repository.DocumentRepository
-	taskUsageRepo repository.TaskUsageRepository
-	client        *http.Client
-	statusMap     map[string]*Status
-	mutex         sync.RWMutex
+	repoRepo       repository.RepoRepository
+	taskRepo       repository.TaskRepository
+	docRepo        repository.DocumentRepository
+	taskUsageRepo  repository.TaskUsageRepository
+	client         *http.Client
+	statusMap      map[string]*Status
+	mutex          sync.RWMutex
 }
 
 func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository) *Service {
 	return &Service{
-		repoRepo:      repoRepo,
-		taskRepo:      taskRepo,
-		docRepo:       docRepo,
-		taskUsageRepo: taskUsageRepo,
-		client:        &http.Client{Timeout: 15 * time.Second},
-		statusMap:     make(map[string]*Status),
+		repoRepo:       repoRepo,
+		taskRepo:       taskRepo,
+		docRepo:        docRepo,
+		taskUsageRepo:  taskUsageRepo,
+		client:         &http.Client{Timeout: 15 * time.Second},
+		statusMap:      make(map[string]*Status),
 	}
 }
 
@@ -635,7 +635,7 @@ func (s *Service) updateRemoteTaskDocID(ctx context.Context, targetServer string
 
 func (s *Service) createRemoteTaskUsage(ctx context.Context, targetServer string, remoteTaskID uint, usage *model.TaskUsage) error {
 	reqBody := syncdto.TaskUsageCreateRequest{
-		TaskID:           remoteTaskID, // 使用对端的 taskID
+		TaskID:           remoteTaskID,  // 使用对端的 taskID
 		APIKeyName:       usage.APIKeyName,
 		PromptTokens:     usage.PromptTokens,
 		CompletionTokens: usage.CompletionTokens,
