@@ -3,7 +3,9 @@ package eventbus
 type DocEventType string
 
 const (
-	DocEventRated DocEventType = "Rated"
+	DocEventRated  DocEventType = "Rated"
+	DocEventPulled DocEventType = "DocPulled"
+	DocEventPushed DocEventType = "DocPushed"
 )
 
 type DocEvent struct {

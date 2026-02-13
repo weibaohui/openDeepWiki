@@ -20,6 +20,8 @@ func (s *DocEventSubscriber) Register(bus *eventbus.DocEventBus) {
 		return
 	}
 	bus.Subscribe(eventbus.DocEventRated, s.handleDocRated)
+	bus.Subscribe(eventbus.DocEventPulled, s.handleDocPulled)
+	bus.Subscribe(eventbus.DocEventPushed, s.handleDocPushed)
 }
 
 func (s *DocEventSubscriber) handleDocRated(ctx context.Context, event eventbus.DocEvent) error {
@@ -34,5 +36,17 @@ func (s *DocEventSubscriber) handleDocRated(ctx context.Context, event eventbus.
 	// }
 
 	klog.V(6).Infof("文档事件处理成功: type=%s, repositoryID=%d, docID=%d, rating=%d", event.Type, event.RepositoryID, event.DocID, event.Rating)
+	return nil
+}
+
+// handleDocPulled 处理文档被拉取事件
+func (s *DocEventSubscriber) handleDocPulled(ctx context.Context, event eventbus.DocEvent) error {
+	klog.V(6).Infof("文档拉取事件处理成功: type=%s, repositoryID=%d, docID=%d", event.Type, event.RepositoryID, event.DocID)
+	return nil
+}
+
+// handleDocPushed 处理文档被推送事件
+func (s *DocEventSubscriber) handleDocPushed(ctx context.Context, event eventbus.DocEvent) error {
+	klog.V(6).Infof("文档推送事件处理成功: type=%s, repositoryID=%d, docID=%d", event.Type, event.RepositoryID, event.DocID)
 	return nil
 }
