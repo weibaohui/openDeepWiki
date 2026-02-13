@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
-	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
 )
 
@@ -54,7 +54,7 @@ func (m *mockSyncRepoRepo) GetBasic(id uint) (*model.Repository, error) {
 	}
 	repo, ok := m.repos[id]
 	if !ok {
-		return nil, repository.ErrNotFound
+		return nil, domain.ErrRecordNotFound
 	}
 	return repo, nil
 }
@@ -88,7 +88,7 @@ func (m *mockSyncTaskRepo) GetByRepository(repoID uint) ([]model.Task, error) {
 func (m *mockSyncTaskRepo) GetByStatus(status string) ([]model.Task, error) { return nil, nil }
 
 // Get 获取任务
-func (m *mockSyncTaskRepo) Get(id uint) (*model.Task, error) { return nil, repository.ErrNotFound }
+func (m *mockSyncTaskRepo) Get(id uint) (*model.Task, error) { return nil, domain.ErrRecordNotFound }
 
 // Save 保存任务
 func (m *mockSyncTaskRepo) Save(task *model.Task) error { return nil }
@@ -132,7 +132,7 @@ func (m *mockSyncDocRepo) GetVersions(repoID uint, title string) ([]model.Docume
 }
 
 // Get 获取文档
-func (m *mockSyncDocRepo) Get(id uint) (*model.Document, error) { return nil, repository.ErrNotFound }
+func (m *mockSyncDocRepo) Get(id uint) (*model.Document, error) { return nil, domain.ErrRecordNotFound }
 
 // GetTokenUsageByDocID 根据 document_id 获取 Token 用量数据
 func (m *mockSyncDocRepo) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, error) {

@@ -87,7 +87,7 @@ func (s *tocWriter) Generate(ctx context.Context, localPath string, title string
 }
 
 // CreateDirs 分析仓库目录并创建目录。
-func (s *tocWriter) createDirs(ctx context.Context, repo *model.Repository) (*model.DirMakerGenerationResult, error) {
+func (s *tocWriter) createDirs(ctx context.Context, repo *model.Repository) (*domain.DirMakerGenerationResult, error) {
 
 	if repo.LocalPath == "" {
 		return nil, fmt.Errorf("%w: repo.LocalPath 为空", domain.ErrInvalidLocalPath)
@@ -107,7 +107,7 @@ func (s *tocWriter) createDirs(ctx context.Context, repo *model.Repository) (*mo
 }
 
 // generateTaskPlan 执行任务生成链路，返回解析后的任务列表结果。
-func (s *tocWriter) genDirList(ctx context.Context, localPath string) (*model.DirMakerGenerationResult, error) {
+func (s *tocWriter) genDirList(ctx context.Context, localPath string) (*domain.DirMakerGenerationResult, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
@@ -154,7 +154,7 @@ func (s *tocWriter) genDirList(ctx context.Context, localPath string) (*model.Di
 }
 
 // parseDirList 从 Agent 输出解析目录生成结果。
-func parseDirList(content string) (*model.DirMakerGenerationResult, error) {
+func parseDirList(content string) (*domain.DirMakerGenerationResult, error) {
 	klog.V(6).Infof("[dm.parseList] 开始解析 Agent 输出内容，长度: %d", len(content))
 
 	// 尝试从内容中提取 YAML
@@ -164,7 +164,7 @@ func parseDirList(content string) (*model.DirMakerGenerationResult, error) {
 		return nil, fmt.Errorf("%w: 提取 YAML 失败", domain.ErrYAMLParseFailed)
 	}
 
-	var result model.DirMakerGenerationResult
+	var result domain.DirMakerGenerationResult
 	if err := yaml.Unmarshal([]byte(yamlStr), &result); err != nil {
 		klog.Errorf("[dm.parseList] YAML 解析失败: %v", err)
 		return nil, fmt.Errorf("%w: %v", domain.ErrYAMLParseFailed, err)
@@ -197,7 +197,7 @@ func (s *tocWriter) saveAnalysisSummaryHint(repoID uint, summary string) error {
 	return nil
 }
 
-func (s *tocWriter) saveHint(repoID uint, task *model.Task, spec *model.DirMakerDirSpec) error {
+func (s *tocWriter) saveHint(repoID uint, task *model.Task, spec *domain.DirMakerDirSpec) error {
 	if s.taskHintRepo == nil {
 		return nil
 	}

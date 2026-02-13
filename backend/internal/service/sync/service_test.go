@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
-	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 )
 
 type mockRepoRepo struct {
@@ -52,7 +52,7 @@ func (m *mockRepoRepo) GetBasic(id uint) (*model.Repository, error) {
 	}
 	repo, ok := m.repos[id]
 	if !ok {
-		return nil, repository.ErrNotFound
+		return nil, domain.ErrRecordNotFound
 	}
 	return repo, nil
 }
@@ -129,7 +129,7 @@ func (m *mockTaskRepo) Get(id uint) (*model.Task, error) {
 	}
 	task, ok := m.tasks[id]
 	if !ok {
-		return nil, repository.ErrNotFound
+		return nil, domain.ErrRecordNotFound
 	}
 	return task, nil
 }
@@ -244,7 +244,7 @@ func (m *mockDocRepo) Get(id uint) (*model.Document, error) {
 	}
 	doc, ok := m.docs[id]
 	if !ok {
-		return nil, repository.ErrNotFound
+		return nil, domain.ErrRecordNotFound
 	}
 	return doc, nil
 }
@@ -308,7 +308,7 @@ func (m *mockDocRepo) UpdateTaskID(docID uint, taskID uint) error {
 	}
 	doc, ok := m.docs[docID]
 	if !ok {
-		return repository.ErrNotFound
+		return domain.ErrRecordNotFound
 	}
 	doc.TaskID = taskID
 	return nil

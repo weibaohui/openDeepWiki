@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
@@ -163,21 +164,60 @@ func (r *documentRepository) GetByTaskID(taskID uint) ([]model.Document, error) 
 	return docs, err
 }
 
-// GetTokenUsageByDocID 根据 document_id 获取关联的 Token 用量数据
-// 通过关联 Task 和 TaskUsage 表查询
+// GetTokenUsageByDocID 根据 document_id 获取关联的 Token 用量统计
+// 通过关联 Task 和 TaskUsage 表查询，累加所有条目
 func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, error) {
-	var usage model.TaskUsage
+	var result struct {
+		PromptTokens     int
+		CompletionTokens int
+		TotalTokens      int
+		CachedTokens     int
+		ReasoningTokens  int
+		APIKeyNames      string
+	}
+
 	err := r.db.Table("task_usages").
 		Joins("JOIN tasks ON tasks.id = task_usages.task_id").
 		Joins("JOIN documents ON documents.task_id = tasks.id").
 		Where("documents.id = ?", docID).
-		Order("task_usages.id DESC").
-		First(&usage).Error
+		Select(`
+			SUM(task_usages.prompt_tokens) as prompt_tokens,
+			SUM(task_usages.completion_tokens) as completion_tokens,
+			SUM(task_usages.total_tokens) as total_tokens,
+			SUM(task_usages.cached_tokens) as cached_tokens,
+			SUM(task_usages.reasoning_tokens) as reasoning_tokens
+		`).
+		Scan(&result).Error
+
 	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return &usage, nil
+
+	// 如果没有数据，返回 nil
+	if result.TotalTokens == 0 {
+		return nil, nil
+	}
+
+	//查询APIKeyNames
+	var apiKeyNames []string
+	err = r.db.Table("task_usages").
+		Joins("JOIN documents ON documents.task_id = task_usages.task_id").
+		Where("documents.id = ?", docID).
+		Select("DISTINCT task_usages.api_key_name as api_key_names").
+		Scan(&apiKeyNames).Error
+
+	if err != nil {
+		return nil, err
+	}
+	// 合并APIKeyNames
+	result.APIKeyNames = strings.Join(apiKeyNames, ", ")
+
+	return &model.TaskUsage{
+		PromptTokens:     result.PromptTokens,
+		CompletionTokens: result.CompletionTokens,
+		TotalTokens:      result.TotalTokens,
+		CachedTokens:     result.CachedTokens,
+		ReasoningTokens:  result.ReasoningTokens,
+		APIKeyName:       result.APIKeyNames,
+	}, nil
 }

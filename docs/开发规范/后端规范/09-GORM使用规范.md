@@ -56,7 +56,7 @@ func (r *userRepository) GetByID(ctx context.Context, id string) (*domain.User, 
     err := r.db.WithContext(ctx).Where("id = ?", id).First(&m).Error
 
     if errors.Is(err, gorm.ErrRecordNotFound) {
-        return nil, repository.ErrNotFound  // 显式转换
+        return nil, domain.ErrRecordNotFound  // 显式转换
     }
     if err != nil {
         return nil, fmt.Errorf("failed to get user: %w", err)

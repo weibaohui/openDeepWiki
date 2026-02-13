@@ -5,17 +5,20 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 )
 
 type DocumentHandler struct {
+	bus     *eventbus.DocEventBus
 	service *service.DocumentService
 }
 
 // NewDocumentHandler 创建文档处理器
-func NewDocumentHandler(service *service.DocumentService) *DocumentHandler {
+func NewDocumentHandler(bus *eventbus.DocEventBus, service *service.DocumentService) *DocumentHandler {
 	return &DocumentHandler{
 		service: service,
+		bus:     bus,
 	}
 }
 
@@ -178,6 +181,14 @@ func (h *DocumentHandler) SubmitRating(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 发布文档评分事件
+	h.bus.Publish(c, eventbus.DocEventRated, eventbus.DocEvent{
+		Type:   eventbus.DocEventRated,
+		DocID:  uint(id),
+		Rating: req.Score,
+	})
+
 	c.JSON(http.StatusOK, stats)
 }
 

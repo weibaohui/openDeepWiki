@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, SyncOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CopyOutlined, SyncOutlined } from '@ant-design/icons';
 import { Button, Card, Checkbox, Grid, Input, Layout, List, message, Progress, Select, Space, Table, Tag, Typography } from 'antd';
 import type { Document, Repository, SyncStatusData, Task } from '../types';
 import { documentApi, repositoryApi, syncApi, taskApi } from '../services/api';
@@ -30,8 +30,38 @@ export default function Sync() {
     const [syncStatus, setSyncStatus] = useState<SyncStatusData | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [starting, setStarting] = useState(false);
+    const [copySuccess, setCopySuccess] = useState(false);
     const lastTaskRef = useRef<string>('');
     const lastStatusRef = useRef<string>('');
+
+    // 构建本端同步接口地址
+    const syncUrl = useMemo(() => {
+        const protocol = window.location.protocol; // http: 或 https:
+        const host = window.location.hostname;
+        const port = window.location.port;
+        
+        // 端口省略逻辑
+        const shouldShowPort = 
+            (protocol === 'http:' && port !== '80') ||
+            (protocol === 'https:' && port !== '443') ||
+            port;
+        
+        const portDisplay = shouldShowPort ? (port ? `:${port}` : '') : '';
+        
+        return `${protocol}//${host}${portDisplay}/api/sync`;
+    }, []);
+
+    // 处理复制操作
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(syncUrl);
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 1500);
+            messageApi.success(t('sync.copy_success'));
+        } catch {
+            messageApi.error(t('sync.copy_failed'));
+        }
+    };
 
     const statusColor = useMemo(() => {
         if (!syncStatus) return 'default';
@@ -262,6 +292,63 @@ export default function Sync() {
             </Header>
             <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
                 <Card title={t('sync.form_title')} style={{ marginBottom: 16 }}>
+                    <div style={{
+                        padding: '12px',
+                        marginBottom: '16px',
+                        background: 'var(--ant-color-bg-spotlight)',
+                        border: '1px solid var(--ant-color-border)',
+                        borderRadius: '8px'
+                    }}>
+                        <div style={{ marginBottom: '8px' }}>
+                            <Text strong style={{ display: 'block', marginBottom: '4px' }}>{t('sync.local_sync_url')}</Text>
+                            <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>{t('sync.local_sync_url_desc')}</Text>
+                        </div>
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'center',
+                            flexDirection: screens.xs ? 'column' : 'row'
+                        }}>
+                            <div style={{
+                                flex: 1,
+                                overflow: 'hidden'
+                            }}>
+                                <code style={{
+                                    display: 'block',
+                                    padding: '8px 12px',
+                                    background: 'var(--ant-color-bg-container)',
+                                    border: '1px solid var(--ant-color-border)',
+                                    borderRadius: '4px',
+                                    fontFamily: 'Monaco, "Courier New", monospace',
+                                    fontSize: '13px',
+                                    wordBreak: 'break-all',
+                                    whiteSpace: 'nowrap',
+                                    overflowX: 'auto'
+                                }}>
+                                    {syncUrl}
+                                </code>
+                            </div>
+                            <Button
+                                onClick={handleCopy}
+                                icon={<CopyOutlined />}
+                                style={{
+                                    flexShrink: 0,
+                                    width: screens.xs ? '100%' : 'auto'
+                                }}
+                            >
+                                {t('sync.copy')}
+                            </Button>
+                        </div>
+                        {copySuccess && (
+                            <div style={{
+                                marginTop: '8px',
+                                color: 'var(--ant-color-success)',
+                                fontSize: '12px'
+                            }}>
+                                {t('sync.copy_success')}
+                            </div>
+                        )}
+                    </div>
                     <Space direction="vertical" style={{ width: '100%' }} size="middle">
                         <div>
                             <Text>{t('sync.target_server')}</Text>

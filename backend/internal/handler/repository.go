@@ -8,17 +8,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 	"k8s.io/klog/v2"
 )
 
 type RepositoryHandler struct {
+	repoBus     *eventbus.RepositoryEventBus
+	taskBus     *eventbus.TaskEventBus
 	service     *service.RepositoryService
 	taskService *service.TaskService
 }
 
-func NewRepositoryHandler(service *service.RepositoryService, taskService *service.TaskService) *RepositoryHandler {
+func NewRepositoryHandler(repoBus *eventbus.RepositoryEventBus, taskBus *eventbus.TaskEventBus, service *service.RepositoryService, taskService *service.TaskService) *RepositoryHandler {
 	return &RepositoryHandler{
+		repoBus:     repoBus,
+		taskBus:     taskBus,
 		service:     service,
 		taskService: taskService,
 	}
@@ -43,6 +48,12 @@ func (h *RepositoryHandler) Create(c *gin.Context) {
 		}
 		return
 	}
+
+	ctx := context.Background()
+	h.repoBus.Publish(ctx, eventbus.RepositoryEventAdded, eventbus.RepositoryEvent{
+		Type:         eventbus.RepositoryEventAdded,
+		RepositoryID: repo.ID,
+	})
 
 	c.JSON(http.StatusCreated, repo)
 }
@@ -137,16 +148,16 @@ func (h *RepositoryHandler) AnalyzeDatabaseModel(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.taskService.CreateDocWriteTask(ctx, uint(id), "数据库模型分析", 20, domain.DBModelWriter)
-	if err != nil {
-		klog.Errorf("AnalyzeDatabaseModel failed: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventDocWrite,
+		RepositoryID: uint(id),
+		Title:        "数据库模型分析",
+		SortOrder:    20,
+		WriterName:   domain.DBModelWriter,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "database model analysis started",
-		"task":    task,
 	})
 }
 
@@ -159,16 +170,16 @@ func (h *RepositoryHandler) AnalyzeAPI(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.taskService.CreateDocWriteTask(ctx, uint(id), "API接口分析", 20, domain.APIWriter)
-	if err != nil {
-		klog.Errorf("CreateDocWriteTask failed: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventDocWrite,
+		RepositoryID: uint(id),
+		Title:        "API接口分析",
+		SortOrder:    20,
+		WriterName:   domain.APIWriter,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "api analysis started",
-		"task":    task,
 	})
 }
 
@@ -191,16 +202,16 @@ func (h *RepositoryHandler) AnalyzeUserRequest(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.taskService.CreateUserRequestTask(ctx, uint(id), req.Content, 30)
-	if err != nil {
-		klog.Errorf("CreateUserRequestTask failed: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventDocWrite,
+		RepositoryID: uint(id),
+		Title:        "用户问题分析",
+		SortOrder:    30,
+		WriterName:   domain.UserRequestWriter,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "problem analysis started",
-		"task":    task,
 	})
 }
 
@@ -228,7 +239,8 @@ func (h *RepositoryHandler) Clone(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.CloneRepository(uint(id)); err != nil {
+	ctx := context.Background()
+	if err := h.service.CloneRepository(ctx, uint(id)); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

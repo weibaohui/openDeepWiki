@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
@@ -112,7 +113,7 @@ func (s *Service) CreateOrUpdateRepository(ctx context.Context, req syncdto.Repo
 	repo, err := s.repoRepo.GetBasic(req.RepositoryID)
 	isNew := false
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, domain.ErrRecordNotFound) {
 			repo = &model.Repository{ID: req.RepositoryID}
 			isNew = true
 		} else {

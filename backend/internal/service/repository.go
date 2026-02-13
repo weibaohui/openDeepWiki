@@ -33,7 +33,7 @@ type RepositoryService struct {
 
 // NewRepositoryService 创建仓库服务实例。
 func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository) *RepositoryService {
-	return &RepositoryService{
+	rs := &RepositoryService{
 		cfg:              cfg,
 		repoRepo:         repoRepo,
 		taskRepo:         taskRepo,
@@ -43,6 +43,7 @@ func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository
 		taskStateMachine: statemachine.NewTaskStateMachine(),
 		orchestrator:     orchestrator.GetGlobalOrchestrator(),
 	}
+	return rs
 }
 
 type CreateRepoRequest struct {
@@ -96,9 +97,6 @@ func (s *RepositoryService) Create(req CreateRepoRequest) (*model.Repository, er
 	}
 
 	klog.V(6).Infof("仓库创建成功: repoID=%d, name=%s, url=%s", repo.ID, repo.Name, repo.URL)
-
-	// 异步克隆仓库
-	go s.cloneRepository(repo.ID)
 
 	return repo, nil
 }

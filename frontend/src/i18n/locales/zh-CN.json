@@ -148,6 +148,11 @@
     "sync": {
         "title": "数据同步",
         "form_title": "同步设置",
+        "local_sync_url": "本端同步接口地址",
+        "local_sync_url_desc": "可将此地址粘贴到其他实例的\"目标服务器\"输入框中,将本端数据同步到该实例。",
+        "copy": "复制",
+        "copy_success": "复制成功",
+        "copy_failed": "复制失败,请手动复制",
         "target_server": "目标服务器",
         "target_server_placeholder": "例如：http://b-server/api/sync",
         "repository": "待同步仓库",
