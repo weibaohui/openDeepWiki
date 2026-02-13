@@ -389,7 +389,6 @@ export default function Sync() {
                     <div style={{
                         padding: '12px',
                         marginBottom: '16px',
-                        background: 'var(--ant-color-bg-spotlight)',
                         border: '1px solid var(--ant-color-border)',
                         borderRadius: '8px'
                     }}>
@@ -443,18 +442,7 @@ export default function Sync() {
                             </div>
                         )}
                     </div>
-                    <Alert
-                        type="info"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                        message={t('sync.mode_alert_title')}
-                        description={(
-                            <Space direction="vertical" size={4}>
-                                <Text>{t(`sync.mode_hint_${syncMode}`)}</Text>
-                                <Text type="secondary">{t(`sync.mode_diagram_${syncMode}`)}</Text>
-                            </Space>
-                        )}
-                    />
+
                     <Space direction="vertical" style={{ width: '100%' }} size="middle">
                         <div>
                             <Text>{t('sync.mode')}</Text>
@@ -466,7 +454,20 @@ export default function Sync() {
                                 <Radio.Button value="push">{t('sync.mode_push')}</Radio.Button>
                                 <Radio.Button value="pull">{t('sync.mode_pull')}</Radio.Button>
                             </Radio.Group>
+                            <Alert
+                                type="info"
+                                showIcon
+                                style={{ marginBottom: 16 }}
+                                message={t('sync.mode_alert_title')}
+                                description={(
+                                    <Space direction="vertical" size={4}>
+                                        <Text>{t(`sync.mode_hint_${syncMode}`)}</Text>
+                                        <Text type="secondary">{t(`sync.mode_diagram_${syncMode}`)}</Text>
+                                    </Space>
+                                )}
+                            />
                         </div>
+
                         <div>
                             <Text>{t('sync.target_server')}</Text>
                             <Input

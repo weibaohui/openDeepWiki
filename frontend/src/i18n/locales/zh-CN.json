@@ -157,7 +157,7 @@
         "mode_hint_push": "推送模式会将本端数据写入目标服务器",
         "mode_hint_pull": "拉取模式会从目标服务器获取数据写入本端",
         "mode_diagram_push": "本端 → 目标服务器",
-        "mode_diagram_pull": "目标服务器 → 本端",
+        "mode_diagram_pull": "本端 ← 目标服务器",
         "copy": "复制",
         "copy_success": "复制成功",
         "copy_failed": "复制失败,请手动复制",

@@ -155,7 +155,7 @@
         "mode_hint_push": "Push mode writes local data into the target server",
         "mode_hint_pull": "Pull mode retrieves data from the target server into this instance",
         "mode_diagram_push": "Local → Target Server",
-        "mode_diagram_pull": "Target Server → Local",
+        "mode_diagram_pull": "Local ← Target Server ",
         "copy": "Copy",
         "copy_success": "Copied successfully",
         "copy_failed": "Copy failed, please copy manually",
