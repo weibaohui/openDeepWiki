@@ -14,12 +14,24 @@ interface MarkdownRenderProps {
   style?: React.CSSProperties;
 }
 
+type MarkdownCodeProps = React.HTMLAttributes<HTMLElement> & {
+  inline?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+};
+
+type MarkdownLinkProps = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  href?: string;
+  children?: React.ReactNode;
+};
+
 const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, style }) => {
   const { themeMode } = useAppConfig();
   const location = useLocation();
 
   const components: Components = {
-    code({ node, inline, className, children, ...props }: any) {
+    code({ inline, className, children, style: _style, ...props }: MarkdownCodeProps) {
+      void _style;
       const match = /language-(\w+)/.exec(className || '');
       const isMermaid = match && match[1] === 'mermaid';
 
@@ -37,9 +49,12 @@ const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, sty
           })
           .replace(/\\"/g, '"');
 
+        const syntaxStyle: Record<string, React.CSSProperties> = themeMode === 'dark'
+          ? (vscDarkPlus as Record<string, React.CSSProperties>)
+          : (solarizedlight as Record<string, React.CSSProperties>);
         return (
           <SyntaxHighlighter
-            style={themeMode === 'dark' ? vscDarkPlus : solarizedlight}
+            style={syntaxStyle}
             language={match[1]}
             PreTag="div"
             {...props}
@@ -55,7 +70,7 @@ const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, sty
         </code>
       );
     },
-    a({ node, href, children, ...props }: any) {
+    a({ href, children, ...props }: MarkdownLinkProps) {
       // 处理相对路径的代码链接，增加重定向前缀
       if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('/') && !href.startsWith('#')) {
         let newHref = `/api/doc/{docId}/redirect?path=${href}`;
