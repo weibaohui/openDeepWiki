@@ -457,7 +457,7 @@ export default function Sync() {
                             <Alert
                                 type="info"
                                 showIcon
-                                style={{ marginBottom: 16 }}
+                                style={{ marginBottom: 16, marginTop: 16 }}
                                 message={t('sync.mode_alert_title')}
                                 description={(
                                     <Space direction="vertical" size={4}>
