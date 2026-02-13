@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/panjf2000/ants/v2"
+	"gorm.io/gorm"
 	"k8s.io/klog/v2"
 )
 
@@ -304,6 +305,10 @@ func (o *Orchestrator) tryDispatch(job *Job) {
 	if o.dependencyChecker != nil {
 		allowed, runAfterID, runAfterStatus, err := o.dependencyChecker.CheckRunAfterSatisfied(job.TaskID)
 		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				klog.V(6).Infof("任务已不存在，丢弃队列任务: taskID=%d, runAfter=%d", job.TaskID, runAfterID)
+				return
+			}
 			klog.V(6).Infof("任务依赖检查失败，暂不分发: taskID=%d, runAfter=%d, error=%v", job.TaskID, runAfterID, err)
 			if enqueueErr := o.retryQueue.Enqueue(job); enqueueErr != nil {
 				klog.Errorf("任务依赖检查失败后重试入队失败: taskID=%d, error=%v", job.TaskID, enqueueErr)
