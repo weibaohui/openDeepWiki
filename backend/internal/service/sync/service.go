@@ -17,6 +17,7 @@ import (
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"gorm.io/gorm"
@@ -47,6 +48,7 @@ type Service struct {
 	client        *http.Client
 	statusMap     map[string]*Status
 	mutex         sync.RWMutex
+	docBus        *eventbus.DocEventBus
 }
 
 func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository) *Service {
@@ -57,6 +59,25 @@ func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository,
 		taskUsageRepo: taskUsageRepo,
 		client:        &http.Client{Timeout: 15 * time.Second},
 		statusMap:     make(map[string]*Status),
+	}
+}
+
+// SetDocEventBus 设置文档事件总线
+func (s *Service) SetDocEventBus(bus *eventbus.DocEventBus) {
+	s.docBus = bus
+}
+
+// publishDocEvent 发布文档事件
+func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEventType, repoID uint, docID uint) {
+	if s.docBus == nil {
+		return
+	}
+	if err := s.docBus.Publish(ctx, eventType, eventbus.DocEvent{
+		Type:         eventType,
+		RepositoryID: repoID,
+		DocID:        docID,
+	}); err != nil {
+		klog.Errorf("文档事件发布失败: type=%s, repositoryID=%d, docID=%d, error=%v", eventType, repoID, docID, err)
 	}
 }
 
@@ -672,6 +693,7 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 				})
 				continue
 			}
+			s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID)
 			if latestDoc != nil && doc.ID == latestDoc.ID {
 				latestRemoteDocID = remoteDocID
 			}
@@ -879,6 +901,7 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 			}
 			docIDMap[doc.DocumentID] = createdDoc.ID
 			localDocs = append(localDocs, *createdDoc)
+			s.publishDocEvent(ctx, eventbus.DocEventPulled, createdDoc.RepositoryID, createdDoc.ID)
 		}
 
 		if len(localDocs) > 0 {

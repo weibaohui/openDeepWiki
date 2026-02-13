@@ -127,6 +127,7 @@ func main() {
 	docHandler := handler.NewDocumentHandler(docEventBus, docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	syncService := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo)
+	syncService.SetDocEventBus(docEventBus)
 	syncHandler := handler.NewSyncHandler(syncService)
 
 	// 初始化 EnhancedModelProvider 并设置到 Manager

@@ -8,6 +8,7 @@ import (
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 )
 
@@ -743,5 +744,30 @@ func TestListDocuments(t *testing.T) {
 	}
 	if items[0].DocumentID != 201 || items[0].Status != "completed" {
 		t.Fatalf("unexpected item: %+v", items[0])
+	}
+}
+
+// TestPublishDocEvent 验证文档事件发布成功
+func TestPublishDocEvent(t *testing.T) {
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, &mockDocRepo{}, &mockTaskUsageRepo{})
+	bus := eventbus.NewDocEventBus()
+	svc.SetDocEventBus(bus)
+
+	var (
+		called bool
+		got    eventbus.DocEvent
+	)
+	bus.Subscribe(eventbus.DocEventPulled, func(ctx context.Context, event eventbus.DocEvent) error {
+		called = true
+		got = event
+		return nil
+	})
+
+	svc.publishDocEvent(context.Background(), eventbus.DocEventPulled, 9, 18)
+	if !called {
+		t.Fatalf("expected handler to be called")
+	}
+	if got.RepositoryID != 9 || got.DocID != 18 || got.Type != eventbus.DocEventPulled {
+		t.Fatalf("unexpected event: %+v", got)
 	}
 }
