@@ -684,3 +684,64 @@ func TestCollectTaskIDsByDocumentsMismatch(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestBuildPullExportDataWithFilter(t *testing.T) {
+	now := time.Now()
+	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
+		1: {ID: 1, Name: "repo-1", URL: "https://example.com/repo-1", CreatedAt: now, UpdatedAt: now},
+	}}
+	taskRepo := &mockTaskRepo{tasks: map[uint]*model.Task{
+		10: {ID: 10, RepositoryID: 1, Title: "任务A", Status: "completed", CreatedAt: now, UpdatedAt: now},
+		11: {ID: 11, RepositoryID: 1, Title: "任务B", Status: "running", CreatedAt: now, UpdatedAt: now},
+	}}
+	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
+		100: {ID: 100, RepositoryID: 1, TaskID: 10, Title: "文档A", CreatedAt: now, UpdatedAt: now},
+		101: {ID: 101, RepositoryID: 1, TaskID: 11, Title: "文档B", CreatedAt: now, UpdatedAt: now},
+	}}
+	taskUsageRepo := &mockTaskUsageRepo{usages: map[uint]*model.TaskUsage{
+		10: {TaskID: 10, APIKeyName: "gpt-4", PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30, CreatedAt: now},
+	}}
+	svc := New(repoRepo, taskRepo, docRepo, taskUsageRepo)
+
+	export, err := svc.BuildPullExportData(nil, 1, []uint{100})
+	if err != nil {
+		t.Fatalf("BuildPullExportData error: %v", err)
+	}
+	if export.Repository.RepositoryID != 1 {
+		t.Fatalf("unexpected repository id: %d", export.Repository.RepositoryID)
+	}
+	if len(export.Tasks) != 1 || export.Tasks[0].TaskID != 10 {
+		t.Fatalf("unexpected tasks: %+v", export.Tasks)
+	}
+	if len(export.Documents) != 1 || export.Documents[0].DocumentID != 100 {
+		t.Fatalf("unexpected documents: %+v", export.Documents)
+	}
+	if len(export.TaskUsages) != 1 || export.TaskUsages[0].TaskID != 10 {
+		t.Fatalf("unexpected task usages: %+v", export.TaskUsages)
+	}
+}
+
+func TestListDocuments(t *testing.T) {
+	now := time.Now()
+	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
+		2: {ID: 2, Name: "repo-2"},
+	}}
+	taskRepo := &mockTaskRepo{tasks: map[uint]*model.Task{
+		21: {ID: 21, RepositoryID: 2, Status: "completed"},
+	}}
+	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
+		201: {ID: 201, RepositoryID: 2, TaskID: 21, Title: "文档C", CreatedAt: now},
+	}}
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{})
+
+	items, err := svc.ListDocuments(nil, 2)
+	if err != nil {
+		t.Fatalf("ListDocuments error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("unexpected items: %+v", items)
+	}
+	if items[0].DocumentID != 201 || items[0].Status != "completed" {
+		t.Fatalf("unexpected item: %+v", items[0])
+	}
+}

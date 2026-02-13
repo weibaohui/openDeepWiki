@@ -125,6 +125,34 @@ export interface SyncStatusData {
     updated_at: string;
 }
 
+export interface SyncRepositoryListItem {
+    repository_id: number;
+    name: string;
+    url: string;
+    clone_branch: string;
+    status: string;
+    updated_at: string;
+}
+
+export interface SyncDocumentListItem {
+    document_id: number;
+    repository_id: number;
+    task_id: number;
+    title: string;
+    status: Task['status'];
+    created_at: string;
+}
+
+export interface SyncRepositoryListResponse {
+    code: string;
+    data: SyncRepositoryListItem[];
+}
+
+export interface SyncDocumentListResponse {
+    code: string;
+    data: SyncDocumentListItem[];
+}
+
 export interface SyncStartResponse {
     code: string;
     data: SyncStartData;

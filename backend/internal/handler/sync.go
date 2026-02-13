@@ -22,7 +22,11 @@ func (h *SyncHandler) RegisterRoutes(router *gin.RouterGroup) {
 	{
 		syncGroup.GET("/ping", h.Ping)
 		syncGroup.POST("", h.Start)
+		syncGroup.POST("/pull", h.Pull)
 		syncGroup.GET("/status/:sync_id", h.Status)
+		syncGroup.GET("/repository-list", h.RepositoryList)
+		syncGroup.GET("/document-list", h.DocumentList)
+		syncGroup.POST("/pull-export", h.PullExport)
 		syncGroup.POST("/repository-upsert", h.RepositoryUpsert)
 		syncGroup.POST("/repository-clear", h.RepositoryClear)
 		syncGroup.POST("/task-create", h.TaskCreate)
@@ -61,6 +65,31 @@ func (h *SyncHandler) Start(c *gin.Context) {
 	})
 }
 
+func (h *SyncHandler) Pull(c *gin.Context) {
+	var req syncdto.PullStartRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	status, err := h.service.StartPull(c.Request.Context(), req.TargetServer, req.RepositoryID, req.DocumentIDs, req.ClearLocal)
+	if err != nil {
+		klog.Errorf("[sync.Pull] 启动拉取失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, syncdto.StartResponse{
+		Code: "OK",
+		Data: syncdto.StartData{
+			SyncID:       status.SyncID,
+			RepositoryID: status.RepositoryID,
+			TotalTasks:   status.TotalTasks,
+			Status:       status.Status,
+		},
+	})
+}
+
 func (h *SyncHandler) Status(c *gin.Context) {
 	syncID := c.Param("sync_id")
 	status, ok := h.service.GetStatus(syncID)
@@ -82,6 +111,62 @@ func (h *SyncHandler) Status(c *gin.Context) {
 			StartedAt:      status.StartedAt,
 			UpdatedAt:      status.UpdatedAt,
 		},
+	})
+}
+
+func (h *SyncHandler) RepositoryList(c *gin.Context) {
+	items, err := h.service.ListRepositories(c.Request.Context())
+	if err != nil {
+		klog.Errorf("[sync.RepositoryList] 获取仓库列表失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, syncdto.RepositoryListResponse{
+		Code: "OK",
+		Data: items,
+	})
+}
+
+func (h *SyncHandler) DocumentList(c *gin.Context) {
+	var req struct {
+		RepositoryID uint `form:"repository_id" binding:"required"`
+	}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	items, err := h.service.ListDocuments(c.Request.Context(), req.RepositoryID)
+	if err != nil {
+		klog.Errorf("[sync.DocumentList] 获取文档列表失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, syncdto.DocumentListResponse{
+		Code: "OK",
+		Data: items,
+	})
+}
+
+func (h *SyncHandler) PullExport(c *gin.Context) {
+	var req syncdto.PullExportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	data, err := h.service.BuildPullExportData(c.Request.Context(), req.RepositoryID, req.DocumentIDs)
+	if err != nil {
+		klog.Errorf("[sync.PullExport] 生成拉取数据失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, syncdto.PullExportResponse{
+		Code: "OK",
+		Data: data,
 	})
 }
 
