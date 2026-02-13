@@ -274,6 +274,7 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 			TaskID:       task.ID,
 			RepositoryID: task.RepositoryID,
 			Title:        task.Title,
+			Outline:      task.Outline,
 			Status:       task.Status,
 			ErrorMsg:     task.ErrorMsg,
 			SortOrder:    task.SortOrder,
@@ -387,6 +388,7 @@ func (s *Service) CreateTask(ctx context.Context, req syncdto.TaskCreateRequest)
 	task := &model.Task{
 		RepositoryID: repo.ID,
 		Title:        req.Title,
+		Outline:      req.Outline,
 		Status:       req.Status,
 		ErrorMsg:     req.ErrorMsg,
 		SortOrder:    req.SortOrder,
@@ -840,6 +842,7 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 		localTask, err := s.CreateTask(ctx, syncdto.TaskCreateRequest{
 			RepositoryID: repo.ID,
 			Title:        task.Title,
+			Outline:      task.Outline,
 			Status:       task.Status,
 			ErrorMsg:     task.ErrorMsg,
 			SortOrder:    task.SortOrder,
@@ -1062,6 +1065,7 @@ func (s *Service) createRemoteTask(ctx context.Context, targetServer string, tas
 	reqBody := syncdto.TaskCreateRequest{
 		RepositoryID: task.RepositoryID,
 		Title:        task.Title,
+		Outline:      task.Outline,
 		Status:       task.Status,
 		ErrorMsg:     task.ErrorMsg,
 		SortOrder:    task.SortOrder,

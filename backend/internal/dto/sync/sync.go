@@ -86,6 +86,7 @@ type RepositoryClearData struct {
 type TaskCreateRequest struct {
 	RepositoryID uint       `json:"repository_id" binding:"required"`
 	Title        string     `json:"title"`
+	Outline      string     `json:"outline"`
 	Status       string     `json:"status"`
 	ErrorMsg     string     `json:"error_msg"`
 	SortOrder    int        `json:"sort_order"`
@@ -240,6 +241,7 @@ type PullTaskData struct {
 	TaskID       uint       `json:"task_id"`
 	RepositoryID uint       `json:"repository_id"`
 	Title        string     `json:"title"`
+	Outline      string     `json:"outline"`
 	Status       string     `json:"status"`
 	ErrorMsg     string     `json:"error_msg"`
 	SortOrder    int        `json:"sort_order"`

@@ -71,7 +71,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize user request writer service: %v", err)
 	}
-	defaultWriter, err := writers.NewDefaultWriter(cfg, hintRepo)
+	defaultWriter, err := writers.NewDefaultWriter(cfg, hintRepo, taskRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize document generator service: %v", err)
 	}

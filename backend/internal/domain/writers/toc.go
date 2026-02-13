@@ -68,7 +68,7 @@ func (s *tocWriter) Generate(ctx context.Context, localPath string, title string
 		return "", fmt.Errorf("%w: %w", domain.ErrDirMakerGenerationFailed, err)
 	}
 	for _, dir := range result.Dirs {
-		task, err := s.taskService.CreateDocWriteTask(ctx, repo.ID, dir.Title, dir.SortOrder)
+		task, err := s.taskService.CreateDocWriteTask(ctx, repo.ID, dir.Title, dir.Outline, dir.SortOrder)
 		if err != nil {
 			klog.Errorf("[%s] 创建任务失败: repoID=%d, error=%v", s.Name(), repo.ID, err)
 			continue
@@ -126,6 +126,7 @@ func (s *tocWriter) genDirList(ctx context.Context, localPath string) (*domain.D
 1. 分析仓库目录结构，识别项目类型和技术栈
 2. 根据项目特征生成初步的任务列表
 3. 校验并修正任务列表，确保完整性和合理性
+4. 为每个目录项输出写作提纲 outline
 
 请确保最终输出为严格符合 YAML 规范的目录结构（包含 dirs 与 analysis_summary），无多余注释或解释性文字。`, localPath)
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
@@ -169,6 +170,10 @@ func parseDirList(content string) (*domain.DirMakerGenerationResult, error) {
 		klog.Errorf("[dm.parseList] YAML 解析失败: %v", err)
 		return nil, fmt.Errorf("%w: %v", domain.ErrYAMLParseFailed, err)
 	}
+	for _, dir := range result.Dirs {
+		klog.V(6).Infof("AI分析目录编写大纲\n%s\n", dir.Outline)
+	}
+
 	klog.V(6).Infof("AI分析概要\n%s\n", result.AnalysisSummary)
 	klog.V(6).Infof("[dm.parseList] 解析完成，目录数: %d", len(result.Dirs))
 	return &result, nil

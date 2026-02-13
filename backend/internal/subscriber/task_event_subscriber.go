@@ -15,7 +15,7 @@ type TaskEventSubscriber struct {
 }
 
 type taskEventService interface {
-	CreateDocWriteTask(ctx context.Context, repoID uint, title string, sortOrder int, writerNames ...domain.WriterName) (*model.Task, error)
+	CreateDocWriteTask(ctx context.Context, repoID uint, title string, outline string, sortOrder int, writerNames ...domain.WriterName) (*model.Task, error)
 	CreateTocWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error)
 	CreateTitleRewriteTask(ctx context.Context, repoID uint, title string, runAfter uint, docId uint, sortOrder int) (*model.Task, error)
 	CreateUserRequestTask(ctx context.Context, repoID uint, content string, sortOrder int) (*model.Task, error)
@@ -42,14 +42,14 @@ func (s *TaskEventSubscriber) handleDocWrite(ctx context.Context, event eventbus
 	var taskErr error
 	var taskID uint
 	if event.WriterName != "" {
-		task, err := s.taskService.CreateDocWriteTask(ctx, event.RepositoryID, event.Title, event.SortOrder, event.WriterName)
+		task, err := s.taskService.CreateDocWriteTask(ctx, event.RepositoryID, event.Title, event.Outline, event.SortOrder, event.WriterName)
 		if err != nil {
 			taskErr = err
 		} else {
 			taskID = task.ID
 		}
 	} else {
-		task, err := s.taskService.CreateDocWriteTask(ctx, event.RepositoryID, event.Title, event.SortOrder)
+		task, err := s.taskService.CreateDocWriteTask(ctx, event.RepositoryID, event.Title, event.Outline, event.SortOrder)
 		if err != nil {
 			taskErr = err
 		} else {
