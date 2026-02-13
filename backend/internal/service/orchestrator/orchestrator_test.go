@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type fakeExecutor struct {
@@ -133,6 +135,36 @@ func TestTryDispatchWithRunAfterNotSatisfied(t *testing.T) {
 
 	if got := o.retryQueue.Len(); got != 1 {
 		t.Fatalf("retry queue should be 1, got %d", got)
+	}
+	if atomic.LoadInt32(&executor.calls) != 0 {
+		t.Fatalf("executor should not be called, got %d", executor.calls)
+	}
+}
+
+func TestTryDispatchWithRunAfterTaskNotFound(t *testing.T) {
+	executor := &fakeExecutor{}
+	o, _ := NewOrchestrator(1, executor)
+	o.retryTicker.Stop()
+	defer o.pool.Release()
+
+	o.SetDependencyChecker(&fakeDependencyChecker{
+		allowed:        false,
+		runAfterID:     0,
+		runAfterStatus: "",
+		err:            gorm.ErrRecordNotFound,
+	})
+
+	job := &Job{
+		TaskID:     5,
+		RetryCount: 0,
+		MaxRetries: 3,
+		Timeout:    10 * time.Millisecond,
+	}
+
+	o.tryDispatch(job)
+
+	if got := o.retryQueue.Len(); got != 0 {
+		t.Fatalf("retry queue should be empty, got %d", got)
 	}
 	if atomic.LoadInt32(&executor.calls) != 0 {
 		t.Fatalf("executor should not be called, got %d", executor.calls)
