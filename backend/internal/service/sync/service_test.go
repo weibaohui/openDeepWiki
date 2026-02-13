@@ -350,7 +350,7 @@ func (m *mockDocRepo) GetByTaskID(taskID uint) ([]model.Document, error) {
 }
 
 type mockTaskUsageRepo struct {
-	usages map[uint]*model.TaskUsage
+	usages map[uint][]model.TaskUsage
 	err    error
 }
 
@@ -360,9 +360,9 @@ func (m *mockTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) 
 		return m.err
 	}
 	if m.usages == nil {
-		m.usages = make(map[uint]*model.TaskUsage)
+		m.usages = make(map[uint][]model.TaskUsage)
 	}
-	m.usages[usage.TaskID] = usage
+	m.usages[usage.TaskID] = append(m.usages[usage.TaskID], *usage)
 	return nil
 }
 
@@ -371,11 +371,25 @@ func (m *mockTaskUsageRepo) GetByTaskID(ctx context.Context, taskID uint) (*mode
 	if m.err != nil {
 		return nil, m.err
 	}
-	usage, ok := m.usages[taskID]
+	usages, ok := m.usages[taskID]
 	if !ok {
 		return nil, nil
 	}
-	return usage, nil
+	if len(usages) == 0 {
+		return nil, nil
+	}
+	return &usages[len(usages)-1], nil
+}
+
+func (m *mockTaskUsageRepo) GetByTaskIDList(ctx context.Context, taskID uint) ([]model.TaskUsage, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	usages, ok := m.usages[taskID]
+	if !ok {
+		return nil, nil
+	}
+	return usages, nil
 }
 
 // Upsert 根据 task_id 插入或更新任务用量记录
@@ -384,11 +398,26 @@ func (m *mockTaskUsageRepo) Upsert(ctx context.Context, usage *model.TaskUsage) 
 		return m.err
 	}
 	if m.usages == nil {
-		m.usages = make(map[uint]*model.TaskUsage)
+		m.usages = make(map[uint][]model.TaskUsage)
 	}
-	// 删除旧记录并插入新记录（覆盖逻辑）
 	delete(m.usages, usage.TaskID)
-	m.usages[usage.TaskID] = usage
+	m.usages[usage.TaskID] = []model.TaskUsage{*usage}
+	return nil
+}
+
+func (m *mockTaskUsageRepo) UpsertMany(ctx context.Context, usages []model.TaskUsage) error {
+	if m.err != nil {
+		return m.err
+	}
+	if len(usages) == 0 {
+		return nil
+	}
+	taskID := usages[0].TaskID
+	if m.usages == nil {
+		m.usages = make(map[uint][]model.TaskUsage)
+	}
+	delete(m.usages, taskID)
+	m.usages[taskID] = usages
 	return nil
 }
 
@@ -420,6 +449,49 @@ func TestServiceCreateTaskSuccess(t *testing.T) {
 	}
 	if task.RepositoryID != 1 || task.Title != "任务A" || task.Status != "completed" || task.Outline != "提纲A" {
 		t.Fatalf("unexpected task: %+v", task)
+	}
+}
+
+func TestServiceCreateTaskUsageBatch(t *testing.T) {
+	taskUsageRepo := &mockTaskUsageRepo{}
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, &mockDocRepo{}, taskUsageRepo)
+	now := time.Now()
+	_, err := svc.CreateTaskUsage(nil, syncdto.TaskUsageCreateRequest{
+		TaskID: 7,
+		TaskUsages: []syncdto.TaskUsageCreateItem{
+			{
+				ID:               1,
+				TaskID:           7,
+				APIKeyName:       "gpt-4",
+				PromptTokens:     10,
+				CompletionTokens: 20,
+				TotalTokens:      30,
+				CachedTokens:     3,
+				ReasoningTokens:  5,
+				CreatedAt:        now.Format(time.RFC3339Nano),
+			},
+			{
+				ID:               2,
+				TaskID:           7,
+				APIKeyName:       "gpt-4o",
+				PromptTokens:     5,
+				CompletionTokens: 6,
+				TotalTokens:      11,
+				CachedTokens:     1,
+				ReasoningTokens:  2,
+				CreatedAt:        now.Add(time.Second).Format(time.RFC3339Nano),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateTaskUsage error: %v", err)
+	}
+	usages := taskUsageRepo.usages[7]
+	if len(usages) != 2 {
+		t.Fatalf("unexpected usages length: %d", len(usages))
+	}
+	if usages[0].ID != 1 || usages[1].ID != 2 {
+		t.Fatalf("unexpected usage ids: %+v", usages)
 	}
 }
 
@@ -700,8 +772,8 @@ func TestBuildPullExportDataWithFilter(t *testing.T) {
 		100: {ID: 100, RepositoryID: 1, TaskID: 10, Title: "文档A", CreatedAt: now, UpdatedAt: now},
 		101: {ID: 101, RepositoryID: 1, TaskID: 11, Title: "文档B", CreatedAt: now, UpdatedAt: now},
 	}}
-	taskUsageRepo := &mockTaskUsageRepo{usages: map[uint]*model.TaskUsage{
-		10: {TaskID: 10, APIKeyName: "gpt-4", PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30, CreatedAt: now},
+	taskUsageRepo := &mockTaskUsageRepo{usages: map[uint][]model.TaskUsage{
+		10: {{TaskID: 10, APIKeyName: "gpt-4", PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30, CreatedAt: now}},
 	}}
 	svc := New(repoRepo, taskRepo, docRepo, taskUsageRepo)
 

@@ -20,6 +20,10 @@ func (m *mockTaskUsageRepo) GetByTaskID(ctx context.Context, taskID uint) (*mode
 	return nil, nil
 }
 
+func (m *mockTaskUsageRepo) GetByTaskIDList(ctx context.Context, taskID uint) ([]model.TaskUsage, error) {
+	return nil, nil
+}
+
 // Create 创建任务用量记录
 func (m *mockTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) error {
 	m.CreateCalled++
@@ -33,6 +37,13 @@ func (m *mockTaskUsageRepo) Create(ctx context.Context, usage *model.TaskUsage) 
 // Upsert 根据 task_id 插入或更新任务用量记录
 func (m *mockTaskUsageRepo) Upsert(ctx context.Context, usage *model.TaskUsage) error {
 	return m.Create(ctx, usage)
+}
+
+func (m *mockTaskUsageRepo) UpsertMany(ctx context.Context, usages []model.TaskUsage) error {
+	if len(usages) == 0 {
+		return nil
+	}
+	return m.Create(ctx, &usages[0])
 }
 
 // TestTaskUsageServiceRecordUsageSuccess 验证记录成功

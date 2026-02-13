@@ -84,10 +84,15 @@ type RepositoryClearData struct {
 }
 
 type TaskCreateRequest struct {
+	TaskID       uint       `json:"task_id"`
 	RepositoryID uint       `json:"repository_id" binding:"required"`
+	DocID        uint       `json:"doc_id"`
+	WriterName   string     `json:"writer_name"`
+	TaskType     string     `json:"task_type"`
 	Title        string     `json:"title"`
 	Outline      string     `json:"outline"`
 	Status       string     `json:"status"`
+	RunAfter     uint       `json:"run_after"`
 	ErrorMsg     string     `json:"error_msg"`
 	SortOrder    int        `json:"sort_order"`
 	StartedAt    *time.Time `json:"started_at,omitempty"`
@@ -109,6 +114,7 @@ type TaskCreateData struct {
 }
 
 type DocumentCreateRequest struct {
+	DocumentID   uint      `json:"document_id"`
 	RepositoryID uint      `json:"repository_id" binding:"required"`
 	TaskID       uint      `json:"task_id" binding:"required"`
 	Title        string    `json:"title"`
@@ -151,14 +157,27 @@ type TaskUpdateDocIDData struct {
 }
 
 type TaskUsageCreateRequest struct {
-	TaskID           uint   `json:"task_id" binding:"required"` // 对端的 taskID
+	TaskID           uint                  `json:"task_id"` // 对端的 taskID
+	APIKeyName       string                `json:"api_key_name"`
+	PromptTokens     int                   `json:"prompt_tokens"`
+	CompletionTokens int                   `json:"completion_tokens"`
+	TotalTokens      int                   `json:"total_tokens"`
+	CachedTokens     int                   `json:"cached_tokens"`
+	ReasoningTokens  int                   `json:"reasoning_tokens"`
+	CreatedAt        string                `json:"created_at"` // 使用 string 避免时区解析问题
+	TaskUsages       []TaskUsageCreateItem `json:"task_usages,omitempty"`
+}
+
+type TaskUsageCreateItem struct {
+	ID               uint   `json:"id"`
+	TaskID           uint   `json:"task_id" binding:"required"`
 	APIKeyName       string `json:"api_key_name" binding:"required"`
 	PromptTokens     int    `json:"prompt_tokens"`
 	CompletionTokens int    `json:"completion_tokens"`
 	TotalTokens      int    `json:"total_tokens"`
 	CachedTokens     int    `json:"cached_tokens"`
 	ReasoningTokens  int    `json:"reasoning_tokens"`
-	CreatedAt        string `json:"created_at"` // 使用 string 避免时区解析问题
+	CreatedAt        string `json:"created_at"`
 }
 
 type TaskUsageCreateResponse struct {
@@ -240,9 +259,13 @@ type PullRepositoryData struct {
 type PullTaskData struct {
 	TaskID       uint       `json:"task_id"`
 	RepositoryID uint       `json:"repository_id"`
+	DocID        uint       `json:"doc_id"`
+	WriterName   string     `json:"writer_name"`
+	TaskType     string     `json:"task_type"`
 	Title        string     `json:"title"`
 	Outline      string     `json:"outline"`
 	Status       string     `json:"status"`
+	RunAfter     uint       `json:"run_after"`
 	ErrorMsg     string     `json:"error_msg"`
 	SortOrder    int        `json:"sort_order"`
 	StartedAt    *time.Time `json:"started_at,omitempty"`
@@ -267,6 +290,7 @@ type PullDocumentData struct {
 }
 
 type PullTaskUsageData struct {
+	ID               uint      `json:"id"`
 	TaskID           uint      `json:"task_id"`
 	APIKeyName       string    `json:"api_key_name"`
 	PromptTokens     int       `json:"prompt_tokens"`

@@ -5,6 +5,8 @@
 | 修改人 | 修改时间 | 修改内容 |
 | ------ | -------- | -------- |
 | AI | 2026-02-12 | 初始版本 |
+| AI | 2026-02-13 | 补充全字段传输与多条 TaskUsage 覆盖同步 |
+| AI | 2026-02-13 | 完善 Task/Document/TaskUsage 字段与 ID 传输设计 |
 
 ## 一、设计目标
 
@@ -12,10 +14,10 @@
 
 ## 二、设计范围
 
-- Repository 层：添加 TaskUsageRepository.Upsert 方法
-- DTO 层：添加 TaskUsage 同步请求/响应结构
-- Service 层：扩展 sync service 支持获取和同步 TaskUsage
-- Handler 层：添加 TaskUsage 创建接口
+- Repository 层：扩展 TaskUsageRepository 支持按任务获取多条记录并覆盖写入
+- DTO 层：补齐 Task/Document/TaskUsage 全字段传输结构，支持 TaskUsage 列表
+- Service 层：扩展 sync service 支持批量同步 TaskUsage
+- Handler 层：支持 TaskUsage 覆盖写入与多条记录接收
 
 ## 三、核心设计思路
 
@@ -29,35 +31,34 @@
 
 本端 TaskUsage 同步：
 ┌─────────────────────────────────────────────────────────────────┐
-│ GetTaskUsageByTaskID(taskID) → usage               │
+│ GetTaskUsagesByTaskID(taskID) → usages             │
 │                                                      │
-│ createRemoteTaskUsage(remoteTaskID, usage) → 对端     │
+│ createRemoteTaskUsages(remoteTaskID, usages) → 对端   │
 └─────────────────────────────────────────────────────────────────┘
 
 对端接收：
 ┌─────────────────────────────────────────────────────────────────┐
-│ TaskUsageCreateRequest(taskID=remoteTaskID, ...)       │
+│ TaskUsageCreateRequest(taskID=remoteTaskID, task_usages=[]) │
 │                                                      │
-│ Upsert() → 删除旧记录 → 插入新记录（覆盖）  │
+│ UpsertMany() → 删除旧记录 → 批量插入新记录（覆盖） │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 3.2 覆盖逻辑设计
 
-TaskUsage 采用"先删后插"的覆盖模式：
+TaskUsage 采用"先删后插"的覆盖模式（覆盖同一 task_id 的全部历史记录）：
 
 ```sql
 -- 对端 Upsert 伪代码
 BEGIN TRANSACTION;
 DELETE FROM task_usages WHERE task_id = ?;
-INSERT INTO task_usages (task_id, api_key_name, ...) VALUES (?, ...);
+INSERT INTO task_usages (task_id, api_key_name, ...) VALUES (?, ...), (?, ...);
 COMMIT;
 ```
 
 **覆盖的原因：**
-- TaskUsage 是历史记录性质，同一任务的多次同步应该保留最新数据
-- 避免同一 taskID 产生多条记录，导致查询结果不确定
-- 简化数据管理逻辑，保持"一个 taskID 一条记录"的语义
+- TaskUsage 是历史记录性质，同一任务的多次同步应以最新一次为准
+- 保持同一 task_id 的数据集一致，避免历史残留
 
 ### 3.3 同步流程设计
 
@@ -76,13 +77,50 @@ COMMIT;
 
 ## 四、数据模型
 
-### 4.1 新增 DTO 结构
+### 4.1 DTO 结构调整
+
+#### TaskCreateRequest
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| task_id | uint | 源端任务ID |
+| repository_id | uint | 仓库ID |
+| doc_id | uint | 关联文档ID |
+| writer_name | string | 写入器名称 |
+| task_type | string | 任务类型 |
+| title | string | 任务标题 |
+| outline | string | 任务提纲 |
+| status | string | 任务状态 |
+| run_after | uint | 前置任务ID |
+| error_msg | string | 失败信息 |
+| sort_order | int | 排序 |
+| started_at | *time.Time | 开始时间 |
+| completed_at | *time.Time | 完成时间 |
+| created_at | time.Time | 创建时间 |
+| updated_at | time.Time | 更新时间 |
+
+#### DocumentCreateRequest
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| document_id | uint | 源端文档ID |
+| repository_id | uint | 仓库ID |
+| task_id | uint | 关联任务ID |
+| title | string | 标题 |
+| filename | string | 文件名 |
+| content | string | 内容 |
+| sort_order | int | 排序 |
+| version | int | 版本 |
+| is_latest | bool | 是否最新 |
+| replaced_by | uint | 替换关系 |
+| created_at | time.Time | 创建时间 |
+| updated_at | time.Time | 更新时间 |
 
 #### TaskUsageCreateRequest
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| task_id | uint | 对端的 taskID（必填） |
+| task_id | uint | 对端的 taskID |
 | api_key_name | string | 使用的模型名称（必填） |
 | prompt_tokens | int | 提示词 token 数量 |
 | completion_tokens | int | 补全 token 数量 |
@@ -90,6 +128,35 @@ COMMIT;
 | cached_tokens | int | 缓存 token 数量 |
 | reasoning_tokens | int | 推理 token 数量 |
 | created_at | string | 记录创建时间（RFC3339Nano） |
+| task_usages | []TaskUsageItem | 任务用量记录列表 |
+
+#### TaskUsageCreateItem
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | uint | TaskUsage 记录ID |
+| task_id | uint | 对端的 taskID |
+| api_key_name | string | 使用的模型名称 |
+| prompt_tokens | int | 提示词 token 数量 |
+| completion_tokens | int | 补全 token 数量 |
+| total_tokens | int | 总 token 数量 |
+| cached_tokens | int | 缓存 token 数量 |
+| reasoning_tokens | int | 推理 token 数量 |
+| created_at | string | 记录创建时间（RFC3339Nano） |
+
+#### PullTaskUsageData
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | uint | TaskUsage 记录ID |
+| task_id | uint | 任务ID |
+| api_key_name | string | 使用的模型名称 |
+| prompt_tokens | int | 提示词 token 数量 |
+| completion_tokens | int | 补全 token 数量 |
+| total_tokens | int | 总 token 数量 |
+| cached_tokens | int | 缓存 token 数量 |
+| reasoning_tokens | int | 推理 token 数量 |
+| created_at | time.Time | 创建时间 |
 
 #### TaskUsageCreateResponse
 
@@ -103,7 +170,9 @@ COMMIT;
 type TaskUsageRepository interface {
     Create(ctx context.Context, usage *model.TaskUsage) error
     GetByTaskID(ctx context.Context, taskID uint) (*model.TaskUsage, error)
-    Upsert(ctx context.Context, usage *model.TaskUsage) error  // 新增
+    GetByTaskIDList(ctx context.Context, taskID uint) ([]model.TaskUsage, error)
+    Upsert(ctx context.Context, usage *model.TaskUsage) error
+    UpsertMany(ctx context.Context, usages []model.TaskUsage) error
 }
 ```
 
@@ -143,7 +212,20 @@ Content-Type: application/json
   "total_tokens": 3000,
   "cached_tokens": 500,
   "reasoning_tokens": 100,
-  "created_at": "2026-02-12T10:30:00Z"
+  "created_at": "2026-02-12T10:30:00Z",
+  "task_usages": [
+    {
+      "id": 1001,
+      "task_id": 42,
+      "api_key_name": "gpt-4",
+      "prompt_tokens": 1000,
+      "completion_tokens": 2000,
+      "total_tokens": 3000,
+      "cached_tokens": 500,
+      "reasoning_tokens": 100,
+      "created_at": "2026-02-12T10:30:00Z"
+    }
+  ]
 }
 ```
 
@@ -213,14 +295,14 @@ func (r *taskUsageRepository) Upsert(ctx context.Context, usage *model.TaskUsage
 
 ```go
 // 创建对端 TaskUsage
-func (s *Service) createRemoteTaskUsage(ctx context.Context, targetServer string, remoteTaskID uint, usage *model.TaskUsage) error
+func (s *Service) createRemoteTaskUsages(ctx context.Context, targetServer string, remoteTaskID uint, usages []model.TaskUsage) error
 
 // 在 runSync 中调用
-usage, err := s.GetTaskUsageByTaskID(ctx, task.ID)
+usages, err := s.GetTaskUsagesByTaskID(ctx, task.ID)
 if err != nil {
     klog.Errorf("[sync.runSync] 获取任务用量失败...")
-} else if usage != nil {
-    if err := s.createRemoteTaskUsage(ctx, status.TargetServer, remoteTaskID, usage); err != nil {
+} else if len(usages) > 0 {
+    if err := s.createRemoteTaskUsages(ctx, status.TargetServer, remoteTaskID, usages); err != nil {
         klog.Errorf("[sync.runSync] 同步任务用量失败...")
         s.updateStatus(status.SyncID, func(s *Status) {
             s.FailedTasks++
