@@ -173,3 +173,99 @@ type TaskUsageCreateData struct {
 type ResponseMeta struct {
 	Message string `json:"message,omitempty"`
 }
+
+type RepositoryListResponse struct {
+	Code string               `json:"code"`
+	Data []RepositoryListItem `json:"data"`
+	Meta *ResponseMeta        `json:"meta,omitempty"`
+}
+
+type RepositoryListItem struct {
+	RepositoryID uint      `json:"repository_id"`
+	Name         string    `json:"name"`
+	URL          string    `json:"url"`
+	CloneBranch  string    `json:"clone_branch"`
+	Status       string    `json:"status"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type DocumentListResponse struct {
+	Code string             `json:"code"`
+	Data []DocumentListItem `json:"data"`
+	Meta *ResponseMeta      `json:"meta,omitempty"`
+}
+
+type DocumentListItem struct {
+	DocumentID   uint      `json:"document_id"`
+	RepositoryID uint      `json:"repository_id"`
+	TaskID       uint      `json:"task_id"`
+	Title        string    `json:"title"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type PullExportRequest struct {
+	RepositoryID uint   `json:"repository_id" binding:"required"`
+	DocumentIDs  []uint `json:"document_ids,omitempty"`
+}
+
+type PullExportResponse struct {
+	Code string         `json:"code"`
+	Data PullExportData `json:"data"`
+	Meta *ResponseMeta  `json:"meta,omitempty"`
+}
+
+type PullExportData struct {
+	Repository PullRepositoryData  `json:"repository"`
+	Tasks      []PullTaskData      `json:"tasks"`
+	Documents  []PullDocumentData  `json:"documents"`
+}
+
+type PullRepositoryData struct {
+	RepositoryID uint      `json:"repository_id"`
+	Name         string    `json:"name"`
+	URL          string    `json:"url"`
+	Description  string    `json:"description"`
+	CloneBranch  string    `json:"clone_branch"`
+	CloneCommit  string    `json:"clone_commit_id"`
+	SizeMB       float64   `json:"size_mb"`
+	Status       string    `json:"status"`
+	ErrorMsg     string    `json:"error_msg"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type PullTaskData struct {
+	TaskID       uint       `json:"task_id"`
+	RepositoryID uint       `json:"repository_id"`
+	Title        string     `json:"title"`
+	Status       string     `json:"status"`
+	ErrorMsg     string     `json:"error_msg"`
+	SortOrder    int        `json:"sort_order"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+type PullDocumentData struct {
+	DocumentID   uint      `json:"document_id"`
+	RepositoryID uint      `json:"repository_id"`
+	TaskID       uint      `json:"task_id"`
+	Title        string    `json:"title"`
+	Filename     string    `json:"filename"`
+	Content      string    `json:"content"`
+	SortOrder    int       `json:"sort_order"`
+	Version      int       `json:"version"`
+	IsLatest     bool      `json:"is_latest"`
+	ReplacedBy   uint      `json:"replaced_by"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type PullStartRequest struct {
+	TargetServer string `json:"target_server" binding:"required"`
+	RepositoryID uint   `json:"repository_id" binding:"required"`
+	DocumentIDs  []uint `json:"document_ids,omitempty"`
+	ClearLocal   bool   `json:"clear_local,omitempty"`
+}

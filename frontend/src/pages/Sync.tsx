@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, CopyOutlined, SyncOutlined } from '@ant-design/icons';
-import { Button, Card, Checkbox, Grid, Input, Layout, List, message, Progress, Select, Space, Table, Tag, Typography } from 'antd';
-import type { Document, Repository, SyncStatusData, Task } from '../types';
+import { Alert, Button, Card, Checkbox, Grid, Input, Layout, List, message, Progress, Radio, Select, Space, Table, Tag, Typography } from 'antd';
+import type { Document, Repository, SyncDocumentListItem, SyncRepositoryListItem, SyncStatusData, Task } from '../types';
 import { documentApi, repositoryApi, syncApi, taskApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
@@ -18,14 +18,18 @@ export default function Sync() {
     const screens = useBreakpoint();
     const [messageApi, contextHolder] = message.useMessage();
     const [repositories, setRepositories] = useState<Repository[]>([]);
+    const [remoteRepositories, setRemoteRepositories] = useState<SyncRepositoryListItem[]>([]);
     const [loadingRepos, setLoadingRepos] = useState(false);
     const [targetServer, setTargetServer] = useState('');
     const [repositoryId, setRepositoryId] = useState<number | undefined>(undefined);
     const [documents, setDocuments] = useState<Document[]>([]);
+    const [remoteDocuments, setRemoteDocuments] = useState<SyncDocumentListItem[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loadingDocuments, setLoadingDocuments] = useState(false);
     const [selectedDocumentIds, setSelectedDocumentIds] = useState<number[]>([]);
     const [clearTarget, setClearTarget] = useState(false);
+    const [clearLocal, setClearLocal] = useState(false);
+    const [syncMode, setSyncMode] = useState<'push' | 'pull'>('push');
     const [syncId, setSyncId] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<SyncStatusData | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
@@ -34,20 +38,31 @@ export default function Sync() {
     const lastTaskRef = useRef<string>('');
     const lastStatusRef = useRef<string>('');
 
+    const normalizeTargetServer = (value: string) => value.trim().replace(/\/+$/, '');
+
+    const isValidTargetServer = (value: string) => {
+        try {
+            const url = new URL(value);
+            return url.protocol === 'http:' || url.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    };
+
     // 构建本端同步接口地址
     const syncUrl = useMemo(() => {
         const protocol = window.location.protocol; // http: 或 https:
         const host = window.location.hostname;
         const port = window.location.port;
-        
+
         // 端口省略逻辑
-        const shouldShowPort = 
+        const shouldShowPort =
             (protocol === 'http:' && port !== '80') ||
             (protocol === 'https:' && port !== '443') ||
             port;
-        
+
         const portDisplay = shouldShowPort ? (port ? `:${port}` : '') : '';
-        
+
         return `${protocol}//${host}${portDisplay}/api/sync`;
     }, []);
 
@@ -101,22 +116,26 @@ export default function Sync() {
             title: t('sync.document_title'),
             dataIndex: 'title',
             key: 'title',
-            render: (_: string, record: Document) => (
-                <Button
-                    type="link"
-                    style={{ padding: 0, height: 'auto', textAlign: 'left' }}
-                    onClick={() => window.open(`/#/repo/${repositoryId}/doc/${record.id}`, '_blank')}
-                >
-                    {record.title}
-                </Button>
+            render: (_: string, record: { id: number; title: string }) => (
+                syncMode === 'push' ? (
+                    <Button
+                        type="link"
+                        style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                        onClick={() => window.open(`/#/repo/${repositoryId}/doc/${record.id}`, '_blank')}
+                    >
+                        {record.title}
+                    </Button>
+                ) : (
+                    <Text>{record.title}</Text>
+                )
             ),
         },
         {
             title: t('sync.document_status'),
             dataIndex: 'status',
             key: 'status',
-            render: (_: string, record: Document) => {
-                const status = taskStatusMap[record.task_id];
+            render: (_: string, record: { status?: Task['status'] }) => {
+                const status = record.status;
                 return <Tag color={getStatusColor(status)}>{status ? t(`task.status.${status}`) : '-'}</Tag>;
             },
         },
@@ -126,32 +145,105 @@ export default function Sync() {
             key: 'created_at',
             render: (value: string) => formatDateTime(value),
         },
-    ]), [repositoryId, t, taskStatusMap]);
+    ]), [repositoryId, syncMode, t]);
 
-    useEffect(() => {
-        const fetchRepositories = async () => {
-            setLoadingRepos(true);
+    const documentRows = useMemo(() => {
+        if (syncMode === 'pull') {
+            return remoteDocuments.map((doc) => ({
+                id: doc.document_id,
+                title: doc.title,
+                task_id: doc.task_id,
+                created_at: doc.created_at,
+                status: doc.status,
+            }));
+        }
+        return documents.map((doc) => ({
+            id: doc.id,
+            title: doc.title,
+            task_id: doc.task_id,
+            created_at: doc.created_at,
+            status: taskStatusMap[doc.task_id],
+        }));
+    }, [documents, remoteDocuments, syncMode, taskStatusMap]);
+
+    const repositoryOptions = useMemo(() => {
+        if (syncMode === 'pull') {
+            return remoteRepositories.map((repo) => ({ id: repo.repository_id, name: repo.name }));
+        }
+        return repositories.map((repo) => ({ id: repo.id, name: repo.name }));
+    }, [repositories, remoteRepositories, syncMode]);
+
+    const refreshRepositories = useCallback(async () => {
+        setLoadingRepos(true);
+        if (syncMode === 'pull') {
+            const normalized = normalizeTargetServer(targetServer);
+            if (!normalized || !isValidTargetServer(normalized)) {
+                setRemoteRepositories([]);
+                setLoadingRepos(false);
+                return;
+            }
             try {
-                const response = await repositoryApi.list();
-                const repos = Array.isArray(response.data) ? response.data : [];
-                setRepositories(repos);
+                const response = await syncApi.remoteRepositoryList(normalized);
+                const repos = Array.isArray(response.data.data) ? response.data.data : [];
+                setRemoteRepositories(repos);
             } catch {
-                setRepositories([]);
+                setRemoteRepositories([]);
             } finally {
                 setLoadingRepos(false);
             }
-        };
-        fetchRepositories();
-    }, []);
+            return;
+        }
+        try {
+            const response = await repositoryApi.list();
+            const repos = Array.isArray(response.data) ? response.data : [];
+            setRepositories(repos);
+        } catch {
+            setRepositories([]);
+        } finally {
+            setLoadingRepos(false);
+        }
+    }, [syncMode, targetServer]);
+
+    useEffect(() => {
+        refreshRepositories();
+    }, [refreshRepositories]);
+
+    useEffect(() => {
+        setRepositoryId(undefined);
+        setDocuments([]);
+        setRemoteDocuments([]);
+        setTasks([]);
+        setSelectedDocumentIds([]);
+    }, [syncMode]);
 
     useEffect(() => {
         if (!repositoryId) {
             setDocuments([]);
+            setRemoteDocuments([]);
             setTasks([]);
             setSelectedDocumentIds([]);
             return;
         }
         setLoadingDocuments(true);
+        if (syncMode === 'pull') {
+            const normalized = normalizeTargetServer(targetServer);
+            if (!normalized || !isValidTargetServer(normalized)) {
+                setRemoteDocuments([]);
+                setSelectedDocumentIds([]);
+                setLoadingDocuments(false);
+                return;
+            }
+            syncApi.remoteDocumentList(normalized, repositoryId).then((docRes) => {
+                const docs = Array.isArray(docRes.data.data) ? docRes.data.data : [];
+                setRemoteDocuments(docs);
+                setSelectedDocumentIds([]);
+            }).catch(() => {
+                setRemoteDocuments([]);
+            }).finally(() => {
+                setLoadingDocuments(false);
+            });
+            return;
+        }
         Promise.all([
             documentApi.getByRepository(repositoryId),
             taskApi.getByRepository(repositoryId),
@@ -167,7 +259,7 @@ export default function Sync() {
         }).finally(() => {
             setLoadingDocuments(false);
         });
-    }, [repositoryId]);
+    }, [repositoryId, syncMode, targetServer]);
 
     useEffect(() => {
         if (!syncId) return;
@@ -214,17 +306,12 @@ export default function Sync() {
     }, [syncId, syncStatus?.status, messageApi, t]);
 
     const handleStartSync = async () => {
-        if (!targetServer.trim()) {
+        const normalizedTarget = normalizeTargetServer(targetServer);
+        if (!normalizedTarget) {
             messageApi.error(t('sync.validation_target'));
             return;
         }
-        try {
-            const url = new URL(targetServer.trim());
-            if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-                messageApi.error(t('sync.validation_target'));
-                return;
-            }
-        } catch {
+        if (!isValidTargetServer(normalizedTarget)) {
             messageApi.error(t('sync.validation_target'));
             return;
         }
@@ -235,12 +322,19 @@ export default function Sync() {
 
         setStarting(true);
         try {
-            const response = await syncApi.start(
-                targetServer.trim(),
-                repositoryId,
-                selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
-                clearTarget
-            );
+            const response = syncMode === 'pull'
+                ? await syncApi.pull(
+                    normalizedTarget,
+                    repositoryId,
+                    selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+                    clearLocal
+                )
+                : await syncApi.start(
+                    normalizedTarget,
+                    repositoryId,
+                    selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+                    clearTarget
+                );
             const data = response.data.data;
             setSyncId(data.sync_id);
             setSyncStatus({
@@ -349,7 +443,30 @@ export default function Sync() {
                             </div>
                         )}
                     </div>
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message={t('sync.mode_alert_title')}
+                        description={(
+                            <Space direction="vertical" size={4}>
+                                <Text>{t(`sync.mode_hint_${syncMode}`)}</Text>
+                                <Text type="secondary">{t(`sync.mode_diagram_${syncMode}`)}</Text>
+                            </Space>
+                        )}
+                    />
                     <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                        <div>
+                            <Text>{t('sync.mode')}</Text>
+                            <Radio.Group
+                                value={syncMode}
+                                onChange={(e) => setSyncMode(e.target.value)}
+                                style={{ display: 'flex', gap: 8 }}
+                            >
+                                <Radio.Button value="push">{t('sync.mode_push')}</Radio.Button>
+                                <Radio.Button value="pull">{t('sync.mode_pull')}</Radio.Button>
+                            </Radio.Group>
+                        </div>
                         <div>
                             <Text>{t('sync.target_server')}</Text>
                             <Input
@@ -360,20 +477,25 @@ export default function Sync() {
                         </div>
                         <div>
                             <Text>{t('sync.repository')}</Text>
-                            <Select
-                                style={{ width: '100%' }}
-                                placeholder={t('sync.repository_placeholder')}
-                                value={repositoryId}
-                                onChange={(value) => setRepositoryId(value)}
-                                loading={loadingRepos}
-                                allowClear
-                            >
-                                {repositories.map((repo) => (
-                                    <Select.Option key={repo.id} value={repo.id}>
-                                        {repo.name}
-                                    </Select.Option>
-                                ))}
-                            </Select>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <Select
+                                    style={{ flex: 1 }}
+                                    placeholder={t('sync.repository_placeholder')}
+                                    value={repositoryId}
+                                    onChange={(value) => setRepositoryId(value)}
+                                    loading={loadingRepos}
+                                    allowClear
+                                >
+                                    {repositoryOptions.map((repo) => (
+                                        <Select.Option key={repo.id} value={repo.id}>
+                                            {repo.name}
+                                        </Select.Option>
+                                    ))}
+                                </Select>
+                                <Button onClick={refreshRepositories}>
+                                    {t('sync.refresh')}
+                                </Button>
+                            </div>
                         </div>
                         <div>
                             <Text>{t('sync.document')}</Text>
@@ -383,7 +505,7 @@ export default function Sync() {
                                 placeholder={t('sync.document_placeholder')}
                                 value={selectedDocumentIds}
                                 onChange={(value) => setSelectedDocumentIds(value as number[])}
-                                options={documents.map((doc) => ({
+                                options={documentRows.map((doc) => ({
                                     value: doc.id,
                                     label: doc.title,
                                 }))}
@@ -392,7 +514,7 @@ export default function Sync() {
                                 dropdownRender={() => (
                                     <div style={{ padding: 8 }}>
                                         <Table
-                                            dataSource={documents}
+                                            dataSource={documentRows}
                                             columns={documentColumns}
                                             rowKey="id"
                                             pagination={false}
@@ -410,14 +532,20 @@ export default function Sync() {
                             />
                             <Text type="secondary">
                                 {selectedDocumentIds.length > 0
-                                    ? t('sync.document_selected').replace('{{count}}', String(selectedDocumentIds.length)).replace('{{total}}', String(documents.length))
+                                    ? t('sync.document_selected').replace('{{count}}', String(selectedDocumentIds.length)).replace('{{total}}', String(documentRows.length))
                                     : t('sync.document_default_all')}
                             </Text>
                         </div>
                         <div>
-                            <Checkbox checked={clearTarget} onChange={(e) => setClearTarget(e.target.checked)}>
-                                {t('sync.clear_target')}
-                            </Checkbox>
+                            {syncMode === 'push' ? (
+                                <Checkbox checked={clearTarget} onChange={(e) => setClearTarget(e.target.checked)}>
+                                    {t('sync.clear_target')}
+                                </Checkbox>
+                            ) : (
+                                <Checkbox checked={clearLocal} onChange={(e) => setClearLocal(e.target.checked)}>
+                                    {t('sync.clear_local')}
+                                </Checkbox>
+                            )}
                         </div>
                         <Button type="primary" onClick={handleStartSync} loading={starting}>
                             {t('sync.start')}

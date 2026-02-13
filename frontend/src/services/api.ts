@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -74,7 +74,17 @@ export const syncApi = {
         ...(documentIds && documentIds.length > 0 ? { document_ids: documentIds } : {}),
         ...(clearTarget ? { clear_target: true } : {}),
     }),
+    pull: (targetServer: string, repositoryId: number, documentIds?: number[], clearLocal?: boolean) => api.post<SyncStartResponse>('/sync/pull', {
+        target_server: targetServer,
+        repository_id: repositoryId,
+        ...(documentIds && documentIds.length > 0 ? { document_ids: documentIds } : {}),
+        ...(clearLocal ? { clear_local: true } : {}),
+    }),
     status: (syncId: string) => api.get<SyncStatusResponse>(`/sync/status/${syncId}`),
+    remoteRepositoryList: (targetServer: string) => api.get<SyncRepositoryListResponse>(`${targetServer}/repository-list`),
+    remoteDocumentList: (targetServer: string, repositoryId: number) => api.get<SyncDocumentListResponse>(`${targetServer}/document-list`, {
+        params: { repository_id: repositoryId },
+    }),
 };
 
 export default api;
