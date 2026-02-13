@@ -1207,7 +1207,7 @@ func (s *Service) createRemoteTaskUsages(ctx context.Context, targetServer strin
 	items := make([]syncdto.TaskUsageCreateItem, 0, len(usages))
 	for _, usage := range usages {
 		items = append(items, syncdto.TaskUsageCreateItem{
-			ID:               usage.ID,
+			ID:               0,
 			TaskID:           remoteTaskID,
 			APIKeyName:       usage.APIKeyName,
 			PromptTokens:     usage.PromptTokens,
@@ -1252,7 +1252,7 @@ func (s *Service) CreateTaskUsage(ctx context.Context, req syncdto.TaskUsageCrea
 				createdAt = time.Now()
 			}
 			usages = append(usages, model.TaskUsage{
-				ID:               item.ID,
+				ID:               0,
 				TaskID:           taskID,
 				APIKeyName:       item.APIKeyName,
 				PromptTokens:     item.PromptTokens,
