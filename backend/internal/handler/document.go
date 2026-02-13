@@ -183,11 +183,13 @@ func (h *DocumentHandler) SubmitRating(c *gin.Context) {
 	}
 
 	// 发布文档评分事件
-	h.bus.Publish(c, eventbus.DocEventRated, eventbus.DocEvent{
-		Type:   eventbus.DocEventRated,
-		DocID:  uint(id),
-		Rating: req.Score,
-	})
+	if h.bus != nil {
+		h.bus.Publish(c, eventbus.DocEventRated, eventbus.DocEvent{
+			Type:   eventbus.DocEventRated,
+			DocID:  uint(id),
+			Rating: req.Score,
+		})
+	}
 
 	c.JSON(http.StatusOK, stats)
 }
