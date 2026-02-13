@@ -150,7 +150,7 @@ type TaskUpdateDocIDData struct {
 }
 
 type TaskUsageCreateRequest struct {
-	TaskID           uint   `json:"task_id" binding:"required"`  // 对端的 taskID
+	TaskID           uint   `json:"task_id" binding:"required"` // 对端的 taskID
 	APIKeyName       string `json:"api_key_name" binding:"required"`
 	PromptTokens     int    `json:"prompt_tokens"`
 	CompletionTokens int    `json:"completion_tokens"`
@@ -161,9 +161,9 @@ type TaskUsageCreateRequest struct {
 }
 
 type TaskUsageCreateResponse struct {
-	Code string               `json:"code"`
-	Data TaskUsageCreateData  `json:"data"`
-	Meta *ResponseMeta        `json:"meta,omitempty"`
+	Code string              `json:"code"`
+	Data TaskUsageCreateData `json:"data"`
+	Meta *ResponseMeta       `json:"meta,omitempty"`
 }
 
 type TaskUsageCreateData struct {
@@ -219,6 +219,7 @@ type PullExportData struct {
 	Repository PullRepositoryData  `json:"repository"`
 	Tasks      []PullTaskData      `json:"tasks"`
 	Documents  []PullDocumentData  `json:"documents"`
+	TaskUsages []PullTaskUsageData `json:"task_usages"`
 }
 
 type PullRepositoryData struct {
@@ -261,6 +262,17 @@ type PullDocumentData struct {
 	ReplacedBy   uint      `json:"replaced_by"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type PullTaskUsageData struct {
+	TaskID           uint      `json:"task_id"`
+	APIKeyName       string    `json:"api_key_name"`
+	PromptTokens     int       `json:"prompt_tokens"`
+	CompletionTokens int       `json:"completion_tokens"`
+	TotalTokens      int       `json:"total_tokens"`
+	CachedTokens     int       `json:"cached_tokens"`
+	ReasoningTokens  int       `json:"reasoning_tokens"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 type PullStartRequest struct {

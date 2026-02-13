@@ -244,8 +244,9 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 			CreatedAt:    repo.CreatedAt,
 			UpdatedAt:    repo.UpdatedAt,
 		},
-		Tasks:     make([]syncdto.PullTaskData, 0, len(tasks)),
-		Documents: make([]syncdto.PullDocumentData, 0, len(docs)),
+		Tasks:      make([]syncdto.PullTaskData, 0, len(tasks)),
+		Documents:  make([]syncdto.PullDocumentData, 0, len(docs)),
+		TaskUsages: make([]syncdto.PullTaskUsageData, 0, len(tasks)),
 	}
 	for _, task := range tasks {
 		export.Tasks = append(export.Tasks, syncdto.PullTaskData{
@@ -260,6 +261,22 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 			CreatedAt:    task.CreatedAt,
 			UpdatedAt:    task.UpdatedAt,
 		})
+		usage, err := s.taskUsageRepo.GetByTaskID(ctx, task.ID)
+		if err != nil {
+			return syncdto.PullExportData{}, err
+		}
+		if usage != nil {
+			export.TaskUsages = append(export.TaskUsages, syncdto.PullTaskUsageData{
+				TaskID:           usage.TaskID,
+				APIKeyName:       usage.APIKeyName,
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+				CachedTokens:     usage.CachedTokens,
+				ReasoningTokens:  usage.ReasoningTokens,
+				CreatedAt:        usage.CreatedAt,
+			})
+		}
 	}
 	for _, doc := range docs {
 		export.Documents = append(export.Documents, syncdto.PullDocumentData{
@@ -787,6 +804,10 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 	}
 
 	docIDMap := make(map[uint]uint, len(export.Documents))
+	usageByTaskID := make(map[uint]syncdto.PullTaskUsageData, len(export.TaskUsages))
+	for _, usage := range export.TaskUsages {
+		usageByTaskID[usage.TaskID] = usage
+	}
 	for index, task := range export.Tasks {
 		current := fmt.Sprintf("正在同步任务 %d/%d: %s", index+1, len(export.Tasks), task.Title)
 		s.updateStatus(status.SyncID, func(s *Status) {
@@ -812,6 +833,26 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 				s.UpdatedAt = time.Now()
 			})
 			continue
+		}
+
+		if usage, ok := usageByTaskID[task.TaskID]; ok {
+			_, err := s.CreateTaskUsage(ctx, syncdto.TaskUsageCreateRequest{
+				TaskID:           localTask.ID,
+				APIKeyName:       usage.APIKeyName,
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+				CachedTokens:     usage.CachedTokens,
+				ReasoningTokens:  usage.ReasoningTokens,
+				CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
+			})
+			if err != nil {
+				klog.Errorf("[sync.runPullSync] 同步任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
+				s.updateStatus(status.SyncID, func(s *Status) {
+					s.FailedTasks++
+					s.UpdatedAt = time.Now()
+				})
+			}
 		}
 		localDocs := make([]model.Document, 0)
 		for _, doc := range taskDocs[task.TaskID] {

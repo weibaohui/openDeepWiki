@@ -698,7 +698,10 @@ func TestBuildPullExportDataWithFilter(t *testing.T) {
 		100: {ID: 100, RepositoryID: 1, TaskID: 10, Title: "文档A", CreatedAt: now, UpdatedAt: now},
 		101: {ID: 101, RepositoryID: 1, TaskID: 11, Title: "文档B", CreatedAt: now, UpdatedAt: now},
 	}}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{})
+	taskUsageRepo := &mockTaskUsageRepo{usages: map[uint]*model.TaskUsage{
+		10: {TaskID: 10, APIKeyName: "gpt-4", PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30, CreatedAt: now},
+	}}
+	svc := New(repoRepo, taskRepo, docRepo, taskUsageRepo)
 
 	export, err := svc.BuildPullExportData(nil, 1, []uint{100})
 	if err != nil {
@@ -712,6 +715,9 @@ func TestBuildPullExportDataWithFilter(t *testing.T) {
 	}
 	if len(export.Documents) != 1 || export.Documents[0].DocumentID != 100 {
 		t.Fatalf("unexpected documents: %+v", export.Documents)
+	}
+	if len(export.TaskUsages) != 1 || export.TaskUsages[0].TaskID != 10 {
+		t.Fatalf("unexpected task usages: %+v", export.TaskUsages)
 	}
 }
 
