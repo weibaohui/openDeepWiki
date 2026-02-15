@@ -53,6 +53,6 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	//把Task表中没有记录的，都改为DefaultWriter
-	db.Model(&model.Task{}).Where("writer IS NULL or writer = '' ").Update("writer", string(domain.DefaultWriter))
+	db.Model(&model.Task{}).Where("writer_name IS NULL or writer_name = '' ").Update("writer_name", string(domain.DefaultWriter))
 	return db, nil
 }
