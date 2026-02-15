@@ -52,8 +52,7 @@ func (s *DocEventSubscriber) handleDocPulled(ctx context.Context, event eventbus
 			TargetServer: event.TargetServer,
 			Success:      event.Success,
 		}); err != nil {
-			klog.Errorf("文档拉取事件落库失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success, err)
-			return err
+			klog.V(6).Infof("文档拉取事件落库失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success, err)
 		}
 	}
 	klog.V(6).Infof("文档拉取事件处理成功: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success)
@@ -70,8 +69,7 @@ func (s *DocEventSubscriber) handleDocPushed(ctx context.Context, event eventbus
 			TargetServer: event.TargetServer,
 			Success:      event.Success,
 		}); err != nil {
-			klog.Errorf("文档推送事件落库失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success, err)
-			return err
+			klog.V(6).Infof("文档推送事件落库失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success, err)
 		}
 	}
 	klog.V(6).Infof("文档推送事件处理成功: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success)
