@@ -55,6 +55,7 @@ func main() {
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	hintRepo := repository.NewHintRepository(db)
 	taskUsageRepo := repository.NewTaskUsageRepository(db)
+	syncTargetRepo := repository.NewSyncTargetRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
@@ -126,7 +127,7 @@ func main() {
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docEventBus, docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
-	syncService := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo)
+	syncService := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, syncTargetRepo)
 	syncService.SetDocEventBus(docEventBus)
 	syncHandler := handler.NewSyncHandler(syncService)
 

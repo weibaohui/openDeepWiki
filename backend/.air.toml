@@ -10,7 +10,8 @@ pre_cmd = ["rm -rf bin"]
 # 构建命令
 cmd = "go build -o ./bin/server cmd/server/*.go"
 # 运行命令，添加 -v 6 启用 klog 详细日志
-bin = "./bin/server -v 8"
+full_bin = "./bin/server"
+args = ["v 8"]
 # 监听文件变化的延迟时间
 delay = 1000
 # 排除的目录
@@ -30,7 +31,6 @@ include_file = []
 # 构建时跟踪符号链接目录
 follow_symlink = false
 # 是否打印日志
-full_bin = ""
 # 构建时 kill 延迟
 kill_delay = "0s"
 # 发送中断信号并等待进程退出

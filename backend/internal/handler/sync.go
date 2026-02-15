@@ -26,6 +26,9 @@ func (h *SyncHandler) RegisterRoutes(router *gin.RouterGroup) {
 		syncGroup.GET("/status/:sync_id", h.Status)
 		syncGroup.GET("/repository-list", h.RepositoryList)
 		syncGroup.GET("/document-list", h.DocumentList)
+		syncGroup.GET("/target-list", h.TargetList)
+		syncGroup.POST("/target-save", h.TargetSave)
+		syncGroup.POST("/target-delete", h.TargetDelete)
 		syncGroup.POST("/pull-export", h.PullExport)
 		syncGroup.POST("/repository-upsert", h.RepositoryUpsert)
 		syncGroup.POST("/repository-clear", h.RepositoryClear)
@@ -147,6 +150,70 @@ func (h *SyncHandler) DocumentList(c *gin.Context) {
 	c.JSON(http.StatusOK, syncdto.DocumentListResponse{
 		Code: "OK",
 		Data: items,
+	})
+}
+
+func (h *SyncHandler) TargetList(c *gin.Context) {
+	targets, err := h.service.ListSyncTargets(c.Request.Context())
+	if err != nil {
+		klog.Errorf("[sync.TargetList] 获取同步地址失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	items := make([]syncdto.SyncTargetItem, 0, len(targets))
+	for _, target := range targets {
+		items = append(items, syncdto.SyncTargetItem{
+			ID:        target.ID,
+			URL:       target.URL,
+			CreatedAt: target.CreatedAt,
+			UpdatedAt: target.UpdatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, syncdto.SyncTargetListResponse{
+		Code: "OK",
+		Data: items,
+	})
+}
+
+func (h *SyncHandler) TargetSave(c *gin.Context) {
+	var req syncdto.SyncTargetSaveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	target, err := h.service.SaveSyncTarget(c.Request.Context(), req.URL)
+	if err != nil {
+		klog.Errorf("[sync.TargetSave] 保存同步地址失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, syncdto.SyncTargetSaveResponse{
+		Code: "OK",
+		Data: syncdto.SyncTargetItem{
+			ID:        target.ID,
+			URL:       target.URL,
+			CreatedAt: target.CreatedAt,
+			UpdatedAt: target.UpdatedAt,
+		},
+	})
+}
+
+func (h *SyncHandler) TargetDelete(c *gin.Context) {
+	var req syncdto.SyncTargetDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.service.DeleteSyncTarget(c.Request.Context(), req.ID); err != nil {
+		klog.Errorf("[sync.TargetDelete] 删除同步地址失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, syncdto.SyncTargetDeleteResponse{
+		Code: "OK",
+		Data: syncdto.SyncTargetDeleteData{
+			ID: req.ID,
+		},
 	})
 }
 

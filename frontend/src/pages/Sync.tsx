@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, CopyOutlined, SyncOutlined } from '@ant-design/icons';
 import { Alert, Button, Card, Checkbox, Grid, Input, Layout, List, message, Progress, Radio, Select, Space, Table, Tag, Typography } from 'antd';
-import type { Document, Repository, SyncDocumentListItem, SyncRepositoryListItem, SyncStatusData, Task } from '../types';
+import type { Document, Repository, SyncDocumentListItem, SyncRepositoryListItem, SyncStatusData, SyncTargetItem, Task } from '../types';
 import { documentApi, repositoryApi, syncApi, taskApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
@@ -35,19 +35,21 @@ export default function Sync() {
     const [logs, setLogs] = useState<string[]>([]);
     const [starting, setStarting] = useState(false);
     const [copySuccess, setCopySuccess] = useState(false);
+    const [savedTargets, setSavedTargets] = useState<SyncTargetItem[]>([]);
     const lastTaskRef = useRef<string>('');
     const lastStatusRef = useRef<string>('');
 
-    const normalizeTargetServer = (value: string) => value.trim().replace(/\/+$/, '');
+    const normalizeTargetServer = useCallback((value: string) => value.trim().replace(/\/+$/, ''), []);
 
-    const isValidTargetServer = (value: string) => {
+    const isValidTargetServer = useCallback((value: string) => {
         try {
             const url = new URL(value);
-            return url.protocol === 'http:' || url.protocol === 'https:';
+            const protocolOk = url.protocol === 'http:' || url.protocol === 'https:';
+            return protocolOk && url.pathname.endsWith('/api/sync');
         } catch {
             return false;
         }
-    };
+    }, []);
 
     // 构建本端同步接口地址
     const syncUrl = useMemo(() => {
@@ -77,6 +79,45 @@ export default function Sync() {
             messageApi.error(t('sync.copy_failed'));
         }
     };
+
+    const fetchSavedTargets = useCallback(async () => {
+        try {
+            const response = await syncApi.targetList();
+            const items = Array.isArray(response.data.data) ? response.data.data : [];
+            setSavedTargets(items);
+        } catch {
+            setSavedTargets([]);
+        }
+    }, []);
+
+    const handleSaveTarget = useCallback(async () => {
+        const normalizedTarget = normalizeTargetServer(targetServer);
+        if (!normalizedTarget || !isValidTargetServer(normalizedTarget)) {
+            messageApi.error(t('sync.validation_target'));
+            return;
+        }
+        try {
+            await syncApi.targetSave(normalizedTarget);
+            messageApi.success(t('sync.save_target_success'));
+            fetchSavedTargets();
+        } catch {
+            messageApi.error(t('sync.save_target_failed'));
+        }
+    }, [fetchSavedTargets, isValidTargetServer, messageApi, normalizeTargetServer, targetServer, t]);
+
+    const handleSelectTarget = useCallback((value: string) => {
+        setTargetServer(value);
+    }, []);
+
+    const handleRemoveTarget = useCallback(async (id: number) => {
+        try {
+            await syncApi.targetDelete(id);
+            messageApi.success(t('sync.delete_target_success'));
+            fetchSavedTargets();
+        } catch {
+            messageApi.error(t('sync.save_target_failed'));
+        }
+    }, [fetchSavedTargets, messageApi, t]);
 
     const statusColor = useMemo(() => {
         if (!syncStatus) return 'default';
@@ -202,11 +243,15 @@ export default function Sync() {
         } finally {
             setLoadingRepos(false);
         }
-    }, [syncMode, targetServer]);
+    }, [isValidTargetServer, normalizeTargetServer, syncMode, targetServer]);
 
     useEffect(() => {
         refreshRepositories();
     }, [refreshRepositories]);
+
+    useEffect(() => {
+        fetchSavedTargets();
+    }, [fetchSavedTargets]);
 
     useEffect(() => {
         setRepositoryId(undefined);
@@ -259,7 +304,7 @@ export default function Sync() {
         }).finally(() => {
             setLoadingDocuments(false);
         });
-    }, [repositoryId, syncMode, targetServer]);
+    }, [isValidTargetServer, normalizeTargetServer, repositoryId, syncMode, targetServer]);
 
     useEffect(() => {
         if (!syncId) return;
@@ -470,11 +515,39 @@ export default function Sync() {
 
                         <div>
                             <Text>{t('sync.target_server')}</Text>
-                            <Input
-                                value={targetServer}
-                                onChange={(e) => setTargetServer(e.target.value)}
-                                placeholder={t('sync.target_server_placeholder')}
-                            />
+                            <div style={{ display: 'flex', gap: 8, flexDirection: screens.xs ? 'column' : 'row' }}>
+                                <Input
+                                    value={targetServer}
+                                    onChange={(e) => setTargetServer(e.target.value)}
+                                    placeholder={t('sync.target_server_placeholder')}
+                                    style={{ flex: 1 }}
+                                />
+                                <Button onClick={handleSaveTarget}>
+                                    {t('sync.save_target')}
+                                </Button>
+                            </div>
+                            <div style={{ marginTop: 8 }}>
+                                <Text type="secondary">{t('sync.saved_targets')}</Text>
+                                <List
+                                    size="small"
+                                    dataSource={savedTargets}
+                                    locale={{ emptyText: t('sync.saved_target_empty') }}
+                                    renderItem={(item) => (
+                                        <List.Item
+                                            actions={[
+                                                <Button key="use" type="link" onClick={() => handleSelectTarget(item.url)}>
+                                                    {t('sync.select_target')}
+                                                </Button>,
+                                                <Button key="delete" type="link" danger onClick={() => handleRemoveTarget(item.id)}>
+                                                    {t('sync.delete_target')}
+                                                </Button>,
+                                            ]}
+                                        >
+                                            <Text code>{item.url}</Text>
+                                        </List.Item>
+                                    )}
+                                />
+                            </div>
                         </div>
                         <div>
                             <Text>{t('sync.repository')}</Text>

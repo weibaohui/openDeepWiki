@@ -69,3 +69,10 @@ type TaskUsageRepository interface {
 	Upsert(ctx context.Context, usage *model.TaskUsage) error
 	UpsertMany(ctx context.Context, usages []model.TaskUsage) error
 }
+
+type SyncTargetRepository interface {
+	List(ctx context.Context) ([]model.SyncTarget, error)
+	Upsert(ctx context.Context, url string) (*model.SyncTarget, error)
+	Delete(ctx context.Context, id uint) error
+	TrimExcess(ctx context.Context, max int) error
+}

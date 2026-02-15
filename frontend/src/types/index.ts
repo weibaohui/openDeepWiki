@@ -153,6 +153,28 @@ export interface SyncDocumentListResponse {
     data: SyncDocumentListItem[];
 }
 
+export interface SyncTargetItem {
+    id: number;
+    url: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SyncTargetListResponse {
+    code: string;
+    data: SyncTargetItem[];
+}
+
+export interface SyncTargetSaveResponse {
+    code: string;
+    data: SyncTargetItem;
+}
+
+export interface SyncTargetDeleteResponse {
+    code: string;
+    data: { id: number };
+}
+
 export interface SyncStartResponse {
     code: string;
     data: SyncStartData;

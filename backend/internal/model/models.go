@@ -93,3 +93,10 @@ type TaskUsage struct {
 	ReasoningTokens  int       `json:"reasoning_tokens"`
 	CreatedAt        time.Time `json:"created_at"`
 }
+
+type SyncTarget struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	URL       string    `json:"url" gorm:"size:500;uniqueIndex;not null"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

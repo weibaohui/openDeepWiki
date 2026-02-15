@@ -224,6 +224,43 @@ type DocumentListItem struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type SyncTargetItem struct {
+	ID        uint      `json:"id"`
+	URL       string    `json:"url"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type SyncTargetListResponse struct {
+	Code string           `json:"code"`
+	Data []SyncTargetItem `json:"data"`
+	Meta *ResponseMeta    `json:"meta,omitempty"`
+}
+
+type SyncTargetSaveRequest struct {
+	URL string `json:"url" binding:"required"`
+}
+
+type SyncTargetSaveResponse struct {
+	Code string          `json:"code"`
+	Data SyncTargetItem  `json:"data"`
+	Meta *ResponseMeta   `json:"meta,omitempty"`
+}
+
+type SyncTargetDeleteRequest struct {
+	ID uint `json:"id" binding:"required"`
+}
+
+type SyncTargetDeleteResponse struct {
+	Code string             `json:"code"`
+	Data SyncTargetDeleteData `json:"data"`
+	Meta *ResponseMeta      `json:"meta,omitempty"`
+}
+
+type SyncTargetDeleteData struct {
+	ID uint `json:"id"`
+}
+
 type PullExportRequest struct {
 	RepositoryID uint   `json:"repository_id" binding:"required"`
 	DocumentIDs  []uint `json:"document_ids,omitempty"`

@@ -41,24 +41,26 @@ type Status struct {
 }
 
 type Service struct {
-	repoRepo      repository.RepoRepository
-	taskRepo      repository.TaskRepository
-	docRepo       repository.DocumentRepository
-	taskUsageRepo repository.TaskUsageRepository
-	client        *http.Client
-	statusMap     map[string]*Status
-	mutex         sync.RWMutex
-	docBus        *eventbus.DocEventBus
+	repoRepo       repository.RepoRepository
+	taskRepo       repository.TaskRepository
+	docRepo        repository.DocumentRepository
+	taskUsageRepo  repository.TaskUsageRepository
+	syncTargetRepo repository.SyncTargetRepository
+	client         *http.Client
+	statusMap      map[string]*Status
+	mutex          sync.RWMutex
+	docBus         *eventbus.DocEventBus
 }
 
-func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository) *Service {
+func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository, syncTargetRepo repository.SyncTargetRepository) *Service {
 	return &Service{
-		repoRepo:      repoRepo,
-		taskRepo:      taskRepo,
-		docRepo:       docRepo,
-		taskUsageRepo: taskUsageRepo,
-		client:        &http.Client{Timeout: 15 * time.Second},
-		statusMap:     make(map[string]*Status),
+		repoRepo:       repoRepo,
+		taskRepo:       taskRepo,
+		docRepo:        docRepo,
+		taskUsageRepo:  taskUsageRepo,
+		syncTargetRepo: syncTargetRepo,
+		client:         &http.Client{Timeout: 15 * time.Second},
+		statusMap:      make(map[string]*Status),
 	}
 }
 
@@ -81,16 +83,58 @@ func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEve
 	}
 }
 
-func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearTarget bool) (*Status, error) {
-	targetServer = strings.TrimSpace(targetServer)
-	if targetServer == "" {
-		return nil, errors.New("目标服务器地址不能为空")
+func (s *Service) validateTargetServer(value string) (string, error) {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return "", errors.New("目标服务器地址不能为空")
 	}
-	parsed, err := url.Parse(targetServer)
+	normalized = strings.TrimSuffix(normalized, "/")
+	parsed, err := url.Parse(normalized)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return nil, errors.New("目标服务器地址格式不正确")
+		return "", errors.New("目标服务器地址格式不正确")
 	}
-	targetServer = strings.TrimSuffix(targetServer, "/")
+	if !strings.HasSuffix(parsed.Path, "/api/sync") {
+		return "", errors.New("目标服务器地址格式不正确")
+	}
+	return normalized, nil
+}
+
+func (s *Service) ListSyncTargets(ctx context.Context) ([]model.SyncTarget, error) {
+	return s.syncTargetRepo.List(ctx)
+}
+
+func (s *Service) SaveSyncTarget(ctx context.Context, target string) (*model.SyncTarget, error) {
+	normalized, err := s.validateTargetServer(target)
+	if err != nil {
+		return nil, err
+	}
+	targetModel, err := s.syncTargetRepo.Upsert(ctx, normalized)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.syncTargetRepo.TrimExcess(ctx, 20); err != nil {
+		return nil, err
+	}
+	klog.V(6).Infof("同步地址已保存: id=%d, url=%s", targetModel.ID, targetModel.URL)
+	return targetModel, nil
+}
+
+func (s *Service) DeleteSyncTarget(ctx context.Context, id uint) error {
+	if id == 0 {
+		return errors.New("地址ID不能为空")
+	}
+	if err := s.syncTargetRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+	klog.V(6).Infof("同步地址已删除: id=%d", id)
+	return nil
+}
+
+func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearTarget bool) (*Status, error) {
+	targetServer, err := s.validateTargetServer(targetServer)
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := s.repoRepo.GetBasic(repoID); err != nil {
 		return nil, fmt.Errorf("仓库不存在: %w", err)
@@ -121,15 +165,10 @@ func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, d
 }
 
 func (s *Service) StartPull(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearLocal bool) (*Status, error) {
-	targetServer = strings.TrimSpace(targetServer)
-	if targetServer == "" {
-		return nil, errors.New("目标服务器地址不能为空")
+	targetServer, err := s.validateTargetServer(targetServer)
+	if err != nil {
+		return nil, err
 	}
-	parsed, err := url.Parse(targetServer)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return nil, errors.New("目标服务器地址格式不正确")
-	}
-	targetServer = strings.TrimSuffix(targetServer, "/")
 	if repoID == 0 {
 		return nil, errors.New("仓库ID不能为空")
 	}
