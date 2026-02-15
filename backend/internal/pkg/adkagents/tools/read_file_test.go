@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,6 +62,9 @@ func TestReadFileLineCount(t *testing.T) {
 			resultLines := strings.Split(strings.TrimSpace(result), "\n")
 			if len(resultLines) != tt.expected {
 				t.Errorf("ReadFile() expected %d lines, got %d", tt.expected, len(resultLines))
+			}
+			if len(resultLines) > 0 && !strings.HasPrefix(resultLines[0], fmt.Sprintf("%d: ", tt.offset)) {
+				t.Errorf("ReadFile() first line should start with line number %d, got %s", tt.offset, resultLines[0])
 			}
 		})
 	}

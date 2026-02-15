@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -74,5 +75,9 @@ func TestSearchFiles(t *testing.T) {
 
 	if result == "" {
 		t.Error("expected non-empty result")
+	}
+	lines := strings.Split(strings.TrimSpace(result), "\n")
+	if len(lines) == 0 || !strings.HasPrefix(lines[0], "1: ") {
+		t.Errorf("expected line numbers in search results, got: %s", result)
 	}
 }

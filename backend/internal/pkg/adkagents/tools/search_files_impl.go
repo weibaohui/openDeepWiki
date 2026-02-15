@@ -52,7 +52,12 @@ func SearchFiles(args json.RawMessage, basePath string) (string, error) {
 		return fmt.Sprintf("No files found matching the pattern in %s.", params.Path), nil
 	}
 
-	return strings.Join(files, "\n"), nil
+	var lines []string
+	for index, file := range files {
+		lines = append(lines, fmt.Sprintf("%d: %s", index+1, file))
+	}
+
+	return strings.Join(lines, "\n"), nil
 }
 
 func globSearch(root, pattern string) ([]string, error) {
