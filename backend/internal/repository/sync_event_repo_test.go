@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
@@ -44,5 +45,40 @@ func TestSyncEventRepositoryCreate(t *testing.T) {
 	}
 	if got.EventType != event.EventType || got.RepositoryID != event.RepositoryID || got.DocID != event.DocID || got.TargetServer != event.TargetServer || got.Success != event.Success {
 		t.Fatalf("unexpected event: %+v", got)
+	}
+}
+
+// TestSyncEventRepositoryList 验证同步事件列表查询
+func TestSyncEventRepositoryList(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db error: %v", err)
+	}
+	if err := db.AutoMigrate(&model.SyncEvent{}); err != nil {
+		t.Fatalf("migrate error: %v", err)
+	}
+
+	repo := NewSyncEventRepository(db)
+	now := time.Now()
+	events := []model.SyncEvent{
+		{EventType: "DocPulled", RepositoryID: 1, DocID: 1, TargetServer: "http://a/api/sync", Success: true, CreatedAt: now.Add(-time.Minute)},
+		{EventType: "DocPushed", RepositoryID: 2, DocID: 2, TargetServer: "http://b/api/sync", Success: true, CreatedAt: now},
+		{EventType: "DocPulled", RepositoryID: 1, DocID: 3, TargetServer: "http://c/api/sync", Success: false, CreatedAt: now.Add(-time.Second)},
+	}
+	for i := range events {
+		if err := repo.Create(context.Background(), &events[i]); err != nil {
+			t.Fatalf("Create error: %v", err)
+		}
+	}
+
+	items, err := repo.List(context.Background(), 1, []string{"DocPulled"}, 10)
+	if err != nil {
+		t.Fatalf("List error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("unexpected items: %+v", items)
+	}
+	if items[0].RepositoryID != 1 || items[0].EventType != "DocPulled" {
+		t.Fatalf("unexpected item: %+v", items[0])
 	}
 }

@@ -96,6 +96,7 @@ export default function Sync() {
         }
     }, []);
 
+    // 获取历史记录仓库列表
     const fetchHistoryRepositories = useCallback(async () => {
         try {
             const response = await repositoryApi.list();
@@ -106,6 +107,7 @@ export default function Sync() {
         }
     }, []);
 
+    // 获取同步历史记录
     const fetchHistoryEvents = useCallback(async () => {
         setHistoryLoading(true);
         try {
@@ -173,10 +175,11 @@ export default function Sync() {
         return map;
     }, [tasks]);
 
-    const formatDateTime = (dateStr: string) => {
+    // 格式化时间字符串
+    const formatDateTime = useCallback((dateStr: string) => {
         if (!dateStr) return '-';
         return new Date(dateStr).toLocaleString();
-    };
+    }, []);
 
     const getStatusColor = (status?: Task['status']) => {
         if (!status) return 'default';
@@ -220,7 +223,7 @@ export default function Sync() {
             key: 'created_at',
             render: (value: string) => formatDateTime(value),
         },
-    ]), [repositoryId, syncMode, t]);
+    ]), [formatDateTime, repositoryId, syncMode, t]);
 
     const documentRows = useMemo(() => {
         if (syncMode === 'pull') {

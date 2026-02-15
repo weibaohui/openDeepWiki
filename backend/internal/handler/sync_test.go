@@ -202,12 +202,42 @@ func (m *mockSyncTargetRepo) Delete(ctx context.Context, id uint) error { return
 
 func (m *mockSyncTargetRepo) TrimExcess(ctx context.Context, max int) error { return nil }
 
-type mockSyncEventRepo struct{}
+type mockSyncEventRepo struct {
+	events []model.SyncEvent
+	err    error
+}
 
+// Create 新增同步事件
 func (m *mockSyncEventRepo) Create(ctx context.Context, event *model.SyncEvent) error { return nil }
 
+// List 查询同步事件列表
 func (m *mockSyncEventRepo) List(ctx context.Context, repositoryID uint, eventTypes []string, limit int) ([]model.SyncEvent, error) {
-	return nil, nil
+	if m.err != nil {
+		return nil, m.err
+	}
+	items := make([]model.SyncEvent, 0)
+	for _, event := range m.events {
+		if repositoryID > 0 && event.RepositoryID != repositoryID {
+			continue
+		}
+		if len(eventTypes) > 0 {
+			matched := false
+			for _, eventType := range eventTypes {
+				if event.EventType == eventType {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+		items = append(items, event)
+	}
+	if limit > 0 && len(items) > limit {
+		return items[:limit], nil
+	}
+	return items, nil
 }
 
 // TestSyncHandlerRepositoryUpsert 验证仓库同步接口创建仓库成功
@@ -248,6 +278,44 @@ func TestSyncHandlerRepositoryUpsert(t *testing.T) {
 	}
 	if resp.Data.RepositoryID != 11 || resp.Data.Name != "repo-11" {
 		t.Fatalf("unexpected response: %+v", resp.Data)
+	}
+}
+
+// TestSyncHandlerEventList 验证同步历史记录接口
+func TestSyncHandlerEventList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repoRepo := &mockSyncRepoRepo{repos: map[uint]*model.Repository{
+		2: {ID: 2, Name: "repo-2"},
+	}}
+	taskRepo := &mockSyncTaskRepo{}
+	docRepo := &mockSyncDocRepo{}
+	taskUsageRepo := &mockSyncTaskUsageRepo{}
+	syncEventRepo := &mockSyncEventRepo{
+		events: []model.SyncEvent{
+			{ID: 1, EventType: "DocPulled", RepositoryID: 2, DocID: 3, TargetServer: "http://demo/api/sync", Success: true, CreatedAt: time.Now()},
+		},
+	}
+	svc := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, &mockSyncTargetRepo{}, syncEventRepo)
+	handler := NewSyncHandler(svc)
+	router := gin.New()
+	router.GET("/sync/event-list", handler.EventList)
+
+	req := httptest.NewRequest(http.MethodGet, "/sync/event-list?repository_id=2", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	var resp syncdto.SyncEventListResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response error: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("unexpected response size: %+v", resp.Data)
+	}
+	if resp.Data[0].RepositoryID != 2 || resp.Data[0].DocID != 3 {
+		t.Fatalf("unexpected response: %+v", resp.Data[0])
 	}
 }
 
