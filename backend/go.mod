@@ -1,6 +1,6 @@
 module github.com/weibaohui/opendeepwiki/backend
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/cloudwego/eino v0.7.28

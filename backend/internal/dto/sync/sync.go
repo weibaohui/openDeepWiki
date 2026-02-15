@@ -261,6 +261,29 @@ type SyncTargetDeleteData struct {
 	ID uint `json:"id"`
 }
 
+type SyncEventListRequest struct {
+	RepositoryID uint   `form:"repository_id"`
+	Mode         string `form:"mode"`
+	Limit        int    `form:"limit"`
+}
+
+type SyncEventListResponse struct {
+	Code string           `json:"code"`
+	Data []SyncEventItem  `json:"data"`
+	Meta *ResponseMeta    `json:"meta,omitempty"`
+}
+
+type SyncEventItem struct {
+	ID             uint      `json:"id"`
+	EventType      string    `json:"event_type"`
+	RepositoryID   uint      `json:"repository_id"`
+	RepositoryName string    `json:"repository_name"`
+	DocID          uint      `json:"doc_id"`
+	TargetServer   string    `json:"target_server"`
+	Success        bool      `json:"success"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 type PullExportRequest struct {
 	RepositoryID uint   `json:"repository_id" binding:"required"`
 	DocumentIDs  []uint `json:"document_ids,omitempty"`

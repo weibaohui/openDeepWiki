@@ -79,4 +79,5 @@ type SyncTargetRepository interface {
 
 type SyncEventRepository interface {
 	Create(ctx context.Context, event *model.SyncEvent) error
+	List(ctx context.Context, repositoryID uint, eventTypes []string, limit int) ([]model.SyncEvent, error)
 }

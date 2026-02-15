@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -88,6 +88,7 @@ export const syncApi = {
     targetList: () => api.get<SyncTargetListResponse>('/sync/target-list'),
     targetSave: (url: string) => api.post<SyncTargetSaveResponse>('/sync/target-save', { url }),
     targetDelete: (id: number) => api.post<SyncTargetDeleteResponse>('/sync/target-delete', { id }),
+    eventList: (params: { repository_id?: number; mode?: string; limit?: number }) => api.get<SyncEventListResponse>('/sync/event-list', { params }),
 };
 
 export default api;

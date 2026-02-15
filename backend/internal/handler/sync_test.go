@@ -202,6 +202,14 @@ func (m *mockSyncTargetRepo) Delete(ctx context.Context, id uint) error { return
 
 func (m *mockSyncTargetRepo) TrimExcess(ctx context.Context, max int) error { return nil }
 
+type mockSyncEventRepo struct{}
+
+func (m *mockSyncEventRepo) Create(ctx context.Context, event *model.SyncEvent) error { return nil }
+
+func (m *mockSyncEventRepo) List(ctx context.Context, repositoryID uint, eventTypes []string, limit int) ([]model.SyncEvent, error) {
+	return nil, nil
+}
+
 // TestSyncHandlerRepositoryUpsert 验证仓库同步接口创建仓库成功
 func TestSyncHandlerRepositoryUpsert(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -209,7 +217,7 @@ func TestSyncHandlerRepositoryUpsert(t *testing.T) {
 	taskRepo := &mockSyncTaskRepo{}
 	docRepo := &mockSyncDocRepo{}
 	taskUsageRepo := &mockSyncTaskUsageRepo{}
-	svc := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, &mockSyncTargetRepo{})
+	svc := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 	handler := NewSyncHandler(svc)
 	router := gin.New()
 	router.POST("/sync/repository-upsert", handler.RepositoryUpsert)
@@ -251,7 +259,7 @@ func TestSyncHandlerRepositoryClear(t *testing.T) {
 	taskRepo := &mockSyncTaskRepo{}
 	docRepo := &mockSyncDocRepo{}
 	taskUsageRepo := &mockSyncTaskUsageRepo{}
-	svc := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, &mockSyncTargetRepo{})
+	svc := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 	handler := NewSyncHandler(svc)
 	router := gin.New()
 	router.POST("/sync/repository-clear", handler.RepositoryClear)

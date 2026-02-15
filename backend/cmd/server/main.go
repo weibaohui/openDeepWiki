@@ -128,7 +128,7 @@ func main() {
 	taskHandler := handler.NewTaskHandler(taskService)
 	docHandler := handler.NewDocumentHandler(docEventBus, docService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
-	syncService := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, syncTargetRepo)
+	syncService := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, syncTargetRepo, syncEventRepo)
 	syncService.SetDocEventBus(docEventBus)
 	syncHandler := handler.NewSyncHandler(syncService)
 
