@@ -76,3 +76,7 @@ type SyncTargetRepository interface {
 	Delete(ctx context.Context, id uint) error
 	TrimExcess(ctx context.Context, max int) error
 }
+
+type SyncEventRepository interface {
+	Create(ctx context.Context, event *model.SyncEvent) error
+}

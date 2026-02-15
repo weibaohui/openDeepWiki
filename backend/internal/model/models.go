@@ -100,3 +100,13 @@ type SyncTarget struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+type SyncEvent struct {
+	ID           uint      `json:"id" gorm:"primaryKey"`
+	EventType    string    `json:"event_type" gorm:"size:50;index;not null"`
+	RepositoryID uint      `json:"repository_id" gorm:"index;not null"`
+	DocID        uint      `json:"doc_id" gorm:"index;not null"`
+	TargetServer string    `json:"target_server" gorm:"size:500"`
+	Success      bool      `json:"success" gorm:"index"`
+	CreatedAt    time.Time `json:"created_at"`
+}

@@ -56,6 +56,7 @@ func main() {
 	hintRepo := repository.NewHintRepository(db)
 	taskUsageRepo := repository.NewTaskUsageRepository(db)
 	syncTargetRepo := repository.NewSyncTargetRepository(db)
+	syncEventRepo := repository.NewSyncEventRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
@@ -120,7 +121,7 @@ func main() {
 
 	// 初始化文档事件总线
 	docEventBus := eventbus.NewDocEventBus()
-	subscriber.NewDocEventSubscriber(taskEventBus).Register(docEventBus)
+	subscriber.NewDocEventSubscriber(taskEventBus, syncEventRepo).Register(docEventBus)
 
 	// 初始化 Handler
 	repoHandler := handler.NewRepositoryHandler(repoEventBus, taskEventBus, repoService, taskService)
