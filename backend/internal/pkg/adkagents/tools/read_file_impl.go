@@ -79,10 +79,10 @@ func ReadFile(args json.RawMessage, basePath string) (string, error) {
 			continue
 		}
 		if currentLine >= offset+limit {
-			lines = append(lines, fmt.Sprintf("... (%d more lines)", int(info.Size())/100))
+			lines = append(lines, fmt.Sprintf("%d: ... (%d more lines)", currentLine, int(info.Size())/100))
 			break
 		}
-		lines = append(lines, scanner.Text())
+		lines = append(lines, fmt.Sprintf("%d: %s", currentLine, scanner.Text()))
 	}
 
 	if err := scanner.Err(); err != nil {
