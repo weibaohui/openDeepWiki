@@ -13,6 +13,8 @@ type DocEvent struct {
 	RepositoryID uint
 	DocID        uint
 	Rating       int // 评分
+	TargetServer string
+	Success      bool
 }
 
 type DocEventHandler = Handler[DocEvent]

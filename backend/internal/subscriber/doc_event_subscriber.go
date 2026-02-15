@@ -4,15 +4,18 @@ import (
 	"context"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"k8s.io/klog/v2"
 )
 
 type DocEventSubscriber struct {
-	taskBus *eventbus.TaskEventBus
+	taskBus       *eventbus.TaskEventBus
+	syncEventRepo repository.SyncEventRepository
 }
 
-func NewDocEventSubscriber(taskBus *eventbus.TaskEventBus) *DocEventSubscriber {
-	return &DocEventSubscriber{taskBus: taskBus}
+func NewDocEventSubscriber(taskBus *eventbus.TaskEventBus, syncEventRepo repository.SyncEventRepository) *DocEventSubscriber {
+	return &DocEventSubscriber{taskBus: taskBus, syncEventRepo: syncEventRepo}
 }
 
 func (s *DocEventSubscriber) Register(bus *eventbus.DocEventBus) {
@@ -41,12 +44,34 @@ func (s *DocEventSubscriber) handleDocRated(ctx context.Context, event eventbus.
 
 // handleDocPulled 处理文档被拉取事件
 func (s *DocEventSubscriber) handleDocPulled(ctx context.Context, event eventbus.DocEvent) error {
-	klog.V(6).Infof("文档拉取事件处理成功: type=%s, repositoryID=%d, docID=%d", event.Type, event.RepositoryID, event.DocID)
+	if s.syncEventRepo != nil {
+		if err := s.syncEventRepo.Create(ctx, &model.SyncEvent{
+			EventType:    string(event.Type),
+			RepositoryID: event.RepositoryID,
+			DocID:        event.DocID,
+			TargetServer: event.TargetServer,
+			Success:      event.Success,
+		}); err != nil {
+			klog.V(6).Infof("文档拉取事件落库失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success, err)
+		}
+	}
+	klog.V(6).Infof("文档拉取事件处理成功: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success)
 	return nil
 }
 
 // handleDocPushed 处理文档被推送事件
 func (s *DocEventSubscriber) handleDocPushed(ctx context.Context, event eventbus.DocEvent) error {
-	klog.V(6).Infof("文档推送事件处理成功: type=%s, repositoryID=%d, docID=%d", event.Type, event.RepositoryID, event.DocID)
+	if s.syncEventRepo != nil {
+		if err := s.syncEventRepo.Create(ctx, &model.SyncEvent{
+			EventType:    string(event.Type),
+			RepositoryID: event.RepositoryID,
+			DocID:        event.DocID,
+			TargetServer: event.TargetServer,
+			Success:      event.Success,
+		}); err != nil {
+			klog.V(6).Infof("文档推送事件落库失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success, err)
+		}
+	}
+	klog.V(6).Infof("文档推送事件处理成功: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success)
 	return nil
 }

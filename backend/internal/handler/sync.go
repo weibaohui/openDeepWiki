@@ -24,6 +24,7 @@ func (h *SyncHandler) RegisterRoutes(router *gin.RouterGroup) {
 		syncGroup.POST("", h.Start)
 		syncGroup.POST("/pull", h.Pull)
 		syncGroup.GET("/status/:sync_id", h.Status)
+		syncGroup.GET("/event-list", h.EventList)
 		syncGroup.GET("/repository-list", h.RepositoryList)
 		syncGroup.GET("/document-list", h.DocumentList)
 		syncGroup.GET("/target-list", h.TargetList)
@@ -114,6 +115,25 @@ func (h *SyncHandler) Status(c *gin.Context) {
 			StartedAt:      status.StartedAt,
 			UpdatedAt:      status.UpdatedAt,
 		},
+	})
+}
+
+// EventList 获取同步历史记录
+func (h *SyncHandler) EventList(c *gin.Context) {
+	var req syncdto.SyncEventListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	items, err := h.service.ListSyncEvents(c.Request.Context(), req.RepositoryID, req.Mode, req.Limit)
+	if err != nil {
+		klog.Errorf("[sync.EventList] 获取同步记录失败: error=%v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, syncdto.SyncEventListResponse{
+		Code: "OK",
+		Data: items,
 	})
 }
 

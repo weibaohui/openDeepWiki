@@ -454,6 +454,50 @@ func (m *mockSyncTargetRepo) TrimExcess(ctx context.Context, max int) error {
 	return nil
 }
 
+type mockSyncEventRepo struct {
+	events []model.SyncEvent
+	err    error
+}
+
+// Create 新增同步事件
+func (m *mockSyncEventRepo) Create(ctx context.Context, event *model.SyncEvent) error {
+	if m.err != nil {
+		return m.err
+	}
+	m.events = append(m.events, *event)
+	return nil
+}
+
+// List 查询同步事件列表
+func (m *mockSyncEventRepo) List(ctx context.Context, repositoryID uint, eventTypes []string, limit int) ([]model.SyncEvent, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	items := make([]model.SyncEvent, 0)
+	for _, event := range m.events {
+		if repositoryID > 0 && event.RepositoryID != repositoryID {
+			continue
+		}
+		if len(eventTypes) > 0 {
+			matched := false
+			for _, eventType := range eventTypes {
+				if event.EventType == eventType {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+		items = append(items, event)
+	}
+	if limit > 0 && len(items) > limit {
+		return items[:limit], nil
+	}
+	return items, nil
+}
+
 // TestServiceCreateTaskSuccess 验证创建任务成功
 func TestServiceCreateTaskSuccess(t *testing.T) {
 	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
@@ -461,7 +505,7 @@ func TestServiceCreateTaskSuccess(t *testing.T) {
 	}}
 	taskRepo := &mockTaskRepo{}
 	docRepo := &mockDocRepo{}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	req := syncdto.TaskCreateRequest{
 		RepositoryID: 1,
@@ -487,7 +531,7 @@ func TestServiceCreateTaskSuccess(t *testing.T) {
 
 func TestServiceCreateTaskUsageBatch(t *testing.T) {
 	taskUsageRepo := &mockTaskUsageRepo{}
-	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, &mockDocRepo{}, taskUsageRepo, &mockSyncTargetRepo{})
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, &mockDocRepo{}, taskUsageRepo, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 	now := time.Now()
 	_, err := svc.CreateTaskUsage(nil, syncdto.TaskUsageCreateRequest{
 		TaskID: 7,
@@ -533,7 +577,7 @@ func TestServiceCreateTaskRepoNotFound(t *testing.T) {
 	repoRepo := &mockRepoRepo{err: errors.New("not found")}
 	taskRepo := &mockTaskRepo{}
 	docRepo := &mockDocRepo{}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	req := syncdto.TaskCreateRequest{
 		RepositoryID: 2,
@@ -553,7 +597,7 @@ func TestServiceCreateDocumentSuccess(t *testing.T) {
 		10: {ID: 10, RepositoryID: 1, Title: "任务"},
 	}}
 	docRepo := &mockDocRepo{}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	req := syncdto.DocumentCreateRequest{
 		RepositoryID: 1,
@@ -586,7 +630,7 @@ func TestServiceCreateDocumentRepoMismatch(t *testing.T) {
 		10: {ID: 10, RepositoryID: 2, Title: "任务"},
 	}}
 	docRepo := &mockDocRepo{}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	req := syncdto.DocumentCreateRequest{
 		RepositoryID: 1,
@@ -608,7 +652,7 @@ func TestServiceUpdateTaskDocID(t *testing.T) {
 		7: {ID: 7, RepositoryID: 1, Title: "任务"},
 	}}
 	docRepo := &mockDocRepo{}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	task, err := svc.UpdateTaskDocID(nil, 7, 99)
 	if err != nil {
@@ -624,7 +668,7 @@ func TestServiceCreateOrUpdateRepositoryCreate(t *testing.T) {
 	repoRepo := &mockRepoRepo{}
 	taskRepo := &mockTaskRepo{}
 	docRepo := &mockDocRepo{}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	req := syncdto.RepositoryUpsertRequest{
 		RepositoryID: 3,
@@ -651,7 +695,7 @@ func TestServiceCreateOrUpdateRepositoryUpdate(t *testing.T) {
 	}}
 	taskRepo := &mockTaskRepo{}
 	docRepo := &mockDocRepo{}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	req := syncdto.RepositoryUpsertRequest{
 		RepositoryID: 5,
@@ -683,7 +727,7 @@ func TestServiceClearRepositoryData(t *testing.T) {
 		3: {ID: 3, RepositoryID: 9, TaskID: 1, Title: "文档A"},
 		4: {ID: 4, RepositoryID: 10, TaskID: 2, Title: "文档B"},
 	}}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	if err := svc.ClearRepositoryData(nil, 9); err != nil {
 		t.Fatalf("ClearRepositoryData error: %v", err)
@@ -766,7 +810,7 @@ func TestCollectTaskIDsByDocuments(t *testing.T) {
 		1: {ID: 1, RepositoryID: 7, TaskID: 10},
 		2: {ID: 2, RepositoryID: 7, TaskID: 11},
 	}}
-	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 	taskIDs, err := svc.collectTaskIDsByDocuments(nil, 7, []uint{1, 2})
 	if err != nil {
 		t.Fatalf("collectTaskIDsByDocuments error: %v", err)
@@ -786,7 +830,7 @@ func TestCollectTaskIDsByDocumentsMismatch(t *testing.T) {
 	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
 		1: {ID: 1, RepositoryID: 8, TaskID: 10},
 	}}
-	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 	if _, err := svc.collectTaskIDsByDocuments(nil, 7, []uint{1}); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -808,7 +852,7 @@ func TestBuildPullExportDataWithFilter(t *testing.T) {
 	taskUsageRepo := &mockTaskUsageRepo{usages: map[uint][]model.TaskUsage{
 		10: {{TaskID: 10, APIKeyName: "gpt-4", PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30, CreatedAt: now}},
 	}}
-	svc := New(repoRepo, taskRepo, docRepo, taskUsageRepo, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, taskUsageRepo, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	export, err := svc.BuildPullExportData(nil, 1, []uint{100})
 	if err != nil {
@@ -842,7 +886,7 @@ func TestListDocuments(t *testing.T) {
 	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
 		201: {ID: 201, RepositoryID: 2, TaskID: 21, Title: "文档C", CreatedAt: now},
 	}}
-	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(repoRepo, taskRepo, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 
 	items, err := svc.ListDocuments(nil, 2)
 	if err != nil {
@@ -856,9 +900,43 @@ func TestListDocuments(t *testing.T) {
 	}
 }
 
+// TestListSyncEvents 验证同步事件列表查询
+func TestListSyncEvents(t *testing.T) {
+	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
+		1: {ID: 1, Name: "repo-1"},
+		2: {ID: 2, Name: "repo-2"},
+	}}
+	syncEventRepo := &mockSyncEventRepo{
+		events: []model.SyncEvent{
+			{ID: 1, EventType: string(eventbus.DocEventPulled), RepositoryID: 1, DocID: 11, TargetServer: "http://a/api/sync", Success: true, CreatedAt: time.Now()},
+			{ID: 2, EventType: string(eventbus.DocEventPushed), RepositoryID: 2, DocID: 22, TargetServer: "http://b/api/sync", Success: false, CreatedAt: time.Now()},
+		},
+	}
+	svc := New(repoRepo, &mockTaskRepo{}, &mockDocRepo{}, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, syncEventRepo)
+
+	items, err := svc.ListSyncEvents(nil, 0, "", 0)
+	if err != nil {
+		t.Fatalf("ListSyncEvents error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("unexpected items: %+v", items)
+	}
+	if items[0].RepositoryName == "" || items[1].RepositoryName == "" {
+		t.Fatalf("unexpected repository name: %+v", items)
+	}
+}
+
+// TestListSyncEventsInvalidMode 验证同步事件模式错误
+func TestListSyncEventsInvalidMode(t *testing.T) {
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, &mockDocRepo{}, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
+	if _, err := svc.ListSyncEvents(nil, 0, "unknown", 0); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
 // TestPublishDocEvent 验证文档事件发布成功
 func TestPublishDocEvent(t *testing.T) {
-	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, &mockDocRepo{}, &mockTaskUsageRepo{}, &mockSyncTargetRepo{})
+	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, &mockDocRepo{}, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
 	bus := eventbus.NewDocEventBus()
 	svc.SetDocEventBus(bus)
 
@@ -872,11 +950,14 @@ func TestPublishDocEvent(t *testing.T) {
 		return nil
 	})
 
-	svc.publishDocEvent(context.Background(), eventbus.DocEventPulled, 9, 18)
+	svc.publishDocEvent(context.Background(), eventbus.DocEventPulled, 9, 18, "http://demo/api/sync", true)
 	if !called {
 		t.Fatalf("expected handler to be called")
 	}
 	if got.RepositoryID != 9 || got.DocID != 18 || got.Type != eventbus.DocEventPulled {
 		t.Fatalf("unexpected event: %+v", got)
+	}
+	if got.TargetServer != "http://demo/api/sync" || !got.Success {
+		t.Fatalf("unexpected sync summary: %+v", got)
 	}
 }

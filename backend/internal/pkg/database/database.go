@@ -45,7 +45,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&model.Repository{}, &model.Task{}, &model.Document{}, &model.DocumentRating{}, &model.TaskHint{}, &model.TaskUsage{}, &model.SyncTarget{}); err != nil {
+	if err := db.AutoMigrate(&model.Repository{}, &model.Task{}, &model.Document{}, &model.DocumentRating{}, &model.TaskHint{}, &model.TaskUsage{}, &model.SyncTarget{}, &model.SyncEvent{}); err != nil {
 		return nil, err
 	}
 	if err := db.AutoMigrate(&model.APIKey{}); err != nil {

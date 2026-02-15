@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, CopyOutlined, SyncOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Checkbox, Grid, Input, Layout, List, message, Progress, Radio, Select, Space, Table, Tag, Typography } from 'antd';
-import type { Document, Repository, SyncDocumentListItem, SyncRepositoryListItem, SyncStatusData, SyncTargetItem, Task } from '../types';
+import { ArrowLeftOutlined, ClockCircleOutlined, CopyOutlined, SyncOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Drawer, Grid, Input, Layout, List, message, Progress, Radio, Select, Space, Table, Tag, Typography } from 'antd';
+import type { Document, Repository, SyncDocumentListItem, SyncEventItem, SyncRepositoryListItem, SyncStatusData, SyncTargetItem, Task } from '../types';
 import { documentApi, repositoryApi, syncApi, taskApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
@@ -36,6 +36,12 @@ export default function Sync() {
     const [starting, setStarting] = useState(false);
     const [copySuccess, setCopySuccess] = useState(false);
     const [savedTargets, setSavedTargets] = useState<SyncTargetItem[]>([]);
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyEvents, setHistoryEvents] = useState<SyncEventItem[]>([]);
+    const [historyRepositoryId, setHistoryRepositoryId] = useState<number | undefined>(undefined);
+    const [historyMode, setHistoryMode] = useState<'pull' | 'push' | ''>('');
+    const [historyRepositories, setHistoryRepositories] = useState<Repository[]>([]);
     const lastTaskRef = useRef<string>('');
     const lastStatusRef = useRef<string>('');
 
@@ -90,6 +96,36 @@ export default function Sync() {
         }
     }, []);
 
+    // 获取历史记录仓库列表
+    const fetchHistoryRepositories = useCallback(async () => {
+        try {
+            const response = await repositoryApi.list();
+            const repos = Array.isArray(response.data) ? response.data : [];
+            setHistoryRepositories(repos);
+        } catch {
+            setHistoryRepositories([]);
+        }
+    }, []);
+
+    // 获取同步历史记录
+    const fetchHistoryEvents = useCallback(async () => {
+        setHistoryLoading(true);
+        try {
+            const response = await syncApi.eventList({
+                repository_id: historyRepositoryId,
+                mode: historyMode || undefined,
+                limit: 200,
+            });
+            const items = Array.isArray(response.data.data) ? response.data.data : [];
+            setHistoryEvents(items);
+        } catch {
+            messageApi.error(t('sync.history_load_failed'));
+            setHistoryEvents([]);
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [historyMode, historyRepositoryId, messageApi, t]);
+
     const handleSaveTarget = useCallback(async () => {
         const normalizedTarget = normalizeTargetServer(targetServer);
         if (!normalizedTarget || !isValidTargetServer(normalizedTarget)) {
@@ -139,10 +175,11 @@ export default function Sync() {
         return map;
     }, [tasks]);
 
-    const formatDateTime = (dateStr: string) => {
+    // 格式化时间字符串
+    const formatDateTime = useCallback((dateStr: string) => {
         if (!dateStr) return '-';
         return new Date(dateStr).toLocaleString();
-    };
+    }, []);
 
     const getStatusColor = (status?: Task['status']) => {
         if (!status) return 'default';
@@ -186,7 +223,7 @@ export default function Sync() {
             key: 'created_at',
             render: (value: string) => formatDateTime(value),
         },
-    ]), [repositoryId, syncMode, t]);
+    ]), [formatDateTime, repositoryId, syncMode, t]);
 
     const documentRows = useMemo(() => {
         if (syncMode === 'pull') {
@@ -213,6 +250,61 @@ export default function Sync() {
         }
         return repositories.map((repo) => ({ id: repo.id, name: repo.name }));
     }, [repositories, remoteRepositories, syncMode]);
+
+    const historyRepositoryOptions = useMemo(() => {
+        return historyRepositories.map((repo) => ({ id: repo.id, name: repo.name }));
+    }, [historyRepositories]);
+
+    const historyColumns = useMemo(() => ([
+        {
+            title: t('sync.history_time'),
+            dataIndex: 'created_at',
+            key: 'created_at',
+            render: (value: string) => formatDateTime(value),
+        },
+        {
+            title: t('sync.mode'),
+            dataIndex: 'event_type',
+            key: 'event_type',
+            render: (value: string) => {
+                if (value === 'DocPulled') {
+                    return <Tag>{t('sync.mode_pull')}</Tag>;
+                }
+                if (value === 'DocPushed') {
+                    return <Tag>{t('sync.mode_push')}</Tag>;
+                }
+                return <Tag>{value || '-'}</Tag>;
+            },
+        },
+        {
+            title: t('sync.history_target'),
+            dataIndex: 'target_server',
+            key: 'target_server',
+            render: (value: string) => value || '-',
+        },
+        {
+            title: t('sync.history_repository_col'),
+            dataIndex: 'repository_name',
+            key: 'repository_name',
+            render: (_: string, record: SyncEventItem) => record.repository_name || `#${record.repository_id}`,
+        },
+        {
+            title: t('sync.history_document'),
+            dataIndex: 'doc_id',
+            key: 'doc_id',
+            render: (value: number) => (value ? `#${value}` : '-'),
+        },
+        {
+            title: t('sync.history_result'),
+            dataIndex: 'success',
+            key: 'success',
+            render: (value: boolean) => (
+                <Tag color={value ? 'success' : 'error'}>
+                    {value ? t('sync.history_success') : t('sync.history_failed')}
+                </Tag>
+            ),
+        },
+    ]), [formatDateTime, t]);
 
     const refreshRepositories = useCallback(async () => {
         setLoadingRepos(true);
@@ -252,6 +344,16 @@ export default function Sync() {
     useEffect(() => {
         fetchSavedTargets();
     }, [fetchSavedTargets]);
+
+    useEffect(() => {
+        if (!historyOpen) {
+            return;
+        }
+        fetchHistoryRepositories();
+        fetchHistoryEvents();
+        const interval = setInterval(fetchHistoryEvents, 5000);
+        return () => clearInterval(interval);
+    }, [fetchHistoryEvents, fetchHistoryRepositories, historyOpen]);
 
     useEffect(() => {
         setRepositoryId(undefined);
@@ -425,6 +527,9 @@ export default function Sync() {
                     <Title level={4} style={{ margin: 0 }}>{t('sync.title')}</Title>
                 </Space>
                 <Space>
+                    <Button icon={<ClockCircleOutlined />} onClick={() => setHistoryOpen(true)}>
+                        {t('sync.history')}
+                    </Button>
                     <LanguageSwitcher />
                     <ThemeSwitcher />
                 </Space>
@@ -649,6 +754,50 @@ export default function Sync() {
                     </Space>
                 </Card>
             </Content>
+            <Drawer
+                title={t('sync.history_title')}
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                width={screens.md ? 860 : '100%'}
+                extra={(
+                    <Button onClick={fetchHistoryEvents} loading={historyLoading}>
+                        {t('sync.refresh')}
+                    </Button>
+                )}
+            >
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <Space wrap>
+                        <Select
+                            style={{ minWidth: 200 }}
+                            placeholder={t('sync.history_repository')}
+                            value={historyRepositoryId}
+                            allowClear
+                            onChange={(value) => setHistoryRepositoryId(value ?? undefined)}
+                            options={historyRepositoryOptions.map((repo) => ({ label: repo.name, value: repo.id }))}
+                        />
+                        <Select
+                            style={{ minWidth: 160 }}
+                            placeholder={t('sync.history_mode')}
+                            value={historyMode || ''}
+                            onChange={(value) => setHistoryMode(value as 'pull' | 'push' | '')}
+                            options={[
+                                { label: t('sync.history_mode_all'), value: '' },
+                                { label: t('sync.mode_push'), value: 'push' },
+                                { label: t('sync.mode_pull'), value: 'pull' },
+                            ]}
+                        />
+                    </Space>
+                    <Table
+                        dataSource={historyEvents}
+                        columns={historyColumns}
+                        rowKey="id"
+                        loading={historyLoading}
+                        pagination={{ pageSize: 20 }}
+                        locale={{ emptyText: t('sync.history_empty') }}
+                        scroll={{ x: 900 }}
+                    />
+                </Space>
+            </Drawer>
         </Layout>
     );
 }

@@ -46,19 +46,21 @@ type Service struct {
 	docRepo        repository.DocumentRepository
 	taskUsageRepo  repository.TaskUsageRepository
 	syncTargetRepo repository.SyncTargetRepository
+	syncEventRepo  repository.SyncEventRepository
 	client         *http.Client
 	statusMap      map[string]*Status
 	mutex          sync.RWMutex
 	docBus         *eventbus.DocEventBus
 }
 
-func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository, syncTargetRepo repository.SyncTargetRepository) *Service {
+func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository, syncTargetRepo repository.SyncTargetRepository, syncEventRepo repository.SyncEventRepository) *Service {
 	return &Service{
 		repoRepo:       repoRepo,
 		taskRepo:       taskRepo,
 		docRepo:        docRepo,
 		taskUsageRepo:  taskUsageRepo,
 		syncTargetRepo: syncTargetRepo,
+		syncEventRepo:  syncEventRepo,
 		client:         &http.Client{Timeout: 15 * time.Second},
 		statusMap:      make(map[string]*Status),
 	}
@@ -70,7 +72,7 @@ func (s *Service) SetDocEventBus(bus *eventbus.DocEventBus) {
 }
 
 // publishDocEvent 发布文档事件
-func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEventType, repoID uint, docID uint) {
+func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEventType, repoID uint, docID uint, targetServer string, success bool) {
 	if s.docBus == nil {
 		return
 	}
@@ -78,8 +80,10 @@ func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEve
 		Type:         eventType,
 		RepositoryID: repoID,
 		DocID:        docID,
+		TargetServer: targetServer,
+		Success:      success,
 	}); err != nil {
-		klog.Errorf("文档事件发布失败: type=%s, repositoryID=%d, docID=%d, error=%v", eventType, repoID, docID, err)
+		klog.Errorf("文档事件发布失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", eventType, repoID, docID, targetServer, success, err)
 	}
 }
 
@@ -128,6 +132,56 @@ func (s *Service) DeleteSyncTarget(ctx context.Context, id uint) error {
 	}
 	klog.V(6).Infof("同步地址已删除: id=%d", id)
 	return nil
+}
+
+// ListSyncEvents 查询同步事件列表
+func (s *Service) ListSyncEvents(ctx context.Context, repositoryID uint, mode string, limit int) ([]syncdto.SyncEventItem, error) {
+	if s.syncEventRepo == nil {
+		return nil, errors.New("同步事件仓储未初始化")
+	}
+	eventTypes := []string{}
+	if mode != "" {
+		switch mode {
+		case "pull":
+			eventTypes = []string{string(eventbus.DocEventPulled)}
+		case "push":
+			eventTypes = []string{string(eventbus.DocEventPushed)}
+		default:
+			return nil, errors.New("同步模式不正确")
+		}
+	}
+	events, err := s.syncEventRepo.List(ctx, repositoryID, eventTypes, limit)
+	if err != nil {
+		return nil, err
+	}
+	repoNameByID := make(map[uint]string)
+	if repositoryID > 0 {
+		if repo, err := s.repoRepo.GetBasic(repositoryID); err == nil && repo != nil {
+			repoNameByID[repo.ID] = repo.Name
+		}
+	} else {
+		repos, err := s.repoRepo.List()
+		if err != nil {
+			return nil, err
+		}
+		for _, repo := range repos {
+			repoNameByID[repo.ID] = repo.Name
+		}
+	}
+	items := make([]syncdto.SyncEventItem, 0, len(events))
+	for _, event := range events {
+		items = append(items, syncdto.SyncEventItem{
+			ID:             event.ID,
+			EventType:      event.EventType,
+			RepositoryID:   event.RepositoryID,
+			RepositoryName: repoNameByID[event.RepositoryID],
+			DocID:          event.DocID,
+			TargetServer:   event.TargetServer,
+			Success:        event.Success,
+			CreatedAt:      event.CreatedAt,
+		})
+	}
+	return items, nil
 }
 
 func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearTarget bool) (*Status, error) {
@@ -801,9 +855,10 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 					s.FailedTasks++
 					s.UpdatedAt = time.Now()
 				})
+				s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, false)
 				continue
 			}
-			s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID)
+			s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, true)
 			if latestDoc != nil && doc.ID == latestDoc.ID {
 				latestRemoteDocID = remoteDocID
 			}
@@ -1021,11 +1076,12 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 					s.FailedTasks++
 					s.UpdatedAt = time.Now()
 				})
+				s.publishDocEvent(ctx, eventbus.DocEventPulled, repo.ID, doc.DocumentID, status.TargetServer, false)
 				continue
 			}
 			docIDMap[doc.DocumentID] = createdDoc.ID
 			localDocs = append(localDocs, *createdDoc)
-			s.publishDocEvent(ctx, eventbus.DocEventPulled, createdDoc.RepositoryID, createdDoc.ID)
+			s.publishDocEvent(ctx, eventbus.DocEventPulled, createdDoc.RepositoryID, createdDoc.ID, status.TargetServer, true)
 		}
 
 		if len(localDocs) > 0 {

@@ -175,6 +175,22 @@ export interface SyncTargetDeleteResponse {
     data: { id: number };
 }
 
+export interface SyncEventItem {
+    id: number;
+    event_type: string;
+    repository_id: number;
+    repository_name: string;
+    doc_id: number;
+    target_server: string;
+    success: boolean;
+    created_at: string;
+}
+
+export interface SyncEventListResponse {
+    code: string;
+    data: SyncEventItem[];
+}
+
 export interface SyncStartResponse {
     code: string;
     data: SyncStartData;
