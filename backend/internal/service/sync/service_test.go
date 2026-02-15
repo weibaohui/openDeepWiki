@@ -872,11 +872,14 @@ func TestPublishDocEvent(t *testing.T) {
 		return nil
 	})
 
-	svc.publishDocEvent(context.Background(), eventbus.DocEventPulled, 9, 18)
+	svc.publishDocEvent(context.Background(), eventbus.DocEventPulled, 9, 18, "http://demo/api/sync", true)
 	if !called {
 		t.Fatalf("expected handler to be called")
 	}
 	if got.RepositoryID != 9 || got.DocID != 18 || got.Type != eventbus.DocEventPulled {
 		t.Fatalf("unexpected event: %+v", got)
+	}
+	if got.TargetServer != "http://demo/api/sync" || !got.Success {
+		t.Fatalf("unexpected sync summary: %+v", got)
 	}
 }

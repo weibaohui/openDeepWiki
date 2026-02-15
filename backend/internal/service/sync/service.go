@@ -70,7 +70,7 @@ func (s *Service) SetDocEventBus(bus *eventbus.DocEventBus) {
 }
 
 // publishDocEvent 发布文档事件
-func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEventType, repoID uint, docID uint) {
+func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEventType, repoID uint, docID uint, targetServer string, success bool) {
 	if s.docBus == nil {
 		return
 	}
@@ -78,8 +78,10 @@ func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEve
 		Type:         eventType,
 		RepositoryID: repoID,
 		DocID:        docID,
+		TargetServer: targetServer,
+		Success:      success,
 	}); err != nil {
-		klog.Errorf("文档事件发布失败: type=%s, repositoryID=%d, docID=%d, error=%v", eventType, repoID, docID, err)
+		klog.Errorf("文档事件发布失败: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t, error=%v", eventType, repoID, docID, targetServer, success, err)
 	}
 }
 
@@ -801,9 +803,10 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 					s.FailedTasks++
 					s.UpdatedAt = time.Now()
 				})
+				s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, false)
 				continue
 			}
-			s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID)
+			s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, true)
 			if latestDoc != nil && doc.ID == latestDoc.ID {
 				latestRemoteDocID = remoteDocID
 			}
@@ -1021,11 +1024,12 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 					s.FailedTasks++
 					s.UpdatedAt = time.Now()
 				})
+				s.publishDocEvent(ctx, eventbus.DocEventPulled, repo.ID, doc.DocumentID, status.TargetServer, false)
 				continue
 			}
 			docIDMap[doc.DocumentID] = createdDoc.ID
 			localDocs = append(localDocs, *createdDoc)
-			s.publishDocEvent(ctx, eventbus.DocEventPulled, createdDoc.RepositoryID, createdDoc.ID)
+			s.publishDocEvent(ctx, eventbus.DocEventPulled, createdDoc.RepositoryID, createdDoc.ID, status.TargetServer, true)
 		}
 
 		if len(localDocs) > 0 {

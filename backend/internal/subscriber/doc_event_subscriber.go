@@ -41,12 +41,12 @@ func (s *DocEventSubscriber) handleDocRated(ctx context.Context, event eventbus.
 
 // handleDocPulled 处理文档被拉取事件
 func (s *DocEventSubscriber) handleDocPulled(ctx context.Context, event eventbus.DocEvent) error {
-	klog.V(6).Infof("文档拉取事件处理成功: type=%s, repositoryID=%d, docID=%d", event.Type, event.RepositoryID, event.DocID)
+	klog.V(6).Infof("文档拉取事件处理成功: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success)
 	return nil
 }
 
 // handleDocPushed 处理文档被推送事件
 func (s *DocEventSubscriber) handleDocPushed(ctx context.Context, event eventbus.DocEvent) error {
-	klog.V(6).Infof("文档推送事件处理成功: type=%s, repositoryID=%d, docID=%d", event.Type, event.RepositoryID, event.DocID)
+	klog.V(6).Infof("文档推送事件处理成功: type=%s, repositoryID=%d, docID=%d, target=%s, success=%t", event.Type, event.RepositoryID, event.DocID, event.TargetServer, event.Success)
 	return nil
 }
