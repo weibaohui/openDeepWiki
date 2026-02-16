@@ -561,7 +561,8 @@ func renderMarkdownTable(pdf *gofpdf.Fpdf, lines []string, bodyFont string, left
 	_, _, rightMargin, bottomMargin := pdf.GetMargins()
 	tableWidth := pageWidth - leftMargin - rightMargin
 	colWidth := tableWidth / float64(colCount)
-	lineHeight := 4.5
+	lineHeight := 4.2
+	pdf.SetCellMargin(0)
 	startY := pdf.GetY()
 	for rowIndex, row := range rows {
 		pdf.SetFont(bodyFont, "", 10)
@@ -578,14 +579,21 @@ func renderMarkdownTable(pdf *gofpdf.Fpdf, lines []string, bodyFont string, left
 		x := leftMargin
 		y := startY
 		for _, cell := range row {
+			drawStyle := "D"
+			if rowIndex == 0 {
+				drawStyle = "DF"
+			}
+			pdf.Rect(x, y, colWidth, rowHeight, drawStyle)
 			pdf.SetXY(x, y)
-			pdf.MultiCell(colWidth, lineHeight, cell, "1", "L", rowIndex == 0)
+			pdf.MultiCell(colWidth, lineHeight, cell, "", "L", false)
+			pdf.SetXY(x+colWidth, y)
 			x += colWidth
 		}
 		startY = y + rowHeight
 		pdf.SetY(startY)
 	}
-	pdf.Ln(2)
+	pdf.SetCellMargin(1)
+	pdf.Ln(1)
 }
 
 func calcTableRowHeight(pdf *gofpdf.Fpdf, row []string, colWidth float64, lineHeight float64) float64 {
@@ -596,7 +604,7 @@ func calcTableRowHeight(pdf *gofpdf.Fpdf, row []string, colWidth float64, lineHe
 			maxLines = len(lines)
 		}
 	}
-	return float64(maxLines)*lineHeight + 1
+	return float64(maxLines) * lineHeight
 }
 
 func (s *DocumentService) generateIndex(repoName string, docs []model.Document) string {
