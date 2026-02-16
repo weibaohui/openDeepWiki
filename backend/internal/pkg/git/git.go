@@ -298,6 +298,95 @@ func GetIncrementalChanges(repoPath string, baseCommit string) (string, []FileCh
 	return latestCommit, result, nil
 }
 
+func FormatIncrementalChangesForAI(repoPath string, baseCommit string) (string, error) {
+	latestCommit, changes, err := GetIncrementalChanges(repoPath, baseCommit)
+	if err != nil {
+		return "", err
+	}
+
+	var builder strings.Builder
+	builder.WriteString("增量变更指引\n")
+	builder.WriteString(fmt.Sprintf("最新提交: %s\n", latestCommit))
+	builder.WriteString(fmt.Sprintf("变更文件数: %d\n", len(changes)))
+
+	if len(changes) == 0 {
+		builder.WriteString("结论: 未发现文件变更\n")
+		return builder.String(), nil
+	}
+
+	counts := map[string]int{
+		"新增":  0,
+		"修改":  0,
+		"删除":  0,
+		"重命名": 0,
+		"复制":  0,
+		"未知":  0,
+	}
+	for _, change := range changes {
+		if _, exists := counts[change.ChangeType]; !exists {
+			counts[change.ChangeType] = 0
+		}
+		counts[change.ChangeType]++
+	}
+
+	builder.WriteString(fmt.Sprintf("变更类型统计: 新增 %d, 修改 %d, 删除 %d, 重命名 %d, 复制 %d, 未知 %d\n",
+		counts["新增"], counts["修改"], counts["删除"], counts["重命名"], counts["复制"], counts["未知"]))
+
+	builder.WriteString("文件清单:\n")
+	for index, change := range changes {
+		builder.WriteString(fmt.Sprintf("%d. %s | %s\n", index+1, change.Path, change.ChangeType))
+		if change.Description != "" {
+			builder.WriteString(fmt.Sprintf("   说明: %s\n", change.Description))
+		}
+		if len(change.LineRanges) == 0 {
+			builder.WriteString("   行号: 未提供\n")
+		} else {
+			builder.WriteString(fmt.Sprintf("   行号: %s\n", formatLineRanges(change.LineRanges)))
+		}
+		builder.WriteString(fmt.Sprintf("   建议: %s\n", buildChangeSuggestion(change)))
+	}
+
+	return builder.String(), nil
+}
+
+func formatLineRanges(ranges []LineRange) string {
+	parts := make([]string, 0, len(ranges))
+	for _, item := range ranges {
+		side := "未知"
+		if item.Side == "new" {
+			side = "新版"
+		} else if item.Side == "old" {
+			side = "旧版"
+		}
+		if item.Start == item.End {
+			parts = append(parts, fmt.Sprintf("%s %d", side, item.Start))
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s %d-%d", side, item.Start, item.End))
+	}
+	return strings.Join(parts, "；")
+}
+
+func buildChangeSuggestion(change FileChange) string {
+	switch change.ChangeType {
+	case "新增":
+		return "优先阅读新增内容的用途与依赖关系"
+	case "修改":
+		return "重点关注修改行号及其上下游调用"
+	case "删除":
+		return "确认删除原因及是否存在替代实现"
+	case "重命名":
+		return "关注命名调整是否影响引用路径"
+	case "复制":
+		return "确认复制的用途是否引入重复逻辑"
+	default:
+		if len(change.LineRanges) == 0 {
+			return "需要人工确认变更细节"
+		}
+		return "结合行号范围进行快速复核"
+	}
+}
+
 // getDiffLineRanges 获取指定提交范围内的行号区间
 func getDiffLineRanges(repoPath string, rangeExpr string) (map[string][]LineRange, error) {
 	cmd := exec.Command("git", "diff", "--unified=0", "--no-color", rangeExpr)
