@@ -183,6 +183,23 @@ func (h *RepositoryHandler) AnalyzeAPI(c *gin.Context) {
 	})
 }
 
+func (h *RepositoryHandler) IncrementalAnalysis(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	ctx := context.Background()
+	if err := h.service.IncrementalAnalysis(ctx, uint(id)); err != nil {
+		klog.Errorf("仓库增量分析失败: repoID=%d, error=%v", id, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "incremental analysis started"})
+}
+
 type AnalyzeProblemRequest struct {
 	Content string `json:"content" binding:"required"`
 }
