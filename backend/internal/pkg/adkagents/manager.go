@@ -12,6 +12,7 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"k8s.io/klog/v2"
 )
 
@@ -26,6 +27,8 @@ type Manager struct {
 	loader  *Loader
 	watcher *FileWatcher
 
+	docRepo repository.DocumentRepository
+
 	// 增强的模型提供者（支持多模型和自动切换）
 	enhancedModelProvider *EnhancedModelProviderImpl
 }
@@ -33,6 +36,8 @@ type Manager struct {
 var (
 	managerInstance     *Manager
 	managerInstanceOnce sync.Once
+	defaultDocRepoMu    sync.RWMutex
+	defaultDocRepo      repository.DocumentRepository
 )
 
 // GetOrCreateInstance 获取或创建 Manager 单例
@@ -46,6 +51,40 @@ func GetOrCreateInstance(cfg *config.Config) (*Manager, error) {
 	})
 
 	return managerInstance, nil
+}
+
+// GetOrCreateInstanceWithDocRepo 获取或创建 Manager 单例，并注入文档仓储
+func GetOrCreateInstanceWithDocRepo(cfg *config.Config, docRepo repository.DocumentRepository) (*Manager, error) {
+	manager, err := GetOrCreateInstance(cfg)
+	if err != nil {
+		return nil, err
+	}
+	setDocumentRepository(docRepo)
+	return manager, nil
+}
+
+// setDocumentRepository 设置文档仓储，用于 read_doc 工具
+func setDocumentRepository(docRepo repository.DocumentRepository) {
+	defaultDocRepoMu.Lock()
+	defaultDocRepo = docRepo
+	defaultDocRepoMu.Unlock()
+
+	if managerInstance != nil {
+		managerInstance.docRepo = docRepo
+	}
+
+	if docRepo == nil {
+		klog.V(6).Infof("[Manager] 文档仓储为空，read_doc 工具不可用")
+		return
+	}
+	klog.V(6).Infof("[Manager] 文档仓储已注入，read_doc 工具可用")
+}
+
+// getDefaultDocRepo 获取默认文档仓储
+func getDefaultDocRepo() repository.DocumentRepository {
+	defaultDocRepoMu.RLock()
+	defer defaultDocRepoMu.RUnlock()
+	return defaultDocRepo
 }
 
 // newManagerInternal 创建 Manager 实例（内部构造）
@@ -62,6 +101,7 @@ func newManagerInternal(cfg *config.Config) (*Manager, error) {
 		cache:    make(map[string]adk.Agent),
 		parser:   parser,
 		loader:   loader,
+		docRepo:  getDefaultDocRepo(),
 	}
 
 	// 初始加载
@@ -232,6 +272,7 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	toolProvider := ToolProvider{
 		BasePath: m.cfg.Data.RepoDir,
 		SkillDir: m.cfg.Skill.Dir,
+		DocRepo:  m.docRepo,
 	}
 	tools := make([]tool.BaseTool, 0, len(def.Tools))
 	for _, toolName := range def.Tools {

@@ -140,7 +140,7 @@ func main() {
 	syncHandler := handler.NewSyncHandler(syncService)
 
 	// 初始化 EnhancedModelProvider 并设置到 Manager
-	manager, err := adkagents.GetOrCreateInstance(cfg)
+	manager, err := adkagents.GetOrCreateInstanceWithDocRepo(cfg, docRepo)
 	if err != nil {
 		log.Fatalf("Failed to get manager: %v", err)
 	}
