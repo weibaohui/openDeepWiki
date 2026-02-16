@@ -203,6 +203,11 @@ type mockDocRepo struct {
 	err    error
 }
 
+// GetAllDocumentsTitleAndID 获取仓库下所有文档的标题与ID
+func (m *mockDocRepo) GetAllDocumentsTitleAndID(repoID uint) ([]model.Document, error) {
+	return nil, nil
+}
+
 // Create 创建文档
 func (m *mockDocRepo) Create(doc *model.Document) error {
 	if m.err != nil {

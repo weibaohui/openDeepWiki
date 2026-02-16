@@ -29,6 +29,16 @@ func (r *documentRepository) GetVersions(repoID uint, title string) ([]model.Doc
 	return docs, err
 }
 
+// GetAllDocumentsTitleAndID 获取指定仓库的所有文档标题与ID。
+func (r *documentRepository) GetAllDocumentsTitleAndID(repoID uint) ([]model.Document, error) {
+	var docs []model.Document
+	err := r.db.Where("repository_id = ?", repoID).
+		Select("title, id").
+		Find(&docs).Error
+	return docs, err
+}
+
+// GetByRepository 获取指定仓库的所有最新文档。
 func (r *documentRepository) GetByRepository(repoID uint) ([]model.Document, error) {
 	var docs []model.Document
 	err := r.db.Where("repository_id = ? AND is_latest = ?", repoID, true).

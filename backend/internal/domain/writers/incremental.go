@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
@@ -14,6 +15,8 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/git"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
+	"github.com/weibaohui/opendeepwiki/backend/internal/utils"
+	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 )
 
@@ -21,11 +24,12 @@ type incrementalWriter struct {
 	factory      *adkagents.AgentFactory
 	taskRepo     repository.TaskRepository
 	repoRepo     repository.RepoRepository
+	docRepo      repository.DocumentRepository
 	taskHintRepo repository.HintRepository
 	taskService  *service.TaskService
 }
 
-func NewIncrementalWriter(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, taskHintRepo repository.HintRepository) (*incrementalWriter, error) {
+func NewIncrementalWriter(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, taskHintRepo repository.HintRepository, docRepo repository.DocumentRepository) (*incrementalWriter, error) {
 	klog.V(6).Infof("[incrementalWriter.New] 开始创建增量更新服务")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
@@ -38,6 +42,7 @@ func NewIncrementalWriter(cfg *config.Config, repoRepo repository.RepoRepository
 		factory:      factory,
 		taskRepo:     taskRepo,
 		repoRepo:     repoRepo,
+		docRepo:      docRepo,
 		taskHintRepo: taskHintRepo,
 	}, nil
 }
@@ -65,7 +70,7 @@ func (s *incrementalWriter) Generate(ctx context.Context, localPath string, titl
 		return "", fmt.Errorf("%w: %w", domain.ErrAgentExecutionFailed, err)
 	}
 
-	for _, dir := range result.Dirs {
+	for _, dir := range result.AddDirs {
 		task, err := s.taskService.CreateDocWriteTask(ctx, repo.ID, dir.Title, dir.Outline, dir.SortOrder)
 		if err != nil {
 			klog.Errorf("[%s] 创建任务失败: repoID=%d, error=%v", s.Name(), repo.ID, err)
@@ -77,14 +82,19 @@ func (s *incrementalWriter) Generate(ctx context.Context, localPath string, titl
 		}
 	}
 
-	if err := s.saveAnalysisSummaryHint(repo.ID, result.AnalysisSummary); err != nil {
-		klog.Errorf("[%s] 保存增量分析总结提示信息失败: repoID=%d, error=%v", s.Name(), repo.ID, err)
+	for _, dir := range result.UpdateDirs {
+
+		//TODO 先打印待更新的内容。
+		// 写入数据库Task表，增加一种改写类型，类似TitleRewriter，ContentRewriter
+		klog.V(6).Infof("待更新目录:[%d] %s\n", dir.DocID, dir.Title)
+		klog.V(6).Infof("待更新内容: %s\n", dir.Content)
+		klog.V(6).Infof("待更新目标内容: %s\n", dir.Replace)
 	}
 
 	return "", nil
 }
 
-func (s *incrementalWriter) createIncrementalPlan(ctx context.Context, repo *model.Repository) (*domain.DirMakerGenerationResult, error) {
+func (s *incrementalWriter) createIncrementalPlan(ctx context.Context, repo *model.Repository) (*domain.IncrementalGenerationResult, error) {
 	if repo.LocalPath == "" {
 		return nil, fmt.Errorf("%w: repo.LocalPath 为空", domain.ErrInvalidLocalPath)
 	}
@@ -112,19 +122,30 @@ func (s *incrementalWriter) createIncrementalPlan(ctx context.Context, repo *mod
 	}
 	klog.V(6).Infof("[%s] 增量变更摘要: %s", s.Name(), summary)
 
-	result, err := s.genIncrementalPlan(ctx, repo.LocalPath, repo.CloneCommit, summary)
+	docList, err := s.docRepo.GetAllDocumentsTitleAndID(repo.ID)
+	if err != nil {
+		return nil, fmt.Errorf("获取所有文档标题与ID失败: %w", err)
+	}
+	//将文档标题、ID拼接为字符串，每个文档占用一行，格式为：title: id
+	var docListStr strings.Builder
+	for _, doc := range docList {
+		fmt.Fprintf(&docListStr, "- 标题=%s\t ID=%d\n", doc.Title, doc.ID)
+	}
+
+	result, err := s.genIncrementalPlan(ctx, repo.LocalPath, repo.CloneCommit, summary, docListStr.String())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", domain.ErrAgentExecutionFailed, err)
 	}
 
-	klog.V(6).Infof("[%s] 增量分析完成，生成任务数: %d", s.Name(), len(result.Dirs))
-	klog.V(6).Infof("[%s] 增量分析总结: %s", s.Name(), result.AnalysisSummary)
 	return result, nil
 }
 
-func (s *incrementalWriter) genIncrementalPlan(ctx context.Context, localPath string, baseCommit string, summary string) (*domain.DirMakerGenerationResult, error) {
+// genIncrementalPlan 生成增量更新计划。
+// summary 增量变更摘要
+// docList 当前仓库的所有文档的标题与ID列表
+func (s *incrementalWriter) genIncrementalPlan(ctx context.Context, localPath string, baseCommit string, summary string, docList string) (*domain.IncrementalGenerationResult, error) {
 	adk.AddSessionValue(ctx, "local_path", localPath)
-	adk.AddSessionValue(ctx, "base_commit", baseCommit)
+	adk.AddSessionValue(ctx, "incremental_summary", summary)
 
 	agent, err := adkagents.BuildSequentialAgent(
 		ctx,
@@ -142,6 +163,8 @@ func (s *incrementalWriter) genIncrementalPlan(ctx context.Context, localPath st
 
 仓库路径: %s
 基线提交: %s
+当前已生成文档列表：
+%s
 增量摘要:
 %s
 
@@ -151,7 +174,7 @@ func (s *incrementalWriter) genIncrementalPlan(ctx context.Context, localPath st
 3. 在 hint 中标注与变更相关的证据（文件路径、变更类型、行号范围）
 4. 输出 analysis_summary 总结增量分析结论
 
-请确保最终输出为严格符合 YAML 规范的目录结构（包含 dirs 与 analysis_summary），无多余注释或解释性文字。`, localPath, baseCommit, summary)
+请确保最终输出为严格符合 YAML 规范的目录结构（包含 dirs 与 analysis_summary），无多余注释或解释性文字。`, localPath, baseCommit, docList, summary)
 
 	lastContent, err := adkagents.RunAgentToLastContent(ctx, agent, []adk.Message{
 		{
@@ -167,7 +190,7 @@ func (s *incrementalWriter) genIncrementalPlan(ctx context.Context, localPath st
 	}
 
 	klog.V(6).Infof("[%s] 最后 Agent 输出 原文: \n%s\n", s.Name(), lastContent)
-	result, err := parseDirList(lastContent)
+	result, err := parseIncrementalDirList(lastContent)
 	if err != nil {
 		klog.Errorf("[%s] 解析增量任务结果失败: %v", s.Name(), err)
 		return nil, err
@@ -176,27 +199,25 @@ func (s *incrementalWriter) genIncrementalPlan(ctx context.Context, localPath st
 	return result, nil
 }
 
-func (s *incrementalWriter) saveAnalysisSummaryHint(repoID uint, summary string) error {
-	if s.taskHintRepo == nil {
-		return nil
+// parseIncrementalDirList 从 Agent 输出解析增量目录生成结果。
+func parseIncrementalDirList(content string) (*domain.IncrementalGenerationResult, error) {
+	klog.V(6).Infof("[dm.parseIncrementalDirList] 开始解析 Agent 输出内容，长度: %d", len(content))
+
+	// 尝试从内容中提取 YAML
+	yamlStr := utils.ExtractYAML(content)
+	if yamlStr == "" {
+		klog.Warningf("[dm.parseIncrementalDirList] 提取 YAML 失败")
+		return nil, fmt.Errorf("%w: 提取 YAML 失败", domain.ErrYAMLParseFailed)
 	}
-	if summary == "" {
-		return nil
+
+	var result domain.IncrementalGenerationResult
+	if err := yaml.Unmarshal([]byte(yamlStr), &result); err != nil {
+		klog.Errorf("[dm.parseIncrementalDirList] YAML 解析失败: %v", err)
+		return nil, fmt.Errorf("%w: %v", domain.ErrYAMLParseFailed, err)
 	}
-	hints := make([]model.TaskHint, 0, 1)
-	hints = append(hints, model.TaskHint{
-		RepositoryID: repoID,
-		TaskID:       0,
-		Title:        "增量分析总结",
-		Aspect:       "增量分析总结",
-		Source:       "增量分析",
-		Detail:       summary,
-	})
-	if err := s.taskHintRepo.CreateBatch(hints); err != nil {
-		klog.V(6).Infof("[%s] 保存增量分析总结失败: repoID=%d, error=%v", s.Name(), repoID, err)
-		return fmt.Errorf("保存增量分析总结失败: %w", err)
-	}
-	return nil
+
+	klog.V(6).Infof("[dm.parseIncrementalDirList] 解析完成，更新目录数: %d, 新增目录数: %d", len(result.UpdateDirs), len(result.AddDirs))
+	return &result, nil
 }
 
 func (s *incrementalWriter) saveHint(repoID uint, task *model.Task, spec *domain.DirMakerDirSpec) error {

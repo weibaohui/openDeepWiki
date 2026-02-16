@@ -92,7 +92,7 @@ func main() {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}
 
-	incrementalWriter, err := writers.NewIncrementalWriter(cfg, repoRepo, taskRepo, hintRepo)
+	incrementalWriter, err := writers.NewIncrementalWriter(cfg, repoRepo, taskRepo, hintRepo, docRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize incremental writer service: %v", err)
 	}

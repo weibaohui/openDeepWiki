@@ -154,6 +154,11 @@ func (m *mockSyncDocRepo) DeleteByRepositoryID(repoID uint) error { return nil }
 // UpdateTaskID 更新任务ID
 func (m *mockSyncDocRepo) UpdateTaskID(docID uint, taskID uint) error { return nil }
 
+// GetAllDocumentsTitleAndID 获取仓库下所有文档的标题与ID
+func (m *mockSyncDocRepo) GetAllDocumentsTitleAndID(repoID uint) ([]model.Document, error) {
+	return nil, nil
+}
+
 // TransferLatest 转移最新版本标记
 func (m *mockSyncDocRepo) TransferLatest(oldDocID uint, newDocID uint) error { return nil }
 

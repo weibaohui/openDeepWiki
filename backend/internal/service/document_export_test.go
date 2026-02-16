@@ -17,6 +17,9 @@ type mockExportDocRepo struct {
 func (m *mockExportDocRepo) Create(doc *model.Document) error {
 	return nil
 }
+func (m *mockExportDocRepo) GetAllDocumentsTitleAndID(repoID uint) ([]model.Document, error) {
+	return nil, nil
+}
 
 func (m *mockExportDocRepo) GetByRepository(repoID uint) ([]model.Document, error) {
 	if m.GetByRepositoryFunc != nil {
@@ -90,6 +93,9 @@ func (m *mockExportRepoRepo) List() ([]model.Repository, error) {
 }
 
 func (m *mockExportRepoRepo) Get(id uint) (*model.Repository, error) {
+	return nil, nil
+}
+func (m *mockExportRepoRepo) GetAllDocumentsTitleAndID(repoID uint) ([]model.Document, error) {
 	return nil, nil
 }
 

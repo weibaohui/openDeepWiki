@@ -39,6 +39,10 @@ func (m *mockExportHandlerDocRepo) Save(doc *model.Document) error {
 	return nil
 }
 
+func (m *mockExportHandlerDocRepo) GetAllDocumentsTitleAndID(repoID uint) ([]model.Document, error) {
+	return nil, nil
+}
+
 func (m *mockExportHandlerDocRepo) Delete(id uint) error {
 	return nil
 }
