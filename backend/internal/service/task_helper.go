@@ -78,6 +78,15 @@ func (s *TaskService) CreateTocWriteTask(ctx context.Context, repoID uint, title
 }
 
 func (s *TaskService) CreateIncrementalWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
+
+	repo, err := s.repoRepo.Get(repoID)
+	if err != nil {
+		return nil, fmt.Errorf("[CreateIncrementalWriteTask] 获取仓库失败: %w", err)
+	}
+
+	if repo.CloneCommit != "" {
+		title = fmt.Sprintf("基于 %s 增量更新", repo.CloneCommit)
+	}
 	task := &model.Task{
 		RepositoryID: repoID,
 		Title:        title,
