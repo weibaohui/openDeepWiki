@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -179,17 +180,16 @@ func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(15, 15, 15)
 	pdf.SetAutoPageBreak(true, 15)
-	fontFamily := registerPDFFonts(pdf)
+	bodyFont, monoFont := registerPDFFonts(pdf)
 
 	for _, doc := range docs {
 		pdf.AddPage()
-		pdf.SetFont(fontFamily, "B", 16)
+		pdf.SetFont(bodyFont, "B", 16)
 		pdf.MultiCell(0, 8, doc.Title, "", "L", false)
 		pdf.Ln(2)
 
-		pdf.SetFont(fontFamily, "", 12)
 		content := strings.TrimSpace(doc.Content)
-		pdf.MultiCell(0, 6, content, "", "L", false)
+		renderMarkdownToPDF(pdf, content, bodyFont, monoFont)
 	}
 
 	buf := new(bytes.Buffer)
@@ -203,7 +203,7 @@ func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
 }
 
 // registerPDFFonts 注册PDF字体并返回可用字体族名
-func registerPDFFonts(pdf *gofpdf.Fpdf) string {
+func registerPDFFonts(pdf *gofpdf.Fpdf) (string, string) {
 	pdf.AddUTF8FontFromBytes("NotoSansCJK", "", notoSansCJKRegular)
 	if err := pdf.Error(); err != nil {
 		klog.V(6).Infof("注册PDF中文字体失败，尝试JetBrains Mono: %v", err)
@@ -212,15 +212,15 @@ func registerPDFFonts(pdf *gofpdf.Fpdf) string {
 		if err := pdf.Error(); err != nil {
 			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
 			pdf.SetError(nil)
-			return "Helvetica"
+			return "Helvetica", "Helvetica"
 		}
 		pdf.AddUTF8FontFromBytes("JetBrainsMono", "B", jetBrainsMonoBold)
 		if err := pdf.Error(); err != nil {
 			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
 			pdf.SetError(nil)
-			return "Helvetica"
+			return "Helvetica", "Helvetica"
 		}
-		return "JetBrainsMono"
+		return "JetBrainsMono", "JetBrainsMono"
 	}
 	pdf.AddUTF8FontFromBytes("NotoSansCJK", "B", notoSansCJKBold)
 	if err := pdf.Error(); err != nil {
@@ -230,17 +230,212 @@ func registerPDFFonts(pdf *gofpdf.Fpdf) string {
 		if err := pdf.Error(); err != nil {
 			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
 			pdf.SetError(nil)
-			return "Helvetica"
+			return "Helvetica", "Helvetica"
 		}
 		pdf.AddUTF8FontFromBytes("JetBrainsMono", "B", jetBrainsMonoBold)
 		if err := pdf.Error(); err != nil {
 			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
 			pdf.SetError(nil)
-			return "Helvetica"
+			return "Helvetica", "Helvetica"
 		}
-		return "JetBrainsMono"
+		return "JetBrainsMono", "JetBrainsMono"
 	}
-	return "NotoSansCJK"
+	pdf.AddUTF8FontFromBytes("JetBrainsMono", "", jetBrainsMonoRegular)
+	if err := pdf.Error(); err != nil {
+		klog.V(6).Infof("注册PDF等宽字体失败，回退为中文字体: %v", err)
+		pdf.SetError(nil)
+		return "NotoSansCJK", "NotoSansCJK"
+	}
+	pdf.AddUTF8FontFromBytes("JetBrainsMono", "B", jetBrainsMonoBold)
+	if err := pdf.Error(); err != nil {
+		klog.V(6).Infof("注册PDF等宽字体失败，回退为中文字体: %v", err)
+		pdf.SetError(nil)
+		return "NotoSansCJK", "NotoSansCJK"
+	}
+	return "NotoSansCJK", "JetBrainsMono"
+}
+
+func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, monoFont string) {
+	normalized := strings.ReplaceAll(content, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	lines := strings.Split(normalized, "\n")
+	leftMargin, _, _, _ := pdf.GetMargins()
+	lineHeight := 6.0
+	inCodeBlock := false
+	var codeLines []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			if inCodeBlock {
+				renderCodeBlock(pdf, codeLines, monoFont, leftMargin)
+				codeLines = nil
+				inCodeBlock = false
+			} else {
+				inCodeBlock = true
+			}
+			continue
+		}
+
+		if inCodeBlock {
+			codeLines = append(codeLines, line)
+			continue
+		}
+
+		if trimmed == "" {
+			pdf.Ln(3)
+			continue
+		}
+
+		if level, heading := parseHeading(trimmed); level > 0 {
+			size := 14.0
+			switch level {
+			case 1:
+				size = 18
+			case 2:
+				size = 16
+			case 3:
+				size = 14
+			case 4:
+				size = 13
+			default:
+				size = 12
+			}
+			pdf.SetFont(bodyFont, "B", size)
+			pdf.MultiCell(0, 7, heading, "", "L", false)
+			pdf.Ln(1)
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "> ") {
+			pdf.SetFont(bodyFont, "", 12)
+			pdf.SetTextColor(90, 90, 90)
+			pdf.SetX(leftMargin + 4)
+			pdf.MultiCell(0, lineHeight, sanitizeInlineMarkdown(strings.TrimSpace(trimmed[2:])), "", "L", false)
+			pdf.SetTextColor(0, 0, 0)
+			continue
+		}
+
+		if ordered, item := parseOrderedList(trimmed); ordered {
+			pdf.SetFont(bodyFont, "", 12)
+			pdf.SetX(leftMargin + 4)
+			pdf.MultiCell(0, lineHeight, item, "", "L", false)
+			continue
+		}
+
+		if unordered, item := parseUnorderedList(trimmed); unordered {
+			pdf.SetFont(bodyFont, "", 12)
+			pdf.SetX(leftMargin + 4)
+			pdf.MultiCell(0, lineHeight, item, "", "L", false)
+			continue
+		}
+
+		pdf.SetFont(bodyFont, "", 12)
+		pdf.MultiCell(0, lineHeight, sanitizeInlineMarkdown(trimmed), "", "L", false)
+	}
+
+	if inCodeBlock && len(codeLines) > 0 {
+		renderCodeBlock(pdf, codeLines, monoFont, leftMargin)
+	}
+}
+
+func renderCodeBlock(pdf *gofpdf.Fpdf, lines []string, monoFont string, leftMargin float64) {
+	if len(lines) == 0 {
+		return
+	}
+	pdf.SetFont(monoFont, "", 10)
+	pdf.SetFillColor(245, 245, 245)
+	pdf.SetTextColor(50, 50, 50)
+	for _, line := range lines {
+		pdf.SetX(leftMargin + 2)
+		pdf.MultiCell(0, 5, line, "", "L", true)
+	}
+	pdf.SetTextColor(0, 0, 0)
+	pdf.Ln(1)
+}
+
+func parseHeading(line string) (int, string) {
+	count := 0
+	for count < len(line) && line[count] == '#' {
+		count++
+	}
+	if count == 0 || count > 6 {
+		return 0, ""
+	}
+	if len(line) <= count || line[count] != ' ' {
+		return 0, ""
+	}
+	return count, strings.TrimSpace(line[count+1:])
+}
+
+func parseOrderedList(line string) (bool, string) {
+	i := 0
+	for i < len(line) && line[i] >= '0' && line[i] <= '9' {
+		i++
+	}
+	if i == 0 || i+1 >= len(line) {
+		return false, ""
+	}
+	if line[i] != '.' || line[i+1] != ' ' {
+		return false, ""
+	}
+	number, err := strconv.Atoi(line[:i])
+	if err != nil {
+		return false, ""
+	}
+	item := strings.TrimSpace(line[i+2:])
+	item = normalizeTaskMarker(item)
+	return true, fmt.Sprintf("%d. %s", number, sanitizeInlineMarkdown(item))
+}
+
+func parseUnorderedList(line string) (bool, string) {
+	if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") || strings.HasPrefix(line, "+ ") {
+		item := strings.TrimSpace(line[2:])
+		item = normalizeTaskMarker(item)
+		return true, fmt.Sprintf("• %s", sanitizeInlineMarkdown(item))
+	}
+	return false, ""
+}
+
+func normalizeTaskMarker(item string) string {
+	if strings.HasPrefix(item, "[ ] ") || strings.HasPrefix(item, "[x] ") || strings.HasPrefix(item, "[X] ") {
+		return strings.TrimSpace(item[4:])
+	}
+	return item
+}
+
+func sanitizeInlineMarkdown(text string) string {
+	text = stripMarkdownLinks(text)
+	text = strings.ReplaceAll(text, "**", "")
+	text = strings.ReplaceAll(text, "__", "")
+	text = strings.ReplaceAll(text, "*", "")
+	text = strings.ReplaceAll(text, "_", "")
+	text = strings.ReplaceAll(text, "`", "")
+	return text
+}
+
+func stripMarkdownLinks(text string) string {
+	for {
+		start := strings.Index(text, "[")
+		if start == -1 {
+			return text
+		}
+		mid := strings.Index(text[start:], "]")
+		if mid == -1 {
+			return text
+		}
+		mid += start
+		if mid+1 >= len(text) || text[mid+1] != '(' {
+			return text
+		}
+		end := strings.Index(text[mid+2:], ")")
+		if end == -1 {
+			return text
+		}
+		end += mid + 2
+		label := text[start+1 : mid]
+		text = text[:start] + label + text[end+1:]
+	}
 }
 
 func (s *DocumentService) generateIndex(repoName string, docs []model.Document) string {
