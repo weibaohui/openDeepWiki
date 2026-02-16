@@ -77,6 +77,22 @@ func (s *TaskService) CreateTocWriteTask(ctx context.Context, repoID uint, title
 	return task, nil
 }
 
+func (s *TaskService) CreateIncrementalWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
+	task := &model.Task{
+		RepositoryID: repoID,
+		Title:        title,
+		WriterName:   domain.IncrementalWriter,
+		TaskType:     domain.IncrementalWrite,
+		Status:       string(statemachine.TaskStatusPending),
+		SortOrder:    sortOrder,
+	}
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, fmt.Errorf("[CreateIncrementalWriteTask] 创建任务失败: %w", err)
+	}
+
+	return task, nil
+}
+
 // CreateTitleRewriteTask 创建标题重写任务
 func (s *TaskService) CreateTitleRewriteTask(ctx context.Context, repoID uint, title string, runAfter uint, docId uint, sortOrder int) (*model.Task, error) {
 	// 创建标题重写任务

@@ -14,6 +14,7 @@ var (
 	UserRequestWriter WriterName = "UserRequestWriter"
 	TitleRewriter     WriterName = "TitleRewriter"
 	TocWriter         WriterName = "TocWriter"
+	IncrementalWriter WriterName = "IncrementalWriter"
 )
 
 type Writer interface {
@@ -47,4 +48,6 @@ const (
 	AgentProblemSolver   = "problem_solver"     // 问题解决 Agent
 	AgentAPIExplorer     = "api_explorer"       // API 探索 Agent
 	AgentTitleRewriter   = "title_rewriter"     // 标题重写 Agent
+	AgentIncrementalEditor  = "incremental_editor"
+	AgentIncrementalChecker = "incremental_checker"
 )

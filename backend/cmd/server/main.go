@@ -91,6 +91,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}
+
+	incrementalWriter, err := writers.NewIncrementalWriter(cfg, repoRepo, taskRepo, hintRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize incremental writer service: %v", err)
+	}
 	//初始化系列Writer结束
 
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
@@ -100,7 +105,9 @@ func main() {
 	taskService.AddWriters(apiWriter)
 	taskService.AddWriters(titleRewriter)
 	taskService.AddWriters(tocWriter)
+	taskService.AddWriters(incrementalWriter)
 	tocWriter.SetTaskService(taskService)
+	incrementalWriter.SetTaskService(taskService)
 
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
