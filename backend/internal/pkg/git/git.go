@@ -349,6 +349,54 @@ func FormatIncrementalChangesForAI(repoPath string, baseCommit string) (string, 
 	return builder.String(), nil
 }
 
+func Pull(ctx context.Context, repoPath string) (string, error) {
+	return runGitCommand(ctx, repoPath, "pull")
+}
+
+func EnsureBaseCommitAvailable(ctx context.Context, repoPath string, baseCommit string) error {
+	baseCommit = strings.TrimSpace(baseCommit)
+	if baseCommit == "" {
+		return fmt.Errorf("仓库基线提交为空")
+	}
+
+	verifyErr := verifyCommit(ctx, repoPath, baseCommit)
+	if verifyErr == nil {
+		return nil
+	}
+
+	isShallow, shallowErr := isShallowRepository(ctx, repoPath)
+	if shallowErr != nil {
+		return fmt.Errorf("基线提交校验失败: %w", verifyErr)
+	}
+	if isShallow {
+		klog.V(6).Infof("仓库为浅克隆，尝试补全历史: repoPath=%s", repoPath)
+		if err := fetchUnshallow(ctx, repoPath); err != nil {
+			klog.V(6).Infof("补全历史失败: repoPath=%s, error=%v", repoPath, err)
+		} else {
+			if err := ensureAllBranches(ctx, repoPath); err != nil {
+				klog.V(6).Infof("设置远端分支拉取失败: repoPath=%s, error=%v", repoPath, err)
+			}
+			if err := fetchAll(ctx, repoPath); err != nil {
+				klog.V(6).Infof("拉取远端历史失败: repoPath=%s, error=%v", repoPath, err)
+			}
+			if err := verifyCommit(ctx, repoPath, baseCommit); err == nil {
+				return nil
+			}
+		}
+	}
+
+	if err := ensureAllBranches(ctx, repoPath); err != nil {
+		klog.V(6).Infof("设置远端分支拉取失败: repoPath=%s, error=%v", repoPath, err)
+	}
+	if err := fetchAll(ctx, repoPath); err == nil {
+		if err := verifyCommit(ctx, repoPath, baseCommit); err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("基线提交不可用，请检查仓库历史或更新基线提交: %w", verifyErr)
+}
+
 func formatLineRanges(ranges []LineRange) string {
 	parts := make([]string, 0, len(ranges))
 	for _, item := range ranges {
@@ -507,6 +555,45 @@ func GetBranchAndCommit(repoPath string) (string, string, error) {
 	}
 
 	return strings.TrimSpace(string(branchBytes)), strings.TrimSpace(string(commitBytes)), nil
+}
+
+func verifyCommit(ctx context.Context, repoPath string, commit string) error {
+	_, err := runGitCommand(ctx, repoPath, "rev-parse", "--verify", commit)
+	return err
+}
+
+func isShallowRepository(ctx context.Context, repoPath string) (bool, error) {
+	output, err := runGitCommand(ctx, repoPath, "rev-parse", "--is-shallow-repository")
+	if err != nil {
+		return false, err
+	}
+	return strings.EqualFold(strings.TrimSpace(output), "true"), nil
+}
+
+func fetchUnshallow(ctx context.Context, repoPath string) error {
+	_, err := runGitCommand(ctx, repoPath, "fetch", "--unshallow", "--tags", "--prune", "--force")
+	return err
+}
+
+func fetchAll(ctx context.Context, repoPath string) error {
+	_, err := runGitCommand(ctx, repoPath, "fetch", "--all", "--tags", "--prune", "--force")
+	return err
+}
+
+func ensureAllBranches(ctx context.Context, repoPath string) error {
+	_, err := runGitCommand(ctx, repoPath, "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+	return err
+}
+
+func runGitCommand(ctx context.Context, repoPath string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoPath
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git %s 失败: %w, 输出: %s", strings.Join(args, " "), err, string(output))
+	}
+	return strings.TrimSpace(string(output)), nil
 }
 
 func DirSizeMB(path string) (float64, error) {
