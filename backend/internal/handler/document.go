@@ -116,6 +116,23 @@ func (h *DocumentHandler) Export(c *gin.Context) {
 	c.Data(http.StatusOK, "application/zip", data)
 }
 
+func (h *DocumentHandler) ExportPDF(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid repository id"})
+		return
+	}
+
+	data, filename, err := h.service.ExportPDF(uint(repoID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Data(http.StatusOK, "application/pdf", data)
+}
+
 // Redirect 重定向到原始代码文件
 func (h *DocumentHandler) Redirect(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jung-kurt/gofpdf"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
@@ -141,6 +142,48 @@ func (s *DocumentService) ExportAll(repoID uint) ([]byte, string, error) {
 	}
 
 	filename := fmt.Sprintf("%s-docs.zip", repo.Name)
+	return buf.Bytes(), filename, nil
+}
+
+func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
+	repo, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	docs, err := s.docRepo.GetByRepository(repoID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if len(docs) == 0 {
+		return nil, "", fmt.Errorf("no documents to export")
+	}
+
+	klog.V(6).Infof("开始导出PDF: repoID=%d, 文档数量=%d", repoID, len(docs))
+
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 15, 15)
+	pdf.SetAutoPageBreak(true, 15)
+
+	for _, doc := range docs {
+		pdf.AddPage()
+		pdf.SetFont("Helvetica", "B", 16)
+		pdf.MultiCell(0, 8, doc.Title, "", "L", false)
+		pdf.Ln(2)
+
+		pdf.SetFont("Helvetica", "", 12)
+		content := strings.TrimSpace(doc.Content)
+		pdf.MultiCell(0, 6, content, "", "L", false)
+	}
+
+	buf := new(bytes.Buffer)
+	if err := pdf.Output(buf); err != nil {
+		return nil, "", err
+	}
+
+	filename := fmt.Sprintf("%s-docs.pdf", repo.Name)
+	klog.V(6).Infof("导出PDF完成: repoID=%d, 文件大小=%d", repoID, buf.Len())
 	return buf.Bytes(), filename, nil
 }
 

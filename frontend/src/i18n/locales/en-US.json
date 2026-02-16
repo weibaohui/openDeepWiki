@@ -265,7 +265,11 @@
         "rating_action": "Rate this document",
         "rating_submit_success": "Rating submitted",
         "rating_submit_failed": "Failed to submit rating",
-        "rating_stats_failed": "Failed to load rating"
+        "rating_stats_failed": "Failed to load rating",
+        "export_docs": "Export Docs",
+        "export_zip": "Export ZIP",
+        "export_pdf": "Export PDF",
+        "export_failed": "Export failed"
     },
     "banner": {
         "title": "This is an open source project",

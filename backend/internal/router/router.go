@@ -53,6 +53,7 @@ func Setup(
 			repos.GET("/:id/documents", docHandler.GetByRepository)
 			repos.GET("/:id/documents/index", docHandler.GetIndex)
 			repos.GET("/:id/documents/export", docHandler.Export)
+			repos.GET("/:id/export-pdf", docHandler.ExportPDF)
 		}
 
 		tasks := api.Group("/tasks")

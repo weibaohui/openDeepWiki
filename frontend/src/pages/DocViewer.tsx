@@ -31,6 +31,7 @@ import {
     Typography,
     Space,
     Menu,
+    Dropdown,
     message,
     Grid,
     Drawer,
@@ -43,6 +44,7 @@ import {
     Modal,
     Input
 } from 'antd';
+import type { MenuProps } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownRender from '@/components/markdown/MarkdownRender';
 import type { Document, Repository, Task, DocumentRatingStats, TaskUsage } from '../types';
@@ -271,15 +273,53 @@ export default function DocViewer() {
         }
     };
 
-    const handleDownload = () => {
-        if (!document) return;
-        const blob = new Blob([document.content], { type: 'text/markdown' });
-        const url = window.URL.createObjectURL(blob);
-        const a = window.document.createElement('a');
-        a.href = url;
-        a.download = document.filename;
-        a.click();
-        window.URL.revokeObjectURL(url);
+    const handleExportZip = async () => {
+        if (!id) return;
+        try {
+            const response = await documentApi.export(Number(id));
+            const blob = new Blob([response.data], { type: 'application/zip' });
+            const url = window.URL.createObjectURL(blob);
+            const a = window.document.createElement('a');
+            a.href = url;
+            a.download = `${repository?.name || 'docs'}-docs.zip`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to export zip:', error);
+            messageApi.error(t('document.export_failed', '导出失败'));
+        }
+    };
+
+    const handleExportPdf = async () => {
+        if (!id) return;
+        try {
+            const response = await documentApi.exportPdf(Number(id));
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const a = window.document.createElement('a');
+            a.href = url;
+            a.download = `${repository?.name || 'docs'}-docs.pdf`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to export pdf:', error);
+            messageApi.error(t('document.export_failed', '导出失败'));
+        }
+    };
+
+    const exportMenuItems: MenuProps['items'] = [
+        { key: 'zip', label: t('document.export_zip', '导出 ZIP') },
+        { key: 'pdf', label: t('document.export_pdf', '导出 PDF') },
+    ];
+
+    const handleExportMenuClick: MenuProps['onClick'] = ({ key }) => {
+        if (key === 'zip') {
+            handleExportZip();
+            return;
+        }
+        if (key === 'pdf') {
+            handleExportPdf();
+        }
     };
 
     const handleOpenVersions = () => {
@@ -568,38 +608,42 @@ export default function DocViewer() {
                             {isIndexView ? t('document.overview_title') : document?.title}
                         </Title>
                     </div>
-                    {!isIndexView && document && (
+                    {repository && (
                         <Space size="small">
-                            <Button icon={<DownloadOutlined />} onClick={handleDownload} size={screens.md ? 'middle' : 'small'}>
-                                {screens.md && t('common.save')}
-                            </Button>
-                            {editing ? (
-                                <>
-                                    <Button icon={<CloseOutlined />} onClick={() => {
-                                        setEditing(false);
-                                        setEditContent(document?.content || '');
-                                    }} size={screens.md ? 'middle' : 'small'}>
-                                        {screens.md && t('common.cancel')}
-                                    </Button>
-                                    <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} size={screens.md ? 'middle' : 'small'}>
-                                        {screens.md && t('common.save')}
-                                    </Button>
-                                    <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
-                                        {screens.md && t('document.versions')}
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Button icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
-                                        {screens.md && t('common.edit')}
-                                    </Button>
-                                    <Button icon={<ReloadOutlined />} onClick={handleRegenerate} size={screens.md ? 'middle' : 'small'}>
-                                        {screens.md && t('document.regenerate')}
-                                    </Button>
-                                    <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
-                                        {screens.md && t('document.versions')}
-                                    </Button>
-                                </>
+                            <Dropdown menu={{ items: exportMenuItems, onClick: handleExportMenuClick }} placement="bottomRight">
+                                <Button icon={<DownloadOutlined />} size={screens.md ? 'middle' : 'small'}>
+                                    {screens.md && t('document.export_docs', '导出文档')}
+                                </Button>
+                            </Dropdown>
+                            {!isIndexView && document && (
+                                editing ? (
+                                    <>
+                                        <Button icon={<CloseOutlined />} onClick={() => {
+                                            setEditing(false);
+                                            setEditContent(document?.content || '');
+                                        }} size={screens.md ? 'middle' : 'small'}>
+                                            {screens.md && t('common.cancel')}
+                                        </Button>
+                                        <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} size={screens.md ? 'middle' : 'small'}>
+                                            {screens.md && t('common.save')}
+                                        </Button>
+                                        <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
+                                            {screens.md && t('document.versions')}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
+                                            {screens.md && t('common.edit')}
+                                        </Button>
+                                        <Button icon={<ReloadOutlined />} onClick={handleRegenerate} size={screens.md ? 'middle' : 'small'}>
+                                            {screens.md && t('document.regenerate')}
+                                        </Button>
+                                        <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
+                                            {screens.md && t('document.versions')}
+                                        </Button>
+                                    </>
+                                )
                             )}
                         </Space>
                     )}
@@ -720,27 +764,27 @@ export default function DocViewer() {
                             </>
                         ) : editing ? (
                             <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                {metaInfo}
+                                <MDEditor
+                                    value={editContent}
+                                    onChange={(val) => setEditContent(val || '')}
+                                    height={window.innerHeight - 200}
+                                />
+                                {rateInfo}
+                                {tokenUsageInfo}
+                            </div>
+                        ) : (
+                            <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
+                                <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MDEditor
-                                        value={editContent}
-                                        onChange={(val) => setEditContent(val || '')}
-                                        height={window.innerHeight - 200}
-                                    />
+                                    <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
                                     {rateInfo}
                                     {tokenUsageInfo}
-                                </div>
-                            ) : (
-                                <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
-                                    <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
-                                        {metaInfo}
-                                        <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
-                                        {rateInfo}
-                                        {tokenUsageInfo}
 
-                                    </div>
-                                </Card>
+                                </div>
+                            </Card>
                         )}
-                            </div>
+                    </div>
                 </Content>
             </Layout>
             <Drawer

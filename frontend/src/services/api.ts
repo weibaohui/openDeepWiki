@@ -53,6 +53,7 @@ export const documentApi = {
     getTokenUsage: (id: number) => api.get<{ code: number; message: string; data: TaskUsage | null }>(`/documents/${id}/token-usage`).then(res => res.data),
     getIndex: (repoId: number) => api.get<{ content: string }>(`/repositories/${repoId}/documents/index`),
     export: (repoId: number) => api.get(`/repositories/${repoId}/documents/export`, { responseType: 'blob' }),
+    exportPdf: (repoId: number) => api.get(`/repositories/${repoId}/export-pdf`, { responseType: 'blob' }),
 };
 
 
