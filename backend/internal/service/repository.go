@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -233,6 +234,10 @@ func (s *RepositoryService) IncrementalAnalysis(ctx context.Context, repoID uint
 	}
 	klog.V(6).Infof("git pull 执行完成: repoID=%d, 输出=%s", repoID, string(pullOutput))
 
+	if err := s.ensureBaseCommitAvailable(ctx, repo.LocalPath, repo.CloneCommit); err != nil {
+		return err
+	}
+
 	summary, err := git.FormatIncrementalChangesForAI(repo.LocalPath, repo.CloneCommit)
 	if err != nil {
 		return fmt.Errorf("增量变更分析失败: %w", err)
@@ -240,4 +245,77 @@ func (s *RepositoryService) IncrementalAnalysis(ctx context.Context, repoID uint
 
 	klog.V(6).Infof("仓库增量分析结果: repoID=%d, baseCommit=%s, 内容=%s", repoID, repo.CloneCommit, summary)
 	return nil
+}
+
+// ensureBaseCommitAvailable 确保基线提交在仓库历史中可用，必要时补全历史记录。
+func (s *RepositoryService) ensureBaseCommitAvailable(ctx context.Context, repoPath string, baseCommit string) error {
+	baseCommit = strings.TrimSpace(baseCommit)
+	if baseCommit == "" {
+		return fmt.Errorf("仓库基线提交为空")
+	}
+
+	verifyErr := s.verifyCommit(ctx, repoPath, baseCommit)
+	if verifyErr == nil {
+		return nil
+	}
+
+	isShallow, shallowErr := s.isShallowRepository(ctx, repoPath)
+	if shallowErr != nil {
+		return fmt.Errorf("基线提交校验失败: %w", verifyErr)
+	}
+	if isShallow {
+		klog.V(6).Infof("仓库为浅克隆，尝试补全历史: repoPath=%s", repoPath)
+		if err := s.fetchUnshallow(ctx, repoPath); err != nil {
+			klog.V(6).Infof("补全历史失败: repoPath=%s, error=%v", repoPath, err)
+		} else if err := s.verifyCommit(ctx, repoPath, baseCommit); err == nil {
+			return nil
+		}
+	}
+
+	if err := s.fetchAll(ctx, repoPath); err == nil {
+		if err := s.verifyCommit(ctx, repoPath, baseCommit); err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("基线提交不可用，请检查仓库历史或更新基线提交: %w", verifyErr)
+}
+
+// verifyCommit 校验指定提交是否存在。
+func (s *RepositoryService) verifyCommit(ctx context.Context, repoPath string, commit string) error {
+	_, err := s.runGitCommand(ctx, repoPath, "rev-parse", "--verify", commit)
+	return err
+}
+
+// isShallowRepository 判断仓库是否为浅克隆。
+func (s *RepositoryService) isShallowRepository(ctx context.Context, repoPath string) (bool, error) {
+	output, err := s.runGitCommand(ctx, repoPath, "rev-parse", "--is-shallow-repository")
+	if err != nil {
+		return false, err
+	}
+	return strings.EqualFold(strings.TrimSpace(output), "true"), nil
+}
+
+// fetchUnshallow 补全浅克隆仓库的历史。
+func (s *RepositoryService) fetchUnshallow(ctx context.Context, repoPath string) error {
+	_, err := s.runGitCommand(ctx, repoPath, "fetch", "--unshallow")
+	return err
+}
+
+// fetchAll 拉取远端完整引用，尝试补全缺失提交。
+func (s *RepositoryService) fetchAll(ctx context.Context, repoPath string) error {
+	_, err := s.runGitCommand(ctx, repoPath, "fetch", "--all", "--tags", "--prune")
+	return err
+}
+
+// runGitCommand 执行 git 命令并返回输出。
+func (s *RepositoryService) runGitCommand(ctx context.Context, repoPath string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoPath
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git %s 失败: %w, 输出: %s", strings.Join(args, " "), err, string(output))
+	}
+	return strings.TrimSpace(string(output)), nil
 }
