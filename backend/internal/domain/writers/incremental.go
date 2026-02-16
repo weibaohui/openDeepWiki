@@ -89,6 +89,13 @@ func (s *incrementalWriter) Generate(ctx context.Context, localPath string, titl
 		klog.V(6).Infof("待更新目录:[%d] %s\n", dir.DocID, dir.Title)
 		klog.V(6).Infof("待更新内容: %s\n", dir.Content)
 		klog.V(6).Infof("待更新目标内容: %s\n", dir.Replace)
+
+		_, err = s.taskService.CreateContentRewriteTask(ctx, repo.ID, dir.Title, dir.Content, dir.Replace, dir.DocID)
+		if err != nil {
+			klog.Errorf("[%s] 创建任务失败: repoID=%d, error=%v", s.Name(), repo.ID, err)
+			continue
+		}
+
 	}
 
 	return "", nil
