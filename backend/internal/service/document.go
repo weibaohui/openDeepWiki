@@ -185,13 +185,14 @@ func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
 
 	for _, doc := range docs {
 		pdf.AddPage()
-		pdf.Bookmark(doc.Title, 0, -1)
 		pdf.SetFont(bodyFont, "B", 16)
-		pdf.MultiCell(0, 8, doc.Title, "", "L", false)
+		cleanTitle := sanitizeInlineMarkdown(stripHTMLTags(strings.TrimSpace(doc.Title)))
+		pdf.Bookmark(cleanTitle, 0, -1)
+		pdf.MultiCell(0, 8, cleanTitle, "", "L", false)
 		pdf.Ln(2)
 
 		content := strings.TrimSpace(doc.Content)
-		renderMarkdownToPDF(pdf, content, bodyFont, monoFont)
+		renderMarkdownToPDF(pdf, content, bodyFont, monoFont, cleanTitle)
 	}
 
 	buf := new(bytes.Buffer)
@@ -258,7 +259,7 @@ func registerPDFFonts(pdf *gofpdf.Fpdf) (string, string) {
 }
 
 // renderMarkdownToPDF 渲染Markdown内容到PDF
-func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, monoFont string) {
+func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, monoFont string, docTitle string) {
 	normalized := strings.ReplaceAll(content, "\r\n", "\n")
 	normalized = strings.ReplaceAll(normalized, "\r", "\n")
 	lines := strings.Split(normalized, "\n")
@@ -299,6 +300,7 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 		}
 
 		if level, heading := parseHeading(trimmed); level > 0 {
+			headingText := sanitizeInlineMarkdown(stripHTMLTags(strings.TrimSpace(heading)))
 			size := 14.0
 			switch level {
 			case 1:
@@ -312,9 +314,11 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 			default:
 				size = 12
 			}
-			pdf.Bookmark(heading, level, -1)
 			pdf.SetFont(bodyFont, "B", size)
-			pdf.MultiCell(0, 7, heading, "", "L", false)
+			if !(level == 1 && headingText == docTitle) {
+				pdf.Bookmark(headingText, level, -1)
+			}
+			pdf.MultiCell(0, 7, headingText, "", "L", false)
 			pdf.Ln(1)
 			continue
 		}
