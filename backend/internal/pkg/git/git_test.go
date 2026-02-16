@@ -192,12 +192,21 @@ func TestGetIncrementalChanges(t *testing.T) {
 	if changeA.ChangeType != "修改" {
 		t.Fatalf("unexpected change type for a.txt: %s", changeA.ChangeType)
 	}
+	if len(changeA.LineRanges) == 0 {
+		t.Fatalf("missing line ranges for a.txt")
+	}
+	if changeA.LineRanges[0].Start != 1 || changeA.LineRanges[0].End != 1 {
+		t.Fatalf("unexpected line range for a.txt: %+v", changeA.LineRanges[0])
+	}
 	changeB, ok := changeMap["b.txt"]
 	if !ok {
 		t.Fatalf("missing change for b.txt")
 	}
 	if changeB.ChangeType != "新增" {
 		t.Fatalf("unexpected change type for b.txt: %s", changeB.ChangeType)
+	}
+	if len(changeB.LineRanges) == 0 {
+		t.Fatalf("missing line ranges for b.txt")
 	}
 
 	_, emptyChanges, err := GetIncrementalChanges(dir, latestCommit)

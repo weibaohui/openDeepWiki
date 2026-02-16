@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,13 @@ type FileChange struct {
 	Path        string
 	ChangeType  string
 	Description string
+	LineRanges  []LineRange
+}
+
+type LineRange struct {
+	Start int
+	End   int
+	Side  string
 }
 
 func Clone(opts CloneOptions) error {
@@ -167,6 +175,11 @@ func GetIncrementalChanges(repoPath string, baseCommit string) (string, []FileCh
 	}
 
 	rangeExpr := fmt.Sprintf("%s..HEAD", baseResolved)
+	lineRanges, err := getDiffLineRanges(repoPath, rangeExpr)
+	if err != nil {
+		return "", nil, err
+	}
+
 	logCmd := exec.Command("git", "log", "--name-status", "--pretty=format:@@@%H|%s", rangeExpr)
 	logCmd.Dir = repoPath
 	logBytes, err := logCmd.CombinedOutput()
@@ -276,12 +289,117 @@ func GetIncrementalChanges(repoPath string, baseCommit string) (string, []FileCh
 			Path:        item.Path,
 			ChangeType:  item.ChangeType,
 			Description: strings.Join(item.Descriptions, "；"),
+			LineRanges:  lineRanges[path],
 		})
 	}
 
 	klog.V(6).Infof("增量变更统计完成: repoPath=%s, baseCommit=%s, latestCommit=%s, fileCount=%d", repoPath, baseCommit, latestCommit, len(result))
 
 	return latestCommit, result, nil
+}
+
+// getDiffLineRanges 获取指定提交范围内的行号区间
+func getDiffLineRanges(repoPath string, rangeExpr string) (map[string][]LineRange, error) {
+	cmd := exec.Command("git", "diff", "--unified=0", "--no-color", rangeExpr)
+	cmd.Dir = repoPath
+	diffBytes, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("git diff failed: %w, output: %s", err, string(diffBytes))
+	}
+
+	output := strings.TrimSpace(string(diffBytes))
+	if output == "" {
+		return map[string][]LineRange{}, nil
+	}
+
+	ranges := make(map[string][]LineRange)
+	var currentPath string
+	hunkRegex := regexp.MustCompile(`^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@`)
+
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "diff --git ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 4 {
+				path := parts[3]
+				currentPath = strings.TrimPrefix(path, "b/")
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "rename to ") {
+			currentPath = strings.TrimSpace(strings.TrimPrefix(line, "rename to "))
+			continue
+		}
+
+		if !strings.HasPrefix(line, "@@ ") {
+			continue
+		}
+
+		if currentPath == "" {
+			continue
+		}
+
+		matches := hunkRegex.FindStringSubmatch(line)
+		if len(matches) < 4 {
+			continue
+		}
+
+		oldStart := parseInt(matches[1])
+		oldCount := parseIntWithDefault(matches[2], 1)
+		newStart := parseInt(matches[3])
+		newCount := parseIntWithDefault(matches[4], 1)
+
+		if newCount == 0 && oldCount == 0 {
+			continue
+		}
+
+		var start int
+		var count int
+		side := "new"
+		if newCount == 0 && oldCount > 0 {
+			start = oldStart
+			count = oldCount
+			side = "old"
+		} else {
+			start = newStart
+			count = newCount
+		}
+
+		if count <= 0 {
+			continue
+		}
+
+		end := start + count - 1
+		ranges[currentPath] = append(ranges[currentPath], LineRange{
+			Start: start,
+			End:   end,
+			Side:  side,
+		})
+	}
+
+	return ranges, nil
+}
+
+// parseInt 解析整数
+func parseInt(value string) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0
+	}
+	return parsed
+}
+
+// parseIntWithDefault 解析整数并提供默认值
+func parseIntWithDefault(value string, fallback int) int {
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func GetBranchAndCommit(repoPath string) (string, string, error) {
