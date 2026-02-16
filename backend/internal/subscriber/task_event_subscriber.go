@@ -15,8 +15,9 @@ type TaskEventSubscriber struct {
 }
 
 type taskEventService interface {
-	CreateDocWriteTask(ctx context.Context, repoID uint, title string, outline string, sortOrder int, writerNames ...domain.WriterName) (*model.Task, error)
 	CreateTocWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error)
+	CreateIncrementalWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error)
+	CreateDocWriteTask(ctx context.Context, repoID uint, title string, outline string, sortOrder int, writerNames ...domain.WriterName) (*model.Task, error)
 	CreateTitleRewriteTask(ctx context.Context, repoID uint, title string, runAfter uint, docId uint, sortOrder int) (*model.Task, error)
 	CreateUserRequestTask(ctx context.Context, repoID uint, content string, sortOrder int) (*model.Task, error)
 }
@@ -33,6 +34,20 @@ func (s *TaskEventSubscriber) Register(bus *eventbus.TaskEventBus) {
 	bus.Subscribe(eventbus.TaskEventTocWrite, s.handleTocWrite)
 	bus.Subscribe(eventbus.TaskEventTitleRewrite, s.handleTitleRewrite)
 	bus.Subscribe(eventbus.TaskEventUserRequest, s.handleUserRequest)
+	bus.Subscribe(eventbus.TaskEventIncrementalWrite, s.handleIncrementalWrite)
+}
+
+func (s *TaskEventSubscriber) handleIncrementalWrite(ctx context.Context, event eventbus.TaskEvent) error {
+	if event.RepositoryID == 0 {
+		return fmt.Errorf("仓库ID为空")
+	}
+	task, err := s.taskService.CreateIncrementalWriteTask(ctx, event.RepositoryID, event.Title, event.SortOrder)
+	if err != nil {
+		klog.Errorf("任务事件处理失败: type=%s, repoID=%d, error=%v", event.Type, event.RepositoryID, err)
+		return err
+	}
+	klog.V(6).Infof("任务事件处理成功: type=%s, repoID=%d, taskID=%d", event.Type, event.RepositoryID, task.ID)
+	return nil
 }
 
 func (s *TaskEventSubscriber) handleDocWrite(ctx context.Context, event eventbus.TaskEvent) error {

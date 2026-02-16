@@ -1,10 +1,8 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -202,43 +200,5 @@ func (s *RepositoryService) SetReady(repoID uint) error {
 	}
 
 	klog.V(6).Infof("仓库状态已设置为 ready: repoID=%d", repoID)
-	return nil
-}
-
-// IncrementalAnalysis 执行仓库增量分析并输出变更摘要。
-func (s *RepositoryService) IncrementalAnalysis(ctx context.Context, repoID uint) error {
-	klog.V(6).Infof("开始执行仓库增量分析: repoID=%d", repoID)
-
-	repo, err := s.repoRepo.GetBasic(repoID)
-	if err != nil {
-		return fmt.Errorf("获取仓库失败: %w", err)
-	}
-	if repo.LocalPath == "" {
-		return fmt.Errorf("仓库本地路径为空")
-	}
-	if repo.CloneCommit == "" {
-		return fmt.Errorf("仓库基线提交为空")
-	}
-	if _, err := os.Stat(repo.LocalPath); err != nil {
-		return fmt.Errorf("仓库本地路径不可用: %w", err)
-	}
-
-	klog.V(6).Infof("执行 git pull: repoID=%d, localPath=%s", repoID, repo.LocalPath)
-	pullOutput, err := git.Pull(ctx, repo.LocalPath)
-	if err != nil {
-		return fmt.Errorf("git pull 失败: %w", err)
-	}
-	klog.V(6).Infof("git pull 执行完成: repoID=%d, 输出=%s", repoID, pullOutput)
-
-	if err := git.EnsureBaseCommitAvailable(ctx, repo.LocalPath, repo.CloneCommit); err != nil {
-		return err
-	}
-
-	summary, err := git.FormatIncrementalChangesForAI(repo.LocalPath, repo.CloneCommit)
-	if err != nil {
-		return fmt.Errorf("增量变更分析失败: %w", err)
-	}
-
-	klog.V(6).Infof("仓库增量分析结果: repoID=%d, baseCommit=%s, 内容=%s", repoID, repo.CloneCommit, summary)
 	return nil
 }

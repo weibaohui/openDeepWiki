@@ -1,10 +1,7 @@
 package service
 
 import (
-	"context"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -78,92 +75,4 @@ func runGit(t *testing.T, dir string, args ...string) string {
 		t.Fatalf("git %s failed: %v, output=%s", strings.Join(args, " "), err, string(output))
 	}
 	return strings.TrimSpace(string(output))
-}
-
-func TestRepositoryServiceIncrementalAnalysisSuccess(t *testing.T) {
-	ctx := context.Background()
-	tempDir := t.TempDir()
-	remotePath := filepath.Join(tempDir, "remote.git")
-	runGit(t, "", "init", "--bare", remotePath)
-
-	sourcePath := filepath.Join(tempDir, "source")
-	runGit(t, "", "clone", remotePath, sourcePath)
-	runGit(t, sourcePath, "config", "user.email", "test@example.com")
-	runGit(t, sourcePath, "config", "user.name", "tester")
-	if err := os.WriteFile(filepath.Join(sourcePath, "README.md"), []byte("v1"), 0o644); err != nil {
-		t.Fatalf("write file error: %v", err)
-	}
-	runGit(t, sourcePath, "add", ".")
-	runGit(t, sourcePath, "commit", "-m", "init")
-	baseCommit := runGit(t, sourcePath, "rev-parse", "HEAD")
-	runGit(t, sourcePath, "push", "origin", "HEAD")
-
-	targetPath := filepath.Join(tempDir, "target")
-	runGit(t, "", "clone", remotePath, targetPath)
-
-	if err := os.WriteFile(filepath.Join(sourcePath, "README.md"), []byte("v2"), 0o644); err != nil {
-		t.Fatalf("write file error: %v", err)
-	}
-	runGit(t, sourcePath, "add", ".")
-	runGit(t, sourcePath, "commit", "-m", "update")
-	runGit(t, sourcePath, "push", "origin", "HEAD")
-
-	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
-		1: {ID: 1, LocalPath: targetPath, CloneCommit: baseCommit},
-	}}
-	svc := &RepositoryService{repoRepo: repoRepo}
-
-	if err := svc.IncrementalAnalysis(ctx, 1); err != nil {
-		t.Fatalf("IncrementalAnalysis error: %v", err)
-	}
-}
-
-// TestRepositoryServiceIncrementalAnalysisShallow 验证浅克隆场景下可补全历史并完成增量分析。
-func TestRepositoryServiceIncrementalAnalysisShallow(t *testing.T) {
-	ctx := context.Background()
-	tempDir := t.TempDir()
-	remotePath := filepath.Join(tempDir, "remote.git")
-	runGit(t, "", "init", "--bare", remotePath)
-
-	sourcePath := filepath.Join(tempDir, "source")
-	runGit(t, "", "clone", remotePath, sourcePath)
-	runGit(t, sourcePath, "config", "user.email", "test@example.com")
-	runGit(t, sourcePath, "config", "user.name", "tester")
-	if err := os.WriteFile(filepath.Join(sourcePath, "README.md"), []byte("v1"), 0o644); err != nil {
-		t.Fatalf("write file error: %v", err)
-	}
-	runGit(t, sourcePath, "add", ".")
-	runGit(t, sourcePath, "commit", "-m", "init")
-	baseCommit := runGit(t, sourcePath, "rev-parse", "HEAD")
-	runGit(t, sourcePath, "push", "origin", "HEAD")
-
-	if err := os.WriteFile(filepath.Join(sourcePath, "README.md"), []byte("v2"), 0o644); err != nil {
-		t.Fatalf("write file error: %v", err)
-	}
-	runGit(t, sourcePath, "add", ".")
-	runGit(t, sourcePath, "commit", "-m", "update")
-	runGit(t, sourcePath, "push", "origin", "HEAD")
-
-	targetPath := filepath.Join(tempDir, "target")
-	runGit(t, "", "clone", "--depth", "1", remotePath, targetPath)
-
-	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
-		1: {ID: 1, LocalPath: targetPath, CloneCommit: baseCommit},
-	}}
-	svc := &RepositoryService{repoRepo: repoRepo}
-
-	if err := svc.IncrementalAnalysis(ctx, 1); err != nil {
-		t.Fatalf("IncrementalAnalysis error: %v", err)
-	}
-}
-
-func TestRepositoryServiceIncrementalAnalysisMissingBaseCommit(t *testing.T) {
-	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
-		1: {ID: 1, LocalPath: os.TempDir()},
-	}}
-	svc := &RepositoryService{repoRepo: repoRepo}
-
-	if err := svc.IncrementalAnalysis(context.Background(), 1); err == nil {
-		t.Fatalf("expected error")
-	}
 }

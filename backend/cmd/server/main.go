@@ -124,7 +124,7 @@ func main() {
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo)
 	//注册RepoEventBus
 	repoEventBus := eventbus.NewRepositoryEventBus()
-	subscriber.NewRepositoryEventSubscriber(taskService, repoService).Register(repoEventBus)
+	subscriber.NewRepositoryEventSubscriber(taskEventBus, taskService, repoService).Register(repoEventBus)
 
 	// 初始化文档事件总线
 	docEventBus := eventbus.NewDocEventBus()
