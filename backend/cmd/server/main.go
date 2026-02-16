@@ -68,6 +68,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize title rewriter service: %v", err)
 	}
+	docRewriter, err := writers.NewDocRewriter(cfg, docRepo, taskRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize doc rewriter service: %v", err)
+	}
 
 	userRequestWriter, err := writers.NewUserRequestWriter(cfg, hintRepo)
 	if err != nil {
@@ -104,6 +108,7 @@ func main() {
 	taskService.AddWriters(dbModelWriter)
 	taskService.AddWriters(apiWriter)
 	taskService.AddWriters(titleRewriter)
+	taskService.AddWriters(docRewriter)
 	taskService.AddWriters(tocWriter)
 	taskService.AddWriters(incrementalWriter)
 	tocWriter.SetTaskService(taskService)

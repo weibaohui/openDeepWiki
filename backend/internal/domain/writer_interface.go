@@ -49,6 +49,7 @@ const (
 	AgentProblemSolver      = "problem_solver"     // 问题解决 Agent
 	AgentAPIExplorer        = "api_explorer"       // API 探索 Agent
 	AgentTitleRewriter      = "title_rewriter"     // 标题重写 Agent
+	AgentDocRewriter        = "doc_rewriter"       // 文档内容重写 Agent
 	AgentIncrementalEditor  = "incremental_editor"
 	AgentIncrementalChecker = "incremental_checker"
 )

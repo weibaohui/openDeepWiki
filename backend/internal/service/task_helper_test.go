@@ -15,6 +15,54 @@ type mockTaskRepo struct {
 	createErr   error
 }
 
+type mockTaskHelperRepoRepo struct {
+	repos map[uint]*model.Repository
+}
+
+func (m *mockTaskHelperRepoRepo) Create(repo *model.Repository) error {
+	if m.repos == nil {
+		m.repos = make(map[uint]*model.Repository)
+	}
+	if repo.ID == 0 {
+		repo.ID = uint(len(m.repos) + 1)
+	}
+	m.repos[repo.ID] = repo
+	return nil
+}
+
+func (m *mockTaskHelperRepoRepo) List() ([]model.Repository, error) {
+	var out []model.Repository
+	for _, repo := range m.repos {
+		out = append(out, *repo)
+	}
+	return out, nil
+}
+
+func (m *mockTaskHelperRepoRepo) Get(id uint) (*model.Repository, error) {
+	repo, ok := m.repos[id]
+	if !ok {
+		return nil, domain.ErrRecordNotFound
+	}
+	return repo, nil
+}
+
+func (m *mockTaskHelperRepoRepo) GetBasic(id uint) (*model.Repository, error) {
+	return m.Get(id)
+}
+
+func (m *mockTaskHelperRepoRepo) Save(repo *model.Repository) error {
+	if m.repos == nil {
+		m.repos = make(map[uint]*model.Repository)
+	}
+	m.repos[repo.ID] = repo
+	return nil
+}
+
+func (m *mockTaskHelperRepoRepo) Delete(id uint) error {
+	delete(m.repos, id)
+	return nil
+}
+
 func (m *mockTaskRepo) Create(task *model.Task) error {
 	m.lastCreated = task
 	if task.ID == 0 {
@@ -69,7 +117,12 @@ func (m *mockTaskRepo) GetRecentTasks(limit int) ([]model.Task, error) {
 
 func TestCreateIncrementalWriteTask(t *testing.T) {
 	repo := &mockTaskRepo{}
-	svc := &TaskService{taskRepo: repo}
+	repoRepo := &mockTaskHelperRepoRepo{
+		repos: map[uint]*model.Repository{
+			12: {ID: 12, Name: "repo-12"},
+		},
+	}
+	svc := &TaskService{taskRepo: repo, repoRepo: repoRepo}
 
 	task, err := svc.CreateIncrementalWriteTask(context.Background(), 12, "增量分析", 5)
 	if err != nil {
