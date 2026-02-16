@@ -117,6 +117,8 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 	leftMargin, _, _, _ := pdf.GetMargins()
 	lineHeight := 6.0
 	inCodeBlock := false
+	headingLevelOffset := -1
+	skippedTitleHeading := false
 	var codeLines []string
 
 	for i := 0; i < len(lines); i++ {
@@ -152,6 +154,13 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 
 		if level, heading := parseHeading(trimmed); level > 0 {
 			headingText := sanitizeInlineMarkdown(stripHTMLTags(strings.TrimSpace(heading)))
+			if headingLevelOffset == -1 {
+				if level == 1 && headingText == docTitle {
+					headingLevelOffset = 1
+				} else {
+					headingLevelOffset = 0
+				}
+			}
 			size := 14.0
 			switch level {
 			case 1:
@@ -166,8 +175,14 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 				size = 12
 			}
 			pdf.SetFont(bodyFont, "B", size)
-			if !(level == 1 && headingText == docTitle) {
-				pdf.Bookmark(headingText, level, -1)
+			bookmarkLevel := level - headingLevelOffset
+			if bookmarkLevel < 1 {
+				bookmarkLevel = 1
+			}
+			if level == 1 && headingText == docTitle && headingLevelOffset == 1 && !skippedTitleHeading {
+				skippedTitleHeading = true
+			} else {
+				pdf.Bookmark(headingText, bookmarkLevel, -1)
 			}
 			pdf.MultiCell(0, 7, headingText, "", "L", false)
 			pdf.Ln(1)
