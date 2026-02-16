@@ -14,11 +14,16 @@ import (
 // CreateContentRewriteTask 创建内容重写任务
 // 将更新内容、替换内容 写入任务的 Outline 字段
 func (s *TaskService) CreateContentRewriteTask(ctx context.Context, repoID uint, title string, content string, replace string, docID uint) (*model.Task, error) {
+
+	var guide = `
+	更新内容：%s
+	替换内容：%s
+	`
 	task := &model.Task{
 		RepositoryID: repoID,
 		DocID:        docID,
 		Title:        title,
-		Outline:      fmt.Sprintf("\n更新内容：%s \n  替换内容：%s \n", content, replace),
+		Outline:      fmt.Sprintf(guide, content, replace),
 		WriterName:   domain.DocRewriter,
 		TaskType:     domain.DocRewrite,
 		Status:       string(statemachine.TaskStatusPending),

@@ -84,7 +84,6 @@ func (s *incrementalWriter) Generate(ctx context.Context, localPath string, titl
 
 	for _, dir := range result.UpdateDirs {
 
-		//TODO 先打印待更新的内容。
 		// 写入数据库Task表，增加一种改写类型，类似TitleRewriter，ContentRewriter
 		klog.V(6).Infof("待更新目录:[%d] %s\n", dir.DocID, dir.Title)
 		klog.V(6).Infof("待更新内容: %s\n", dir.Content)

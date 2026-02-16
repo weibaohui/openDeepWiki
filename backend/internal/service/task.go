@@ -305,11 +305,11 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	}
 	klog.V(6).Infof("文档生成完成: taskTitle=%s, contentLength=%d", task.Title, len(content))
 
-	if task.TaskType == domain.DocWrite {
-		//文档编制需要回写文档内容。
+	if task.TaskType == domain.DocWrite || task.TaskType == domain.DocRewrite {
+		// 文档编制需要回写文档内容。
+		// 内容重写任务，需要更新doc 内容
 		// 标题重新、目录编制，不需要更新doc 内容
 		_, err = s.docService.Update(task.DocID, content)
-
 		if err != nil {
 			klog.V(6).Infof("保存文档失败: error=%v", err)
 			return fmt.Errorf("保存文档失败: %w", err)
