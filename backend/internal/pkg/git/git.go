@@ -338,21 +338,21 @@ func FormatIncrementalChangesForAI(repoPath string, baseCommit string) (string, 
 		counts[change.ChangeType]++
 	}
 
-	builder.WriteString(fmt.Sprintf("变更类型统计: 新增 %d, 修改 %d, 删除 %d, 重命名 %d, 复制 %d, 未知 %d\n",
-		counts["新增"], counts["修改"], counts["删除"], counts["重命名"], counts["复制"], counts["未知"]))
+	fmt.Fprintf(&builder, "变更类型统计: 新增 %d, 修改 %d, 删除 %d, 重命名 %d, 复制 %d, 未知 %d\n",
+		counts["新增"], counts["修改"], counts["删除"], counts["重命名"], counts["复制"], counts["未知"])
 
-	builder.WriteString("文件清单:\n")
+	fmt.Fprintf(&builder, "文件清单:\n")
 	for index, change := range changes {
-		builder.WriteString(fmt.Sprintf("%d. %s | %s\n", index+1, change.Path, change.ChangeType))
+		fmt.Fprintf(&builder, "%d. %s | %s\n", index+1, change.Path, change.ChangeType)
 		if change.Description != "" {
-			builder.WriteString(fmt.Sprintf("   说明: %s\n", change.Description))
+			fmt.Fprintf(&builder, "   说明: %s\n", change.Description)
 		}
 		if len(change.LineRanges) == 0 {
-			builder.WriteString("   行号: 未提供\n")
+			fmt.Fprintf(&builder, "   行号: 未提供\n")
 		} else {
-			builder.WriteString(fmt.Sprintf("   行号: %s\n", formatLineRanges(change.LineRanges)))
+			fmt.Fprintf(&builder, "   行号: %s\n", formatLineRanges(change.LineRanges))
 		}
-		builder.WriteString(fmt.Sprintf("   建议: %s\n", buildChangeSuggestion(change)))
+		fmt.Fprintf(&builder, "   建议: %s\n", buildChangeSuggestion(change))
 	}
 
 	return builder.String(), nil
