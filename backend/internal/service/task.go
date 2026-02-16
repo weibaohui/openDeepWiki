@@ -305,14 +305,43 @@ func (s *TaskService) executeTaskLogic(ctx context.Context, task *model.Task) er
 	}
 	klog.V(6).Infof("文档生成完成: taskTitle=%s, contentLength=%d", task.Title, len(content))
 
-	if task.TaskType == domain.DocWrite || task.TaskType == domain.DocRewrite {
+	if task.TaskType == domain.DocWrite {
 		// 文档编制需要回写文档内容。
 		// 内容重写任务，需要更新doc 内容
 		// 标题重新、目录编制，不需要更新doc 内容
+		// TODO 内容重新，应该是使用新建版本的更新。
 		_, err = s.docService.Update(task.DocID, content)
 		if err != nil {
 			klog.V(6).Infof("保存文档失败: error=%v", err)
 			return fmt.Errorf("保存文档失败: %w", err)
+		}
+	} else if task.TaskType == domain.DocRewrite {
+		originDoc, err := s.docService.Get(task.DocID)
+		if err != nil {
+			klog.V(6).Infof("获取原始文档失败: docID=%d, error=%v", task.DocID, err)
+			return fmt.Errorf("获取原始文档失败: %w", err)
+		}
+		newDoc, err := s.docService.Create(CreateDocumentRequest{
+			RepositoryID: originDoc.RepositoryID,
+			TaskID:       originDoc.TaskID,
+			Title:        originDoc.Title,
+			Filename:     originDoc.Filename,
+			Content:      content,
+			SortOrder:    originDoc.SortOrder,
+		})
+		if err != nil {
+			klog.V(6).Infof("创建新版本文档失败: docID=%d, error=%v", task.DocID, err)
+			return fmt.Errorf("创建新版本文档失败: %w", err)
+		}
+		if err := s.docService.TransferLatest(originDoc.ID, newDoc.ID); err != nil {
+			klog.V(6).Infof("转移文档版本失败: oldDocID=%d, newDocID=%d, error=%v", originDoc.ID, newDoc.ID, err)
+			return fmt.Errorf("转移文档版本失败: %w", err)
+		}
+		task.DocID = newDoc.ID
+		task.UpdatedAt = time.Now()
+		if err := s.taskRepo.Save(task); err != nil {
+			klog.V(6).Infof("更新任务文档ID失败: taskID=%d, docID=%d, error=%v", task.ID, newDoc.ID, err)
+			return fmt.Errorf("更新任务文档ID失败: %w", err)
 		}
 	}
 
