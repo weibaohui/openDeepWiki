@@ -3,6 +3,7 @@ package service
 import (
 	"archive/zip"
 	"bytes"
+	_ "embed"
 	"fmt"
 	"math"
 	"strings"
@@ -14,6 +15,18 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"k8s.io/klog/v2"
 )
+
+//go:embed assets/fonts/JetBrainsMono-Regular.ttf
+var jetBrainsMonoRegular []byte
+
+//go:embed assets/fonts/JetBrainsMono-Bold.ttf
+var jetBrainsMonoBold []byte
+
+//go:embed assets/fonts/NotoSansCJKsc-Regular.ttf
+var notoSansCJKRegular []byte
+
+//go:embed assets/fonts/NotoSansCJKsc-Bold.ttf
+var notoSansCJKBold []byte
 
 type DocumentService struct {
 	cfg        *config.Config
@@ -145,6 +158,7 @@ func (s *DocumentService) ExportAll(repoID uint) ([]byte, string, error) {
 	return buf.Bytes(), filename, nil
 }
 
+// ExportPDF 导出仓库下所有文档为PDF
 func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
 	repo, err := s.repoRepo.GetBasic(repoID)
 	if err != nil {
@@ -165,14 +179,15 @@ func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(15, 15, 15)
 	pdf.SetAutoPageBreak(true, 15)
+	fontFamily := registerPDFFonts(pdf)
 
 	for _, doc := range docs {
 		pdf.AddPage()
-		pdf.SetFont("Helvetica", "B", 16)
+		pdf.SetFont(fontFamily, "B", 16)
 		pdf.MultiCell(0, 8, doc.Title, "", "L", false)
 		pdf.Ln(2)
 
-		pdf.SetFont("Helvetica", "", 12)
+		pdf.SetFont(fontFamily, "", 12)
 		content := strings.TrimSpace(doc.Content)
 		pdf.MultiCell(0, 6, content, "", "L", false)
 	}
@@ -185,6 +200,47 @@ func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
 	filename := fmt.Sprintf("%s-docs.pdf", repo.Name)
 	klog.V(6).Infof("导出PDF完成: repoID=%d, 文件大小=%d", repoID, buf.Len())
 	return buf.Bytes(), filename, nil
+}
+
+// registerPDFFonts 注册PDF字体并返回可用字体族名
+func registerPDFFonts(pdf *gofpdf.Fpdf) string {
+	pdf.AddUTF8FontFromBytes("NotoSansCJK", "", notoSansCJKRegular)
+	if err := pdf.Error(); err != nil {
+		klog.V(6).Infof("注册PDF中文字体失败，尝试JetBrains Mono: %v", err)
+		pdf.SetError(nil)
+		pdf.AddUTF8FontFromBytes("JetBrainsMono", "", jetBrainsMonoRegular)
+		if err := pdf.Error(); err != nil {
+			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
+			pdf.SetError(nil)
+			return "Helvetica"
+		}
+		pdf.AddUTF8FontFromBytes("JetBrainsMono", "B", jetBrainsMonoBold)
+		if err := pdf.Error(); err != nil {
+			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
+			pdf.SetError(nil)
+			return "Helvetica"
+		}
+		return "JetBrainsMono"
+	}
+	pdf.AddUTF8FontFromBytes("NotoSansCJK", "B", notoSansCJKBold)
+	if err := pdf.Error(); err != nil {
+		klog.V(6).Infof("注册PDF中文字体失败，尝试JetBrains Mono: %v", err)
+		pdf.SetError(nil)
+		pdf.AddUTF8FontFromBytes("JetBrainsMono", "", jetBrainsMonoRegular)
+		if err := pdf.Error(); err != nil {
+			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
+			pdf.SetError(nil)
+			return "Helvetica"
+		}
+		pdf.AddUTF8FontFromBytes("JetBrainsMono", "B", jetBrainsMonoBold)
+		if err := pdf.Error(); err != nil {
+			klog.V(6).Infof("注册PDF字体失败，回退Helvetica: %v", err)
+			pdf.SetError(nil)
+			return "Helvetica"
+		}
+		return "JetBrainsMono"
+	}
+	return "NotoSansCJK"
 }
 
 func (s *DocumentService) generateIndex(repoName string, docs []model.Document) string {
