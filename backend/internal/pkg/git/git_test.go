@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -16,6 +17,18 @@ func runGit(t *testing.T, dir string, args ...string) {
 	if err != nil {
 		t.Fatalf("git %v error: %v, output=%s", args, err, string(output))
 	}
+}
+
+// getHeadCommit 获取当前仓库的 HEAD 提交哈希
+func getHeadCommit(t *testing.T, dir string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse error: %v, output=%s", err, string(output))
+	}
+	return strings.TrimSpace(string(output))
 }
 
 func TestDirSizeMB(t *testing.T) {
@@ -124,5 +137,74 @@ func TestNormalizeRepoURL(t *testing.T) {
 				t.Fatalf("unexpected key: %s", gotKey)
 			}
 		})
+	}
+}
+
+// TestGetIncrementalChanges 验证增量变更统计结果
+func TestGetIncrementalChanges(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init", "-b", "main")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		runGit(t, dir, "init")
+	} else if len(output) == 0 {
+	}
+
+	runGit(t, dir, "config", "user.email", "test@example.com")
+	runGit(t, dir, "config", "user.name", "test")
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	baseCommit := getHeadCommit(t, dir)
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello world"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("new file"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "update files")
+
+	latestCommit, changes, err := GetIncrementalChanges(dir, baseCommit)
+	if err != nil {
+		t.Fatalf("GetIncrementalChanges error: %v", err)
+	}
+	if latestCommit == "" {
+		t.Fatalf("latest commit is empty")
+	}
+	if len(changes) != 2 {
+		t.Fatalf("unexpected changes count: %d", len(changes))
+	}
+
+	changeMap := make(map[string]FileChange)
+	for _, item := range changes {
+		changeMap[item.Path] = item
+	}
+	changeA, ok := changeMap["a.txt"]
+	if !ok {
+		t.Fatalf("missing change for a.txt")
+	}
+	if changeA.ChangeType != "修改" {
+		t.Fatalf("unexpected change type for a.txt: %s", changeA.ChangeType)
+	}
+	changeB, ok := changeMap["b.txt"]
+	if !ok {
+		t.Fatalf("missing change for b.txt")
+	}
+	if changeB.ChangeType != "新增" {
+		t.Fatalf("unexpected change type for b.txt: %s", changeB.ChangeType)
+	}
+
+	_, emptyChanges, err := GetIncrementalChanges(dir, latestCommit)
+	if err != nil {
+		t.Fatalf("GetIncrementalChanges same commit error: %v", err)
+	}
+	if len(emptyChanges) != 0 {
+		t.Fatalf("expected empty changes, got %d", len(emptyChanges))
 	}
 }
