@@ -352,6 +352,7 @@ export default function DocViewer() {
             .map((status) => ({ status, count: statusCounts[status] || 0 }))
             .filter((item) => item.count > 0);
     }, [statusCounts]);
+    const contentMaxWidth = screens.xxl ? 1400 : screens.xl ? 1200 : screens.lg ? 1000 : '100%';
     const averageScore = ratingStats?.average_score ?? 0;
     const lastUpdatedDocument = useMemo(() => {
         if (documents.length === 0) return null;
@@ -649,7 +650,7 @@ export default function DocViewer() {
                     )}
                 </Header>
                 <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
-                    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                    <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto' }}>
                         {isIndexView ? (
                             <>
                                 <Card>
