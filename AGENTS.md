@@ -28,22 +28,50 @@
 
 ---
 
-### 2.2 必须基于 分支 开展工作
 
-* AI **不得**在 `main` / `master` / `release` 等受保护分支上直接修改代码
-* 必须先创建新分支，例如：
+
+### 2.2 必须基于分支开展工作
+
+* 所有开发必须通过功能分支进行，**不区分 AI 或人类**
+* 禁止在 `main` / `master` / `release` 等受保护分支上直接修改代码
+* 分支命名仅描述变更类型，不体现身份，例如：
 
 ```text
-feature/xxx # 新功能或改进
-fix/xxx     # 修复bug缺陷
-ai/xxx      # AI新功能或改进
+feature/xxx   # 新功能或改进
+fix/xxx       # 缺陷修复
+refactor/xxx  # 重构优化
+chore/xxx     # 工程性调整
 ```
 
-* 所有代码修改 **仅允许发生在对应的新分支下**
+* 所有代码修改 **仅允许发生在对应分支下**
 
 ---
 
-### 2.3 写代码前必须先写文档
+### 2.3 必须基于 Worktree 开展工作（AI 强制）
+
+* AI 必须为任务创建独立 `worktree`，不得在主目录操作
+
+```bash
+git worktree add .ai-worktrees/<task-name> <branch>
+cd .ai-worktrees/<task-name>
+```
+
+* 进入后必须先执行环境初始化：
+
+```bash
+make setup
+```
+
+* 所有修改仅允许发生在 `.ai-worktrees/<task-name>/` 内
+* 任务完成后必须删除该 worktree
+
+```bash
+git worktree remove .ai-worktrees/<task-name>
+```
+
+
+
+### 2.4 写代码前必须先写文档
 
 在编写任何代码之前，AI **必须先编写设计 / 说明文档**，用于明确：
 
