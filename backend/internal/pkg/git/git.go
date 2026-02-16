@@ -16,12 +16,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// CloneOptions 定义克隆仓库的参数。
 type CloneOptions struct {
 	URL       string
 	TargetDir string
 	Timeout   time.Duration
 }
 
+// FileChange 描述单个文件的变更信息。
 type FileChange struct {
 	Path        string
 	ChangeType  string
@@ -29,12 +31,14 @@ type FileChange struct {
 	LineRanges  []LineRange
 }
 
+// LineRange 描述文件变更的行号范围。
 type LineRange struct {
 	Start int
 	End   int
 	Side  string
 }
 
+// Clone 克隆远端仓库到指定目录。
 func Clone(opts CloneOptions) error {
 	if opts.Timeout == 0 {
 		opts.Timeout = 10 * time.Minute
@@ -60,6 +64,7 @@ func Clone(opts CloneOptions) error {
 	return nil
 }
 
+// ParseRepoName 从仓库 URL 中解析仓库名。
 func ParseRepoName(url string) string {
 	url = strings.TrimSuffix(url, ".git")
 	url = strings.TrimSuffix(url, "/")
@@ -77,10 +82,12 @@ func ParseRepoName(url string) string {
 	return parts[len(parts)-1]
 }
 
+// RemoveRepo 删除本地仓库目录。
 func RemoveRepo(path string) error {
 	return os.RemoveAll(path)
 }
 
+// IsValidGitURL 校验仓库 URL 格式是否合法。
 func IsValidGitURL(url string) bool {
 	httpsPattern := regexp.MustCompile(`^https?://[^\s]+\.git$|^https?://github\.com/[^\s]+$`)
 	sshPattern := regexp.MustCompile(`^git@[^\s]+:[^\s]+\.git$`)
@@ -88,6 +95,7 @@ func IsValidGitURL(url string) bool {
 	return httpsPattern.MatchString(url) || sshPattern.MatchString(url)
 }
 
+// NormalizeRepoURL 归一化仓库 URL 并返回去重键。
 func NormalizeRepoURL(raw string) (string, string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -136,7 +144,7 @@ func NormalizeRepoURL(raw string) (string, string, error) {
 	return normalized, key, nil
 }
 
-// GetIncrementalChanges 获取指定提交到最新提交之间的文件变更与变更说明
+// GetIncrementalChanges 获取指定提交到最新提交之间的文件变更与变更说明。
 func GetIncrementalChanges(repoPath string, baseCommit string) (string, []FileChange, error) {
 	baseCommit = strings.TrimSpace(baseCommit)
 	if baseCommit == "" {
@@ -298,6 +306,7 @@ func GetIncrementalChanges(repoPath string, baseCommit string) (string, []FileCh
 	return latestCommit, result, nil
 }
 
+// FormatIncrementalChangesForAI 格式化增量变更摘要，便于日志输出。
 func FormatIncrementalChangesForAI(repoPath string, baseCommit string) (string, error) {
 	latestCommit, changes, err := GetIncrementalChanges(repoPath, baseCommit)
 	if err != nil {
@@ -349,10 +358,12 @@ func FormatIncrementalChangesForAI(repoPath string, baseCommit string) (string, 
 	return builder.String(), nil
 }
 
+// Pull 执行 git pull 并返回输出。
 func Pull(ctx context.Context, repoPath string) (string, error) {
 	return runGitCommand(ctx, repoPath, "pull")
 }
 
+// EnsureBaseCommitAvailable 确保基线提交在仓库历史中可用，必要时补全历史记录。
 func EnsureBaseCommitAvailable(ctx context.Context, repoPath string, baseCommit string) error {
 	baseCommit = strings.TrimSpace(baseCommit)
 	if baseCommit == "" {
@@ -372,29 +383,30 @@ func EnsureBaseCommitAvailable(ctx context.Context, repoPath string, baseCommit 
 		klog.V(6).Infof("仓库为浅克隆，尝试补全历史: repoPath=%s", repoPath)
 		if err := fetchUnshallow(ctx, repoPath); err != nil {
 			klog.V(6).Infof("补全历史失败: repoPath=%s, error=%v", repoPath, err)
-		} else {
-			if err := ensureAllBranches(ctx, repoPath); err != nil {
-				klog.V(6).Infof("设置远端分支拉取失败: repoPath=%s, error=%v", repoPath, err)
-			}
-			if err := fetchAll(ctx, repoPath); err != nil {
-				klog.V(6).Infof("拉取远端历史失败: repoPath=%s, error=%v", repoPath, err)
-			}
-			if err := verifyCommit(ctx, repoPath, baseCommit); err == nil {
-				return nil
-			}
-		}
-	}
-
-	if err := ensureAllBranches(ctx, repoPath); err != nil {
-		klog.V(6).Infof("设置远端分支拉取失败: repoPath=%s, error=%v", repoPath, err)
-	}
-	if err := fetchAll(ctx, repoPath); err == nil {
-		if err := verifyCommit(ctx, repoPath, baseCommit); err == nil {
+		} else if ok, err := tryFetchAllAndVerify(ctx, repoPath, baseCommit); err == nil && ok {
 			return nil
 		}
 	}
 
+	if ok, err := tryFetchAllAndVerify(ctx, repoPath, baseCommit); err == nil && ok {
+		return nil
+	}
+
 	return fmt.Errorf("基线提交不可用，请检查仓库历史或更新基线提交: %w", verifyErr)
+}
+
+// tryFetchAllAndVerify 拉取远端历史并校验基线提交是否存在。
+func tryFetchAllAndVerify(ctx context.Context, repoPath string, baseCommit string) (bool, error) {
+	if err := ensureAllBranches(ctx, repoPath); err != nil {
+		klog.V(6).Infof("设置远端分支拉取失败: repoPath=%s, error=%v", repoPath, err)
+	}
+	if err := fetchAll(ctx, repoPath); err != nil {
+		return false, err
+	}
+	if err := verifyCommit(ctx, repoPath, baseCommit); err != nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 func formatLineRanges(ranges []LineRange) string {
@@ -539,6 +551,7 @@ func parseIntWithDefault(value string, fallback int) int {
 	return parsed
 }
 
+// GetBranchAndCommit 获取当前分支名与最新提交号。
 func GetBranchAndCommit(repoPath string) (string, string, error) {
 	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	branchCmd.Dir = repoPath
@@ -596,6 +609,7 @@ func runGitCommand(ctx context.Context, repoPath string, args ...string) (string
 	return strings.TrimSpace(string(output)), nil
 }
 
+// DirSizeMB 统计目录大小（MB）。
 func DirSizeMB(path string) (float64, error) {
 	var totalSize int64
 	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {

@@ -205,6 +205,7 @@ func (s *RepositoryService) SetReady(repoID uint) error {
 	return nil
 }
 
+// IncrementalAnalysis 执行仓库增量分析并输出变更摘要。
 func (s *RepositoryService) IncrementalAnalysis(ctx context.Context, repoID uint) error {
 	klog.V(6).Infof("开始执行仓库增量分析: repoID=%d", repoID)
 
