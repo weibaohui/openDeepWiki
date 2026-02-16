@@ -185,6 +185,7 @@ func (s *DocumentService) ExportPDF(repoID uint) ([]byte, string, error) {
 
 	for _, doc := range docs {
 		pdf.AddPage()
+		pdf.Bookmark(doc.Title, 0, -1)
 		pdf.SetFont(bodyFont, "B", 16)
 		pdf.MultiCell(0, 8, doc.Title, "", "L", false)
 		pdf.Ln(2)
@@ -256,6 +257,7 @@ func registerPDFFonts(pdf *gofpdf.Fpdf) (string, string) {
 	return "NotoSansCJK", "JetBrainsMono"
 }
 
+// renderMarkdownToPDF 渲染Markdown内容到PDF
 func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, monoFont string) {
 	normalized := strings.ReplaceAll(content, "\r\n", "\n")
 	normalized = strings.ReplaceAll(normalized, "\r", "\n")
@@ -310,6 +312,7 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 			default:
 				size = 12
 			}
+			pdf.Bookmark(heading, level, -1)
 			pdf.SetFont(bodyFont, "B", size)
 			pdf.MultiCell(0, 7, heading, "", "L", false)
 			pdf.Ln(1)
@@ -317,30 +320,23 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 		}
 
 		if strings.HasPrefix(trimmed, "> ") {
-			pdf.SetFont(bodyFont, "", 12)
 			pdf.SetTextColor(90, 90, 90)
-			pdf.SetX(leftMargin + 4)
-			pdf.MultiCell(0, lineHeight, sanitizeInlineMarkdown(strings.TrimSpace(trimmed[2:])), "", "L", false)
+			renderInlineText(pdf, strings.TrimSpace(trimmed[2:]), bodyFont, 12, lineHeight, leftMargin+4)
 			pdf.SetTextColor(0, 0, 0)
 			continue
 		}
 
 		if ordered, item := parseOrderedList(trimmed); ordered {
-			pdf.SetFont(bodyFont, "", 12)
-			pdf.SetX(leftMargin + 4)
-			pdf.MultiCell(0, lineHeight, item, "", "L", false)
+			renderInlineText(pdf, item, bodyFont, 12, lineHeight, leftMargin+4)
 			continue
 		}
 
 		if unordered, item := parseUnorderedList(trimmed); unordered {
-			pdf.SetFont(bodyFont, "", 12)
-			pdf.SetX(leftMargin + 4)
-			pdf.MultiCell(0, lineHeight, item, "", "L", false)
+			renderInlineText(pdf, item, bodyFont, 12, lineHeight, leftMargin+4)
 			continue
 		}
 
-		pdf.SetFont(bodyFont, "", 12)
-		pdf.MultiCell(0, lineHeight, sanitizeInlineMarkdown(trimmed), "", "L", false)
+		renderInlineText(pdf, trimmed, bodyFont, 12, lineHeight, leftMargin)
 	}
 
 	if inCodeBlock && len(codeLines) > 0 {
@@ -381,6 +377,7 @@ func parseHeading(line string) (int, string) {
 	return count, strings.TrimSpace(line[count+1:])
 }
 
+// parseOrderedList 解析有序列表项
 func parseOrderedList(line string) (bool, string) {
 	i := 0
 	for i < len(line) && line[i] >= '0' && line[i] <= '9' {
@@ -398,14 +395,15 @@ func parseOrderedList(line string) (bool, string) {
 	}
 	item := strings.TrimSpace(line[i+2:])
 	item = normalizeTaskMarker(item)
-	return true, fmt.Sprintf("%d. %s", number, sanitizeInlineMarkdown(item))
+	return true, fmt.Sprintf("%d. %s", number, item)
 }
 
+// parseUnorderedList 解析无序列表项
 func parseUnorderedList(line string) (bool, string) {
 	if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") || strings.HasPrefix(line, "+ ") {
 		item := strings.TrimSpace(line[2:])
 		item = normalizeTaskMarker(item)
-		return true, fmt.Sprintf("• %s", sanitizeInlineMarkdown(item))
+		return true, fmt.Sprintf("• %s", item)
 	}
 	return false, ""
 }
@@ -425,6 +423,163 @@ func sanitizeInlineMarkdown(text string) string {
 	text = strings.ReplaceAll(text, "_", "")
 	text = strings.ReplaceAll(text, "`", "")
 	return text
+}
+
+// renderInlineText 渲染包含链接的单行文本
+func renderInlineText(pdf *gofpdf.Fpdf, text string, font string, fontSize float64, lineHeight float64, indent float64) {
+	pdf.SetFont(font, "", fontSize)
+	pdf.SetX(indent)
+	segments := parseInlineLinks(text)
+	for _, segment := range segments {
+		segmentText := sanitizeInlineMarkdown(stripHTMLTags(segment.Text))
+		if segmentText == "" {
+			continue
+		}
+		if segment.Link != "" {
+			pdf.WriteLinkString(lineHeight, segment.Link, segmentText)
+			continue
+		}
+		pdf.Write(lineHeight, segmentText)
+	}
+	pdf.Ln(lineHeight)
+}
+
+// parseInlineLinks 解析文本中的HTML与Markdown链接
+func parseInlineLinks(text string) []inlineLinkSegment {
+	segments := parseHTMLLinks(text)
+	var result []inlineLinkSegment
+	for _, segment := range segments {
+		if segment.Link != "" {
+			result = append(result, segment)
+			continue
+		}
+		result = append(result, parseMarkdownLinks(segment.Text)...)
+	}
+	if len(result) == 0 {
+		return []inlineLinkSegment{{Text: text}}
+	}
+	return result
+}
+
+// parseHTMLLinks 解析文本中的a标签链接
+func parseHTMLLinks(text string) []inlineLinkSegment {
+	var segments []inlineLinkSegment
+	lower := strings.ToLower(text)
+	for {
+		start := strings.Index(lower, "<a")
+		if start == -1 {
+			if text != "" {
+				segments = append(segments, inlineLinkSegment{Text: text})
+			}
+			return segments
+		}
+		if start > 0 {
+			segments = append(segments, inlineLinkSegment{Text: text[:start]})
+		}
+		openEnd := strings.Index(lower[start:], ">")
+		if openEnd == -1 {
+			segments = append(segments, inlineLinkSegment{Text: text[start:]})
+			return segments
+		}
+		openEnd += start
+		href := extractHref(text[start:openEnd])
+		closeIndex := strings.Index(strings.ToLower(text[openEnd:]), "</a>")
+		if closeIndex == -1 {
+			segments = append(segments, inlineLinkSegment{Text: text[openEnd+1:]})
+			return segments
+		}
+		closeIndex += openEnd
+		linkText := text[openEnd+1 : closeIndex]
+		segments = append(segments, inlineLinkSegment{Text: linkText, Link: href})
+		text = text[closeIndex+4:]
+		lower = strings.ToLower(text)
+	}
+}
+
+// parseMarkdownLinks 解析Markdown链接
+func parseMarkdownLinks(text string) []inlineLinkSegment {
+	var segments []inlineLinkSegment
+	for {
+		start := strings.Index(text, "[")
+		if start == -1 {
+			if text != "" {
+				segments = append(segments, inlineLinkSegment{Text: text})
+			}
+			return segments
+		}
+		mid := strings.Index(text[start:], "]")
+		if mid == -1 {
+			segments = append(segments, inlineLinkSegment{Text: text})
+			return segments
+		}
+		mid += start
+		if mid+1 >= len(text) || text[mid+1] != '(' {
+			segments = append(segments, inlineLinkSegment{Text: text[:mid+1]})
+			text = text[mid+1:]
+			continue
+		}
+		end := strings.Index(text[mid+2:], ")")
+		if end == -1 {
+			segments = append(segments, inlineLinkSegment{Text: text})
+			return segments
+		}
+		end += mid + 2
+		if start > 0 {
+			segments = append(segments, inlineLinkSegment{Text: text[:start]})
+		}
+		label := text[start+1 : mid]
+		link := text[mid+2 : end]
+		segments = append(segments, inlineLinkSegment{Text: label, Link: link})
+		text = text[end+1:]
+	}
+}
+
+// extractHref 提取a标签中的href地址
+func extractHref(text string) string {
+	lower := strings.ToLower(text)
+	hrefIndex := strings.Index(lower, "href=")
+	if hrefIndex == -1 {
+		return ""
+	}
+	rest := text[hrefIndex+5:]
+	rest = strings.TrimSpace(rest)
+	if rest == "" {
+		return ""
+	}
+	if rest[0] == '"' || rest[0] == '\'' {
+		quote := rest[0]
+		end := strings.IndexByte(rest[1:], quote)
+		if end == -1 {
+			return ""
+		}
+		return rest[1 : end+1]
+	}
+	for i, r := range rest {
+		if r == ' ' || r == '>' {
+			return rest[:i]
+		}
+	}
+	return rest
+}
+
+// stripHTMLTags 移除文本中的HTML标签
+func stripHTMLTags(text string) string {
+	var builder strings.Builder
+	inTag := false
+	for _, r := range text {
+		if r == '<' {
+			inTag = true
+			continue
+		}
+		if r == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			builder.WriteRune(r)
+		}
+	}
+	return builder.String()
 }
 
 func stripMarkdownLinks(text string) string {
@@ -449,6 +604,12 @@ func stripMarkdownLinks(text string) string {
 		label := text[start+1 : mid]
 		text = text[:start] + label + text[end+1:]
 	}
+}
+
+// inlineLinkSegment 表示文本中的链接片段
+type inlineLinkSegment struct {
+	Text string
+	Link string
 }
 
 func containsCJK(text string) bool {
@@ -584,7 +745,13 @@ func renderMarkdownTable(pdf *gofpdf.Fpdf, lines []string, bodyFont string, left
 				drawStyle = "DF"
 			}
 			pdf.Rect(x, y, colWidth, rowHeight, drawStyle)
-			pdf.SetXY(x, y)
+			lines := pdf.SplitLines([]byte(cell), colWidth)
+			textHeight := float64(len(lines)) * lineHeight
+			offsetY := (rowHeight - textHeight) / 2
+			if offsetY < 0 {
+				offsetY = 0
+			}
+			pdf.SetXY(x, y+offsetY)
 			pdf.MultiCell(colWidth, lineHeight, cell, "", "L", false)
 			pdf.SetXY(x+colWidth, y)
 			x += colWidth
