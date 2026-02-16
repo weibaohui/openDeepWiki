@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/jung-kurt/gofpdf"
 	"github.com/weibaohui/opendeepwiki/backend/config"
@@ -264,11 +265,12 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 	inCodeBlock := false
 	var codeLines []string
 
-	for _, line := range lines {
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "```") {
 			if inCodeBlock {
-				renderCodeBlock(pdf, codeLines, monoFont, leftMargin)
+				renderCodeBlock(pdf, codeLines, monoFont, bodyFont, leftMargin)
 				codeLines = nil
 				inCodeBlock = false
 			} else {
@@ -279,6 +281,13 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 
 		if inCodeBlock {
 			codeLines = append(codeLines, line)
+			continue
+		}
+
+		if isTableStart(lines, i) {
+			tableLines := collectTableLines(lines, i)
+			renderMarkdownTable(pdf, tableLines, bodyFont, leftMargin)
+			i += len(tableLines) - 1
 			continue
 		}
 
@@ -335,18 +344,22 @@ func renderMarkdownToPDF(pdf *gofpdf.Fpdf, content string, bodyFont string, mono
 	}
 
 	if inCodeBlock && len(codeLines) > 0 {
-		renderCodeBlock(pdf, codeLines, monoFont, leftMargin)
+		renderCodeBlock(pdf, codeLines, monoFont, bodyFont, leftMargin)
 	}
 }
 
-func renderCodeBlock(pdf *gofpdf.Fpdf, lines []string, monoFont string, leftMargin float64) {
+func renderCodeBlock(pdf *gofpdf.Fpdf, lines []string, monoFont string, bodyFont string, leftMargin float64) {
 	if len(lines) == 0 {
 		return
 	}
-	pdf.SetFont(monoFont, "", 10)
 	pdf.SetFillColor(245, 245, 245)
 	pdf.SetTextColor(50, 50, 50)
 	for _, line := range lines {
+		font := monoFont
+		if containsCJK(line) {
+			font = bodyFont
+		}
+		pdf.SetFont(font, "", 10)
 		pdf.SetX(leftMargin + 2)
 		pdf.MultiCell(0, 5, line, "", "L", true)
 	}
@@ -436,6 +449,154 @@ func stripMarkdownLinks(text string) string {
 		label := text[start+1 : mid]
 		text = text[:start] + label + text[end+1:]
 	}
+}
+
+func containsCJK(text string) bool {
+	for _, r := range text {
+		if unicode.Is(unicode.Han, r) {
+			return true
+		}
+	}
+	return false
+}
+
+func isTableStart(lines []string, index int) bool {
+	if index+1 >= len(lines) {
+		return false
+	}
+	return isTableLine(lines[index]) && isTableSeparatorLine(lines[index+1])
+}
+
+func collectTableLines(lines []string, start int) []string {
+	var tableLines []string
+	for i := start; i < len(lines); i++ {
+		if !isTableLine(lines[i]) {
+			break
+		}
+		tableLines = append(tableLines, lines[i])
+	}
+	return tableLines
+}
+
+func isTableLine(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	return strings.Contains(trimmed, "|")
+}
+
+func isTableSeparatorLine(line string) bool {
+	cells := parseTableRow(line)
+	if len(cells) == 0 {
+		return false
+	}
+	for _, cell := range cells {
+		cell = strings.TrimSpace(cell)
+		if cell == "" {
+			return false
+		}
+		dashCount := 0
+		for _, r := range cell {
+			if r == '-' {
+				dashCount++
+				continue
+			}
+			if r == ':' {
+				continue
+			}
+			return false
+		}
+		if dashCount < 3 {
+			return false
+		}
+	}
+	return true
+}
+
+func parseTableRow(line string) []string {
+	trimmed := strings.TrimSpace(line)
+	trimmed = strings.TrimPrefix(trimmed, "|")
+	trimmed = strings.TrimSuffix(trimmed, "|")
+	parts := strings.Split(trimmed, "|")
+	cells := make([]string, 0, len(parts))
+	for _, part := range parts {
+		cells = append(cells, sanitizeInlineMarkdown(strings.TrimSpace(part)))
+	}
+	return cells
+}
+
+func renderMarkdownTable(pdf *gofpdf.Fpdf, lines []string, bodyFont string, leftMargin float64) {
+	if len(lines) < 2 {
+		return
+	}
+	header := parseTableRow(lines[0])
+	if !isTableSeparatorLine(lines[1]) {
+		return
+	}
+	rows := [][]string{header}
+	for _, line := range lines[2:] {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		rows = append(rows, parseTableRow(line))
+	}
+	colCount := 0
+	for _, row := range rows {
+		if len(row) > colCount {
+			colCount = len(row)
+		}
+	}
+	if colCount == 0 {
+		return
+	}
+	for i, row := range rows {
+		if len(row) < colCount {
+			padded := make([]string, colCount)
+			copy(padded, row)
+			rows[i] = padded
+		}
+	}
+	pageWidth, pageHeight := pdf.GetPageSize()
+	_, _, rightMargin, bottomMargin := pdf.GetMargins()
+	tableWidth := pageWidth - leftMargin - rightMargin
+	colWidth := tableWidth / float64(colCount)
+	lineHeight := 4.5
+	startY := pdf.GetY()
+	for rowIndex, row := range rows {
+		pdf.SetFont(bodyFont, "", 10)
+		pdf.SetFillColor(255, 255, 255)
+		if rowIndex == 0 {
+			pdf.SetFont(bodyFont, "B", 10)
+			pdf.SetFillColor(235, 235, 235)
+		}
+		rowHeight := calcTableRowHeight(pdf, row, colWidth, lineHeight)
+		if startY+rowHeight > pageHeight-bottomMargin {
+			pdf.AddPage()
+			startY = pdf.GetY()
+		}
+		x := leftMargin
+		y := startY
+		for _, cell := range row {
+			pdf.SetXY(x, y)
+			pdf.MultiCell(colWidth, lineHeight, cell, "1", "L", rowIndex == 0)
+			x += colWidth
+		}
+		startY = y + rowHeight
+		pdf.SetY(startY)
+	}
+	pdf.Ln(2)
+}
+
+func calcTableRowHeight(pdf *gofpdf.Fpdf, row []string, colWidth float64, lineHeight float64) float64 {
+	maxLines := 1
+	for _, cell := range row {
+		lines := pdf.SplitLines([]byte(cell), colWidth)
+		if len(lines) > maxLines {
+			maxLines = len(lines)
+		}
+	}
+	return float64(maxLines)*lineHeight + 1
 }
 
 func (s *DocumentService) generateIndex(repoName string, docs []model.Document) string {
