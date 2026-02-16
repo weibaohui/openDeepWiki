@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"k8s.io/klog/v2"
 )
 
 type RepositoryEventSubscriber struct {
+	taskBus     *eventbus.TaskEventBus
 	taskService taskEventService
 	repoService repositoryEventService
 }
@@ -17,8 +19,8 @@ type repositoryEventService interface {
 	CloneRepository(ctx context.Context, repoID uint) error
 }
 
-func NewRepositoryEventSubscriber(taskService taskEventService, repoService repositoryEventService) *RepositoryEventSubscriber {
-	return &RepositoryEventSubscriber{taskService: taskService, repoService: repoService}
+func NewRepositoryEventSubscriber(taskBus *eventbus.TaskEventBus, taskService taskEventService, repoService repositoryEventService) *RepositoryEventSubscriber {
+	return &RepositoryEventSubscriber{taskBus: taskBus, taskService: taskService, repoService: repoService}
 }
 
 func (s *RepositoryEventSubscriber) Register(bus *eventbus.RepositoryEventBus) {
@@ -40,12 +42,13 @@ func (s *RepositoryEventSubscriber) handleRepoAdded(ctx context.Context, event e
 		return err
 	}
 
-	// 异步创建目录分析任务
-	_, err := s.taskService.CreateTocWriteTask(ctx, event.RepositoryID, "目录分析", 10)
-	if err != nil {
-		klog.Errorf("CreateTocWriteTask failed: %v", err)
-		return err
-	}
+	s.taskBus.Publish(ctx, eventbus.TaskEventTocWrite, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventTocWrite,
+		RepositoryID: event.RepositoryID,
+		Title:        "目录分析",
+		SortOrder:    10,
+		WriterName:   domain.TocWriter,
+	})
 
 	klog.V(6).Infof("仓库事件处理成功: type=%s, repoID=%d", event.Type, event.RepositoryID)
 	return nil

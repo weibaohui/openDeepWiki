@@ -10,7 +10,6 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
-	"k8s.io/klog/v2"
 )
 
 type RepositoryHandler struct {
@@ -127,17 +126,19 @@ func (h *RepositoryHandler) AnalyzeDirectory(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	task, err := h.taskService.CreateTocWriteTask(ctx, uint(id), "目录分析", 10)
-	if err != nil {
-		klog.Errorf("AnalyzeDirectory failed: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+
+	h.taskBus.Publish(ctx, eventbus.TaskEventTocWrite, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventTocWrite,
+		RepositoryID: uint(id),
+		Title:        "目录分析",
+		SortOrder:    10,
+		WriterName:   domain.TocWriter,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "directory analysis started",
-		"task":    task,
 	})
+
 }
 
 func (h *RepositoryHandler) AnalyzeDatabaseModel(c *gin.Context) {
@@ -180,6 +181,28 @@ func (h *RepositoryHandler) AnalyzeAPI(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "api analysis started",
+	})
+}
+
+// IncrementalAnalysis 处理增量分析的触发请求。
+func (h *RepositoryHandler) IncrementalAnalysis(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	ctx := context.Background()
+	h.taskBus.Publish(ctx, eventbus.TaskEventIncrementalWrite, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventIncrementalWrite,
+		RepositoryID: uint(id),
+		Title:        "增量分析",
+		SortOrder:    20,
+		WriterName:   domain.IncrementalWriter,
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "incremental analysis started",
 	})
 }
 

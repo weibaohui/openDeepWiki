@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -16,6 +17,18 @@ func runGit(t *testing.T, dir string, args ...string) {
 	if err != nil {
 		t.Fatalf("git %v error: %v, output=%s", args, err, string(output))
 	}
+}
+
+// getHeadCommit 获取当前仓库的 HEAD 提交哈希
+func getHeadCommit(t *testing.T, dir string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse error: %v, output=%s", err, string(output))
+	}
+	return strings.TrimSpace(string(output))
 }
 
 func TestDirSizeMB(t *testing.T) {
@@ -124,5 +137,153 @@ func TestNormalizeRepoURL(t *testing.T) {
 				t.Fatalf("unexpected key: %s", gotKey)
 			}
 		})
+	}
+}
+
+// TestGetIncrementalChanges 验证增量变更统计结果
+func TestGetIncrementalChanges(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init", "-b", "main")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		runGit(t, dir, "init")
+	} else if len(output) == 0 {
+	}
+
+	runGit(t, dir, "config", "user.email", "test@example.com")
+	runGit(t, dir, "config", "user.name", "test")
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	baseCommit := getHeadCommit(t, dir)
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello world"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("new file"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "update files")
+
+	latestCommit, changes, err := GetIncrementalChanges(dir, baseCommit)
+	if err != nil {
+		t.Fatalf("GetIncrementalChanges error: %v", err)
+	}
+	if latestCommit == "" {
+		t.Fatalf("latest commit is empty")
+	}
+	if len(changes) != 2 {
+		t.Fatalf("unexpected changes count: %d", len(changes))
+	}
+
+	changeMap := make(map[string]FileChange)
+	for _, item := range changes {
+		changeMap[item.Path] = item
+	}
+	changeA, ok := changeMap["a.txt"]
+	if !ok {
+		t.Fatalf("missing change for a.txt")
+	}
+	if changeA.ChangeType != "修改" {
+		t.Fatalf("unexpected change type for a.txt: %s", changeA.ChangeType)
+	}
+	if len(changeA.LineRanges) == 0 {
+		t.Fatalf("missing line ranges for a.txt")
+	}
+	if changeA.LineRanges[0].Start != 1 || changeA.LineRanges[0].End != 1 {
+		t.Fatalf("unexpected line range for a.txt: %+v", changeA.LineRanges[0])
+	}
+	changeB, ok := changeMap["b.txt"]
+	if !ok {
+		t.Fatalf("missing change for b.txt")
+	}
+	if changeB.ChangeType != "新增" {
+		t.Fatalf("unexpected change type for b.txt: %s", changeB.ChangeType)
+	}
+	if len(changeB.LineRanges) == 0 {
+		t.Fatalf("missing line ranges for b.txt")
+	}
+
+	_, emptyChanges, err := GetIncrementalChanges(dir, latestCommit)
+	if err != nil {
+		t.Fatalf("GetIncrementalChanges same commit error: %v", err)
+	}
+	if len(emptyChanges) != 0 {
+		t.Fatalf("expected empty changes, got %d", len(emptyChanges))
+	}
+}
+
+// TestGetIncrementalChangesWithRealRepo 使用真实仓库验证增量变更
+func TestGetIncrementalChangesWithRealRepo(t *testing.T) {
+	workingDir := t.TempDir()
+	repoDir := filepath.Join(workingDir, "openDeepWiki")
+
+	cmd := exec.Command("git", "clone", "https://github.com/weibaohui/openDeepWiki.git", repoDir)
+	cmd.Dir = workingDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git clone error: %v, output=%s", err, string(output))
+	}
+
+	baseCommit := "3fa312a"
+	latestCommit, changes, err := GetIncrementalChanges(repoDir, baseCommit)
+	if err != nil {
+		t.Fatalf("GetIncrementalChanges error: %v", err)
+	}
+	if latestCommit == "" {
+		t.Fatalf("latest commit is empty")
+	}
+	if len(changes) == 0 {
+		t.Fatalf("expected changes, got empty")
+	}
+	//打印变更
+	for _, item := range changes {
+		t.Logf("\n%s: %s:%+v\n", item.Description, item.Path, item.ChangeType)
+	}
+}
+
+func TestFormatIncrementalChangesForAI(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init", "-b", "main")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		runGit(t, dir, "init")
+	} else if len(output) == 0 {
+	}
+
+	runGit(t, dir, "config", "user.email", "test@example.com")
+	runGit(t, dir, "config", "user.name", "test")
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	baseCommit := getHeadCommit(t, dir)
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello world"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("new file"), 0644); err != nil {
+		t.Fatalf("write file error: %v", err)
+	}
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "update files")
+
+	output, err := FormatIncrementalChangesForAI(dir, baseCommit)
+	if err != nil {
+		t.Fatalf("FormatIncrementalChangesForAI error: %v", err)
+	}
+	if !strings.Contains(output, "增量变更指引") {
+		t.Fatalf("missing summary header")
+	}
+	if !strings.Contains(output, "a.txt") || !strings.Contains(output, "b.txt") {
+		t.Fatalf("missing file entries")
 	}
 }

@@ -5,12 +5,14 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents/tools"
+	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 )
 
 // toolProvider 实现 adkagents.ToolProvider
 type ToolProvider struct {
 	BasePath string
 	SkillDir string
+	DocRepo  repository.DocumentRepository
 }
 
 // GetTool 获取指定名称的工具
@@ -26,6 +28,11 @@ func (p *ToolProvider) GetTool(name string) (tool.BaseTool, error) {
 		return tools.NewListSkillsTool(p.SkillDir), nil
 	case "run_terminal_command":
 		return tools.NewRunTerminalCommandTool(p.BasePath), nil
+	case "read_doc":
+		if p.DocRepo == nil {
+			return nil, fmt.Errorf("document repository not configured")
+		}
+		return tools.NewReadDocTool(p.DocRepo), nil
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
@@ -33,5 +40,5 @@ func (p *ToolProvider) GetTool(name string) (tool.BaseTool, error) {
 
 // ListTools 列出所有可用工具名称
 func (p *ToolProvider) ListTools() []string {
-	return []string{"list_dir", "read_file", "search_files", "list_skills"}
+	return []string{"list_dir", "read_file", "search_files", "list_skills", "run_terminal_command", "read_doc"}
 }

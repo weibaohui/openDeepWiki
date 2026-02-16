@@ -5,6 +5,7 @@ import "github.com/weibaohui/opendeepwiki/backend/internal/domain"
 type TaskEventType string
 
 const (
+	TaskEventIncrementalWrite      TaskEventType = "IncrementalWrite"      // 增量写入
 	TaskEventDocWrite              TaskEventType = "DocWrite"              // 文档写入
 	TaskEventTocWrite              TaskEventType = "TocWrite"              // 目录写入
 	TaskEventTitleRewrite          TaskEventType = "TitleRewrite"          // 标题重写

@@ -68,6 +68,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize title rewriter service: %v", err)
 	}
+	docRewriter, err := writers.NewDocRewriter(cfg, docRepo, taskRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize doc rewriter service: %v", err)
+	}
 
 	userRequestWriter, err := writers.NewUserRequestWriter(cfg, hintRepo)
 	if err != nil {
@@ -91,6 +95,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}
+
+	incrementalWriter, err := writers.NewIncrementalWriter(cfg, repoRepo, taskRepo, hintRepo, docRepo)
+	if err != nil {
+		log.Fatalf("Failed to initialize incremental writer service: %v", err)
+	}
 	//初始化系列Writer结束
 
 	taskService := service.NewTaskService(cfg, taskRepo, repoRepo, docService)
@@ -99,8 +108,11 @@ func main() {
 	taskService.AddWriters(dbModelWriter)
 	taskService.AddWriters(apiWriter)
 	taskService.AddWriters(titleRewriter)
+	taskService.AddWriters(docRewriter)
 	taskService.AddWriters(tocWriter)
+	taskService.AddWriters(incrementalWriter)
 	tocWriter.SetTaskService(taskService)
+	incrementalWriter.SetTaskService(taskService)
 
 	// 初始化全局任务编排器
 	// maxWorkers=2，避免并发过多打爆CPU/LLM配额
@@ -117,7 +129,7 @@ func main() {
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo)
 	//注册RepoEventBus
 	repoEventBus := eventbus.NewRepositoryEventBus()
-	subscriber.NewRepositoryEventSubscriber(taskService, repoService).Register(repoEventBus)
+	subscriber.NewRepositoryEventSubscriber(taskEventBus, taskService, repoService).Register(repoEventBus)
 
 	// 初始化文档事件总线
 	docEventBus := eventbus.NewDocEventBus()
@@ -133,7 +145,7 @@ func main() {
 	syncHandler := handler.NewSyncHandler(syncService)
 
 	// 初始化 EnhancedModelProvider 并设置到 Manager
-	manager, err := adkagents.GetOrCreateInstance(cfg)
+	manager, err := adkagents.GetOrCreateInstanceWithDocRepo(cfg, docRepo)
 	if err != nil {
 		log.Fatalf("Failed to get manager: %v", err)
 	}

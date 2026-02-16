@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined, ApiOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined, ApiOutlined, BranchesOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
@@ -132,6 +132,18 @@ export default function RepoDetail() {
         } catch (error) {
             console.error('Failed to analyze api:', error);
             messageApi.error(t('repository.api_analyze_failed'));
+        }
+    };
+
+    const handleIncrementalAnalysis = async () => {
+        if (!id) return;
+        try {
+            await repositoryApi.incrementalAnalysis(Number(id));
+            fetchData();
+            messageApi.success(t('repository.incremental_analysis_started'));
+        } catch (error) {
+            console.error('Failed to run incremental analysis:', error);
+            messageApi.error(t('repository.incremental_analysis_failed'));
         }
     };
 
@@ -468,6 +480,13 @@ export default function RepoDetail() {
                                 icon={<ApiOutlined />}
                             >
                                 {t('repository.api_analyze')}
+                            </Button>
+                            <Button
+                                block
+                                onClick={handleIncrementalAnalysis}
+                                icon={<BranchesOutlined />}
+                            >
+                                {t('repository.incremental_analysis')}
                             </Button>
                             <Button
                                 type="primary"

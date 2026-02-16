@@ -13,7 +13,9 @@ var (
 	APIWriter         WriterName = "APIWriter"
 	UserRequestWriter WriterName = "UserRequestWriter"
 	TitleRewriter     WriterName = "TitleRewriter"
+	DocRewriter       WriterName = "DocRewriter"
 	TocWriter         WriterName = "TocWriter"
+	IncrementalWriter WriterName = "IncrementalWriter"
 )
 
 type Writer interface {
@@ -37,14 +39,17 @@ var (
 
 // Agent 名称常量
 const (
-	AgentTocEditor       = "toc_editor"         // 目录制定者
-	AgentTocChecker      = "toc_checker"        // 目录校验 Agent
-	AgentGen             = "document_generator" // 文档生成 Agent
-	AgentCheck           = "markdown_checker"   // Markdown 校验 Agent
-	AgentDocCheck        = "document_checker"   // 文档校验 Agent
-	AgentDBModelExplorer = "db_model_explorer"  // 数据库模型探索 Agent
-	AgentMdCheck         = "markdown_checker"   // Markdown 校验 Agent
-	AgentProblemSolver   = "problem_solver"     // 问题解决 Agent
-	AgentAPIExplorer     = "api_explorer"       // API 探索 Agent
-	AgentTitleRewriter   = "title_rewriter"     // 标题重写 Agent
+	AgentTocEditor          = "toc_editor"         // 目录制定者
+	AgentTocChecker         = "toc_checker"        // 目录校验 Agent
+	AgentGen                = "document_generator" // 文档生成 Agent
+	AgentCheck              = "markdown_checker"   // Markdown 校验 Agent
+	AgentDocCheck           = "document_checker"   // 文档校验 Agent
+	AgentDBModelExplorer    = "db_model_explorer"  // 数据库模型探索 Agent
+	AgentMdCheck            = "markdown_checker"   // Markdown 校验 Agent
+	AgentProblemSolver      = "problem_solver"     // 问题解决 Agent
+	AgentAPIExplorer        = "api_explorer"       // API 探索 Agent
+	AgentTitleRewriter      = "title_rewriter"     // 标题重写 Agent
+	AgentDocRewriter        = "doc_rewriter"       // 文档内容重写 Agent
+	AgentIncrementalEditor  = "incremental_editor"
+	AgentIncrementalChecker = "incremental_checker"
 )

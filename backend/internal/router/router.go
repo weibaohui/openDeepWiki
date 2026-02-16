@@ -46,6 +46,7 @@ func Setup(
 			repos.POST("/:id/directory-analyze", repoHandler.AnalyzeDirectory)
 			repos.POST("/:id/db-model-analyze", repoHandler.AnalyzeDatabaseModel)
 			repos.POST("/:id/api-analyze", repoHandler.AnalyzeAPI)
+			repos.POST("/:id/incremental-analysis", repoHandler.IncrementalAnalysis)
 			repos.POST("/:id/user-requests", repoHandler.AnalyzeUserRequest)
 			repos.POST("/:id/set-ready", repoHandler.SetReady)
 			repos.GET("/:id/tasks", taskHandler.GetByRepository)

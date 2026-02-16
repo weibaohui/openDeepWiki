@@ -11,6 +11,31 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// CreateContentRewriteTask 创建内容重写任务
+// 将更新内容、替换内容 写入任务的 Outline 字段
+func (s *TaskService) CreateContentRewriteTask(ctx context.Context, repoID uint, title string, content string, replace string, docID uint) (*model.Task, error) {
+
+	var guide = `
+	更新内容：%s
+	替换内容：%s
+	`
+	task := &model.Task{
+		RepositoryID: repoID,
+		DocID:        docID,
+		Title:        title,
+		Outline:      fmt.Sprintf(guide, content, replace),
+		WriterName:   domain.DocRewriter,
+		TaskType:     domain.DocRewrite,
+		Status:       string(statemachine.TaskStatusPending),
+	}
+
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, fmt.Errorf("[CreateContentRewriteTask] 创建任务失败: %w", err)
+	}
+
+	return task, nil
+}
+
 // CreateDocWriteTask 创建文档和任务，并建立双向关联
 // 1. 创建文档
 // 2. 创建任务
@@ -72,6 +97,31 @@ func (s *TaskService) CreateTocWriteTask(ctx context.Context, repoID uint, title
 	}
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, fmt.Errorf("[CreateTocWriteTask] 创建任务失败: %w", err)
+	}
+
+	return task, nil
+}
+
+func (s *TaskService) CreateIncrementalWriteTask(ctx context.Context, repoID uint, title string, sortOrder int) (*model.Task, error) {
+
+	repo, err := s.repoRepo.Get(repoID)
+	if err != nil {
+		return nil, fmt.Errorf("[CreateIncrementalWriteTask] 获取仓库失败: %w", err)
+	}
+
+	if repo.CloneCommit != "" {
+		title = fmt.Sprintf("基于 %s 增量更新", repo.CloneCommit)
+	}
+	task := &model.Task{
+		RepositoryID: repoID,
+		Title:        title,
+		WriterName:   domain.IncrementalWriter,
+		TaskType:     domain.IncrementalWrite,
+		Status:       string(statemachine.TaskStatusPending),
+		SortOrder:    sortOrder,
+	}
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, fmt.Errorf("[CreateIncrementalWriteTask] 创建任务失败: %w", err)
 	}
 
 	return task, nil
