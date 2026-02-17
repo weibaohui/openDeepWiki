@@ -69,6 +69,7 @@ make setup
 
 ```bash
 git worktree remove ../.ai-worktrees/${repo_name}/<task-name>
+git worktree prune
 ```
 
 
