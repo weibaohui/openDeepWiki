@@ -62,6 +62,7 @@ cd ../ai-worktrees/${repo_name}/<task-name>
 
 ```bash
 make setup
+make build
 ```
 
 * 所有修改仅允许发生在 `../ai-worktrees/${repo_name}/<task-name>/` 内
