@@ -49,6 +49,7 @@ func Setup(
 			repos.POST("/:id/incremental-analysis", repoHandler.IncrementalAnalysis)
 			repos.POST("/:id/user-requests", repoHandler.AnalyzeUserRequest)
 			repos.POST("/:id/set-ready", repoHandler.SetReady)
+			repos.GET("/:id/incremental-history", repoHandler.GetIncrementalHistory)
 			repos.GET("/:id/tasks", taskHandler.GetByRepository)
 			repos.GET("/:id/tasks/stats", taskHandler.GetStats) // 新增：任务统计
 			repos.GET("/:id/documents", docHandler.GetByRepository)

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined, ApiOutlined, BranchesOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined, ApiOutlined, BranchesOutlined, HistoryOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import { IncrementalHistoryDrawer } from '@/components/incremental/IncrementalHistoryDrawer';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content } = Layout;
@@ -24,6 +25,7 @@ export default function RepoDetail() {
     const [loading, setLoading] = useState(true);
     const [messageApi, contextHolder] = message.useMessage();
     const [drawerVisible, setDrawerVisible] = useState(false);
+    const [incrementalHistoryVisible, setIncrementalHistoryVisible] = useState(false);
     const [retryingMissingDocs, setRetryingMissingDocs] = useState(false);
     const [retryingFailedTasks, setRetryingFailedTasks] = useState(false);
 
@@ -489,6 +491,13 @@ export default function RepoDetail() {
                                 {t('repository.incremental_analysis')}
                             </Button>
                             <Button
+                                block
+                                onClick={() => setIncrementalHistoryVisible(true)}
+                                icon={<HistoryOutlined />}
+                            >
+                                {t('repository.incremental_history', 'Incremental Sync History')}
+                            </Button>
+                            <Button
                                 type="primary"
                                 block
                                 onClick={handleRunAll}
@@ -571,6 +580,12 @@ export default function RepoDetail() {
                     </div>
                 </Space>
             </Drawer>
+
+            <IncrementalHistoryDrawer
+                visible={incrementalHistoryVisible}
+                repositoryId={Number(id)}
+                onClose={() => setIncrementalHistoryVisible(false)}
+            />
 
             <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
                 <Row gutter={[screens.md ? 24 : 12, screens.md ? 24 : 12]}>

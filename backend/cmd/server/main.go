@@ -127,7 +127,7 @@ func main() {
 	subscriber.NewTaskEventSubscriber(taskService).Register(taskEventBus)
 	taskService.SetEventBus(taskEventBus)
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
-	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo)
+	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, incrementalHistoryRepo)
 	//注册RepoEventBus
 	repoEventBus := eventbus.NewRepositoryEventBus()
 	subscriber.NewRepositoryEventSubscriber(taskEventBus, taskService, repoService).Register(repoEventBus)

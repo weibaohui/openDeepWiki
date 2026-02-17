@@ -200,3 +200,13 @@ export interface SyncStatusResponse {
     code: string;
     data: SyncStatusData;
 }
+
+export interface IncrementalUpdateHistory {
+    id: number;
+    repository_id: number;
+    base_commit: string;
+    latest_commit: string;
+    added_dirs: number;
+    updated_dirs: number;
+    created_at: string;
+}

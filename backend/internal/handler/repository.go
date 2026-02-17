@@ -285,3 +285,28 @@ func (h *RepositoryHandler) PurgeLocal(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "local directory purged"})
 }
+
+// GetIncrementalHistory 获取仓库的增量同步历史记录。
+func (h *RepositoryHandler) GetIncrementalHistory(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	// 解析可选的 limit 参数
+	limit := 50
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	history, err := h.service.GetIncrementalHistory(uint(id), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, history)
+}
