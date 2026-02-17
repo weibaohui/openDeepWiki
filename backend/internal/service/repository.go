@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -200,5 +201,26 @@ func (s *RepositoryService) SetReady(repoID uint) error {
 	}
 
 	klog.V(6).Infof("仓库状态已设置为 ready: repoID=%d", repoID)
+	return nil
+}
+
+// UpdateRepositoryCloneInfo 更新仓库记录中的分支与提交信息。
+func (s *RepositoryService) UpdateRepositoryCloneInfo(ctx context.Context, repoID uint, branch string, commit string) error {
+	repo, err := s.repoRepo.GetBasic(repoID)
+	if err != nil {
+		return fmt.Errorf("获取仓库失败: %w", err)
+	}
+	if commit == "" {
+		return fmt.Errorf("仓库最新提交为空")
+	}
+	if branch != "" {
+		repo.CloneBranch = branch
+	}
+	repo.CloneCommit = commit
+	if err := s.repoRepo.Save(repo); err != nil {
+		klog.V(6).Infof("更新仓库提交信息失败: repoID=%d, branch=%s, commit=%s, error=%v", repoID, branch, commit, err)
+		return fmt.Errorf("更新仓库提交信息失败: %w", err)
+	}
+	klog.V(6).Infof("仓库提交信息已更新: repoID=%d, branch=%s, commit=%s", repoID, repo.CloneBranch, repo.CloneCommit)
 	return nil
 }

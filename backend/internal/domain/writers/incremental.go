@@ -10,6 +10,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/git"
@@ -27,6 +28,7 @@ type incrementalWriter struct {
 	docRepo      repository.DocumentRepository
 	taskHintRepo repository.HintRepository
 	taskService  *service.TaskService
+	repoBus      *eventbus.RepositoryEventBus
 }
 
 func NewIncrementalWriter(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, taskHintRepo repository.HintRepository, docRepo repository.DocumentRepository) (*incrementalWriter, error) {
@@ -53,6 +55,11 @@ func (s *incrementalWriter) Name() domain.WriterName {
 
 func (s *incrementalWriter) SetTaskService(taskService *service.TaskService) {
 	s.taskService = taskService
+}
+
+// SetRepositoryEventBus 设置仓库事件总线。
+func (s *incrementalWriter) SetRepositoryEventBus(bus *eventbus.RepositoryEventBus) {
+	s.repoBus = bus
 }
 
 func (s *incrementalWriter) Generate(ctx context.Context, localPath string, title string, taskID uint) (string, error) {
@@ -95,6 +102,11 @@ func (s *incrementalWriter) Generate(ctx context.Context, localPath string, titl
 			continue
 		}
 
+	}
+
+	if err := s.publishIncrementalUpdateEvent(ctx, repo.ID, repo.LocalPath); err != nil {
+		klog.V(6).Infof("[%s] 发布增量更新完成事件失败: repoID=%d, error=%v", s.Name(), repo.ID, err)
+		return "", err
 	}
 
 	return "", nil
@@ -248,5 +260,26 @@ func (s *incrementalWriter) saveHint(repoID uint, task *model.Task, spec *domain
 		klog.V(6).Infof("[%s] 保存增量任务提示失败: taskID=%d, error=%v", s.Name(), task.ID, err)
 		return fmt.Errorf("保存增量任务提示失败: %w", err)
 	}
+	return nil
+}
+
+// publishIncrementalUpdateEvent 发布增量更新完成事件并携带最新提交信息。
+func (s *incrementalWriter) publishIncrementalUpdateEvent(ctx context.Context, repoID uint, localPath string) error {
+	if s.repoBus == nil {
+		return fmt.Errorf("仓库事件总线为空")
+	}
+	branch, commit, err := git.GetBranchAndCommit(localPath)
+	if err != nil {
+		return fmt.Errorf("获取仓库最新提交失败: %w", err)
+	}
+	if err := s.repoBus.Publish(ctx, eventbus.RepositoryEventIncrementalUpdated, eventbus.RepositoryEvent{
+		Type:         eventbus.RepositoryEventIncrementalUpdated,
+		RepositoryID: repoID,
+		CloneBranch:  branch,
+		CloneCommit:  commit,
+	}); err != nil {
+		return fmt.Errorf("发布增量更新完成事件失败: %w", err)
+	}
+	klog.V(6).Infof("[%s] 增量更新完成事件已发布: repoID=%d, branch=%s, commit=%s", s.Name(), repoID, branch, commit)
 	return nil
 }

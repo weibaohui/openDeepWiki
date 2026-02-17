@@ -3,13 +3,16 @@ package eventbus
 type RepositoryEventType string
 
 const (
-	RepositoryEventAdded   RepositoryEventType = "Added"
-	RepositoryEventDeleted RepositoryEventType = "Deleted"
+	RepositoryEventAdded              RepositoryEventType = "Added"
+	RepositoryEventDeleted            RepositoryEventType = "Deleted"
+	RepositoryEventIncrementalUpdated RepositoryEventType = "IncrementalUpdated"
 )
 
 type RepositoryEvent struct {
 	Type         RepositoryEventType
 	RepositoryID uint
+	CloneBranch  string
+	CloneCommit  string
 }
 
 type RepositoryEventHandler = Handler[RepositoryEvent]

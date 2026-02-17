@@ -130,6 +130,7 @@ func main() {
 	//注册RepoEventBus
 	repoEventBus := eventbus.NewRepositoryEventBus()
 	subscriber.NewRepositoryEventSubscriber(taskEventBus, taskService, repoService).Register(repoEventBus)
+	incrementalWriter.SetRepositoryEventBus(repoEventBus)
 
 	// 初始化文档事件总线
 	docEventBus := eventbus.NewDocEventBus()
