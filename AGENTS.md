@@ -53,6 +53,7 @@ chore/xxx     # 工程性调整
 
 ```bash
 repo_name=$(basename "$(git rev-parse --show-toplevel)")
+mkdir -p ../.ai-worktrees/${repo_name}
 git worktree add ../.ai-worktrees/${repo_name}/<task-name> <branch>
 cd ../.ai-worktrees/${repo_name}/<task-name>
 ```
