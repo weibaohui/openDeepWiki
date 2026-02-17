@@ -67,6 +67,12 @@ make build
 
 * 所有修改仅允许发生在 `../ai-worktrees/${repo_name}/<task-name>/` 内
 
+* 任务完成后，运行下面的命令进行编译测试，如果有错误，请修改。
+```bash
+make setup
+make build
+```
+
 * 任务完成后要提醒人类进行分支合并操作。合并完成后，删除该 worktree
 
 ```bash
