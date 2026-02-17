@@ -84,7 +84,7 @@ func TestUpdateRepositoryCloneInfoSuccess(t *testing.T) {
 	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
 		1: {ID: 1, CloneBranch: "main", CloneCommit: "abc"},
 	}}
-	svc := NewRepositoryService(&config.Config{}, repoRepo, nil, nil, nil)
+	svc := NewRepositoryService(&config.Config{}, repoRepo, nil, nil, nil, nil)
 
 	if err := svc.UpdateRepositoryCloneInfo(context.Background(), 1, "dev", "def"); err != nil {
 		t.Fatalf("UpdateRepositoryCloneInfo error: %v", err)
@@ -100,7 +100,7 @@ func TestUpdateRepositoryCloneInfoEmptyCommit(t *testing.T) {
 	repoRepo := &mockRepoRepo{repos: map[uint]*model.Repository{
 		1: {ID: 1, CloneBranch: "main", CloneCommit: "abc"},
 	}}
-	svc := NewRepositoryService(&config.Config{}, repoRepo, nil, nil, nil)
+	svc := NewRepositoryService(&config.Config{}, repoRepo, nil, nil, nil, nil)
 
 	if err := svc.UpdateRepositoryCloneInfo(context.Background(), 1, "dev", ""); err == nil {
 		t.Fatalf("expected error, got nil")
