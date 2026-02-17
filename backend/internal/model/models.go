@@ -112,11 +112,11 @@ type SyncEvent struct {
 }
 
 type IncrementalUpdateHistory struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	RepositoryID uint     `json:"repository_id" gorm:"index;not null"`
-	BaseCommit  string    `json:"base_commit" gorm:"size:100;not null"`
-	LatestCommit string   `json:"latest_commit" gorm:"size:100;not null"`
-	AddedDirs   int       `json:"added_dirs" gorm:"default:0"`
-	UpdatedDirs int       `json:"updated_dirs" gorm:"default:0"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           uint      `json:"id" gorm:"primaryKey"`
+	RepositoryID uint      `json:"repository_id" gorm:"index;not null"`
+	BaseCommit   string    `json:"base_commit" gorm:"size:100;not null"`
+	LatestCommit string    `json:"latest_commit" gorm:"size:100;not null"`
+	AddedDirs    int       `json:"added_dirs" gorm:"default:0"`
+	UpdatedDirs  int       `json:"updated_dirs" gorm:"default:0"`
+	CreatedAt    time.Time `json:"created_at"`
 }
