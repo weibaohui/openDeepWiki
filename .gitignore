@@ -10,7 +10,7 @@ backend/internal/embed/ui/dist
 frontend/node_modules/
 frontend/dist/
 frontend/package-lock.json
-
+.ai-worktrees/
 tmp/
 .qoder/
 .claude/
