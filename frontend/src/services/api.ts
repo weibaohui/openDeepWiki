@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory, UserRequest, UserRequestListResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -28,7 +28,15 @@ export const repositoryApi = {
         params: { limit }
     }),
     setReady: (id: number) => api.post(`/repositories/${id}/set-ready`),
-    createUserRequest: (id: number, content: string) => api.post<{ code: number; message: string; data: Task }>(`/repositories/${id}/user-requests`, { content }),
+};
+
+// User Request APIs
+export const userRequestApi = {
+    create: (repoId: number, content: string) => api.post<UserRequestListResponse>(`/repositories/${repoId}/user-requests`, { content }),
+    list: (repoId: number, params?: { page?: number; page_size?: number; status?: string }) =>
+        api.get<UserRequestListResponse>(`/repositories/${repoId}/user-requests`, { params }),
+    get: (id: number) => api.get<{ code: number; message: string; data: UserRequest }>(`/user-requests/${id}`),
+    delete: (id: number) => api.delete<{ code: number; message: string }>(`/user-requests/${id}`),
 };
 
 // Task APIs

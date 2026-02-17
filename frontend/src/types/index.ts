@@ -210,3 +210,30 @@ export interface IncrementalUpdateHistory {
     updated_dirs: number;
     created_at: string;
 }
+
+export interface UserRequest {
+    id: number;
+    repository_id: number;
+    content: string;
+    status: 'pending' | 'processing' | 'completed' | 'rejected';
+    created_at: string;
+    updated_at: string;
+    repository?: Repository;
+}
+
+export interface UserRequestListResponse {
+    code: number;
+    message: string;
+    data: {
+        list: UserRequest[];
+        total: number;
+        page: number;
+        page_size: number;
+    };
+}
+
+export interface ApiResponse<T> {
+    code: number;
+    message: string;
+    data: T;
+}

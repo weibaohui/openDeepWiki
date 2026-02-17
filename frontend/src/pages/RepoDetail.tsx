@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined, ApiOutlined, BranchesOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, ReloadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined, DownloadOutlined, FolderOpenOutlined, CheckOutlined, MoreOutlined, DeleteOutlined, StopOutlined, CloudDownloadOutlined, ApiOutlined, BranchesOutlined, HistoryOutlined, MessageOutlined } from '@ant-design/icons';
 import { Button, Card, Spin, Layout, Typography, Space, List, Row, Col, Empty, message, Grid, Tooltip, Drawer, Modal, Divider } from 'antd';
 import type { Repository, Task, Document } from '../types';
 import { repositoryApi, taskApi, documentApi } from '../services/api';
@@ -529,6 +529,21 @@ export default function RepoDetail() {
                                     {t('task.retry_failed_tasks')}
                                 </Button>
                             </Tooltip>
+                        </Space>
+                    </div>
+
+                    <Divider />
+
+                    <div>
+                        <Title level={5}>{t('repository.user_requests', 'User Requests')}</Title>
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                            <Button
+                                block
+                                icon={<MessageOutlined />}
+                                onClick={() => navigate(`/repo/${id}/user-requests`)}
+                            >
+                                {t('user_request.title', 'View User Requests')}
+                            </Button>
                         </Space>
                     </div>
 

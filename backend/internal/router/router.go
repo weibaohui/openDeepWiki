@@ -15,6 +15,7 @@ func Setup(
 	docHandler *handler.DocumentHandler,
 	apiKeyHandler *handler.APIKeyHandler,
 	syncHandler *handler.SyncHandler,
+	userRequestHandler *handler.UserRequestHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -47,7 +48,8 @@ func Setup(
 			repos.POST("/:id/db-model-analyze", repoHandler.AnalyzeDatabaseModel)
 			repos.POST("/:id/api-analyze", repoHandler.AnalyzeAPI)
 			repos.POST("/:id/incremental-analysis", repoHandler.IncrementalAnalysis)
-			repos.POST("/:id/user-requests", repoHandler.AnalyzeUserRequest)
+			repos.POST("/:id/user-requests", userRequestHandler.CreateUserRequest)
+			repos.GET("/:id/user-requests", userRequestHandler.ListUserRequests)
 			repos.POST("/:id/set-ready", repoHandler.SetReady)
 			repos.GET("/:id/incremental-history", repoHandler.GetIncrementalHistory)
 			repos.GET("/:id/tasks", taskHandler.GetByRepository)
@@ -90,6 +92,14 @@ func Setup(
 
 		// 数据同步
 		syncHandler.RegisterRoutes(api)
+
+		// 用户需求管理
+		userRequests := api.Group("/user-requests")
+		{
+			userRequests.GET("/:id", userRequestHandler.GetUserRequest)
+			userRequests.DELETE("/:id", userRequestHandler.DeleteUserRequest)
+			userRequests.PATCH("/:id/status", userRequestHandler.UpdateUserRequestStatus)
+		}
 	}
 
 	// 设置前端静态文件路由（嵌入式）

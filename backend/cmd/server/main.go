@@ -58,11 +58,13 @@ func main() {
 	syncTargetRepo := repository.NewSyncTargetRepository(db)
 	syncEventRepo := repository.NewSyncEventRepository(db)
 	incrementalHistoryRepo := repository.NewIncrementalUpdateHistoryRepository(db)
+	userRequestRepo := repository.NewUserRequestRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 	taskUsageService := service.NewTaskUsageService(taskUsageRepo)
+	userRequestService := service.NewUserRequestService(userRequestRepo, repoRepo)
 
 	//初始化系列Writer
 	titleRewriter, err := writers.NewTitleRewriter(cfg, docRepo, taskRepo)
@@ -145,6 +147,7 @@ func main() {
 	syncService := syncservice.New(repoRepo, taskRepo, docRepo, taskUsageRepo, syncTargetRepo, syncEventRepo)
 	syncService.SetDocEventBus(docEventBus)
 	syncHandler := handler.NewSyncHandler(syncService)
+	userRequestHandler := handler.NewUserRequestHandler(userRequestService, taskEventBus, taskService)
 
 	// 初始化 EnhancedModelProvider 并设置到 Manager
 	manager, err := adkagents.GetOrCreateInstanceWithDocRepo(cfg, docRepo)
@@ -162,7 +165,7 @@ func main() {
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

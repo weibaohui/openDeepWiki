@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/providers/ThemeProvider';
 import Home from './pages/Home';
 import RepoDetail from './pages/RepoDetail';
 import DocViewer from './pages/DocViewer';
+import UserRequestList from './pages/UserRequestList';
 import APIKeyManager from './pages/APIKeyManager';
 import Settings from './pages/Settings';
 import Sync from './pages/Sync';
@@ -17,6 +18,7 @@ function App() {
           <Route path="/repo/:id" element={<RepoDetail />} />
           <Route path="/repo/:id/index" element={<DocViewer />} />
           <Route path="/repo/:id/doc/:docId" element={<DocViewer />} />
+          <Route path="/repo/:id/user-requests" element={<UserRequestList />} />
           <Route path="/api-keys" element={<APIKeyManager />} />
           <Route path="/settings" element={<Settings />} />
                     <Route path="/sync" element={<Sync />} />

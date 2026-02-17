@@ -48,7 +48,7 @@ import type { MenuProps } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownRender from '@/components/markdown/MarkdownRender';
 import type { Document, Repository, Task, DocumentRatingStats, TaskUsage } from '../types';
-import { documentApi, repositoryApi, taskApi } from '../services/api';
+import { documentApi, repositoryApi, taskApi, userRequestApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
 
 const { Header, Content, Sider } = Layout;
@@ -262,7 +262,7 @@ export default function DocViewer() {
 
         setUserRequestLoading(true);
         try {
-            await repositoryApi.createUserRequest(Number(id), userRequestContent);
+            await userRequestApi.create(Number(id), userRequestContent);
             messageApi.success(t('user_request.success'));
             handleCloseUserRequestModal();
         } catch (error) {

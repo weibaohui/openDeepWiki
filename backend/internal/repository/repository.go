@@ -87,3 +87,11 @@ type IncrementalUpdateHistoryRepository interface {
 	Create(ctx context.Context, history *model.IncrementalUpdateHistory) error
 	ListByRepository(ctx context.Context, repositoryID uint, limit int) ([]model.IncrementalUpdateHistory, error)
 }
+
+type UserRequestRepository interface {
+	Create(request *model.UserRequest) error
+	GetByID(id uint) (*model.UserRequest, error)
+	ListByRepository(repoID uint, page, pageSize int, status string) ([]*model.UserRequest, int64, error)
+	Delete(id uint) error
+	UpdateStatus(id uint, status string) error
+}
