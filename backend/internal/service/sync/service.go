@@ -1,69 +1,54 @@
 package syncservice
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync"
-	"time"
 
-	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
-	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
+	syncdto "github.com/weibaohui/opendeepwiki/backend/internal/dto/sync"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
-	"gorm.io/gorm"
 	"k8s.io/klog/v2"
 )
 
-type Status struct {
-	SyncID         string
-	RepositoryID   uint
-	TargetServer   string
-	DocumentIDs    []uint
-	ClearTarget    bool
-	ClearLocal     bool
-	TotalTasks     int
-	CompletedTasks int
-	FailedTasks    int
-	Status         string
-	CurrentTask    string
-	StartedAt      time.Time
-	UpdatedAt      time.Time
-}
-
+// Service 同步服务主入口，协调各子服务
 type Service struct {
+	// 子服务
+	statusMgr      *StatusManager
+	remoteClient   *RemoteClient
+	targetMgr      *TargetManager
+	taskUsageMgr   *TaskUsageManager
+	repoSyncSvc    *RepositorySyncService
+	taskSyncSvc    *TaskSyncService
+	docSyncSvc     *DocumentSyncService
+
+	// 仓储
 	repoRepo       repository.RepoRepository
 	taskRepo       repository.TaskRepository
 	docRepo        repository.DocumentRepository
-	taskUsageRepo  repository.TaskUsageRepository
-	syncTargetRepo repository.SyncTargetRepository
 	syncEventRepo  repository.SyncEventRepository
-	client         *http.Client
-	statusMap      map[string]*Status
-	mutex          sync.RWMutex
+
+	// 事件总线
 	docBus         *eventbus.DocEventBus
 }
 
+// New 创建新的同步服务
 func New(repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskUsageRepo repository.TaskUsageRepository, syncTargetRepo repository.SyncTargetRepository, syncEventRepo repository.SyncEventRepository) *Service {
-	return &Service{
-		repoRepo:       repoRepo,
-		taskRepo:       taskRepo,
-		docRepo:        docRepo,
-		taskUsageRepo:  taskUsageRepo,
-		syncTargetRepo: syncTargetRepo,
-		syncEventRepo:  syncEventRepo,
-		client:         &http.Client{Timeout: 15 * time.Second},
-		statusMap:      make(map[string]*Status),
+	s := &Service{
+		statusMgr:     NewStatusManager(),
+		remoteClient:  NewRemoteClient(),
+		repoRepo:      repoRepo,
+		taskRepo:      taskRepo,
+		docRepo:       docRepo,
+		syncEventRepo: syncEventRepo,
 	}
+	s.targetMgr = NewTargetManager(syncTargetRepo)
+	s.taskUsageMgr = NewTaskUsageManager(taskUsageRepo)
+	s.repoSyncSvc = NewRepositorySyncService(repoRepo, docRepo, taskRepo)
+	s.taskSyncSvc = NewTaskSyncService(repoRepo, taskRepo)
+	s.docSyncSvc = NewDocumentSyncService(repoRepo, taskRepo, docRepo)
+	return s
 }
 
 // SetDocEventBus 设置文档事件总线
@@ -87,51 +72,73 @@ func (s *Service) publishDocEvent(ctx context.Context, eventType eventbus.DocEve
 	}
 }
 
-func (s *Service) validateTargetServer(value string) (string, error) {
-	normalized := strings.TrimSpace(value)
-	if normalized == "" {
-		return "", errors.New("目标服务器地址不能为空")
+// Start 开始推送同步任务
+func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearTarget bool) (*Status, error) {
+	targetServer, err := s.targetMgr.ValidateTargetServer(targetServer)
+	if err != nil {
+		return nil, err
 	}
-	normalized = strings.TrimSuffix(normalized, "/")
-	parsed, err := url.Parse(normalized)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return "", errors.New("目标服务器地址格式不正确")
+
+	if _, err := s.repoRepo.GetBasic(repoID); err != nil {
+		return nil, fmt.Errorf("仓库不存在: %w", err)
 	}
-	if !strings.HasSuffix(parsed.Path, "/api/sync") {
-		return "", errors.New("目标服务器地址格式不正确")
+
+	documentIDs = NormalizeDocumentIDs(documentIDs)
+	status := s.statusMgr.CreateStatus(repoID, targetServer, documentIDs, clearTarget, false)
+
+	klog.V(6).Infof("同步任务已创建: syncID=%s, repoID=%d, target=%s", status.SyncID, repoID, targetServer)
+	if len(documentIDs) > 0 {
+		klog.V(6).Infof("同步任务已启用文档筛选: syncID=%s, repoID=%d, docCount=%d", status.SyncID, repoID, len(documentIDs))
 	}
-	return normalized, nil
+	if clearTarget {
+		klog.V(6).Infof("同步任务已启用清空对端: syncID=%s, repoID=%d", status.SyncID, repoID)
+	}
+	go s.runSync(context.Background(), status)
+	return status, nil
 }
 
+// StartPull 开始拉取同步任务
+func (s *Service) StartPull(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearLocal bool) (*Status, error) {
+	targetServer, err := s.targetMgr.ValidateTargetServer(targetServer)
+	if err != nil {
+		return nil, err
+	}
+	if repoID == 0 {
+		return nil, errors.New("仓库ID不能为空")
+	}
+
+	documentIDs = NormalizeDocumentIDs(documentIDs)
+	status := s.statusMgr.CreateStatus(repoID, targetServer, documentIDs, false, clearLocal)
+
+	klog.V(6).Infof("拉取任务已创建: syncID=%s, repoID=%d, target=%s", status.SyncID, repoID, targetServer)
+	if len(documentIDs) > 0 {
+		klog.V(6).Infof("拉取任务已启用文档筛选: syncID=%s, repoID=%d, docCount=%d", status.SyncID, repoID, len(documentIDs))
+	}
+	if clearLocal {
+		klog.V(6).Infof("拉取任务已启用清空本地: syncID=%s, repoID=%d", status.SyncID, repoID)
+	}
+	go s.runPullSync(context.Background(), status)
+	return status, nil
+}
+
+// GetStatus 获取同步任务状态
+func (s *Service) GetStatus(syncID string) (*Status, bool) {
+	return s.statusMgr.Get(syncID)
+}
+
+// ListSyncTargets 获取同步目标列表
 func (s *Service) ListSyncTargets(ctx context.Context) ([]model.SyncTarget, error) {
-	return s.syncTargetRepo.List(ctx)
+	return s.targetMgr.List(ctx)
 }
 
+// SaveSyncTarget 保存同步目标
 func (s *Service) SaveSyncTarget(ctx context.Context, target string) (*model.SyncTarget, error) {
-	normalized, err := s.validateTargetServer(target)
-	if err != nil {
-		return nil, err
-	}
-	targetModel, err := s.syncTargetRepo.Upsert(ctx, normalized)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.syncTargetRepo.TrimExcess(ctx, 20); err != nil {
-		return nil, err
-	}
-	klog.V(6).Infof("同步地址已保存: id=%d, url=%s", targetModel.ID, targetModel.URL)
-	return targetModel, nil
+	return s.targetMgr.Save(ctx, target)
 }
 
+// DeleteSyncTarget 删除同步目标
 func (s *Service) DeleteSyncTarget(ctx context.Context, id uint) error {
-	if id == 0 {
-		return errors.New("地址ID不能为空")
-	}
-	if err := s.syncTargetRepo.Delete(ctx, id); err != nil {
-		return err
-	}
-	klog.V(6).Infof("同步地址已删除: id=%d", id)
-	return nil
+	return s.targetMgr.Delete(ctx, id)
 }
 
 // ListSyncEvents 查询同步事件列表
@@ -184,80 +191,7 @@ func (s *Service) ListSyncEvents(ctx context.Context, repositoryID uint, mode st
 	return items, nil
 }
 
-func (s *Service) Start(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearTarget bool) (*Status, error) {
-	targetServer, err := s.validateTargetServer(targetServer)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := s.repoRepo.GetBasic(repoID); err != nil {
-		return nil, fmt.Errorf("仓库不存在: %w", err)
-	}
-
-	documentIDs = normalizeDocumentIDs(documentIDs)
-	status := &Status{
-		SyncID:       s.newSyncID(),
-		RepositoryID: repoID,
-		TargetServer: targetServer,
-		DocumentIDs:  documentIDs,
-		ClearTarget:  clearTarget,
-		Status:       "in_progress",
-		StartedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-	s.setStatus(status)
-
-	klog.V(6).Infof("同步任务已创建: syncID=%s, repoID=%d, target=%s", status.SyncID, repoID, targetServer)
-	if len(documentIDs) > 0 {
-		klog.V(6).Infof("同步任务已启用文档筛选: syncID=%s, repoID=%d, docCount=%d", status.SyncID, repoID, len(documentIDs))
-	}
-	if clearTarget {
-		klog.V(6).Infof("同步任务已启用清空对端: syncID=%s, repoID=%d", status.SyncID, repoID)
-	}
-	go s.runSync(context.Background(), status)
-	return status, nil
-}
-
-func (s *Service) StartPull(ctx context.Context, targetServer string, repoID uint, documentIDs []uint, clearLocal bool) (*Status, error) {
-	targetServer, err := s.validateTargetServer(targetServer)
-	if err != nil {
-		return nil, err
-	}
-	if repoID == 0 {
-		return nil, errors.New("仓库ID不能为空")
-	}
-
-	documentIDs = normalizeDocumentIDs(documentIDs)
-	status := &Status{
-		SyncID:       s.newSyncID(),
-		RepositoryID: repoID,
-		TargetServer: targetServer,
-		DocumentIDs:  documentIDs,
-		ClearLocal:   clearLocal,
-		Status:       "in_progress",
-		StartedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-	s.setStatus(status)
-
-	klog.V(6).Infof("拉取任务已创建: syncID=%s, repoID=%d, target=%s", status.SyncID, repoID, targetServer)
-	if len(documentIDs) > 0 {
-		klog.V(6).Infof("拉取任务已启用文档筛选: syncID=%s, repoID=%d, docCount=%d", status.SyncID, repoID, len(documentIDs))
-	}
-	if clearLocal {
-		klog.V(6).Infof("拉取任务已启用清空本地: syncID=%s, repoID=%d", status.SyncID, repoID)
-	}
-	go s.runPullSync(context.Background(), status)
-	return status, nil
-}
-
-func (s *Service) GetStatus(syncID string) (*Status, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	status, ok := s.statusMap[syncID]
-	return status, ok
-}
-
+// ListRepositories 列出仓库
 func (s *Service) ListRepositories(ctx context.Context) ([]syncdto.RepositoryListItem, error) {
 	repos, err := s.repoRepo.List()
 	if err != nil {
@@ -277,6 +211,7 @@ func (s *Service) ListRepositories(ctx context.Context) ([]syncdto.RepositoryLis
 	return items, nil
 }
 
+// ListDocuments 列出文档
 func (s *Service) ListDocuments(ctx context.Context, repoID uint) ([]syncdto.DocumentListItem, error) {
 	if repoID == 0 {
 		return nil, errors.New("仓库ID不能为空")
@@ -310,6 +245,7 @@ func (s *Service) ListDocuments(ctx context.Context, repoID uint) ([]syncdto.Doc
 	return items, nil
 }
 
+// BuildPullExportData 构建拉取导出数据
 func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, documentIDs []uint) (syncdto.PullExportData, error) {
 	if repoID == 0 {
 		return syncdto.PullExportData{}, errors.New("仓库ID不能为空")
@@ -327,18 +263,18 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 		return syncdto.PullExportData{}, err
 	}
 
-	documentIDs = normalizeDocumentIDs(documentIDs)
+	documentIDs = NormalizeDocumentIDs(documentIDs)
 	if len(documentIDs) > 0 {
-		taskIDSet, err := s.collectTaskIDsByDocuments(ctx, repoID, documentIDs)
+		taskIDSet, err := CollectTaskIDsByDocuments(ctx, s.docRepo, repoID, documentIDs)
 		if err != nil {
 			return syncdto.PullExportData{}, err
 		}
-		tasks = filterTasksByID(tasks, taskIDSet)
+		tasks = FilterTasksByID(tasks, taskIDSet)
 		docIDSet := make(map[uint]struct{}, len(documentIDs))
 		for _, docID := range documentIDs {
 			docIDSet[docID] = struct{}{}
 		}
-		docs = filterDocumentsByID(docs, docIDSet)
+		docs = FilterDocumentsByID(docs, docIDSet)
 		if len(docs) == 0 {
 			return syncdto.PullExportData{}, errors.New("未找到符合条件的文档")
 		}
@@ -362,6 +298,8 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 		Documents:  make([]syncdto.PullDocumentData, 0, len(docs)),
 		TaskUsages: make([]syncdto.PullTaskUsageData, 0),
 	}
+
+	taskUsageRepo := s.taskUsageMgr.taskUsageRepo
 	for _, task := range tasks {
 		export.Tasks = append(export.Tasks, syncdto.PullTaskData{
 			TaskID:       task.ID,
@@ -380,7 +318,7 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 			CreatedAt:    task.CreatedAt,
 			UpdatedAt:    task.UpdatedAt,
 		})
-		usages, err := s.taskUsageRepo.GetByTaskIDList(ctx, task.ID)
+		usages, err := taskUsageRepo.GetByTaskIDList(ctx, task.ID)
 		if err != nil {
 			return syncdto.PullExportData{}, err
 		}
@@ -417,310 +355,47 @@ func (s *Service) BuildPullExportData(ctx context.Context, repoID uint, document
 	return export, nil
 }
 
-// CreateOrUpdateRepository 创建或更新仓库基础信息。
+// CreateOrUpdateRepository 创建或更新仓库
 func (s *Service) CreateOrUpdateRepository(ctx context.Context, req syncdto.RepositoryUpsertRequest) (*model.Repository, error) {
-	if req.RepositoryID == 0 {
-		return nil, errors.New("仓库ID不能为空")
-	}
-	repo, err := s.repoRepo.GetBasic(req.RepositoryID)
-	isNew := false
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, domain.ErrRecordNotFound) {
-			repo = &model.Repository{ID: req.RepositoryID}
-			isNew = true
-		} else {
-			return nil, err
-		}
-	}
-
-	createdAt := req.CreatedAt
-	if createdAt.IsZero() {
-		createdAt = time.Now()
-	}
-	updatedAt := req.UpdatedAt
-	if updatedAt.IsZero() {
-		updatedAt = time.Now()
-	}
-
-	repo.Name = req.Name
-	repo.URL = req.URL
-	repo.Description = req.Description
-	repo.CloneBranch = req.CloneBranch
-	repo.CloneCommit = req.CloneCommit
-	repo.SizeMB = req.SizeMB
-	repo.Status = req.Status
-	repo.ErrorMsg = req.ErrorMsg
-	repo.CreatedAt = createdAt
-	repo.UpdatedAt = updatedAt
-
-	if isNew {
-		if err := s.repoRepo.Create(repo); err != nil {
-			return nil, err
-		}
-		klog.V(6).Infof("同步仓库信息已创建: repoID=%d", repo.ID)
-		return repo, nil
-	}
-
-	if err := s.repoRepo.Save(repo); err != nil {
-		return nil, err
-	}
-	klog.V(6).Infof("同步仓库信息已更新: repoID=%d", repo.ID)
-	return repo, nil
+	return s.repoSyncSvc.CreateOrUpdate(ctx, req)
 }
 
-func (s *Service) CreateTask(ctx context.Context, req syncdto.TaskCreateRequest) (*model.Task, error) {
-	repo, err := s.repoRepo.GetBasic(req.RepositoryID)
-	if err != nil {
-		return nil, fmt.Errorf("仓库不存在: %w", err)
-	}
-
-	createdAt := req.CreatedAt
-	if createdAt.IsZero() {
-		createdAt = time.Now()
-	}
-	updatedAt := req.UpdatedAt
-	if updatedAt.IsZero() {
-		updatedAt = time.Now()
-	}
-
-	writerName := domain.WriterName(req.WriterName)
-	if writerName == "" {
-		writerName = domain.DefaultWriter
-	}
-	taskType := domain.TaskType(req.TaskType)
-	if taskType == "" {
-		taskType = domain.DocWrite
-	}
-
-	task := &model.Task{
-		ID:           req.TaskID,
-		RepositoryID: repo.ID,
-		DocID:        req.DocID,
-		WriterName:   writerName,
-		TaskType:     taskType,
-		Title:        req.Title,
-		Outline:      req.Outline,
-		Status:       req.Status,
-		RunAfter:     req.RunAfter,
-		ErrorMsg:     req.ErrorMsg,
-		SortOrder:    req.SortOrder,
-		StartedAt:    req.StartedAt,
-		CompletedAt:  req.CompletedAt,
-		CreatedAt:    createdAt,
-		UpdatedAt:    updatedAt,
-	}
-	if req.TaskID != 0 {
-		existing, err := s.taskRepo.Get(req.TaskID)
-		if err == nil {
-			existing.RepositoryID = task.RepositoryID
-			existing.DocID = task.DocID
-			existing.WriterName = task.WriterName
-			existing.TaskType = task.TaskType
-			existing.Title = task.Title
-			existing.Outline = task.Outline
-			existing.Status = task.Status
-			existing.RunAfter = task.RunAfter
-			existing.ErrorMsg = task.ErrorMsg
-			existing.SortOrder = task.SortOrder
-			existing.StartedAt = task.StartedAt
-			existing.CompletedAt = task.CompletedAt
-			existing.CreatedAt = task.CreatedAt
-			existing.UpdatedAt = task.UpdatedAt
-			if err := s.taskRepo.Save(existing); err != nil {
-				return nil, err
-			}
-			return existing, nil
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) && !errors.Is(err, domain.ErrRecordNotFound) {
-			return nil, err
-		}
-	}
-	if err := s.taskRepo.Create(task); err != nil {
-		return nil, err
-	}
-	return task, nil
-}
-
+// ClearRepositoryData 清空仓库数据
 func (s *Service) ClearRepositoryData(ctx context.Context, repoID uint) error {
-	if repoID == 0 {
-		return errors.New("仓库ID不能为空")
-	}
-	if _, err := s.repoRepo.GetBasic(repoID); err != nil {
-		return fmt.Errorf("仓库不存在: %w", err)
-	}
-	if err := s.docRepo.DeleteByRepositoryID(repoID); err != nil {
-		return fmt.Errorf("清空文档失败: %w", err)
-	}
-	if err := s.taskRepo.DeleteByRepositoryID(repoID); err != nil {
-		return fmt.Errorf("清空任务失败: %w", err)
-	}
-	klog.V(6).Infof("仓库数据已清空: repoID=%d", repoID)
-	return nil
+	return s.repoSyncSvc.ClearData(ctx, repoID)
 }
 
-func (s *Service) CreateDocument(ctx context.Context, req syncdto.DocumentCreateRequest) (*model.Document, error) {
-	_, err := s.repoRepo.GetBasic(req.RepositoryID)
-	if err != nil {
-		return nil, fmt.Errorf("仓库不存在: %w", err)
-	}
-
-	task, err := s.taskRepo.Get(req.TaskID)
-	if err != nil {
-		return nil, fmt.Errorf("任务不存在: %w", err)
-	}
-	if task.RepositoryID != req.RepositoryID {
-		return nil, errors.New("任务与仓库不匹配")
-	}
-
-	createdAt := req.CreatedAt
-	if createdAt.IsZero() {
-		createdAt = time.Now()
-	}
-	updatedAt := req.UpdatedAt
-	if updatedAt.IsZero() {
-		updatedAt = time.Now()
-	}
-
-	doc := &model.Document{
-		ID:           req.DocumentID,
-		RepositoryID: req.RepositoryID,
-		TaskID:       req.TaskID,
-		Title:        req.Title,
-		Filename:     req.Filename,
-		Content:      req.Content,
-		SortOrder:    req.SortOrder,
-		Version:      req.Version,
-		IsLatest:     req.IsLatest,
-		ReplacedBy:   req.ReplacedBy,
-		CreatedAt:    createdAt,
-		UpdatedAt:    updatedAt,
-	}
-	if req.DocumentID != 0 {
-		existing, err := s.docRepo.Get(req.DocumentID)
-		if err == nil {
-			existing.RepositoryID = doc.RepositoryID
-			existing.TaskID = doc.TaskID
-			existing.Title = doc.Title
-			existing.Filename = doc.Filename
-			existing.Content = doc.Content
-			existing.SortOrder = doc.SortOrder
-			existing.Version = doc.Version
-			existing.IsLatest = doc.IsLatest
-			existing.ReplacedBy = doc.ReplacedBy
-			existing.CreatedAt = doc.CreatedAt
-			existing.UpdatedAt = doc.UpdatedAt
-			if err := s.docRepo.Save(existing); err != nil {
-				return nil, err
-			}
-			return existing, nil
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) && !errors.Is(err, domain.ErrRecordNotFound) {
-			return nil, err
-		}
-	}
-	if err := s.docRepo.Create(doc); err != nil {
-		return nil, err
-	}
-	return doc, nil
+// CreateTask 创建任务
+func (s *Service) CreateTask(ctx context.Context, req syncdto.TaskCreateRequest) (*model.Task, error) {
+	return s.taskSyncSvc.Create(ctx, req)
 }
 
+// UpdateTaskDocID 更新任务文档ID
 func (s *Service) UpdateTaskDocID(ctx context.Context, taskID uint, docID uint) (*model.Task, error) {
-	task, err := s.taskRepo.Get(taskID)
-	if err != nil {
-		return nil, fmt.Errorf("任务不存在: %w", err)
-	}
-	task.DocID = docID
-	task.UpdatedAt = time.Now()
-	if err := s.taskRepo.Save(task); err != nil {
-		return nil, err
-	}
-	return task, nil
+	return s.taskSyncSvc.UpdateDocID(ctx, taskID, docID)
 }
 
-// normalizeDocumentIDs 清理文档ID列表，去除无效值并保持去重。
-func normalizeDocumentIDs(documentIDs []uint) []uint {
-	if len(documentIDs) == 0 {
-		return nil
-	}
-	seen := make(map[uint]struct{}, len(documentIDs))
-	out := make([]uint, 0, len(documentIDs))
-	for _, id := range documentIDs {
-		if id == 0 {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
+// CreateDocument 创建文档
+func (s *Service) CreateDocument(ctx context.Context, req syncdto.DocumentCreateRequest) (*model.Document, error) {
+	return s.docSyncSvc.Create(ctx, req)
 }
 
-// collectTaskIDsByDocuments 根据文档ID列表收集任务ID集合，并校验文档所属仓库。
-func (s *Service) collectTaskIDsByDocuments(ctx context.Context, repoID uint, documentIDs []uint) (map[uint]struct{}, error) {
-	taskIDs := make(map[uint]struct{}, len(documentIDs))
-	for _, docID := range documentIDs {
-		doc, err := s.docRepo.Get(docID)
-		if err != nil {
-			return nil, fmt.Errorf("文档不存在: docID=%d, error=%w", docID, err)
-		}
-		if doc.RepositoryID != repoID {
-			return nil, fmt.Errorf("文档仓库不匹配: docID=%d, repoID=%d", docID, repoID)
-		}
-		taskIDs[doc.TaskID] = struct{}{}
-	}
-	return taskIDs, nil
+// GetTaskUsagesByTaskID 获取任务用量
+func (s *Service) GetTaskUsagesByTaskID(ctx context.Context, taskID uint) ([]model.TaskUsage, error) {
+	return s.taskUsageMgr.GetByTaskID(ctx, taskID)
 }
 
-// filterTasksByID 根据任务ID集合过滤任务列表。
-func filterTasksByID(tasks []model.Task, taskIDs map[uint]struct{}) []model.Task {
-	if len(taskIDs) == 0 {
-		return nil
-	}
-	filtered := make([]model.Task, 0, len(tasks))
-	for _, task := range tasks {
-		if _, ok := taskIDs[task.ID]; ok {
-			filtered = append(filtered, task)
-		}
-	}
-	return filtered
+// CreateTaskUsage 创建任务用量
+func (s *Service) CreateTaskUsage(ctx context.Context, req syncdto.TaskUsageCreateRequest) (*model.TaskUsage, error) {
+	return s.taskUsageMgr.Create(ctx, req)
 }
 
-// filterDocumentsByID 根据文档ID集合过滤文档列表。
-func filterDocumentsByID(docs []model.Document, documentIDs map[uint]struct{}) []model.Document {
-	if len(documentIDs) == 0 {
-		return docs
-	}
-	filtered := make([]model.Document, 0, len(docs))
-	for _, doc := range docs {
-		if _, ok := documentIDs[doc.ID]; ok {
-			filtered = append(filtered, doc)
-		}
-	}
-	return filtered
-}
-
-// selectLatestDocument 选择一组文档中的最新版本，用于更新任务关联文档。
-func selectLatestDocument(docs []model.Document) *model.Document {
-	if len(docs) == 0 {
-		return nil
-	}
-	latest := docs[0]
-	for _, doc := range docs[1:] {
-		if doc.Version > latest.Version || (doc.Version == latest.Version && doc.ID > latest.ID) {
-			latest = doc
-		}
-	}
-	return &latest
-}
-
+// runSync 执行推送同步
 func (s *Service) runSync(ctx context.Context, status *Status) {
-	if err := s.checkTarget(ctx, status.TargetServer); err != nil {
+	if err := s.remoteClient.CheckTarget(ctx, status.TargetServer); err != nil {
 		klog.Errorf("[sync.runSync] 目标服务器连通性验证失败: syncID=%s, error=%v", status.SyncID, err)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "failed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkFailed()
 		})
 		return
 	}
@@ -728,37 +403,32 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 	repo, err := s.repoRepo.GetBasic(status.RepositoryID)
 	if err != nil {
 		klog.Errorf("[sync.runSync] 获取仓库失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "failed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkFailed()
 		})
 		return
 	}
 
-	s.updateStatus(status.SyncID, func(s *Status) {
-		s.CurrentTask = "正在同步仓库信息"
-		s.UpdatedAt = time.Now()
+	s.statusMgr.Update(status.SyncID, func(s *Status) {
+		s.SetCurrentTask("正在同步仓库信息")
 	})
 
-	if err := s.createRemoteRepository(ctx, status.TargetServer, *repo); err != nil {
+	if err := s.remoteClient.CreateRemoteRepository(ctx, status.TargetServer, ToRepositoryData(*repo)); err != nil {
 		klog.Errorf("[sync.runSync] 创建或更新远端仓库失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "failed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkFailed()
 		})
 		return
 	}
 
 	if status.ClearTarget {
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.CurrentTask = "正在清空对端数据"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.SetCurrentTask("正在清空对端数据")
 		})
-		if err := s.clearRemoteRepository(ctx, status.TargetServer, status.RepositoryID); err != nil {
+		if err := s.remoteClient.ClearRemoteRepository(ctx, status.TargetServer, status.RepositoryID); err != nil {
 			klog.Errorf("[sync.runSync] 清空对端数据失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
-			s.updateStatus(status.SyncID, func(s *Status) {
-				s.Status = "failed"
-				s.UpdatedAt = time.Now()
+			s.statusMgr.Update(status.SyncID, func(s *Status) {
+				s.MarkFailed()
 			})
 			return
 		}
@@ -767,9 +437,8 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 	tasks, err := s.taskRepo.GetByRepository(status.RepositoryID)
 	if err != nil {
 		klog.Errorf("[sync.runSync] 获取任务失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "failed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkFailed()
 		})
 		return
 	}
@@ -779,164 +448,139 @@ func (s *Service) runSync(ctx context.Context, status *Status) {
 		documentIDSet[docID] = struct{}{}
 	}
 	if len(documentIDSet) > 0 {
-		taskIDSet, err := s.collectTaskIDsByDocuments(ctx, status.RepositoryID, status.DocumentIDs)
+		taskIDSet, err := CollectTaskIDsByDocuments(ctx, s.docRepo, status.RepositoryID, status.DocumentIDs)
 		if err != nil {
 			klog.Errorf("[sync.runSync] 文档筛选失败: syncID=%s, repoID=%d, error=%v", status.SyncID, status.RepositoryID, err)
-			s.updateStatus(status.SyncID, func(s *Status) {
-				s.Status = "failed"
-				s.UpdatedAt = time.Now()
+			s.statusMgr.Update(status.SyncID, func(s *Status) {
+				s.MarkFailed()
 			})
 			return
 		}
-		tasks = filterTasksByID(tasks, taskIDSet)
+		tasks = FilterTasksByID(tasks, taskIDSet)
 		klog.V(6).Infof("同步任务已按文档筛选: syncID=%s, repoID=%d, taskCount=%d", status.SyncID, status.RepositoryID, len(tasks))
 	}
 
-	s.updateStatus(status.SyncID, func(s *Status) {
-		s.TotalTasks = len(tasks)
-		s.UpdatedAt = time.Now()
+	s.statusMgr.Update(status.SyncID, func(s *Status) {
+		s.SetTotalTasks(len(tasks))
 	})
 
 	if len(tasks) == 0 {
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "completed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkCompleted()
 		})
 		klog.V(6).Infof("同步任务已完成: syncID=%s, repoID=%d, taskCount=0", status.SyncID, status.RepositoryID)
 		return
 	}
 
-	for index, task := range tasks {
-		current := fmt.Sprintf("正在同步任务 %d/%d: %s", index+1, len(tasks), task.Title)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.CurrentTask = current
-			s.UpdatedAt = time.Now()
-		})
+	s.executeSyncTasks(ctx, status, tasks, documentIDSet)
 
-		remoteTaskID, err := s.createRemoteTask(ctx, status.TargetServer, task)
-		if err != nil {
-			klog.Errorf("[sync.runSync] 创建远端任务失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
-			s.updateStatus(status.SyncID, func(s *Status) {
-				s.FailedTasks++
-				s.UpdatedAt = time.Now()
-			})
-			continue
-		}
-
-		docs, err := s.docRepo.GetByTaskID(task.ID)
-		if err != nil {
-			klog.Errorf("[sync.runSync] 获取文档失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
-			s.updateStatus(status.SyncID, func(s *Status) {
-				s.FailedTasks++
-				s.UpdatedAt = time.Now()
-			})
-			continue
-		}
-		docs = filterDocumentsByID(docs, documentIDSet)
-		if len(documentIDSet) > 0 && len(docs) == 0 {
-			klog.Errorf("[sync.runSync] 选中文档为空: syncID=%s, taskID=%d", status.SyncID, task.ID)
-			s.updateStatus(status.SyncID, func(s *Status) {
-				s.FailedTasks++
-				s.UpdatedAt = time.Now()
-			})
-			continue
-		}
-
-		var latestRemoteDocID uint
-		var latestDoc *model.Document
-		if len(documentIDSet) > 0 {
-			latestDoc = selectLatestDocument(docs)
-		}
-		for _, doc := range docs {
-			remoteDocID, err := s.createRemoteDocument(ctx, status.TargetServer, doc, remoteTaskID)
-			if err != nil {
-				klog.Errorf("[sync.runSync] 创建远端文档失败: syncID=%s, docID=%d, error=%v", status.SyncID, doc.ID, err)
-				s.updateStatus(status.SyncID, func(s *Status) {
-					s.FailedTasks++
-					s.UpdatedAt = time.Now()
-				})
-				s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, false)
-				continue
-			}
-			s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, true)
-			if latestDoc != nil && doc.ID == latestDoc.ID {
-				latestRemoteDocID = remoteDocID
-			}
-			if latestDoc == nil && doc.IsLatest {
-				latestRemoteDocID = remoteDocID
-			}
-		}
-
-		if latestRemoteDocID != 0 {
-			if err := s.updateRemoteTaskDocID(ctx, status.TargetServer, remoteTaskID, latestRemoteDocID); err != nil {
-				klog.Errorf("[sync.runSync] 更新远端任务文档ID失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
-				s.updateStatus(status.SyncID, func(s *Status) {
-					s.FailedTasks++
-					s.UpdatedAt = time.Now()
-				})
-				continue
-			}
-		}
-
-		taskUsages, err := s.GetTaskUsagesByTaskID(ctx, task.ID)
-		if err != nil {
-			klog.Errorf("[sync.runSync] 获取任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
-		} else if len(taskUsages) > 0 {
-			if err := s.createRemoteTaskUsages(ctx, status.TargetServer, remoteTaskID, taskUsages); err != nil {
-				klog.Errorf("[sync.runSync] 同步任务用量失败: syncID=%s, sourceTaskID=%d, remoteTaskID=%d, error=%v", status.SyncID, task.ID, remoteTaskID, err)
-				s.updateStatus(status.SyncID, func(s *Status) {
-					s.FailedTasks++
-					s.UpdatedAt = time.Now()
-				})
-				continue
-			}
-		}
-
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.CompletedTasks++
-			s.UpdatedAt = time.Now()
-		})
-	}
-
-	s.updateStatus(status.SyncID, func(s *Status) {
-		if s.FailedTasks > 0 {
-			s.Status = "failed"
-		} else {
-			s.Status = "completed"
-		}
-		s.CurrentTask = ""
-		s.UpdatedAt = time.Now()
+	s.statusMgr.Update(status.SyncID, func(s *Status) {
+		s.Finalize()
 	})
 	klog.V(6).Infof("同步任务已结束: syncID=%s, completed=%d, failed=%d", status.SyncID, status.CompletedTasks, status.FailedTasks)
 }
 
+// executeSyncTasks 执行同步任务列表
+func (s *Service) executeSyncTasks(ctx context.Context, status *Status, tasks []model.Task, documentIDSet map[uint]struct{}) {
+	for index, task := range tasks {
+		current := fmt.Sprintf("正在同步任务 %d/%d: %s", index+1, len(tasks), task.Title)
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.SetCurrentTask(current)
+		})
+
+		if err := s.syncSingleTask(ctx, status, task, documentIDSet); err != nil {
+			klog.Errorf("[sync.executeSyncTasks] 同步任务失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
+			s.statusMgr.Update(status.SyncID, func(s *Status) {
+				s.IncrementFailed()
+			})
+			continue
+		}
+
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.IncrementCompleted()
+		})
+	}
+}
+
+// syncSingleTask 同步单个任务
+func (s *Service) syncSingleTask(ctx context.Context, status *Status, task model.Task, documentIDSet map[uint]struct{}) error {
+	remoteTaskID, err := s.remoteClient.CreateRemoteTask(ctx, status.TargetServer, ToTaskData(task))
+	if err != nil {
+		return fmt.Errorf("创建远端任务失败: %w", err)
+	}
+
+	docs, err := s.docRepo.GetByTaskID(task.ID)
+	if err != nil {
+		return fmt.Errorf("获取文档失败: %w", err)
+	}
+	docs = FilterDocumentsByID(docs, documentIDSet)
+	if len(documentIDSet) > 0 && len(docs) == 0 {
+		return fmt.Errorf("选中文档为空")
+	}
+
+	var latestRemoteDocID uint
+	var latestDoc *model.Document
+	if len(documentIDSet) > 0 {
+		latestDoc = SelectLatestDocument(docs)
+	}
+	for _, doc := range docs {
+		remoteDocID, err := s.remoteClient.CreateRemoteDocument(ctx, status.TargetServer, ToDocumentData(doc), remoteTaskID)
+		if err != nil {
+			klog.Errorf("[sync.syncSingleTask] 创建远端文档失败: syncID=%s, docID=%d, error=%v", status.SyncID, doc.ID, err)
+			s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, false)
+			continue
+		}
+		s.publishDocEvent(ctx, eventbus.DocEventPushed, doc.RepositoryID, doc.ID, status.TargetServer, true)
+		if latestDoc != nil && doc.ID == latestDoc.ID {
+			latestRemoteDocID = remoteDocID
+		}
+		if latestDoc == nil && doc.IsLatest {
+			latestRemoteDocID = remoteDocID
+		}
+	}
+
+	if latestRemoteDocID != 0 {
+		if err := s.remoteClient.UpdateRemoteTaskDocID(ctx, status.TargetServer, remoteTaskID, latestRemoteDocID); err != nil {
+			return fmt.Errorf("更新远端任务文档ID失败: %w", err)
+		}
+	}
+
+	taskUsages, err := s.GetTaskUsagesByTaskID(ctx, task.ID)
+	if err != nil {
+		klog.Errorf("[sync.syncSingleTask] 获取任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.ID, err)
+	} else if len(taskUsages) > 0 {
+		if err := s.remoteClient.CreateRemoteTaskUsages(ctx, status.TargetServer, remoteTaskID, ToTaskUsageData(taskUsages)); err != nil {
+			return fmt.Errorf("同步任务用量失败: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// runPullSync 执行拉取同步
 func (s *Service) runPullSync(ctx context.Context, status *Status) {
-	if err := s.checkTarget(ctx, status.TargetServer); err != nil {
+	if err := s.remoteClient.CheckTarget(ctx, status.TargetServer); err != nil {
 		klog.Errorf("[sync.runPullSync] 目标服务器连通性验证失败: syncID=%s, error=%v", status.SyncID, err)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "failed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkFailed()
 		})
 		return
 	}
 
-	s.updateStatus(status.SyncID, func(s *Status) {
-		s.CurrentTask = "正在获取远端数据"
-		s.UpdatedAt = time.Now()
+	s.statusMgr.Update(status.SyncID, func(s *Status) {
+		s.SetCurrentTask("正在获取远端数据")
 	})
-	export, err := s.fetchPullExportData(ctx, status.TargetServer, status.RepositoryID, status.DocumentIDs)
+	export, err := s.remoteClient.FetchPullExportData(ctx, status.TargetServer, status.RepositoryID, status.DocumentIDs)
 	if err != nil {
 		klog.Errorf("[sync.runPullSync] 获取远端数据失败: syncID=%s, error=%v", status.SyncID, err)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "failed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkFailed()
 		})
 		return
 	}
 
-	s.updateStatus(status.SyncID, func(s *Status) {
-		s.CurrentTask = "正在同步仓库信息"
-		s.UpdatedAt = time.Now()
+	s.statusMgr.Update(status.SyncID, func(s *Status) {
+		s.SetCurrentTask("正在同步仓库信息")
 	})
 	repo, err := s.CreateOrUpdateRepository(ctx, syncdto.RepositoryUpsertRequest{
 		RepositoryID: export.Repository.RepositoryID,
@@ -953,298 +597,81 @@ func (s *Service) runPullSync(ctx context.Context, status *Status) {
 	})
 	if err != nil {
 		klog.Errorf("[sync.runPullSync] 同步仓库信息失败: syncID=%s, error=%v", status.SyncID, err)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "failed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkFailed()
 		})
 		return
 	}
 
 	if status.ClearLocal {
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.CurrentTask = "正在清空本地数据"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.SetCurrentTask("正在清空本地数据")
 		})
 		if err := s.ClearRepositoryData(ctx, repo.ID); err != nil {
 			klog.Errorf("[sync.runPullSync] 清空本地数据失败: syncID=%s, repoID=%d, error=%v", status.SyncID, repo.ID, err)
-			s.updateStatus(status.SyncID, func(s *Status) {
-				s.Status = "failed"
-				s.UpdatedAt = time.Now()
+			s.statusMgr.Update(status.SyncID, func(s *Status) {
+				s.MarkFailed()
 			})
 			return
 		}
 	}
 
-	taskDocs := groupPullDocumentsByTask(export.Documents)
-	s.updateStatus(status.SyncID, func(s *Status) {
-		s.TotalTasks = len(export.Tasks)
-		s.UpdatedAt = time.Now()
+	taskDocs := GroupPullDocumentsByTask(export.Documents)
+	s.statusMgr.Update(status.SyncID, func(s *Status) {
+		s.SetTotalTasks(len(export.Tasks))
 	})
 	if len(export.Tasks) == 0 {
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.Status = "completed"
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.MarkCompleted()
 		})
 		klog.V(6).Infof("拉取任务已完成: syncID=%s, repoID=%d, taskCount=0", status.SyncID, repo.ID)
 		return
 	}
 
+	s.executePullTasks(ctx, status, repo.ID, export, taskDocs)
+
+	s.statusMgr.Update(status.SyncID, func(s *Status) {
+		s.Finalize()
+	})
+	klog.V(6).Infof("拉取任务已结束: syncID=%s, completed=%d, failed=%d", status.SyncID, status.CompletedTasks, status.FailedTasks)
+}
+
+// executePullTasks 执行拉取任务列表
+func (s *Service) executePullTasks(ctx context.Context, status *Status, repoID uint, export syncdto.PullExportData, taskDocs map[uint][]syncdto.PullDocumentData) {
 	docIDMap := make(map[uint]uint, len(export.Documents))
 	usageByTaskID := make(map[uint][]syncdto.PullTaskUsageData, len(export.TaskUsages))
 	for _, usage := range export.TaskUsages {
 		usageByTaskID[usage.TaskID] = append(usageByTaskID[usage.TaskID], usage)
 	}
+
 	for index, task := range export.Tasks {
 		current := fmt.Sprintf("正在同步任务 %d/%d: %s", index+1, len(export.Tasks), task.Title)
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.CurrentTask = current
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.SetCurrentTask(current)
 		})
 
-		localTask, err := s.CreateTask(ctx, syncdto.TaskCreateRequest{
-			TaskID:       task.TaskID,
-			RepositoryID: repo.ID,
-			DocID:        task.DocID,
-			WriterName:   task.WriterName,
-			TaskType:     task.TaskType,
-			Title:        task.Title,
-			Outline:      task.Outline,
-			Status:       task.Status,
-			RunAfter:     task.RunAfter,
-			ErrorMsg:     task.ErrorMsg,
-			SortOrder:    task.SortOrder,
-			StartedAt:    task.StartedAt,
-			CompletedAt:  task.CompletedAt,
-			CreatedAt:    task.CreatedAt,
-			UpdatedAt:    task.UpdatedAt,
-		})
-		if err != nil {
-			klog.Errorf("[sync.runPullSync] 创建本地任务失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
-			s.updateStatus(status.SyncID, func(s *Status) {
-				s.FailedTasks++
-				s.UpdatedAt = time.Now()
+		if err := s.pullSingleTask(ctx, status, repoID, task, taskDocs, usageByTaskID, docIDMap); err != nil {
+			klog.Errorf("[sync.executePullTasks] 拉取任务失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
+			s.statusMgr.Update(status.SyncID, func(s *Status) {
+				s.IncrementFailed()
 			})
 			continue
 		}
 
-		if usages, ok := usageByTaskID[task.TaskID]; ok {
-			usageItems := make([]syncdto.TaskUsageCreateItem, 0, len(usages))
-			for _, usage := range usages {
-				usageItems = append(usageItems, syncdto.TaskUsageCreateItem{
-					ID:               usage.ID,
-					TaskID:           localTask.ID,
-					APIKeyName:       usage.APIKeyName,
-					PromptTokens:     usage.PromptTokens,
-					CompletionTokens: usage.CompletionTokens,
-					TotalTokens:      usage.TotalTokens,
-					CachedTokens:     usage.CachedTokens,
-					ReasoningTokens:  usage.ReasoningTokens,
-					CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
-				})
-			}
-			_, err := s.CreateTaskUsage(ctx, syncdto.TaskUsageCreateRequest{
-				TaskID:     localTask.ID,
-				TaskUsages: usageItems,
-			})
-			if err != nil {
-				klog.Errorf("[sync.runPullSync] 同步任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
-				s.updateStatus(status.SyncID, func(s *Status) {
-					s.FailedTasks++
-					s.UpdatedAt = time.Now()
-				})
-			}
-		}
-		localDocs := make([]model.Document, 0)
-		for _, doc := range taskDocs[task.TaskID] {
-			createdDoc, err := s.CreateDocument(ctx, syncdto.DocumentCreateRequest{
-				DocumentID:   doc.DocumentID,
-				RepositoryID: repo.ID,
-				TaskID:       localTask.ID,
-				Title:        doc.Title,
-				Filename:     doc.Filename,
-				Content:      doc.Content,
-				SortOrder:    doc.SortOrder,
-				Version:      doc.Version,
-				IsLatest:     doc.IsLatest,
-				ReplacedBy:   doc.ReplacedBy,
-				CreatedAt:    doc.CreatedAt,
-				UpdatedAt:    doc.UpdatedAt,
-			})
-			if err != nil {
-				klog.Errorf("[sync.runPullSync] 创建本地文档失败: syncID=%s, docID=%d, error=%v", status.SyncID, doc.DocumentID, err)
-				s.updateStatus(status.SyncID, func(s *Status) {
-					s.FailedTasks++
-					s.UpdatedAt = time.Now()
-				})
-				s.publishDocEvent(ctx, eventbus.DocEventPulled, repo.ID, doc.DocumentID, status.TargetServer, false)
-				continue
-			}
-			docIDMap[doc.DocumentID] = createdDoc.ID
-			localDocs = append(localDocs, *createdDoc)
-			s.publishDocEvent(ctx, eventbus.DocEventPulled, createdDoc.RepositoryID, createdDoc.ID, status.TargetServer, true)
-		}
-
-		if len(localDocs) > 0 {
-			if err := s.updateLocalDocumentReplacedBy(ctx, localDocs, docIDMap); err != nil {
-				klog.Errorf("[sync.runPullSync] 更新文档替换关系失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
-				s.updateStatus(status.SyncID, func(s *Status) {
-					s.FailedTasks++
-					s.UpdatedAt = time.Now()
-				})
-			}
-		}
-
-		latestDocID := selectLatestPullDocument(taskDocs[task.TaskID], docIDMap, localDocs)
-		if latestDocID != 0 {
-			if _, err := s.UpdateTaskDocID(ctx, localTask.ID, latestDocID); err != nil {
-				klog.Errorf("[sync.runPullSync] 更新本地任务文档ID失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
-				s.updateStatus(status.SyncID, func(s *Status) {
-					s.FailedTasks++
-					s.UpdatedAt = time.Now()
-				})
-			}
-		}
-
-		s.updateStatus(status.SyncID, func(s *Status) {
-			s.CompletedTasks++
-			s.UpdatedAt = time.Now()
+		s.statusMgr.Update(status.SyncID, func(s *Status) {
+			s.IncrementCompleted()
 		})
 	}
-
-	s.updateStatus(status.SyncID, func(s *Status) {
-		if s.FailedTasks > 0 {
-			s.Status = "failed"
-		} else {
-			s.Status = "completed"
-		}
-		s.CurrentTask = ""
-		s.UpdatedAt = time.Now()
-	})
-	klog.V(6).Infof("拉取任务已结束: syncID=%s, completed=%d, failed=%d", status.SyncID, status.CompletedTasks, status.FailedTasks)
 }
 
-func (s *Service) fetchPullExportData(ctx context.Context, targetServer string, repoID uint, documentIDs []uint) (syncdto.PullExportData, error) {
-	reqBody := syncdto.PullExportRequest{
+// pullSingleTask 拉取单个任务
+func (s *Service) pullSingleTask(ctx context.Context, status *Status, repoID uint, task syncdto.PullTaskData, taskDocs map[uint][]syncdto.PullDocumentData, usageByTaskID map[uint][]syncdto.PullTaskUsageData, docIDMap map[uint]uint) error {
+	localTask, err := s.CreateTask(ctx, syncdto.TaskCreateRequest{
+		TaskID:       task.TaskID,
 		RepositoryID: repoID,
-		DocumentIDs:  documentIDs,
-	}
-	var respBody syncdto.PullExportResponse
-	if err := s.postJSON(ctx, targetServer+"/pull-export", reqBody, &respBody); err != nil {
-		return syncdto.PullExportData{}, err
-	}
-	return respBody.Data, nil
-}
-
-func groupPullDocumentsByTask(docs []syncdto.PullDocumentData) map[uint][]syncdto.PullDocumentData {
-	grouped := make(map[uint][]syncdto.PullDocumentData)
-	for _, doc := range docs {
-		grouped[doc.TaskID] = append(grouped[doc.TaskID], doc)
-	}
-	return grouped
-}
-
-func selectLatestPullDocument(docs []syncdto.PullDocumentData, docIDMap map[uint]uint, localDocs []model.Document) uint {
-	if len(docs) == 0 {
-		return 0
-	}
-	var latestSourceID uint
-	for _, doc := range docs {
-		if doc.IsLatest {
-			latestSourceID = doc.DocumentID
-			break
-		}
-	}
-	if latestSourceID != 0 {
-		return docIDMap[latestSourceID]
-	}
-	latest := selectLatestDocument(localDocs)
-	if latest == nil {
-		return 0
-	}
-	return latest.ID
-}
-
-func (s *Service) updateLocalDocumentReplacedBy(ctx context.Context, localDocs []model.Document, docIDMap map[uint]uint) error {
-	for _, doc := range localDocs {
-		if doc.ReplacedBy == 0 {
-			continue
-		}
-		mapped, ok := docIDMap[doc.ReplacedBy]
-		if !ok || mapped == 0 {
-			continue
-		}
-		origin, err := s.docRepo.Get(doc.ID)
-		if err != nil {
-			return err
-		}
-		origin.ReplacedBy = mapped
-		origin.UpdatedAt = time.Now()
-		if err := s.docRepo.Save(origin); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Service) checkTarget(ctx context.Context, targetServer string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetServer+"/ping", nil)
-	if err != nil {
-		return err
-	}
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("目标服务器响应异常: status=%d, body=%s", resp.StatusCode, string(body))
-	}
-	return nil
-}
-
-// createRemoteRepository 向目标服务创建或更新仓库信息。
-func (s *Service) createRemoteRepository(ctx context.Context, targetServer string, repo model.Repository) error {
-	reqBody := syncdto.RepositoryUpsertRequest{
-		RepositoryID: repo.ID,
-		Name:         repo.Name,
-		URL:          repo.URL,
-		Description:  repo.Description,
-		CloneBranch:  repo.CloneBranch,
-		CloneCommit:  repo.CloneCommit,
-		SizeMB:       repo.SizeMB,
-		Status:       repo.Status,
-		ErrorMsg:     repo.ErrorMsg,
-		CreatedAt:    repo.CreatedAt,
-		UpdatedAt:    repo.UpdatedAt,
-	}
-	var respBody syncdto.RepositoryUpsertResponse
-	if err := s.postJSON(ctx, targetServer+"/repository-upsert", reqBody, &respBody); err != nil {
-		return err
-	}
-	klog.V(6).Infof("远端仓库同步完成: repoID=%d", repo.ID)
-	return nil
-}
-
-func (s *Service) clearRemoteRepository(ctx context.Context, targetServer string, repoID uint) error {
-	reqBody := syncdto.RepositoryClearRequest{
-		RepositoryID: repoID,
-	}
-	var respBody syncdto.RepositoryClearResponse
-	if err := s.postJSON(ctx, targetServer+"/repository-clear", reqBody, &respBody); err != nil {
-		return err
-	}
-	klog.V(6).Infof("远端仓库数据已清空: repoID=%d", repoID)
-	return nil
-}
-
-func (s *Service) createRemoteTask(ctx context.Context, targetServer string, task model.Task) (uint, error) {
-	reqBody := syncdto.TaskCreateRequest{
-		TaskID:       task.ID,
-		RepositoryID: task.RepositoryID,
 		DocID:        task.DocID,
-		WriterName:   string(task.WriterName),
-		TaskType:     string(task.TaskType),
+		WriterName:   task.WriterName,
+		TaskType:     task.TaskType,
 		Title:        task.Title,
 		Outline:      task.Outline,
 		Status:       task.Status,
@@ -1255,182 +682,76 @@ func (s *Service) createRemoteTask(ctx context.Context, targetServer string, tas
 		CompletedAt:  task.CompletedAt,
 		CreatedAt:    task.CreatedAt,
 		UpdatedAt:    task.UpdatedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("创建本地任务失败: %w", err)
 	}
-	var respBody syncdto.TaskCreateResponse
-	if err := s.postJSON(ctx, targetServer+"/task-create", reqBody, &respBody); err != nil {
-		return 0, err
-	}
-	return respBody.Data.TaskID, nil
-}
 
-func (s *Service) createRemoteDocument(ctx context.Context, targetServer string, doc model.Document, remoteTaskID uint) (uint, error) {
-	reqBody := syncdto.DocumentCreateRequest{
-		DocumentID:   doc.ID,
-		RepositoryID: doc.RepositoryID,
-		TaskID:       remoteTaskID,
-		Title:        doc.Title,
-		Filename:     doc.Filename,
-		Content:      doc.Content,
-		SortOrder:    doc.SortOrder,
-		Version:      doc.Version,
-		IsLatest:     doc.IsLatest,
-		ReplacedBy:   doc.ReplacedBy,
-		CreatedAt:    doc.CreatedAt,
-		UpdatedAt:    doc.UpdatedAt,
-	}
-	var respBody syncdto.DocumentCreateResponse
-	if err := s.postJSON(ctx, targetServer+"/document-create", reqBody, &respBody); err != nil {
-		return 0, err
-	}
-	return respBody.Data.DocumentID, nil
-}
-
-func (s *Service) updateRemoteTaskDocID(ctx context.Context, targetServer string, taskID uint, docID uint) error {
-	reqBody := syncdto.TaskUpdateDocIDRequest{
-		TaskID:     taskID,
-		DocumentID: docID,
-	}
-	var respBody syncdto.TaskUpdateDocIDResponse
-	return s.postJSON(ctx, targetServer+"/task-update-docid", reqBody, &respBody)
-}
-
-// createRemoteTaskUsages 同步任务用量列表到对端
-func (s *Service) createRemoteTaskUsages(ctx context.Context, targetServer string, remoteTaskID uint, usages []model.TaskUsage) error {
-	if len(usages) == 0 {
-		return nil
-	}
-	items := make([]syncdto.TaskUsageCreateItem, 0, len(usages))
-	for _, usage := range usages {
-		items = append(items, syncdto.TaskUsageCreateItem{
-			ID:               0,
-			TaskID:           remoteTaskID,
-			APIKeyName:       usage.APIKeyName,
-			PromptTokens:     usage.PromptTokens,
-			CompletionTokens: usage.CompletionTokens,
-			TotalTokens:      usage.TotalTokens,
-			CachedTokens:     usage.CachedTokens,
-			ReasoningTokens:  usage.ReasoningTokens,
-			CreatedAt:        usage.CreatedAt.Format(time.RFC3339Nano),
-		})
-	}
-	reqBody := syncdto.TaskUsageCreateRequest{
-		TaskID:     remoteTaskID,
-		TaskUsages: items,
-	}
-	var respBody syncdto.TaskUsageCreateResponse
-	if err := s.postJSON(ctx, targetServer+"/task-usage-create", reqBody, &respBody); err != nil {
-		return err
-	}
-	klog.V(6).Infof("远端任务用量同步完成: sourceTaskID=%d, remoteTaskID=%d, count=%d", usages[0].TaskID, remoteTaskID, len(usages))
-	return nil
-}
-
-// GetTaskUsagesByTaskID 获取任务的用量记录列表
-func (s *Service) GetTaskUsagesByTaskID(ctx context.Context, taskID uint) ([]model.TaskUsage, error) {
-	return s.taskUsageRepo.GetByTaskIDList(ctx, taskID)
-}
-
-// CreateTaskUsage 创建或覆盖任务用量记录
-func (s *Service) CreateTaskUsage(ctx context.Context, req syncdto.TaskUsageCreateRequest) (*model.TaskUsage, error) {
-	if len(req.TaskUsages) > 0 {
-		taskID := req.TaskID
-		usages := make([]model.TaskUsage, 0, len(req.TaskUsages))
-		for _, item := range req.TaskUsages {
-			if taskID == 0 {
-				taskID = item.TaskID
-			}
-			if item.TaskID != taskID {
-				return nil, fmt.Errorf("task_id 不一致: %d != %d", item.TaskID, taskID)
-			}
-			createdAt, err := time.Parse(time.RFC3339Nano, item.CreatedAt)
-			if err != nil {
-				createdAt = time.Now()
-			}
-			usages = append(usages, model.TaskUsage{
-				ID:               0,
-				TaskID:           taskID,
-				APIKeyName:       item.APIKeyName,
-				PromptTokens:     item.PromptTokens,
-				CompletionTokens: item.CompletionTokens,
-				TotalTokens:      item.TotalTokens,
-				CachedTokens:     item.CachedTokens,
-				ReasoningTokens:  item.ReasoningTokens,
-				CreatedAt:        createdAt,
+	if usages, ok := usageByTaskID[task.TaskID]; ok {
+		usageItems := make([]syncdto.TaskUsageCreateItem, 0, len(usages))
+		for _, usage := range usages {
+			usageItems = append(usageItems, syncdto.TaskUsageCreateItem{
+				ID:               usage.ID,
+				TaskID:           localTask.ID,
+				APIKeyName:       usage.APIKeyName,
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+				CachedTokens:     usage.CachedTokens,
+				ReasoningTokens:  usage.ReasoningTokens,
+				CreatedAt:        usage.CreatedAt.Format("2006-01-02T15:04:05.999999999Z07:00"),
 			})
 		}
-		if err := s.taskUsageRepo.UpsertMany(ctx, usages); err != nil {
-			return nil, err
+		_, err := s.CreateTaskUsage(ctx, syncdto.TaskUsageCreateRequest{
+			TaskID:     localTask.ID,
+			TaskUsages: usageItems,
+		})
+		if err != nil {
+			klog.Errorf("[sync.pullSingleTask] 同步任务用量失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
+			s.statusMgr.Update(status.SyncID, func(s *Status) {
+				s.IncrementFailed()
+			})
 		}
-		return &model.TaskUsage{TaskID: taskID}, nil
 	}
-	if req.TaskID == 0 {
-		return nil, fmt.Errorf("task_id 不能为空")
-	}
-	createdAt, err := time.Parse(time.RFC3339Nano, req.CreatedAt)
-	if err != nil {
-		createdAt = time.Now()
-	}
-	usage := &model.TaskUsage{
-		TaskID:           req.TaskID,
-		APIKeyName:       req.APIKeyName,
-		PromptTokens:     req.PromptTokens,
-		CompletionTokens: req.CompletionTokens,
-		TotalTokens:      req.TotalTokens,
-		CachedTokens:     req.CachedTokens,
-		ReasoningTokens:  req.ReasoningTokens,
-		CreatedAt:        createdAt,
-	}
-	if err := s.taskUsageRepo.Upsert(ctx, usage); err != nil {
-		return nil, err
-	}
-	return usage, nil
-}
 
-func (s *Service) postJSON(ctx context.Context, url string, reqBody interface{}, respBody interface{}) error {
-	payload, err := json.Marshal(reqBody)
-	if err != nil {
-		return err
+	localDocs := make([]model.Document, 0)
+	for _, doc := range taskDocs[task.TaskID] {
+		createdDoc, err := s.CreateDocument(ctx, syncdto.DocumentCreateRequest{
+			DocumentID:   doc.DocumentID,
+			RepositoryID: repoID,
+			TaskID:       localTask.ID,
+			Title:        doc.Title,
+			Filename:     doc.Filename,
+			Content:      doc.Content,
+			SortOrder:    doc.SortOrder,
+			Version:      doc.Version,
+			IsLatest:     doc.IsLatest,
+			ReplacedBy:   doc.ReplacedBy,
+			CreatedAt:    doc.CreatedAt,
+			UpdatedAt:    doc.UpdatedAt,
+		})
+		if err != nil {
+			klog.Errorf("[sync.pullSingleTask] 创建本地文档失败: syncID=%s, docID=%d, error=%v", status.SyncID, doc.DocumentID, err)
+			s.publishDocEvent(ctx, eventbus.DocEventPulled, repoID, doc.DocumentID, status.TargetServer, false)
+			continue
+		}
+		docIDMap[doc.DocumentID] = createdDoc.ID
+		localDocs = append(localDocs, *createdDoc)
+		s.publishDocEvent(ctx, eventbus.DocEventPulled, createdDoc.RepositoryID, createdDoc.ID, status.TargetServer, true)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("请求失败: status=%d, body=%s", resp.StatusCode, string(body))
-	}
-	if respBody != nil {
-		if err := json.NewDecoder(resp.Body).Decode(respBody); err != nil {
-			return err
+
+	if len(localDocs) > 0 {
+		if err := s.docSyncSvc.UpdateReplacedBy(ctx, localDocs, docIDMap); err != nil {
+			klog.Errorf("[sync.pullSingleTask] 更新文档替换关系失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
 		}
 	}
+
+	latestDocID := SelectLatestPullDocument(taskDocs[task.TaskID], docIDMap, localDocs)
+	if latestDocID != 0 {
+		if _, err := s.UpdateTaskDocID(ctx, localTask.ID, latestDocID); err != nil {
+			klog.Errorf("[sync.pullSingleTask] 更新本地任务文档ID失败: syncID=%s, taskID=%d, error=%v", status.SyncID, task.TaskID, err)
+		}
+	}
+
 	return nil
-}
-
-func (s *Service) setStatus(status *Status) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.statusMap[status.SyncID] = status
-}
-
-func (s *Service) updateStatus(syncID string, updater func(status *Status)) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	status, ok := s.statusMap[syncID]
-	if !ok {
-		return
-	}
-	updater(status)
-}
-
-func (s *Service) newSyncID() string {
-	buf := make([]byte, 10)
-	_, _ = rand.Read(buf)
-	return "sync-" + hex.EncodeToString(buf)
 }

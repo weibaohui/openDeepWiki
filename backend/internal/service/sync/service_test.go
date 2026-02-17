@@ -749,7 +749,7 @@ func TestServiceClearRepositoryData(t *testing.T) {
 }
 
 func TestNormalizeDocumentIDs(t *testing.T) {
-	out := normalizeDocumentIDs([]uint{0, 2, 2, 3, 0, 1})
+	out := NormalizeDocumentIDs([]uint{0, 2, 2, 3, 0, 1})
 	if len(out) != 3 {
 		t.Fatalf("unexpected length: %d", len(out))
 	}
@@ -768,7 +768,7 @@ func TestFilterTasksByID(t *testing.T) {
 		1: {},
 		3: {},
 	}
-	filtered := filterTasksByID(tasks, taskIDs)
+	filtered := FilterTasksByID(tasks, taskIDs)
 	if len(filtered) != 2 {
 		t.Fatalf("unexpected length: %d", len(filtered))
 	}
@@ -786,7 +786,7 @@ func TestFilterDocumentsByID(t *testing.T) {
 	docIDs := map[uint]struct{}{
 		11: {},
 	}
-	filtered := filterDocumentsByID(docs, docIDs)
+	filtered := FilterDocumentsByID(docs, docIDs)
 	if len(filtered) != 1 {
 		t.Fatalf("unexpected length: %d", len(filtered))
 	}
@@ -801,7 +801,7 @@ func TestSelectLatestDocument(t *testing.T) {
 		{ID: 3, Version: 2},
 		{ID: 2, Version: 2},
 	}
-	latest := selectLatestDocument(docs)
+	latest := SelectLatestDocument(docs)
 	if latest == nil {
 		t.Fatalf("expected latest document")
 	}
@@ -815,8 +815,7 @@ func TestCollectTaskIDsByDocuments(t *testing.T) {
 		1: {ID: 1, RepositoryID: 7, TaskID: 10},
 		2: {ID: 2, RepositoryID: 7, TaskID: 11},
 	}}
-	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
-	taskIDs, err := svc.collectTaskIDsByDocuments(nil, 7, []uint{1, 2})
+	taskIDs, err := CollectTaskIDsByDocuments(nil, docRepo, 7, []uint{1, 2})
 	if err != nil {
 		t.Fatalf("collectTaskIDsByDocuments error: %v", err)
 	}
@@ -835,8 +834,7 @@ func TestCollectTaskIDsByDocumentsMismatch(t *testing.T) {
 	docRepo := &mockDocRepo{docs: map[uint]*model.Document{
 		1: {ID: 1, RepositoryID: 8, TaskID: 10},
 	}}
-	svc := New(&mockRepoRepo{}, &mockTaskRepo{}, docRepo, &mockTaskUsageRepo{}, &mockSyncTargetRepo{}, &mockSyncEventRepo{})
-	if _, err := svc.collectTaskIDsByDocuments(nil, 7, []uint{1}); err == nil {
+	if _, err := CollectTaskIDsByDocuments(nil, docRepo, 7, []uint{1}); err == nil {
 		t.Fatalf("expected error")
 	}
 }
