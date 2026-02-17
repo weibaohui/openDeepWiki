@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -24,6 +24,9 @@ export const repositoryApi = {
     // 触发API接口分析
     analyzeAPI: (id: number) => api.post<{ task: Task; message: string }>(`/repositories/${id}/api-analyze`),
     incrementalAnalysis: (id: number) => api.post(`/repositories/${id}/incremental-analysis`),
+    getIncrementalHistory: (id: number, limit?: number) => api.get<IncrementalUpdateHistory[]>(`/repositories/${id}/incremental-history`, {
+        params: { limit }
+    }),
     setReady: (id: number) => api.post(`/repositories/${id}/set-ready`),
     createUserRequest: (id: number, content: string) => api.post<{ code: number; message: string; data: Task }>(`/repositories/${id}/user-requests`, { content }),
 };

@@ -18,11 +18,12 @@ import (
 )
 
 type RepositoryService struct {
-	cfg          *config.Config
-	repoRepo     repository.RepoRepository
-	taskRepo     repository.TaskRepository
-	docRepo      repository.DocumentRepository
-	taskHintRepo repository.HintRepository
+	cfg                   *config.Config
+	repoRepo              repository.RepoRepository
+	taskRepo              repository.TaskRepository
+	docRepo               repository.DocumentRepository
+	taskHintRepo          repository.HintRepository
+	incrementalHistoryRepo repository.IncrementalUpdateHistoryRepository
 
 	// 状态机
 	repoStateMachine *statemachine.RepositoryStateMachine
@@ -33,16 +34,17 @@ type RepositoryService struct {
 }
 
 // NewRepositoryService 创建仓库服务实例。
-func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository) *RepositoryService {
+func NewRepositoryService(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, docRepo repository.DocumentRepository, taskHintRepo repository.HintRepository, incrementalHistoryRepo repository.IncrementalUpdateHistoryRepository) *RepositoryService {
 	rs := &RepositoryService{
-		cfg:              cfg,
-		repoRepo:         repoRepo,
-		taskRepo:         taskRepo,
-		docRepo:          docRepo,
-		taskHintRepo:     taskHintRepo,
-		repoStateMachine: statemachine.NewRepositoryStateMachine(),
-		taskStateMachine: statemachine.NewTaskStateMachine(),
-		orchestrator:     orchestrator.GetGlobalOrchestrator(),
+		cfg:                   cfg,
+		repoRepo:              repoRepo,
+		taskRepo:              taskRepo,
+		docRepo:               docRepo,
+		taskHintRepo:          taskHintRepo,
+		incrementalHistoryRepo: incrementalHistoryRepo,
+		repoStateMachine:      statemachine.NewRepositoryStateMachine(),
+		taskStateMachine:      statemachine.NewTaskStateMachine(),
+		orchestrator:          orchestrator.GetGlobalOrchestrator(),
 	}
 	return rs
 }
@@ -223,4 +225,14 @@ func (s *RepositoryService) UpdateRepositoryCloneInfo(ctx context.Context, repoI
 	}
 	klog.V(6).Infof("仓库提交信息已更新: repoID=%d, branch=%s, commit=%s", repoID, repo.CloneBranch, repo.CloneCommit)
 	return nil
+}
+
+// GetIncrementalHistory 获取仓库的增量同步历史记录。
+func (s *RepositoryService) GetIncrementalHistory(repoID uint, limit int) ([]model.IncrementalUpdateHistory, error) {
+	ctx := context.Background()
+	if limit <= 0 {
+		limit = 50
+	}
+	klog.V(6).Infof("获取增量同步历史: repoID=%d, limit=%d", repoID, limit)
+	return s.incrementalHistoryRepo.ListByRepository(ctx, repoID, limit)
 }
