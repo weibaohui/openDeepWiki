@@ -57,6 +57,7 @@ func main() {
 	taskUsageRepo := repository.NewTaskUsageRepository(db)
 	syncTargetRepo := repository.NewSyncTargetRepository(db)
 	syncEventRepo := repository.NewSyncEventRepository(db)
+	incrementalHistoryRepo := repository.NewIncrementalUpdateHistoryRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
@@ -96,7 +97,7 @@ func main() {
 		log.Fatalf("Failed to initialize directory analyzer service: %v", err)
 	}
 
-	incrementalWriter, err := writers.NewIncrementalWriter(cfg, repoRepo, taskRepo, hintRepo, docRepo)
+	incrementalWriter, err := writers.NewIncrementalWriter(cfg, repoRepo, taskRepo, hintRepo, docRepo, incrementalHistoryRepo)
 	if err != nil {
 		log.Fatalf("Failed to initialize incremental writer service: %v", err)
 	}

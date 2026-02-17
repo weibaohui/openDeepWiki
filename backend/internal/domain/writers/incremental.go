@@ -29,9 +29,10 @@ type incrementalWriter struct {
 	taskHintRepo repository.HintRepository
 	taskService  *service.TaskService
 	repoBus      *eventbus.RepositoryEventBus
+	historyRepo  repository.IncrementalUpdateHistoryRepository
 }
 
-func NewIncrementalWriter(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, taskHintRepo repository.HintRepository, docRepo repository.DocumentRepository) (*incrementalWriter, error) {
+func NewIncrementalWriter(cfg *config.Config, repoRepo repository.RepoRepository, taskRepo repository.TaskRepository, taskHintRepo repository.HintRepository, docRepo repository.DocumentRepository, historyRepo repository.IncrementalUpdateHistoryRepository) (*incrementalWriter, error) {
 	klog.V(6).Infof("[incrementalWriter.New] 开始创建增量更新服务")
 
 	factory, err := adkagents.NewAgentFactory(cfg)
@@ -46,6 +47,7 @@ func NewIncrementalWriter(cfg *config.Config, repoRepo repository.RepoRepository
 		repoRepo:     repoRepo,
 		docRepo:      docRepo,
 		taskHintRepo: taskHintRepo,
+		historyRepo:  historyRepo,
 	}, nil
 }
 
@@ -104,7 +106,7 @@ func (s *incrementalWriter) Generate(ctx context.Context, localPath string, titl
 
 	}
 
-	if err := s.publishIncrementalUpdateEvent(ctx, repo.ID, repo.LocalPath); err != nil {
+	if err := s.publishIncrementalUpdateEvent(ctx, repo.ID, repo.LocalPath, repo.CloneCommit, len(result.AddDirs), len(result.UpdateDirs)); err != nil {
 		klog.V(6).Infof("[%s] 发布增量更新完成事件失败: repoID=%d, error=%v", s.Name(), repo.ID, err)
 		return "", err
 	}
@@ -264,13 +266,27 @@ func (s *incrementalWriter) saveHint(repoID uint, task *model.Task, spec *domain
 }
 
 // publishIncrementalUpdateEvent 发布增量更新完成事件并携带最新提交信息。
-func (s *incrementalWriter) publishIncrementalUpdateEvent(ctx context.Context, repoID uint, localPath string) error {
+func (s *incrementalWriter) publishIncrementalUpdateEvent(ctx context.Context, repoID uint, localPath string, baseCommit string, addedDirs int, updatedDirs int) error {
 	if s.repoBus == nil {
 		return fmt.Errorf("仓库事件总线为空")
+	}
+	if s.historyRepo == nil {
+		return fmt.Errorf("增量更新历史仓储为空")
 	}
 	branch, commit, err := git.GetBranchAndCommit(localPath)
 	if err != nil {
 		return fmt.Errorf("获取仓库最新提交失败: %w", err)
+	}
+	history := &model.IncrementalUpdateHistory{
+		RepositoryID: repoID,
+		BaseCommit:   baseCommit,
+		LatestCommit: commit,
+		AddedDirs:    addedDirs,
+		UpdatedDirs:  updatedDirs,
+	}
+	if err := s.historyRepo.Create(ctx, history); err != nil {
+		klog.V(6).Infof("[%s] 记录增量更新历史失败: repoID=%d, error=%v", s.Name(), repoID, err)
+		return fmt.Errorf("记录增量更新历史失败: %w", err)
 	}
 	if err := s.repoBus.Publish(ctx, eventbus.RepositoryEventIncrementalUpdated, eventbus.RepositoryEvent{
 		Type:         eventbus.RepositoryEventIncrementalUpdated,

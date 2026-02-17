@@ -82,3 +82,8 @@ type SyncEventRepository interface {
 	Create(ctx context.Context, event *model.SyncEvent) error
 	List(ctx context.Context, repositoryID uint, eventTypes []string, limit int) ([]model.SyncEvent, error)
 }
+
+type IncrementalUpdateHistoryRepository interface {
+	Create(ctx context.Context, history *model.IncrementalUpdateHistory) error
+	ListByRepository(ctx context.Context, repositoryID uint, limit int) ([]model.IncrementalUpdateHistory, error)
+}
