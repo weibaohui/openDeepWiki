@@ -52,8 +52,8 @@ chore/xxx     # 工程性调整
 * AI 必须为任务创建独立 `worktree`，不得在主目录操作
 
 ```bash
-git worktree add ../ai-worktrees/<repo-name>/<task-name> <branch>
-cd ../ai-worktrees/<repo-name>/<task-name>
+git worktree add ../.ai-worktrees/<repo-name>/<task-name> <branch>
+cd ../.ai-worktrees/<repo-name>/<task-name>
 ```
 
 * 进入后必须先执行环境初始化：
@@ -62,11 +62,11 @@ cd ../ai-worktrees/<repo-name>/<task-name>
 make setup
 ```
 
-* 所有修改仅允许发生在 `../ai-worktrees/<repo-name>/<task-name>/` 内
+* 所有修改仅允许发生在 `../.ai-worktrees/<repo-name>/<task-name>/` 内
 * 任务完成后必须删除该 worktree
 
 ```bash
-git worktree remove ../ai-worktrees/<repo-name>/<task-name>
+git worktree remove ../.ai-worktrees/<repo-name>/<task-name>
 ```
 
 
