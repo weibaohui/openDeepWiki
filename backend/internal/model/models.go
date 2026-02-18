@@ -43,18 +43,20 @@ type Task struct {
 }
 
 type Document struct {
-	ID           uint      `json:"id" gorm:"primaryKey"`
-	RepositoryID uint      `json:"repository_id" gorm:"index;"`
-	TaskID       uint      `json:"task_id" gorm:"index"`
-	Title        string    `json:"title" gorm:"size:255;"`
-	Filename     string    `json:"filename" gorm:"size:255;"`
-	Content      string    `json:"content" gorm:"type:text"`
-	SortOrder    int       `json:"sort_order" gorm:"default:0"`
-	Version      int       `json:"version" gorm:"default:1;index"`
-	IsLatest     bool      `json:"is_latest" gorm:"index"`
-	ReplacedBy   uint      `json:"replaced_by" gorm:"index;"` //被替换为哪个DocID
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID            uint      `json:"id" gorm:"primaryKey"`
+	RepositoryID  uint      `json:"repository_id" gorm:"index;"`
+	TaskID        uint      `json:"task_id" gorm:"index"`
+	Title         string    `json:"title" gorm:"size:255;"`
+	Filename      string    `json:"filename" gorm:"size:255;"`
+	Content       string    `json:"content" gorm:"type:text"`
+	SortOrder     int       `json:"sort_order" gorm:"default:0"`
+	Version       int       `json:"version" gorm:"default:1;index"`
+	IsLatest      bool      `json:"is_latest" gorm:"index"`
+	ReplacedBy    uint      `json:"replaced_by" gorm:"index;"` //被替换为哪个DocID
+	CloneBranch   string    `json:"clone_branch" gorm:"size:255"`   // 生成文档时的分支名称
+	CloneCommitID string    `json:"clone_commit_id" gorm:"size:100"` // 生成文档时的 commit id
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type DocumentRating struct {

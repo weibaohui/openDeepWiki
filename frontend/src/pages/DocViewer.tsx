@@ -20,7 +20,9 @@ import {
     DatabaseOutlined,
     ArrowUpOutlined,
     ArrowDownOutlined,
-    RobotOutlined
+    RobotOutlined,
+    BranchesOutlined,
+    CodeOutlined
 } from '@ant-design/icons';
 
 import {
@@ -467,6 +469,42 @@ export default function DocViewer() {
         </div>
     ) : null;
 
+    const repoInfoInfo = document && (document.clone_branch || document.clone_commit_id) ? (
+        <div style={{
+            marginTop: 12,
+            fontSize: '12px',
+            color: 'var(--ant-color-text-secondary)',
+            backgroundColor: 'var(--ant-color-info-bg)',
+            padding: '12px',
+            borderRadius: '6px'
+        }}>
+            <Space direction="vertical" size={6}>
+                {document.clone_branch && (
+                    <div>
+                        <Space size={6}>
+                            <BranchesOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                            <span>{t('document.repo_branch')}:</span>
+                            <Tag color="blue" style={{ margin: 0 }}>
+                                {document.clone_branch}
+                            </Tag>
+                        </Space>
+                    </div>
+                )}
+                {document.clone_commit_id && (
+                    <div>
+                        <Space size={6}>
+                            <CodeOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+                            <span>{t('document.repo_commit')}:</span>
+                            <Text code style={{ fontSize: '12px' }}>
+                                {document.clone_commit_id}
+                            </Text>
+                        </Space>
+                    </div>
+                )}
+            </Space>
+        </div>
+    ) : null;
+
     const SidebarContent = () => (
         <>
             <div style={{
@@ -773,6 +811,7 @@ export default function DocViewer() {
                                 />
                                 {rateInfo}
                                 {tokenUsageInfo}
+                                {repoInfoInfo}
                             </div>
                         ) : (
                             <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
@@ -781,6 +820,7 @@ export default function DocViewer() {
                                     <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
                                     {rateInfo}
                                     {tokenUsageInfo}
+                                    {repoInfoInfo}
 
                                 </div>
                             </Card>
