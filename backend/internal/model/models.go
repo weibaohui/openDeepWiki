@@ -7,20 +7,23 @@ import (
 )
 
 type Repository struct {
-	ID          uint       `json:"id" gorm:"primaryKey"`
-	Name        string     `json:"name" gorm:"size:255;"`
-	URL         string     `json:"url" gorm:"size:500;"`
-	LocalPath   string     `json:"local_path" gorm:"size:500"`
-	Description string     `json:"description" gorm:"size:1000"`
-	CloneBranch string     `json:"clone_branch" gorm:"size:255"`
-	CloneCommit string     `json:"clone_commit_id" gorm:"size:100"`
-	SizeMB      float64    `json:"size_mb" gorm:"default:0"`
-	Status      string     `json:"status" gorm:"size:50;default:pending"` // pending, cloning, ready, analyzing, completed, error
-	ErrorMsg    string     `json:"error_msg" gorm:"size:1000"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	Tasks       []Task     `json:"tasks,omitempty" gorm:"foreignKey:RepositoryID"`
-	Documents   []Document `json:"documents,omitempty" gorm:"foreignKey:RepositoryID"`
+	ID                    uint       `json:"id" gorm:"primaryKey"`
+	Name                  string     `json:"name" gorm:"size:255;"`
+	URL                   string     `json:"url" gorm:"size:500;"`
+	LocalPath             string     `json:"local_path" gorm:"size:500"`
+	Description           string     `json:"description" gorm:"size:1000"`
+	CloneBranch           string     `json:"clone_branch" gorm:"size:255"`
+	CloneCommit           string     `json:"clone_commit_id" gorm:"size:100"`
+	SizeMB                float64    `json:"size_mb" gorm:"default:0"`
+	Status                string     `json:"status" gorm:"size:50;default:pending"` // pending, cloning, ready, analyzing, completed, error
+	ErrorMsg              string     `json:"error_msg" gorm:"size:1000"`
+	NextUpdateTime        *time.Time `json:"next_update_time,omitempty"`     // 下次更新时间（基于活跃度动态调整）
+	TodayActivityCount    int        `json:"today_activity_count,omitempty"`   // 今日活跃度点数
+	LastActivityResetDate *time.Time `json:"last_activity_reset_date,omitempty"` // 上次重置活跃度的日期
+	CreatedAt             time.Time  `json:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at"`
+	Tasks                 []Task     `json:"tasks,omitempty" gorm:"foreignKey:RepositoryID"`
+	Documents             []Document `json:"documents,omitempty" gorm:"foreignKey:RepositoryID"`
 }
 
 type Task struct {

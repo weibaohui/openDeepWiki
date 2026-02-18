@@ -16,6 +16,7 @@ type Config struct {
 	Data     DataConfig     `yaml:"data"`
 	Agent    AgentConfig    `yaml:"agent"`
 	Skill    SkillConfig    `yaml:"skill"`
+	Activity ActivityConfig `yaml:"activity"`
 }
 
 type ServerConfig struct {
@@ -45,6 +46,14 @@ type AgentConfig struct {
 }
 type SkillConfig struct {
 	Dir string
+}
+
+type ActivityConfig struct {
+	Enabled         bool          `yaml:"enabled"`          // 是否启用活跃度功能
+	DefaultInterval time.Duration `yaml:"default_interval"` // 默认更新间隔
+	DecreaseUnit    time.Duration `yaml:"decrease_unit"`    // 每个活跃点调减的时间
+	CheckInterval   time.Duration `yaml:"check_interval"`   // 定时检查间隔
+	ResetHour       int           `yaml:"reset_hour"`       // 每日重置小时（0-23）
 }
 
 var (
@@ -84,6 +93,13 @@ func loadConfig() *Config {
 		},
 		Skill: SkillConfig{
 			Dir: "./skills",
+		},
+		Activity: ActivityConfig{
+			Enabled:         true,
+			DefaultInterval: 7 * 24 * time.Hour, // 7天
+			DecreaseUnit:    1 * time.Hour,      // 每个活跃点调减1小时
+			CheckInterval:   1 * time.Hour,      // 每小时检查一次
+			ResetHour:       0,                  // 每天凌晨0点重置
 		},
 	}
 

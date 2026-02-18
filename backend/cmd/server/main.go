@@ -128,6 +128,19 @@ func main() {
 	taskEventBus := eventbus.NewTaskEventBus()
 	subscriber.NewTaskEventSubscriber(taskService).Register(taskEventBus)
 	taskService.SetEventBus(taskEventBus)
+
+	// 初始化活跃度事件总线
+	activityEventBus := eventbus.NewActivityEventBus()
+	subscriber.NewActivityEventSubscriber(repoRepo, cfg).Register(activityEventBus)
+
+	// 初始化活跃度调度器
+	activityScheduler := service.NewActivityScheduler(cfg, repoRepo, taskEventBus)
+	activityScheduler.Start(context.Background())
+	defer activityScheduler.Stop()
+
+	// 初始化 ActivityHandler
+	activityHandler := handler.NewActivityHandler(cfg)
+
 	// 初始化 RepositoryService (依赖全局编排器，需要在 orchestrator 初始化之后)
 	repoService := service.NewRepositoryService(cfg, repoRepo, taskRepo, docRepo, hintRepo, incrementalHistoryRepo)
 	//注册RepoEventBus
@@ -169,7 +182,7 @@ func main() {
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

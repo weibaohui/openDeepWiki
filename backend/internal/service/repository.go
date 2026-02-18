@@ -95,6 +95,15 @@ func (s *RepositoryService) Create(req CreateRepoRequest) (*model.Repository, er
 		Status:    string(statemachine.RepoStatusPending),
 	}
 
+	// 初始化活跃度信息
+	if s.cfg.Activity.Enabled {
+		now := time.Now()
+		nextUpdateTime := now.Add(s.cfg.Activity.DefaultInterval)
+		repo.NextUpdateTime = &nextUpdateTime
+		repo.TodayActivityCount = 0
+		repo.LastActivityResetDate = &now
+	}
+
 	if err := s.repoRepo.Create(repo); err != nil {
 		return nil, fmt.Errorf("创建仓库失败: %w", err)
 	}
