@@ -18,6 +18,12 @@ func NewDocumentRepository(db *gorm.DB) DocumentRepository {
 }
 
 func (r *documentRepository) Create(doc *model.Document) error {
+	// 从关联的 Repository 获取 clone_branch 和 clone_commit_id
+	var repo model.Repository
+	if err := r.db.First(&repo, doc.RepositoryID).Error; err == nil {
+		doc.CloneBranch = repo.CloneBranch
+		doc.CloneCommitID = repo.CloneCommit
+	}
 	return r.db.Create(doc).Error
 }
 
@@ -94,6 +100,13 @@ func (r *documentRepository) CreateVersioned(doc *model.Document) error {
 				"updated_at": time.Now(),
 			}).Error; err != nil {
 			return err
+		}
+
+		// 从关联的 Repository 获取 clone_branch 和 clone_commit_id
+		var repo model.Repository
+		if err := tx.First(&repo, doc.RepositoryID).Error; err == nil {
+			doc.CloneBranch = repo.CloneBranch
+			doc.CloneCommitID = repo.CloneCommit
 		}
 
 		doc.Version = nextVersion

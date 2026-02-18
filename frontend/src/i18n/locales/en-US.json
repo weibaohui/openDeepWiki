@@ -279,7 +279,14 @@
         "export_docs": "Export Docs",
         "export_zip": "Export ZIP",
         "export_pdf": "Export PDF",
-        "export_failed": "Export failed"
+        "export_failed": "Export failed",
+        "token_total": "Total Tokens",
+        "token_input": "Input Tokens",
+        "token_output": "Output Tokens",
+        "token_model": "Model Used",
+        "repo_info": "Repository Info",
+        "repo_branch": "Branch",
+        "repo_commit": "Commit"
     },
     "banner": {
         "title": "This is an open source project",

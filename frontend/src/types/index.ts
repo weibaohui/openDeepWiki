@@ -43,6 +43,8 @@ export interface Document {
     sort_order: number;
     version: number;
     is_latest: boolean;
+    clone_branch?: string;
+    clone_commit_id?: string;
     created_at: string;
     updated_at: string;
 }

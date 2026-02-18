@@ -285,7 +285,10 @@
         "token_total": "总 Token",
         "token_input": "输入 Token",
         "token_output": "输出 Token",
-        "token_model": "使用模型"
+        "token_model": "使用模型",
+        "repo_info": "仓库信息",
+        "repo_branch": "分支",
+        "repo_commit": "提交"
     },
     "banner": {
         "title": "本项目为开源项目",
