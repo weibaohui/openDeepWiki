@@ -168,8 +168,7 @@ export default function APIKeyList() {
             title: t('apiKey.request_count', 'Request Count'),
             dataIndex: 'request_count',
             key: 'request_count',
-            render: (text: number) => text ? text.toString() : '-',
-            responsive: ['lg']
+            render: (text: number) => text ? text.toString() : '-'
         },
         {
             title: t('apiKey.actions', 'Actions'),
