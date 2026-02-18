@@ -210,34 +210,6 @@ type AnalyzeProblemRequest struct {
 	Content string `json:"content" binding:"required"`
 }
 
-// AnalyzeUserRequest 处理问题分析的触发请求。
-func (h *RepositoryHandler) AnalyzeUserRequest(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	var req AnalyzeProblemRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "problem is required"})
-		return
-	}
-
-	ctx := context.Background()
-	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
-		Type:         eventbus.TaskEventDocWrite,
-		RepositoryID: uint(id),
-		Title:        "用户问题分析",
-		SortOrder:    30,
-		WriterName:   domain.UserRequestWriter,
-	})
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "problem analysis started",
-	})
-}
-
 func (h *RepositoryHandler) SetReady(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

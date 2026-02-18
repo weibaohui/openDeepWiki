@@ -14,8 +14,8 @@ import (
 
 // UserRequestHandler 用户需求处理器
 type UserRequestHandler struct {
-	service   service.UserRequestService
-	taskBus   *eventbus.TaskEventBus
+	service     service.UserRequestService
+	taskBus     *eventbus.TaskEventBus
 	taskService *service.TaskService
 }
 
@@ -23,8 +23,8 @@ type UserRequestHandler struct {
 func NewUserRequestHandler(service service.UserRequestService, taskBus *eventbus.TaskEventBus, taskService *service.TaskService) *UserRequestHandler {
 	klog.V(6).Infof("[handler] 创建 UserRequestHandler")
 	return &UserRequestHandler{
-		service:    service,
-		taskBus:    taskBus,
+		service:     service,
+		taskBus:     taskBus,
 		taskService: taskService,
 	}
 }
@@ -64,10 +64,11 @@ func (h *UserRequestHandler) CreateUserRequest(c *gin.Context) {
 
 	// 创建用户需求成功后，触发分析任务
 	ctx := context.Background()
-	h.taskBus.Publish(ctx, eventbus.TaskEventDocWrite, eventbus.TaskEvent{
-		Type:         eventbus.TaskEventDocWrite,
+	h.taskBus.Publish(ctx, eventbus.TaskEventUserRequest, eventbus.TaskEvent{
+		Type:         eventbus.TaskEventUserRequest,
 		RepositoryID: uint(repoID),
-		Title:        "用户需求分析",
+		Title:        req.Content,
+		Outline:      req.Content,
 		SortOrder:    30,
 		WriterName:   domain.UserRequestWriter,
 	})
@@ -119,8 +120,8 @@ func (h *UserRequestHandler) ListUserRequests(c *gin.Context) {
 
 	klog.V(6).Infof("[handler] 获取用户需求列表成功: total=%d, returned=%d", total, len(requests))
 	c.JSON(http.StatusOK, gin.H{
-		"code":     0,
-		"message":  "success",
+		"code":    0,
+		"message": "success",
 		"data": gin.H{
 			"list":      requests,
 			"total":     total,
