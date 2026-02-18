@@ -1,0 +1,2426 @@
+openapi: 3.0.3
+info:
+  title: openDeepWiki API
+  description: |
+    openDeepWiki 是一个基于 AI 的代码仓库智能解读平台，能够自动分析任意 GitHub 代码仓库，并生成结构化的项目文档。
+
+    ## AI 友好设计
+
+    本 API 针对以下 AI 工具进行了优化：
+    - Claude Code (Anthropic)
+    - GitHub Copilot
+    - 其他支持 OpenAPI 的 AI 工具
+
+    ## 核心功能
+
+    - **仓库管理**：添加、删除、查看代码仓库
+    - **任务管理**：执行、监控、重试分析任务
+    - **文档管理**：查看、编辑、导出生成的文档
+    - **API Key 管理**：配置多个 LLM API Key，支持自动切换
+    - **数据同步**：与其他 openDeepWiki 实例同步数据
+    - **用户需求管理**：提交和跟踪用户需求
+
+    ## 响应格式
+
+    所有 API 响应遵循统一格式：
+
+    ### 成功响应
+    ```json
+    {
+      "code": 0,
+      "message": "success",
+      "data": { ... }
+    }
+    ```
+
+    ### 错误响应
+    ```json
+    {
+      "error": "error message"
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: openDeepWiki
+    url: https://github.com/weibaohui/opendeepwiki
+
+servers:
+  - url: http://localhost:8080
+    description: 开发环境
+  - url: https://opendeepwiki.fly.dev
+    description: 生产环境
+
+tags:
+  - name: repositories
+    description: 仓库管理
+  - name: tasks
+    description: 任务管理
+  - name: documents
+    description: 文档管理
+  - name: api-keys
+    description: API Key 管理
+  - name: sync
+    description: 数据同步
+  - name: user-requests
+    description: 用户需求管理
+
+paths:
+  /api/repositories:
+    post:
+      tags:
+        - repositories
+      summary: 创建仓库
+      description: 添加一个新的代码仓库到系统。支持 GitHub、GitLab、Gitee 等平台的仓库 URL。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRepositoryRequest'
+            example:
+              url: https://github.com/user/repo.git
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 仓库已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - repositories
+      summary: 获取仓库列表
+      description: 获取系统中所有仓库的列表
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Repository'
+
+  /api/repositories/{id}:
+    get:
+      tags:
+        - repositories
+      summary: 获取仓库详情
+      description: 根据仓库 ID 获取仓库的详细信息
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+        '404':
+          description: 仓库不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - repositories
+      summary: 删除仓库
+      description: 删除指定的仓库及其相关数据
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: deleted
+        '400':
+          description: 仓库状态不允许删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/repositories/{id}/run-all:
+    post:
+      tags:
+        - repositories
+      summary: 执行所有任务
+      description: 启动仓库的所有分析任务，包括概览、架构、接口、业务流程、部署等分析
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 任务已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: tasks started
+
+  /api/repositories/{id}/clone:
+    post:
+      tags:
+        - repositories
+      summary: 重新克隆仓库
+      description: 删除本地缓存并重新克隆仓库代码
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 克隆已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: clone started
+
+  /api/repositories/{id}/purge-local:
+    post:
+      tags:
+        - repositories
+      summary: 清空本地目录
+      description: 删除仓库的本地缓存，但不删除数据库中的记录
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 清空成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: local directory purged
+
+  /api/repositories/{id}/directory-analyze:
+    post:
+      tags:
+        - repositories
+      summary: 目录分析
+      description: 触发仓库目录结构分析任务
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 分析已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: directory analysis started
+
+  /api/repositories/{id}/db-model-analyze:
+    post:
+      tags:
+        - repositories
+      summary: 数据库模型分析
+      description: 触发数据库模型分析任务
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 分析已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: database model analysis started
+
+  /api/repositories/{id}/api-analyze:
+    post:
+      tags:
+        - repositories
+      summary: API 分析
+      description: 触发 API 接口分析任务
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 分析已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: api analysis started
+
+  /api/repositories/{id}/incremental-analysis:
+    post:
+      tags:
+        - repositories
+      summary: 增量分析
+      description: 触发增量分析任务，仅分析代码变更部分
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 分析已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: incremental analysis started
+
+  /api/repositories/{id}/set-ready:
+    post:
+      tags:
+        - repositories
+      summary: 设置仓库为就绪状态
+      description: 将仓库状态设置为就绪，允许执行任务
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 状态已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 仓库状态已设置为就绪
+
+  /api/repositories/{id}/incremental-history:
+    get:
+      tags:
+        - repositories
+      summary: 获取增量分析历史
+      description: 获取仓库的增量同步历史记录
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+        - name: limit
+          in: query
+          description: 返回记录数量限制
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IncrementalHistory'
+
+  /api/repositories/{id}/tasks:
+    get:
+      tags:
+        - tasks
+      summary: 获取仓库任务列表
+      description: 获取指定仓库的所有任务
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+
+  /api/repositories/{id}/tasks/stats:
+    get:
+      tags:
+        - tasks
+      summary: 获取任务统计
+      description: 获取仓库的任务统计信息（成功、失败、排队等）
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskStats'
+
+  /api/repositories/{id}/documents:
+    get:
+      tags:
+        - documents
+      summary: 获取仓库文档列表
+      description: 获取指定仓库的所有文档
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Document'
+
+  /api/repositories/{id}/documents/index:
+    get:
+      tags:
+        - documents
+      summary: 获取文档索引
+      description: 获取仓库的文档索引内容（目录结构）
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: 文档索引内容（Markdown 格式）
+
+  /api/repositories/{id}/documents/export:
+    get:
+      tags:
+        - documents
+      summary: 导出文档
+      description: 导出仓库的所有文档为 ZIP 文件
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /api/repositories/{id}/export-pdf:
+    get:
+      tags:
+        - documents
+      summary: 导出 PDF
+      description: 导出仓库的所有文档为 PDF 文件
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /api/repositories/{id}/user-requests:
+    post:
+      tags:
+        - user-requests
+      summary: 创建用户需求
+      description: 为仓库创建新的用户需求
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequestRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserRequest'
+    get:
+      tags:
+        - user-requests
+      summary: 获取用户需求列表
+      description: 获取仓库的用户需求列表，支持分页和状态过滤
+      parameters:
+        - $ref: '#/components/parameters/RepositoryId'
+        - name: page
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: status
+          in: query
+          description: 状态过滤
+          schema:
+            type: string
+            enum: [pending, processing, completed]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          list:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/UserRequest'
+                          total:
+                            type: integer
+                            description: 总记录数
+                          page:
+                            type: integer
+                            description: 当前页码
+                          page_size:
+                            type: integer
+                            description: 每页数量
+
+  /api/tasks/status:
+    get:
+      tags:
+        - tasks
+      summary: 获取编排器状态
+      description: 获取任务编排器的当前状态和队列信息
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrchestratorStatus'
+
+  /api/tasks/monitor:
+    get:
+      tags:
+        - tasks
+      summary: 获取全局监控数据
+      description: 获取所有仓库的任务执行状态和进度
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorData'
+
+  /api/tasks/stuck:
+    get:
+      tags:
+        - tasks
+      summary: 获取卡住的任务
+      description: 获取执行时间过长的任务列表
+      parameters:
+        - name: timeout
+          in: query
+          description: 超时时间（如 "10m"）
+          schema:
+            type: string
+            default: 10m
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+                  count:
+                    type: integer
+                    description: 卡住的任务数量
+                  timeout:
+                    type: string
+                    description: 使用的超时时间
+
+  /api/tasks/cleanup:
+    post:
+      tags:
+        - tasks
+      summary: 清理卡住的任务
+      description: 清理执行时间过长的任务
+      parameters:
+        - name: timeout
+          in: query
+          description: 超时时间（如 "10m"）
+          schema:
+            type: string
+            default: 10m
+      responses:
+        '200':
+          description: 清理完成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: cleanup completed
+                  affected:
+                    type: integer
+                    description: 受影响的任务数量
+                  timeout:
+                    type: string
+                    description: 使用的超时时间
+
+  /api/tasks/{id}:
+    get:
+      tags:
+        - tasks
+      summary: 获取任务详情
+      description: 根据任务 ID 获取任务详情
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - tasks
+      summary: 删除任务
+      description: 删除指定的任务
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task deleted
+
+  /api/tasks/{id}/run:
+    post:
+      tags:
+        - tasks
+      summary: 运行任务
+      description: 立即执行指定任务（兼容旧接口）
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task started
+                  status:
+                    type: string
+                    example: queued
+
+  /api/tasks/{id}/enqueue:
+    post:
+      tags:
+        - tasks
+      summary: 提交任务到队列
+      description: 将任务提交到编排器队列中等待执行
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务已入队
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task enqueued
+                  status:
+                    type: string
+                    example: queued
+
+  /api/tasks/{id}/retry:
+    post:
+      tags:
+        - tasks
+      summary: 重试任务
+      description: 重试失败的任务（重置状态并重新执行）
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 重试已启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task retry started
+                  status:
+                    type: string
+                    example: queued
+
+  /api/tasks/{id}/regen:
+    post:
+      tags:
+        - tasks
+      summary: 重新生成任务
+      description: 创建新任务来重新生成文档
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 新任务已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task re-generated
+                  status:
+                    type: string
+                    example: queued
+
+  /api/tasks/{id}/cancel:
+    post:
+      tags:
+        - tasks
+      summary: 取消任务
+      description: 取消正在执行或排队中的任务
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务已取消
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task canceled
+                  status:
+                    type: string
+                    example: canceled
+
+  /api/tasks/{id}/reset:
+    post:
+      tags:
+        - tasks
+      summary: 重置任务
+      description: 将任务状态重置为 pending
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务已重置
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task reset
+                  status:
+                    type: string
+                    example: pending
+
+  /api/tasks/{id}/force-reset:
+    post:
+      tags:
+        - tasks
+      summary: 强制重置任务
+      description: 强制重置任务，无论当前状态
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务已强制重置
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: task force reset
+                  status:
+                    type: string
+                    example: pending
+
+  /api/documents/{id}:
+    get:
+      tags:
+        - documents
+      summary: 获取文档详情
+      description: 根据文档 ID 获取文档内容
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '404':
+          description: 文档不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - documents
+      summary: 更新文档
+      description: 更新文档内容
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: 文档内容（Markdown 格式）
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+
+  /api/documents/{id}/versions:
+    get:
+      tags:
+        - documents
+      summary: 获取文档版本列表
+      description: 获取文档的所有历史版本
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Document'
+
+  /api/documents/{id}/ratings:
+    post:
+      tags:
+        - documents
+      summary: 提交文档评分
+      description: 对文档进行评分（1-5 分）
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                score:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: 评分（1-5 分）
+              required:
+                - score
+      responses:
+        '200':
+          description: 评分成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingStats'
+
+  /api/documents/{id}/ratings/stats:
+    get:
+      tags:
+        - documents
+      summary: 获取文档评分统计
+      description: 获取文档的平均评分和评分分布
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingStats'
+
+  /api/documents/{id}/token-usage:
+    get:
+      tags:
+        - documents
+      summary: 获取文档 Token 用量
+      description: 获取生成文档时消耗的 Token 数量
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TokenUsage'
+
+  /api/doc/{id}/redirect:
+    get:
+      tags:
+        - documents
+      summary: 重定向到原始代码文件
+      description: 重定向到 GitHub/GitLab/Gitee 上的原始代码文件
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - name: path
+          in: query
+          required: true
+          description: 文件路径
+          schema:
+            type: string
+      responses:
+        '302':
+          description: 重定向到原始文件
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+
+  /api/api-keys:
+    get:
+      tags:
+        - api-keys
+      summary: 获取 API Key 列表
+      description: 获取所有配置的 API Key（API Key 已脱敏）
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/APIKey'
+                  total:
+                    type: integer
+    post:
+      tags:
+        - api-keys
+      summary: 创建 API Key
+      description: 添加新的 LLM API Key 配置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAPIKeyRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+
+  /api/api-keys/{id}:
+    get:
+      tags:
+        - api-keys
+      summary: 获取 API Key 详情
+      description: 获取指定 API Key 的详细信息（API Key 已脱敏）
+      parameters:
+        - $ref: '#/components/parameters/APIKeyId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+    put:
+      tags:
+        - api-keys
+      summary: 更新 API Key
+      description: 更新 API Key 配置（不包括 API Key 本身）
+      parameters:
+        - $ref: '#/components/parameters/APIKeyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAPIKeyRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+    delete:
+      tags:
+        - api-keys
+      summary: 删除 API Key
+      description: 删除指定的 API Key 配置
+      parameters:
+        - $ref: '#/components/parameters/APIKeyId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: deleted successfully
+
+  /api/api-keys/{id}/status:
+    patch:
+      tags:
+        - api-keys
+      summary: 更新 API Key 状态
+      description: 启用或禁用 API Key
+      parameters:
+        - $ref: '#/components/parameters/APIKeyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [enabled, disabled]
+                  description: 状态
+              required:
+                - status
+      responses:
+        '200':
+          description: 状态已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: status updated successfully
+
+  /api/api-keys/stats:
+    get:
+      tags:
+        - api-keys
+      summary: 获取 API Key 统计
+      description: 获取所有 API Key 的使用统计信息
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyStats'
+
+  /api/sync/ping:
+    get:
+      tags:
+        - sync
+      summary: 同步服务健康检查
+      description: 检查同步服务是否正常运行
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: OK
+
+  /api/sync:
+    post:
+      tags:
+        - sync
+      summary: 开始推送同步
+      description: 将本地数据同步到目标服务器
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSyncRequest'
+      responses:
+        '200':
+          description: 同步已启动
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSyncResponse'
+
+  /api/sync/pull:
+    post:
+      tags:
+        - sync
+      summary: 开始拉取同步
+      description: 从目标服务器拉取数据
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PullSyncRequest'
+      responses:
+        '200':
+          description: 拉取已启动
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSyncResponse'
+
+  /api/sync/status/{sync_id}:
+    get:
+      tags:
+        - sync
+      summary: 获取同步状态
+      description: 查询同步任务的状态和进度
+      parameters:
+        - name: sync_id
+          in: path
+          required: true
+          description: 同步任务 ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatus'
+
+  /api/sync/event-list:
+    get:
+      tags:
+        - sync
+      summary: 获取同步事件列表
+      description: 获取同步历史记录
+      parameters:
+        - name: repository_id
+          in: query
+          description: 仓库 ID
+          schema:
+            type: integer
+        - name: mode
+          in: query
+          description: 同步模式
+          schema:
+            type: string
+            enum: [push, pull, all]
+        - name: limit
+          in: query
+          description: 返回记录数量
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: OK
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncEvent'
+
+  /api/sync/repository-list:
+    get:
+      tags:
+        - sync
+      summary: 获取仓库列表
+      description: 获取可同步的仓库列表
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: OK
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncRepository'
+
+  /api/sync/document-list:
+    get:
+      tags:
+        - sync
+      summary: 获取文档列表
+      description: 获取仓库的文档列表
+      parameters:
+        - name: repository_id
+          in: query
+          required: true
+          description: 仓库 ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: OK
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncDocument'
+
+  /api/sync/target-list:
+    get:
+      tags:
+        - sync
+      summary: 获取同步目标列表
+      description: 获取配置的同步目标服务器列表
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: OK
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncTarget'
+
+  /api/sync/target-save:
+    post:
+      tags:
+        - sync
+      summary: 保存同步目标
+      description: 添加或更新同步目标服务器
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: 目标服务器 URL
+              required:
+                - url
+      responses:
+        '200':
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncTargetResponse'
+
+  /api/sync/target-delete:
+    post:
+      tags:
+        - sync
+      summary: 删除同步目标
+      description: 删除同步目标服务器
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  description: 同步目标 ID
+              required:
+                - id
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncTargetDeleteResponse'
+
+  /api/sync/pull-export:
+    post:
+      tags:
+        - sync
+      summary: 生成拉取导出数据
+      description: 生成用于拉取同步的数据包
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                repository_id:
+                  type: integer
+                  description: 仓库 ID
+                document_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: 文档 ID 列表
+              required:
+                - repository_id
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullExportResponse'
+
+  /api/sync/repository-upsert:
+    post:
+      tags:
+        - sync
+      summary: 创建或更新仓库
+      description: 在目标服务器上创建或更新仓库信息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepositoryUpsertRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryUpsertResponse'
+
+  /api/sync/repository-clear:
+    post:
+      tags:
+        - sync
+      summary: 清空仓库数据
+      description: 清空仓库的所有文档和任务数据
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                repository_id:
+                  type: integer
+                  description: 仓库 ID
+              required:
+                - repository_id
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryClearResponse'
+
+  /api/sync/task-create:
+    post:
+      tags:
+        - sync
+      summary: 创建任务
+      description: 在目标服务器上创建任务
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+
+  /api/sync/document-create:
+    post:
+      tags:
+        - sync
+      summary: 创建文档
+      description: 在目标服务器上创建文档
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentCreateResponse'
+
+  /api/sync/task-update-docid:
+    post:
+      tags:
+        - sync
+      summary: 更新任务的文档 ID
+      description: 将任务与文档关联
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                task_id:
+                  type: integer
+                  description: 任务 ID
+                document_id:
+                  type: integer
+                  description: 文档 ID
+              required:
+                - task_id
+                - document_id
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskUpdateDocIDResponse'
+
+  /api/sync/task-usage-create:
+    post:
+      tags:
+        - sync
+      summary: 创建任务用量记录
+      description: 在目标服务器上创建或覆盖任务用量记录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUsageCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskUsageCreateResponse'
+
+  /api/user-requests/{id}:
+    get:
+      tags:
+        - user-requests
+      summary: 获取用户需求详情
+      description: 根据需求 ID 获取用户需求详情
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 需求 ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserRequest'
+    delete:
+      tags:
+        - user-requests
+      summary: 删除用户需求
+      description: 删除指定的用户需求
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 需求 ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/user-requests/{id}/status:
+    patch:
+      tags:
+        - user-requests
+      summary: 更新用户需求状态
+      description: 更新用户需求的状态
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 需求 ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, processing, completed]
+                  description: 状态
+              required:
+                - status
+      responses:
+        '200':
+          description: 状态已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+components:
+  parameters:
+    RepositoryId:
+      name: id
+      in: path
+      required: true
+      description: 仓库 ID
+      schema:
+        type: integer
+    TaskId:
+      name: id
+      in: path
+      required: true
+      description: 任务 ID
+      schema:
+        type: integer
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      description: 文档 ID
+      schema:
+        type: integer
+    APIKeyId:
+      name: id
+      in: path
+      required: true
+      description: API Key ID
+      schema:
+        type: integer
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 响应码，0 表示成功
+          example: 0
+        message:
+          type: string
+          description: 响应消息
+          example: success
+        data:
+          type: object
+          description: 响应数据
+      required:
+        - code
+        - message
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: 错误信息
+        code:
+          type: integer
+          description: 错误码
+          example: 1
+        message:
+          type: string
+          description: 错误消息
+      required:
+        - error
+
+    Repository:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 仓库 ID
+        name:
+          type: string
+          description: 仓库名称
+        url:
+          type: string
+          description: 仓库 URL
+        status:
+          type: string
+          description: 仓库状态
+          enum: [initial, cloning, analyzing, ready, error]
+        branch:
+          type: string
+          description: 当前分支
+        size:
+          type: integer
+          description: 仓库大小（字节）
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+      required:
+        - id
+        - name
+        - url
+        - status
+
+    CreateRepositoryRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          description: 仓库 URL（支持 https:// 和 git@ 格式）
+          example: https://github.com/user/repo.git
+      required:
+        - url
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 任务 ID
+        repository_id:
+          type: integer
+          description: 关联的仓库 ID
+        title:
+          type: string
+          description: 任务标题
+        status:
+          type: string
+          description: 任务状态
+          enum: [pending, queued, running, success, failed, canceled]
+        writer_name:
+          type: string
+          description: 写入器名称
+        sort_order:
+          type: integer
+          description: 排序顺序
+        error:
+          type: string
+          description: 错误信息
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+      required:
+        - id
+        - repository_id
+        - title
+        - status
+
+    TaskStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: 总任务数
+        pending:
+          type: integer
+          description: 待处理任务数
+        queued:
+          type: integer
+          description: 排队中任务数
+        running:
+          type: integer
+          description: 运行中任务数
+        success:
+          type: integer
+          description: 成功任务数
+        failed:
+          type: integer
+          description: 失败任务数
+        canceled:
+          type: integer
+          description: 已取消任务数
+
+    OrchestratorStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 编排器状态
+          enum: [running, stopped, error]
+        queue_size:
+          type: integer
+          description: 队列中的任务数
+        running_tasks:
+          type: integer
+          description: 正在运行的任务数
+
+    MonitorData:
+      type: object
+      properties:
+        repositories:
+          type: integer
+          description: 仓库总数
+        tasks:
+          type: integer
+          description: 任务总数
+        running_tasks:
+          type: integer
+          description: 运行中任务数
+        queued_tasks:
+          type: integer
+          description: 排队中任务数
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 文档 ID
+        repository_id:
+          type: integer
+          description: 关联的仓库 ID
+        task_id:
+          type: integer
+          description: 关联的任务 ID
+        title:
+          type: string
+          description: 文档标题
+        content:
+          type: string
+          description: 文档内容（Markdown 格式）
+        version:
+          type: integer
+          description: 文档版本号
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+      required:
+        - id
+        - repository_id
+        - title
+        - content
+
+    TokenUsage:
+      type: object
+      properties:
+        document_id:
+          type: integer
+          description: 文档 ID
+        input_tokens:
+          type: integer
+          description: 输入 Token 数
+        output_tokens:
+          type: integer
+          description: 输出 Token 数
+        total_tokens:
+          type: integer
+          description: 总 Token 数
+        duration_ms:
+          type: integer
+          description: 执行时长（毫秒）
+
+    RatingStats:
+      type: object
+      properties:
+        average:
+          type: number
+          format: float
+          description: 平均评分
+        count:
+          type: integer
+          description: 评分总数
+        distribution:
+          type: object
+          description: 评分分布
+          properties:
+            1:
+              type: integer
+            2:
+              type: integer
+            3:
+              type: integer
+            4:
+              type: integer
+            5:
+              type: integer
+
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: API Key ID
+        name:
+          type: string
+          description: API Key 名称
+        provider:
+          type: string
+          description: 提供商
+        base_url:
+          type: string
+          description: API 地址
+        api_key:
+          type: string
+          description: API Key（脱敏）
+        model:
+          type: string
+          description: 模型名称
+        priority:
+          type: integer
+          description: 优先级
+        status:
+          type: string
+          description: 状态
+          enum: [enabled, disabled]
+        request_count:
+          type: integer
+          description: 请求次数
+        error_count:
+          type: integer
+          description: 错误次数
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+      required:
+        - id
+        - name
+        - provider
+        - base_url
+        - model
+
+    CreateAPIKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: API Key 名称
+        provider:
+          type: string
+          description: 提供商
+        base_url:
+          type: string
+          description: API 地址
+        api_key:
+          type: string
+          description: API Key
+        model:
+          type: string
+          description: 模型名称
+        priority:
+          type: integer
+          description: 优先级
+      required:
+        - name
+        - provider
+        - base_url
+        - api_key
+        - model
+
+    UpdateAPIKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: API Key 名称
+        provider:
+          type: string
+          description: 提供商
+        base_url:
+          type: string
+          description: API 地址
+        model:
+          type: string
+          description: 模型名称
+        priority:
+          type: integer
+          description: 优先级
+
+    APIKeyStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: 总 API Key 数
+        enabled:
+          type: integer
+          description: 启用的 API Key 数
+        disabled:
+          type: integer
+          description: 禁用的 API Key 数
+        total_requests:
+          type: integer
+          description: 总请求数
+        total_errors:
+          type: integer
+          description: 总错误数
+
+    UserRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 需求 ID
+        repository_id:
+          type: integer
+          description: 关联的仓库 ID
+        content:
+          type: string
+          description: 需求内容
+          maxLength: 200
+        status:
+          type: string
+          description: 状态
+          enum: [pending, processing, completed]
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+      required:
+        - id
+        - repository_id
+        - content
+        - status
+
+    CreateUserRequestRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          description: 需求内容
+          maxLength: 200
+      required:
+        - content
+
+    StartSyncRequest:
+      type: object
+      properties:
+        target_server:
+          type: string
+          description: 目标服务器地址
+        repository_id:
+          type: integer
+          description: 仓库 ID
+        document_ids:
+          type: array
+          items:
+            type: integer
+          description: 文档 ID 列表
+        clear_target:
+          type: boolean
+          description: 是否清空目标服务器数据
+      required:
+        - target_server
+        - repository_id
+
+    PullSyncRequest:
+      type: object
+      properties:
+        target_server:
+          type: string
+          description: 目标服务器地址
+        repository_id:
+          type: integer
+          description: 仓库 ID
+        document_ids:
+          type: array
+          items:
+            type: integer
+          description: 文档 ID 列表
+        clear_local:
+          type: boolean
+          description: 是否清空本地数据
+      required:
+        - target_server
+        - repository_id
+
+    StartSyncResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            sync_id:
+              type: string
+              description: 同步任务 ID
+            repository_id:
+              type: integer
+              description: 仓库 ID
+            total_tasks:
+              type: integer
+              description: 总任务数
+            status:
+              type: string
+              description: 状态
+
+    SyncStatus:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            sync_id:
+              type: string
+            repository_id:
+              type: integer
+            total_tasks:
+              type: integer
+            completed_tasks:
+              type: integer
+            failed_tasks:
+              type: integer
+            status:
+              type: string
+            current_task:
+              type: string
+            started_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    SyncEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        repository_id:
+          type: integer
+        mode:
+          type: string
+          enum: [push, pull]
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    SyncRepository:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        url:
+          type: string
+
+    SyncDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        repository_id:
+          type: integer
+        task_id:
+          type: integer
+        title:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+
+    SyncTarget:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SyncTargetResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            url:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    SyncTargetDeleteResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+
+    PullExportResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          description: 导出数据
+
+    RepositoryUpsertRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 仓库 ID（更新时使用）
+        name:
+          type: string
+          description: 仓库名称
+        url:
+          type: string
+          description: 仓库 URL
+        status:
+          type: string
+          description: 状态
+        branch:
+          type: string
+          description: 分支
+
+    RepositoryUpsertResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            repository_id:
+              type: integer
+            name:
+              type: string
+
+    RepositoryClearResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            repository_id:
+              type: integer
+
+    TaskCreateRequest:
+      type: object
+      properties:
+        task_id:
+          type: integer
+          description: 任务 ID
+        repository_id:
+          type: integer
+          description: 仓库 ID
+        title:
+          type: string
+          description: 任务标题
+        status:
+          type: string
+          description: 状态
+        writer_name:
+          type: string
+          description: 写入器名称
+        sort_order:
+          type: integer
+          description: 排序顺序
+
+    TaskCreateResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            task_id:
+              type: integer
+            repository_id:
+              type: integer
+            title:
+              type: string
+
+    DocumentCreateRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 文档 ID
+        repository_id:
+          type: integer
+          description: 仓库 ID
+        task_id:
+          type: integer
+          description: 任务 ID
+        title:
+          type: string
+          description: 标题
+        content:
+          type: string
+          description: 内容
+        version:
+          type: integer
+          description: 版本号
+
+    DocumentCreateResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            document_id:
+              type: integer
+            repository_id:
+              type: integer
+            task_id:
+              type: integer
+
+    TaskUpdateDocIDResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            task_id:
+              type: integer
+            document_id:
+              type: integer
+
+    TaskUsageCreateRequest:
+      type: object
+      properties:
+        task_id:
+          type: integer
+          description: 任务 ID
+        repository_id:
+          type: integer
+          description: 仓库 ID
+        input_tokens:
+          type: integer
+          description: 输入 Token 数
+        output_tokens:
+          type: integer
+          description: 输出 Token 数
+        total_tokens:
+          type: integer
+          description: 总 Token 数
+        duration_ms:
+          type: integer
+          description: 执行时长（毫秒）
+
+    TaskUsageCreateResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: OK
+        data:
+          type: object
+          properties:
+            task_id:
+              type: integer
+
+    IncrementalHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+        repository_id:
+          type: integer
+        commit_hash:
+          type: string
+          description: 提交哈希
+        commit_message:
+          type: string
+          description: 提交消息
+        created_at:
+          type: string
+          format: date-time

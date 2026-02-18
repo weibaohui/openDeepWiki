@@ -149,6 +149,10 @@ func main() {
 	syncHandler := handler.NewSyncHandler(syncService)
 	userRequestHandler := handler.NewUserRequestHandler(userRequestService, taskEventBus, taskService)
 
+	// 初始化 OpenAPIHandler（AI 友好 API 端点）
+	// 提供 /.well-known/openapi.yaml 端点，供 AI 工具使用
+	openAPIHandler := handler.NewOpenAPIHandler(".well-known/openapi.yaml")
+
 	// 初始化 EnhancedModelProvider 并设置到 Manager
 	manager, err := adkagents.GetOrCreateInstanceWithDocRepo(cfg, docRepo)
 	if err != nil {
@@ -165,7 +169,7 @@ func main() {
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

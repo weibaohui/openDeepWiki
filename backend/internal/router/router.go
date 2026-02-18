@@ -16,6 +16,7 @@ func Setup(
 	apiKeyHandler *handler.APIKeyHandler,
 	syncHandler *handler.SyncHandler,
 	userRequestHandler *handler.UserRequestHandler,
+	openAPIHandler *handler.OpenAPIHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -100,6 +101,13 @@ func Setup(
 			userRequests.DELETE("/:id", userRequestHandler.DeleteUserRequest)
 			userRequests.PATCH("/:id/status", userRequestHandler.UpdateUserRequestStatus)
 		}
+	}
+
+	// OpenAPI 文档端点（AI 友好 API 端点）
+	// 符合 RFC 8615 规范的 .well-known URI
+	// 提供 OpenAPI 3.0 规范文档，供 AI 工具使用
+	if openAPIHandler != nil {
+		r.GET("/.well-known/openapi.yaml", openAPIHandler.ServeOpenAPI)
 	}
 
 	// 设置前端静态文件路由（嵌入式）
