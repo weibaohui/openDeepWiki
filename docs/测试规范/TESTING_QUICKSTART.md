@@ -3,7 +3,7 @@
 ## 已创建的测试文件
 
 ```
-opendeepwiki-testing/
+opendeepwiki/
 ├── backend/
 │   └── internal/
 │       ├── model/
@@ -33,7 +33,7 @@ opendeepwiki-testing/
 ### 1. 运行所有测试
 
 ```bash
-cd /Users/weibh/projects/go/opendeepwiki-testing/backend
+cd backend
 go test -v ./...
 ```
 
@@ -90,7 +90,7 @@ go test -race ./...
 ### 1. 安装依赖
 
 ```bash
-cd /Users/weibh/projects/go/opendeepwiki-testing/frontend
+cd frontend
 pnpm install
 ```
 
