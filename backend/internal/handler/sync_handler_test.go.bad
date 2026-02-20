@@ -1,0 +1,629 @@
+package handler
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
+)
+
+// TestSyncHandler_Ping 测试同步ping
+func TestSyncHandler_Ping(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/sync/ping", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]string
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "OK", response["code"])
+}
+
+// TestSyncHandler_Start 测试启动同步（服务为nil时的错误处理）
+func TestSyncHandler_Start(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"target_server": "http://target-server/api/sync",
+		"repository_id": 1,
+		"document_ids":  []uint{1, 2},
+		"clear_target": false,
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_Pull 测试启动拉取（服务为nil时的错误处理）
+func TestSyncHandler_Pull(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"target_server": "http://target-server/api/sync",
+		"repository_id": 1,
+		"document_ids":  []uint{1, 2},
+		"clear_local":   false,
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/pull", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_Status 测试获取同步状态（服务为nil时的错误处理）
+func TestSyncHandler_Status(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/sync/status/sync-123", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, sync will not be found
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// TestSyncHandler_EventList 测试获取同步事件列表（服务为nil时的错误处理）
+func TestSyncHandler_EventList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/sync/event-list?limit=10", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will panic and recovery returns 500
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// TestSyncHandler_RepositoryList 测试获取仓库列表（服务为nil时的错误处理）
+func TestSyncHandler_RepositoryList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/sync/repository-list", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_DocumentList 测试获取文档列表（服务为nil时的错误处理）
+func TestSyncHandler_DocumentList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/sync/document-list?repository_id=1", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_TargetList 测试获取同步目标列表（服务为nil时的错误处理）
+func TestSyncHandler_TargetList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/sync/target-list", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_TargetSave 测试保存同步目标（服务为nil时的错误处理）
+func TestSyncHandler_TargetSave(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"url": "http://new-server/api/sync",
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/target-save", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_TargetDelete 测试删除同步目标（服务为nil时的错误处理）
+func TestSyncHandler_TargetDelete(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"id": 1,
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/target-delete", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_PullExport 测试拉取导出（服务为nil时的错误处理）
+func TestSyncHandler_PullExport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"repository_id": 1,
+		"document_ids":  []uint{1, 2},
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/pull-export", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_RepositoryUpsert 测试创建或更新仓库（服务为nil时的错误处理）
+func TestSyncHandler_RepositoryUpsert(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"name":          "test-repo",
+		"url":           "https://github.com/test/repo",
+		"clone_branch":  "main",
+		"clone_commit":  "abc123",
+		"status":        "ready",
+		"size_mb":       10.5,
+		"error_msg":     "",
+		"local_path":    "/path/to/repo",
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/repository-upsert", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_RepositoryClear 测试清空仓库数据（服务为nil时的错误处理）
+func TestSyncHandler_RepositoryClear(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"repository_id": 1,
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/repository-clear", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_TaskCreate 测试创建任务（服务为nil时的错误处理）
+func TestSyncHandler_TaskCreate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"repository_id": 1,
+		"title":         "Test Task",
+		"task_type":     "DocWrite",
+		"writer_name":   "DefaultWriter",
+		"sort_order":    10,
+		"run_after":     0,
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/task-create", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_DocumentCreate 测试创建文档（服务为nil时的错误处理）
+func TestSyncHandler_DocumentCreate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"repository_id": 1,
+		"task_id":        1,
+		"title":          "Test Document",
+		"filename":       "test.md",
+		"content":        "Test content",
+		"sort_order":     10,
+		"version":        1,
+		"is_latest":      true,
+		"clone_branch":   "main",
+		"clone_commit":   "abc123",
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/document-create", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_TaskUpdateDocID 测试更新任务文档ID（服务为nil时的错误处理）
+func TestSyncHandler_TaskUpdateDocID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"task_id":     1,
+		"document_id": 1,
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/task-update-docid", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_TaskUsageCreate 测试创建任务用量记录（服务为nil时的错误处理）
+func TestSyncHandler_TaskUsageCreate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	requestBody := map[string]interface{}{
+		"task_id":           1,
+		"api_key_name":      "test-key",
+		"prompt_tokens":     100,
+		"completion_tokens": 50,
+		"total_tokens":      150,
+		"cached_tokens":     0,
+		"reasoning_tokens":  0,
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/sync/task-usage-create", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Without a service, this will fail
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestSyncHandler_RequestValidation 测试请求验证
+func TestSyncHandler_RequestValidation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	tests := []struct {
+		name           string
+		endpoint       string
+		requestBody    string
+		expectedStatus int
+	}{
+		{
+			name:           "无效的JSON - Start",
+			endpoint:       "/api/v1/sync",
+			requestBody:    "invalid json",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "无效的JSON - Pull",
+			endpoint:       "/api/v1/sync/pull",
+			requestBody:    "invalid json",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "无效的JSON - TargetSave",
+			endpoint:       "/api/v1/sync/target-save",
+			requestBody:    "invalid json",
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest(http.MethodPost, tt.endpoint, bytes.NewBufferString(tt.requestBody))
+			req.Header.Set("Content-Type", "application/json")
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+		})
+	}
+}
+
+// TestSyncHandler_MissingRequiredFields 测试缺少必填字段
+func TestSyncHandler_MissingRequiredFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+
+	api := router.Group("/api/v1/sync")
+	h.RegisterRoutes(api)
+
+	tests := []struct {
+		name           string
+		endpoint       string
+		requestBody    map[string]interface{}
+		expectedStatus int
+	}{
+		{
+			name:     "Start - 缺少repository_id",
+			endpoint: "/api/v1/sync",
+			requestBody: map[string]interface{}{
+				"target_server": "http://target-server/api/sync",
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:     "DocumentList - 缺少repository_id",
+			endpoint: "/api/v1/sync/document-list",
+			requestBody: map[string]interface{}{},
+		},
+		{
+			name:     "RepositoryClear - 缺少repository_id",
+			endpoint: "/api/v1/sync/repository-clear",
+			requestBody: map[string]interface{}{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var req *http.Request
+			if tt.requestBody != nil {
+				body, _ := json.Marshal(tt.requestBody)
+				req, _ = http.NewRequest(http.MethodPost, tt.endpoint, bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+			} else {
+				req, _ = http.NewRequest(http.MethodGet, tt.endpoint, nil)
+			}
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+		})
+	}
+}
+
+// TestSyncHandler_Routes 测试路由注册
+func TestSyncHandler_Routes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Add recovery middleware to handle panics from nil service
+	router.Use(gin.Recovery())
+	router := gin.New()
+
+	h := NewSyncHandler(nil)
+	h.RegisterRoutes(router.Group("/api/v1/sync"))
+
+	// Check that routes are registered
+	routes := router.Routes()
+
+	expectedRoutes := []string{
+		"/api/v1/sync/ping",
+		"/api/v1/sync",
+		"/api/v1/sync/pull",
+		"/api/v1/sync/status/:sync_id",
+		"/api/v1/sync/event-list",
+		"/api/v1/sync/repository-list",
+		"/api/v1/sync/document-list",
+		"/api/v1/sync/target-list",
+		"/api/v1/sync/target-save",
+		"/api/v1/sync/target-delete",
+		"/api/v1/sync/pull-export",
+		"/api/v1/sync/repository-upsert",
+		"/api/v1/sync/repository-clear",
+		"/api/v1/sync/task-create",
+		"/api/v1/sync/document-create",
+		"/api/v1/sync/task-update-docid",
+		"/api/v1/sync/task-usage-create",
+	}
+
+	routePaths := make(map[string]bool)
+	for _, route := range routes {
+		routePaths[route.Path] = true
+	}
+
+	for _, expectedRoute := range expectedRoutes {
+		assert.True(t, routePaths[expectedRoute], "Route %s should be registered", expectedRoute)
+	}
+}
+
+// TestSyncServiceType 测试同步服务类型
+func TestSyncServiceType(t *testing.T) {
+	// Just verify the service type exists
+	var _ syncservice.Service
+	t.Log("syncservice.Service type verified")
+}
