@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test files
+src/**/*.test.tsx
+src/**/*.test.ts
