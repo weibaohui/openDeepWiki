@@ -1,7 +1,7 @@
 // Vitest 测试设置文件
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 
 // 每个测试后清理
 afterEach(() => {
@@ -22,3 +22,28 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => {},
   }),
 })
+
+// Mock getComputedStyle for antd table components
+Object.defineProperty(window, 'getComputedStyle', {
+  writable: true,
+  value: vi.fn(() => ({
+    getPropertyValue: vi.fn(() => ''),
+    width: '0px',
+    height: '0px',
+  })),
+})
+
+// Mock clipboard API
+Object.assign(navigator, {
+  clipboard: {
+    writeText: vi.fn(() => Promise.resolve()),
+    readText: vi.fn(() => Promise.resolve('')),
+  },
+})
+
+// Mock ResizeObserver
+global.ResizeObserver = vi.fn(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}))

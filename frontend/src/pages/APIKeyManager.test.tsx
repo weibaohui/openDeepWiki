@@ -6,14 +6,62 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { rest } from 'msw'
+import { http } from 'msw'
 import { setupServer } from 'msw/node'
 import userEvent from '@testing-library/user-event'
 import APIKeyManager from './APIKeyManager'
 import * as api from '../services/api'
 
+// Mock antd message
+vi.mock('antd', async () => {
+  const antd = await vi.importActual<any>('antd')
+  return {
+    ...antd,
+    message: {
+      useMessage: () => [{ error: vi.fn(), success: vi.fn(), warning: vi.fn() }],
+    },
+  }
+})
+
+// Mock ThemeSwitcher
+vi.mock('@/components/common/ThemeSwitcher', () => ({
+  ThemeSwitcher: () => <div>ThemeSwitcher</div>,
+}))
+
+// Mock LanguageSwitcher
+vi.mock('@/components/common/LanguageSwitcher', () => ({
+  LanguageSwitcher: () => <div>LanguageSwitcher</div>,
+}))
+
+// Mock useAppConfig
+vi.mock('@/context/AppConfigContext', () => ({
+  useAppConfig: () => ({
+    t: (key: string, fallback?: string) => fallback || key,
+    themeMode: 'light',
+    locale: 'en-US',
+    setLocale: vi.fn(),
+    setThemeMode: vi.fn(),
+  }),
+}))
+
+// Setup MSW handlers for vitest
+import { HttpResponse } from 'msw'
+
+// Mock MSW handlers
+const handlers = [
+  http.get('/api/api-keys', () => {
+    return HttpResponse.json({
+      data: mockAPIKeys,
+      total: mockAPIKeys.length
+    })
+  }),
+  http.get('/api/api-keys/stats', () => {
+    return HttpResponse.json(mockStats)
+  }),
+]
+
 // Mock MSW 服务器
-const server = setupServer()
+const server = setupServer(...handlers)
 
 // API 类型定义
 interface APIKey {
@@ -82,7 +130,22 @@ const mockStats: APIKeyStats = {
   total_errors: 7,
 }
 
-beforeAll(() => server.listen())
+beforeAll(() => server.listen({
+  onUnhandledRequest: 'warn',
+}))
+beforeEach(() => {
+  // 添加额外的处理器用于测试中动态添加的 API
+  server.use(
+    http.get('/api/api-keys', ({ request }) => {
+      console.log('MSW: GET /api/api-keys', request.url)
+      return HttpResponse.json({ data: mockAPIKeys, total: mockAPIKeys.length })
+    }),
+    http.get('/api/api-keys/stats', ({ request }) => {
+      console.log('MSW: GET /api/api-keys/stats', request.url)
+      return HttpResponse.json(mockStats)
+    })
+  )
+})
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
@@ -94,26 +157,6 @@ const renderWithRouter = (component: React.ReactNode) => {
 }
 
 describe('APIKeyManager', () => {
-  beforeEach(() => {
-    // Mock API 调用
-    server.use(
-      rest.get('/api-keys', (req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json({
-            data: mockAPIKeys,
-            total: mockAPIKeys.length
-          })
-        )
-      }),
-      rest.get('/api-keys/stats', (req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json(mockStats)
-        )
-      })
-    )
-  })
 
   describe('渲染测试', () => {
     it('应该正确渲染页面标题', async () => {
@@ -243,12 +286,7 @@ describe('APIKeyManager', () => {
 
       // Mock 状态更新 API
       server.use(
-        rest.patch('/api-keys/1/status', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({ message: 'status updated successfully' })
-          )
-        })
+        http.patch('/api/api-keys/1/status', () => HttpResponse.json({ message: 'status updated successfully' }, { status: 200 }))
       )
 
       renderWithRouter(<APIKeyManager />)
@@ -297,16 +335,11 @@ describe('APIKeyManager', () => {
 
       // Mock 创建 API
       server.use(
-        rest.post('/api-keys', (req, res, ctx) => {
-          return res(
-            ctx.status(201),
-            ctx.json({
+        http.post('/api/api-keys', () => HttpResponse.json({
               ...mockAPIKeys[0],
               id: 3,
               name: 'new-api-key'
-            })
-          )
-        })
+            }, { status: 201 }))
       )
 
       renderWithRouter(<APIKeyManager />)
@@ -331,15 +364,10 @@ describe('APIKeyManager', () => {
   describe('边界情况测试', () => {
     it('当 API 返回空列表时应该显示空状态', async () => {
       server.use(
-        rest.get('/api-keys', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({
+        http.get('/api/api-keys', () => HttpResponse.json({
               data: [],
               total: 0
-            })
-          )
-        })
+            }, { status: 200 }))
       )
 
       renderWithRouter(<APIKeyManager />)
@@ -355,12 +383,7 @@ describe('APIKeyManager', () => {
 
     it('当 API 返回错误时应该显示错误信息', async () => {
       server.use(
-        rest.get('/api-keys', (req, res, ctx) => {
-          return res(
-            ctx.status(500),
-            ctx.json({ error: 'Server error' })
-          )
-        })
+        http.get('/api/api-keys', () => HttpResponse.json({ error: 'Server error' }, { status: 500 }))
       )
 
       renderWithRouter(<APIKeyManager />)
