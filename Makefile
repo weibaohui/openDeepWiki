@@ -4,7 +4,18 @@ LINUX_PLATFORMS := \
     linux/arm64 \
     linux/amd64
 
-.PHONY: all build run dev clean air
+# 定义所有支持的平台和架构（跨平台构建）
+ALL_PLATFORMS := \
+    linux/amd64 \
+    linux/arm64 \
+    linux/386 \
+    windows/amd64 \
+    windows/arm64 \
+    windows/386 \
+    darwin/amd64 \
+    darwin/arm64
+
+.PHONY: all build run dev clean air build-linux build-all
 
 all: build
 
@@ -12,19 +23,39 @@ all: build
 
 
 # 为所有指定的平台和架构构建可执行文件
-.PHONY: build-linux
+.PHONY: build-linux build-linux-cross
 build-linux-cross:
 	@echo "为所有平台构建可执行文件..."
 	@mkdir -p backend/bin
 	@cd backend && for platform in $(LINUX_PLATFORMS); do \
 		GOOS=$${platform%/*} GOARCH=$${platform#*/}; \
 		echo "构建平台: $$GOOS/$$GOARCH ..."; \
-		OUTPUT_FILE="bin/server-$$GOOS-$$GOARCH"; \
+		OUTPUT_FILE="bin/openDeepWiki-$$GOOS-$$GOARCH"; \
 		echo "输出文件: $$OUTPUT_FILE"; \
 		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.GitTag=$(GIT_TAG) -X main.GitRepo=$(GIT_REPOSITORY)" -o "$$OUTPUT_FILE" ./cmd/server/; \
 	done
 
 build-linux: build-frontend prepare-embed build-linux-cross cleanup-embed
+
+# 为所有指定平台和架构构建可执行文件（Linux + Windows + macOS）
+.PHONY: build-all-cross
+build-all-cross:
+	@echo "为所有平台构建可执行文件..."
+	@mkdir -p backend/bin
+	@cd backend && for platform in $(ALL_PLATFORMS); do \
+		GOOS=$${platform%/*} GOARCH=$${platform#*/}; \
+		echo "构建平台: $$GOOS/$$GOARCH ..."; \
+		OUTPUT_FILE="bin/openDeepWiki-$$GOOS-$$GOARCH"; \
+		if [ "$$GOOS" = "windows" ]; then \
+			OUTPUT_FILE="bin/openDeepWiki-$$GOOS-$$GOARCH.exe"; \
+		fi; \
+		echo "输出文件: $$OUTPUT_FILE"; \
+		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.GitTag=$(GIT_TAG) -X main.GitRepo=$(GIT_REPOSITORY)" -o "$$OUTPUT_FILE" ./cmd/server/; \
+	done
+
+# Build all platforms with embedded frontend
+build-all: build-frontend prepare-embed build-all-cross cleanup-embed
+	@echo "所有平台构建完成！"
 
 # Build backend with embedded frontend
 build-backend:
@@ -33,7 +64,7 @@ build-backend:
 	@mkdir -p backend/bin
 	@cd backend && GOOS=$(shell go env GOOS) GOARCH=$(shell go env GOARCH) \
 	    CGO_ENABLED=0 go build -ldflags "-s -w  -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT)  -X main.GitTag=$(GIT_TAG)  -X main.GitRepo=$(GIT_REPOSITORY)   " \
-	    -o "bin/server" ./cmd/server/
+	    -o "bin/openDeepWiki" ./cmd/server/
 # Build frontend
 build-frontend:
 	@echo "Building frontend..."
@@ -59,7 +90,7 @@ cleanup-embed:
 
 # Run backend
 run-backend:
-	cd backend && ./bin/server -v 6
+	cd backend && ./bin/openDeepWiki -v 6
 
 # Run frontend dev server
 run-frontend:

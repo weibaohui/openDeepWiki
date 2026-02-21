@@ -41,12 +41,13 @@ jobs:
 
       - name: 编译后端
         run: |
-          make build  GIT_COMMIT=${{ github.sha }} GIT_TAG=${{ github.ref_name }} GIT_REPOSITORY=${{ github.repository }} BUILD_DATE=${{ env.BUILD_TIME }} VERSION=${{ github.ref_name }}
+          make build-all GIT_COMMIT=${{ github.sha }} GIT_TAG=${{ github.ref_name }} GIT_REPOSITORY=${{ github.repository }} BUILD_DATE=${{ env.BUILD_TIME }} VERSION=${{ github.ref_name }}
 
       - name: 上传二进制
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: backend/bin/server
+          file: backend/bin/openDeepWiki-*
           tag: ${{ github.ref }}
           overwrite: true
+          file_glob: true
