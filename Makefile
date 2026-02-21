@@ -16,13 +16,12 @@ all: build
 build-linux-cross:
 	@echo "为所有平台构建可执行文件..."
 	@mkdir -p backend/bin
-	@cd backend && ls -l &&for platform in $(LINUX_PLATFORMS); do \
+	@cd backend && for platform in $(LINUX_PLATFORMS); do \
 		GOOS=$${platform%/*} GOARCH=$${platform#*/}; \
 		echo "构建平台: $$GOOS/$$GOARCH ..."; \
-		OUTPUT_FILE="bin/server-$$GOOS-$$GOARCH$$EXT"; \
+		OUTPUT_FILE="bin/server-$$GOOS-$$GOARCH"; \
 		echo "输出文件: $$OUTPUT_FILE"; \
-		echo "执行命令: GOOS=$$GOOS GOARCH=$$GOARCH go build -ldflags \"-s -w \" -o $$OUTPUT_FILE ./cmd/server/"; \
-		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w  " -o "$$OUTPUT_FILE" ./cmd/server/; \
+		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.GitTag=$(GIT_TAG) -X main.GitRepo=$(GIT_REPOSITORY)" -o "$$OUTPUT_FILE" ./cmd/server/; \
 	done
 
 build-linux: build-frontend prepare-embed build-linux-cross cleanup-embed

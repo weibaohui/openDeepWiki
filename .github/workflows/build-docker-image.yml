@@ -65,7 +65,7 @@ jobs:
 
       - name: Get current date
         id: date
-        run: echo "::set-output name=today::$(date +'%Y%m%d-%H%M')"
+        run: echo "today=$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -119,12 +119,11 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:latest
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:${{ steps.date.outputs.today }}
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_REPONAME }}:${{ env.GITHUB_REF_NAME }}
+      - name: Set up Flyctl
+        if: github.event_name == 'release'
+        uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Fly
-        #if: startsWith(github.ref, 'refs/tags/v')
-        uses: superfly/flyctl-actions@v1
-        with:
-          args: >
-            deploy -a opendeepwiki 
-            --image ghcr.io/weibaohui/opendeepwiki:latest
+        if: github.event_name == 'release'
+        run: flyctl deploy -a opendeepwiki --image ghcr.io/${{ github.repository_owner }}/opendeepwiki:latest
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
