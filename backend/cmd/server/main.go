@@ -59,12 +59,14 @@ func main() {
 	syncEventRepo := repository.NewSyncEventRepository(db)
 	incrementalHistoryRepo := repository.NewIncrementalUpdateHistoryRepository(db)
 	userRequestRepo := repository.NewUserRequestRepository(db)
+	agentVersionRepo := repository.NewAgentVersionRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo)
 	taskUsageService := service.NewTaskUsageService(taskUsageRepo)
 	userRequestService := service.NewUserRequestService(userRequestRepo, repoRepo)
+	agentService := service.NewAgentService(agentVersionRepo, cfg.Agent.Dir)
 
 	//初始化系列Writer
 	titleRewriter, err := writers.NewTitleRewriter(cfg, docRepo, taskRepo)
@@ -162,6 +164,8 @@ func main() {
 	syncHandler := handler.NewSyncHandler(syncService)
 	userRequestHandler := handler.NewUserRequestHandler(userRequestService, taskEventBus, taskService)
 
+	agentHandler := handler.NewAgentHandler(agentService)
+
 	// 初始化 OpenAPIHandler（AI 友好 API 端点）
 	// 提供 /.well-known/openapi.yaml 端点，供 AI 工具使用
 	openAPIHandler := handler.NewOpenAPIHandler(".well-known/openapi.yaml")
@@ -182,7 +186,7 @@ func main() {
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)
