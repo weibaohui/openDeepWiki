@@ -12,7 +12,6 @@ import (
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
-	LLM      LLMConfig      `yaml:"llm"`
 	Data     DataConfig     `yaml:"data"`
 	Agent    AgentConfig    `yaml:"agent"`
 	Skill    SkillConfig    `yaml:"skill"`
@@ -27,13 +26,6 @@ type ServerConfig struct {
 type DatabaseConfig struct {
 	Type string `yaml:"type"` // sqlite, mysql
 	DSN  string `yaml:"dsn"`
-}
-
-type LLMConfig struct {
-	APIURL    string `yaml:"api_url"`
-	APIKey    string `yaml:"api_key"`
-	Model     string `yaml:"model"`
-	MaxTokens int    `yaml:"max_tokens"`
 }
 
 type DataConfig struct {
@@ -78,11 +70,6 @@ func loadConfig() *Config {
 			Type: "sqlite",
 			DSN:  "./data/app.db",
 		},
-		LLM: LLMConfig{
-			APIURL:    "https://api.openai.com/v1",
-			Model:     "gpt-4o",
-			MaxTokens: 4096,
-		},
 		Data: DataConfig{
 			Dir:     "./data",
 			RepoDir: "./data/repos",
@@ -111,17 +98,6 @@ func loadConfig() *Config {
 	data, err := os.ReadFile(configPath)
 	if err == nil {
 		yaml.Unmarshal(data, config)
-	}
-
-	// 环境变量优先级高于配置文件
-	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		config.LLM.APIKey = apiKey
-	}
-	if baseURL := os.Getenv("OPENAI_BASE_URL"); baseURL != "" {
-		config.LLM.APIURL = baseURL
-	}
-	if model := os.Getenv("OPENAI_MODEL_NAME"); model != "" {
-		config.LLM.Model = model
 	}
 
 	// 数据库环境变量

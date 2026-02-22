@@ -1,9 +1,7 @@
 # openDeepWiki 配置文件
-# 
-# LLM 配置支持从环境变量自动获取（优先级高于配置文件）：
-#   - OPENAI_API_KEY    -> llm.api_key
-#   - OPENAI_BASE_URL   -> llm.api_url
-#   - OPENAI_MODEL_NAME -> llm.model
+#
+# LLM 配置已移除，现在完全使用数据库中的 API Key 配置
+# 请通过 API 接口或数据库直接管理 API Key
 
 server:
   port: "8080"
@@ -12,13 +10,6 @@ server:
 database:
   type: "sqlite"  # sqlite or mysql
   dsn: "./data/app.db"
-
-llm:
-  # 以下配置可通过环境变量覆盖
-  api_url: "https://api.openai.com/v1"
-  api_key: ""  # 推荐使用环境变量 OPENAI_API_KEY
-  model: "gpt-4o"
-  max_tokens: 4096
 
 github:
   token: ""  # optional, for private repositories

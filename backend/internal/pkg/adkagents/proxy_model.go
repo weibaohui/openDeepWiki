@@ -2,6 +2,7 @@ package adkagents
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cloudwego/eino/components/model"
@@ -29,40 +30,45 @@ func NewProxyChatModel(provider *EnhancedModelProviderImpl, modelNames []string)
 
 // Generate 实现 model.ChatModel 接口
 func (p *ProxyChatModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
-	result, err := p.executeWithModel(ctx, input, opts, func(model *ModelWithMetadata) (interface{}, error) {
+	result, err := p.executeWithModel(ctx, input, opts, func(model *ModelWithMetadata) (any, error) {
 		return model.ChatModel.Generate(ctx, input, opts...)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*schema.Message), nil
+	msg, ok := result.(*schema.Message)
+	if !ok {
+		klog.Errorf("ProxyChatModel.Generate: unexpected result type %T", result)
+		return nil, fmt.Errorf("unexpected result type: expected *schema.Message, got %T", result)
+	}
+	return msg, nil
 }
 
 // Stream 实现 model.ChatModel 接口
 func (p *ProxyChatModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
-	result, err := p.executeWithModel(ctx, input, opts, func(model *ModelWithMetadata) (interface{}, error) {
+	result, err := p.executeWithModel(ctx, input, opts, func(model *ModelWithMetadata) (any, error) {
 		return model.ChatModel.Stream(ctx, input, opts...)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*schema.StreamReader[*schema.Message]), nil
+	stream, ok := result.(*schema.StreamReader[*schema.Message])
+	if !ok {
+		klog.Errorf("ProxyChatModel.Stream: unexpected result type %T", result)
+		return nil, fmt.Errorf("unexpected result type: expected *schema.StreamReader[*schema.Message], got %T", result)
+	}
+	return stream, nil
 }
 
 // executeWithModel 模板方法：消除 Generate 和 Stream 的重复代码
 func (p *ProxyChatModel) executeWithModel(
 	ctx context.Context,
-	input []*schema.Message,
-	opts []model.Option,
-	executor func(model *ModelWithMetadata) (interface{}, error),
-) (interface{}, error) {
+	_ []*schema.Message,
+	_ []model.Option,
+	executor func(model *ModelWithMetadata) (any, error),
+) (any, error) {
 	// 1. 获取模型
 	model, err := p.getModel(ctx)
-	if fallback, ok := err.(*FallbackToDefault); ok {
-		// 兜底到默认模型
-		p.toolBinder.BindToModel(fallback.Model)
-		return fallback.Model.Generate(ctx, input, opts...)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +95,15 @@ func (p *ProxyChatModel) executeWithModel(
 
 	// 6. 记录请求
 	if model.APIKeyID > 0 {
-		_ = p.provider.apiKeyService.RecordRequest(ctx, model.APIKeyID, true)
+		if err := p.provider.apiKeyService.RecordRequest(ctx, model.APIKeyID, true); err != nil {
+			klog.Warningf("ProxyChatModel: failed to record request for APIKeyID %d: %v", model.APIKeyID, err)
+		}
 	}
 
 	return result, nil
 }
 
-// getModel 获取模型，支持兜底逻辑
+// getModel 获取模型
 func (p *ProxyChatModel) getModel(ctx context.Context) (*ModelWithMetadata, error) {
 	models, err := p.provider.GetModelPool(ctx, p.modelNames)
 	if err != nil {
@@ -103,11 +111,7 @@ func (p *ProxyChatModel) getModel(ctx context.Context) (*ModelWithMetadata, erro
 	}
 
 	if len(models) == 0 {
-		// 如果没有可用模型，且未指定特定模型名称，尝试使用 Env 默认模型
-		if len(p.modelNames) == 0 {
-			klog.Warningf("ProxyChatModel: no DB models available, falling back to Env default model")
-			return nil, &FallbackToDefault{Model: p.provider.DefaultModel()}
-		}
+		klog.Errorf("ProxyChatModel: no available models in database")
 		return nil, ErrNoAvailableModel
 	}
 

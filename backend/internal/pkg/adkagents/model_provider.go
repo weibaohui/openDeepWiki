@@ -2,7 +2,6 @@ package adkagents
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -18,10 +17,6 @@ type EnhancedModelProviderImpl struct {
 	apiKeyRepo       repository.APIKeyRepository
 	apiKeyService    APIKeyService
 	taskUsageService TaskUsageService
-	defaultModel     *ModelWithMetadata
-	modelCache       map[string]*ModelWithMetadata
-	modelCacheMutex  sync.RWMutex
-	switcher         *ModelSwitcher
 }
 
 // NewEnhancedModelProvider 创建增强的模型提供者
@@ -31,24 +26,11 @@ func NewEnhancedModelProvider(
 	apiKeyService APIKeyService,
 	taskUsageService TaskUsageService,
 ) (*EnhancedModelProviderImpl, error) {
-	// 创建默认模型
-	defaultChatModel, err := NewLLMChatModel(cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	provider := &EnhancedModelProviderImpl{
 		config:           cfg,
 		apiKeyRepo:       apiKeyRepo,
 		apiKeyService:    apiKeyService,
 		taskUsageService: taskUsageService,
-		defaultModel: &ModelWithMetadata{
-			ChatModel:  *defaultChatModel,
-			APIKeyName: "default",
-			APIKeyID:   0,
-		},
-		modelCache: make(map[string]*ModelWithMetadata),
-		switcher:   NewModelSwitcher(apiKeyService),
 	}
 
 	return provider, nil
@@ -66,32 +48,15 @@ func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, er
 			// 使用查到的名称递归调用
 			return p.GetModel(apiKey.Name)
 		}
-		// 数据库无可用模型，使用默认模型（Env配置）
-		klog.V(6).Infof("EnhancedModelProvider.GetModel: using default model (Env fallback)")
-		return &p.defaultModel.ChatModel, nil
+		// 数据库无可用模型，返回错误
+		klog.Errorf("EnhancedModelProvider.GetModel: no available model in database")
+		return nil, ErrNoAvailableModel
 	}
-
-	// 检查缓存
-	p.modelCacheMutex.RLock()
-	if cachedModel, exists := p.modelCache[name]; exists {
-		p.modelCacheMutex.RUnlock()
-		klog.V(6).Infof("EnhancedModelProvider.GetModel: using cached model %s", name)
-		return &cachedModel.ChatModel, nil
-	}
-	p.modelCacheMutex.RUnlock()
 
 	// 从数据库获取 API Key 配置
 	apiKey, err := p.apiKeyRepo.GetByName(context.Background(), name)
 	if err != nil {
-		klog.Warningf("EnhancedModelProvider.GetModel: failed to get API Key %s: %v, trying fallback", name, err)
-		// 如果指定了名称但找不到，且该名称不是默认模型，尝试回退到默认模型?
-		// 需求是：如果数据库没有模型，最后使用env环境变量中的模型兜底。
-		// 但如果用户明确指定了 "gpt-4" 而数据库没有，是否应该 fallback 到 "env-model"?
-		// 通常明确指定名字时不应该 fallback，否则会产生意外行为。
-		// 但考虑到需求描述："如果数据库没有模型，最后使用env环境变量中的模型兜底"
-		// 这可能主要针对自动选择场景。
-		// 如果这里返回 error，调用方可能会失败。
-		// 保持原逻辑：指定名字找不到则报错。
+		klog.Warningf("EnhancedModelProvider.GetModel: failed to get API Key %s: %v", name, err)
 		return nil, ErrAPIKeyNotFound
 	}
 
@@ -109,18 +74,24 @@ func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, er
 		return nil, err
 	}
 
-	// 缓存模型
-	p.modelCacheMutex.Lock()
-	p.modelCache[name] = chatModel
-	p.modelCacheMutex.Unlock()
-
-	klog.V(6).Infof("EnhancedModelProvider.GetModel: created and cached model %s", name)
+	klog.V(6).Infof("EnhancedModelProvider.GetModel: created model %s", name)
 	return &chatModel.ChatModel, nil
 }
 
 // DefaultModel 获取默认模型
+// 不再提供默认模型，直接从数据库获取最高优先级的模型
 func (p *EnhancedModelProviderImpl) DefaultModel() *openai.ChatModel {
-	return &p.defaultModel.ChatModel
+	apiKey, err := p.apiKeyRepo.GetHighestPriority(context.Background())
+	if err != nil || apiKey == nil {
+		klog.Errorf("EnhancedModelProvider.DefaultModel: no available model in database")
+		return nil
+	}
+	chatModel, err := p.GetModel(apiKey.Name)
+	if err != nil {
+		klog.Errorf("EnhancedModelProvider.DefaultModel: failed to get model %s: %v", apiKey.Name, err)
+		return nil
+	}
+	return chatModel
 }
 
 // GetModelPool 获取模型池（按优先级排序）
@@ -149,26 +120,12 @@ func (p *EnhancedModelProviderImpl) GetModelPool(ctx context.Context, names []st
 			continue
 		}
 
-		// 检查缓存
-		p.modelCacheMutex.RLock()
-		if cachedModel, exists := p.modelCache[apiKey.Name]; exists {
-			p.modelCacheMutex.RUnlock()
-			models = append(models, cachedModel)
-			continue
-		}
-		p.modelCacheMutex.RUnlock()
-
 		// 创建 ChatModel 实例
 		chatModel, err := p.createChatModel(apiKey)
 		if err != nil {
 			klog.Errorf("EnhancedModelProvider.GetModelPool: failed to create ChatModel for %s: %v", apiKey.Name, err)
 			continue
 		}
-
-		// 缓存模型
-		p.modelCacheMutex.Lock()
-		p.modelCache[apiKey.Name] = chatModel
-		p.modelCacheMutex.Unlock()
 
 		models = append(models, chatModel)
 	}
@@ -180,10 +137,9 @@ func (p *EnhancedModelProviderImpl) GetModelPool(ctx context.Context, names []st
 // createChatModel 创建 ChatModel 实例
 func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*ModelWithMetadata, error) {
 	openaiConfig := &openai.ChatModelConfig{
-		BaseURL:   apiKey.BaseURL,
-		APIKey:    apiKey.APIKey,
-		Model:     apiKey.Model,
-		MaxTokens: &p.config.LLM.MaxTokens,
+		BaseURL: apiKey.BaseURL,
+		APIKey:  apiKey.APIKey,
+		Model:   apiKey.Model,
 	}
 
 	chatModel, err := openai.NewChatModel(context.Background(), openaiConfig)
@@ -196,7 +152,7 @@ func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*Mode
 		ChatModel:  *chatModel,
 		APIKeyName: apiKey.Name,
 		APIKeyID:   apiKey.ID,
-		LLMModel: apiKey.Model,
+		LLMModel:   apiKey.Model,
 	}, nil
 }
 
@@ -213,11 +169,6 @@ func (p *EnhancedModelProviderImpl) MarkModelUnavailable(ctx context.Context, mo
 	if err != nil {
 		return err
 	}
-
-	// 清除缓存
-	p.modelCacheMutex.Lock()
-	delete(p.modelCache, modelName)
-	p.modelCacheMutex.Unlock()
 
 	klog.Warningf("EnhancedModelProvider.MarkModelUnavailable: marked model %s as unavailable, reset at %v", modelName, resetTime)
 	return nil

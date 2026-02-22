@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/cloudwego/eino-ext/components/model/openai"
 )
 
 // 错误定义
@@ -47,15 +45,6 @@ var (
 	// ErrRateLimitExceeded 速率限制超出
 	ErrRateLimitExceeded = errors.New("rate limit exceeded")
 )
-
-// FallbackToDefault 兜底到默认模型的错误类型
-type FallbackToDefault struct {
-	Model *openai.ChatModel
-}
-
-func (e *FallbackToDefault) Error() string {
-	return "fallback to default model"
-}
 
 // ModelUnavailableDetail 模型不可用详细信息
 type ModelUnavailableDetail struct {

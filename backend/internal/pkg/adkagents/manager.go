@@ -116,11 +116,6 @@ func newManagerInternal(cfg *config.Config) (*Manager, error) {
 // SetEnhancedModelProvider 设置增强的模型提供者
 func (m *Manager) SetEnhancedModelProvider(provider *EnhancedModelProviderImpl) {
 	m.enhancedModelProvider = provider
-	if provider != nil {
-		// 为 switcher 设置 RateLimiter
-		rateLimiter := NewRateLimiter(provider)
-		provider.switcher.SetRateLimiter(rateLimiter)
-	}
 }
 
 // GetEnhancedModelProvider 获取增强的模型提供者
@@ -245,27 +240,18 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 		klog.V(6).Infof("[Manager] Using model %s for agent %s", def.Model, def.Name)
 		model, err := m.enhancedModelProvider.GetModel(def.Model)
 		if err != nil {
-			klog.Warningf("[Manager] Failed to get model %s, using default model: %v", def.Model, err)
-			chatModel, err = NewLLMChatModel(m.cfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get default model: %w", err)
-			}
-		} else {
-			chatModel = model
+			klog.Errorf("[Manager] Failed to get model %s: %v", def.Model, err)
+			return nil, fmt.Errorf("failed to get model %s: %w", def.Model, err)
 		}
+		chatModel = model
+	} else if m.enhancedModelProvider != nil {
+		// 模型未指定，使用动态代理模型（自动从数据库选择）
+		klog.V(6).Infof("[Manager] Model not specified for agent %s, using dynamic ProxyChatModel", def.Name)
+		// 传入 nil 作为 modelNames，启用"自动选择所有可用模型"模式
+		chatModel = NewProxyChatModel(m.enhancedModelProvider, nil)
 	} else {
-		// 模型未指定，使用动态代理模型（自动兜底模式）
-		if m.enhancedModelProvider != nil {
-			klog.V(6).Infof("[Manager] Model not specified for agent %s, using dynamic ProxyChatModel for auto-fallback", def.Name)
-			// 传入 nil 作为 modelNames，启用“自动选择所有可用模型”模式
-			chatModel = NewProxyChatModel(m.enhancedModelProvider, nil)
-		} else {
-			// 没有增强提供者，直接使用默认模型
-			chatModel, err = NewLLMChatModel(m.cfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get model: %w", err)
-			}
-		}
+		// 没有增强提供者，返回错误
+		return nil, fmt.Errorf("no enhanced model provider configured")
 	}
 
 	//将Tools进行包装为Adk可用的模式
