@@ -19,6 +19,15 @@ export default function Settings() {
     const navigate = useNavigate();
     const screens = useBreakpoint();
     const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<string>(() => {
+        return sessionStorage.getItem('settings-active-tab') || 'api-keys';
+    });
+
+    // 当 tab 切换时保存到 sessionStorage
+    const handleTabChange = (key: string) => {
+        setActiveTab(key);
+        sessionStorage.setItem('settings-active-tab', key);
+    };
 
     const handleSelectAgent = (fileName: string) => {
         setSelectedAgent(fileName);
@@ -105,7 +114,7 @@ export default function Settings() {
             </Header>
 
             <Content style={{ padding: screens.md ? '24px' : '12px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-                <Tabs defaultActiveKey="api-keys" items={items} />
+                <Tabs activeKey={activeTab} onChange={handleTabChange} items={items} />
             </Content>
         </Layout>
     );

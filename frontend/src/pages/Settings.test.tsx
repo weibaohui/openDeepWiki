@@ -15,6 +15,14 @@ vi.mock('@/components/settings/TaskMonitor', () => ({
   default: () => <div>TaskMonitor Component</div>,
 }))
 
+vi.mock('@/components/common/ThemeSwitcher', () => ({
+  ThemeSwitcher: () => <button data-testid="theme-switcher">Theme Switcher</button>,
+}))
+
+vi.mock('@/components/common/LanguageSwitcher', () => ({
+  LanguageSwitcher: () => <button data-testid="language-switcher">Language Switcher</button>,
+}))
+
 // Mock useAppConfig
 vi.mock('@/context/AppConfigContext', () => ({
   useAppConfig: () => ({
@@ -63,10 +71,8 @@ describe('Settings', () => {
     it('应该支持标签切换', async () => {
       renderWithRouter(<Settings />)
 
-      await waitFor(() => {
-        const apiKeyTab = screen.getByRole('tab', { name: 'api-keys' })
-        expect(apiKeyTab).toBeInTheDocument()
-      })
+      const apiKeyTab = await screen.findByRole('tab', { name: /api key management/i })
+      expect(apiKeyTab).toBeInTheDocument()
 
       await userEvent.click(apiKeyTab)
 
@@ -78,28 +84,28 @@ describe('Settings', () => {
     it('应该渲染返回按钮', () => {
       renderWithRouter(<Settings />)
 
-      const backButton = screen.getByRole('button', { name: /back/i })
+      const backButton = screen.getByRole('button', { name: /arrow-left/i })
       expect(backButton).toBeInTheDocument()
     })
 
     it('应该渲染语言切换器', () => {
       renderWithRouter(<Settings />)
 
-      const languageSwitcher = screen.getByRole('button', { name: /language/i })
+      const languageSwitcher = screen.getByTestId('language-switcher')
       expect(languageSwitcher).toBeInTheDocument()
     })
 
     it('应该渲染主题切换器', () => {
       renderWithRouter(<Settings />)
 
-      const themeSwitcher = screen.getByRole('button', { name: /theme/i })
+      const themeSwitcher = screen.getByTestId('theme-switcher')
       expect(themeSwitcher).toBeInTheDocument()
     })
 
     it('应该点击返回按钮导航到首页', async () => {
       renderWithRouter(<Settings />)
 
-      const backButton = screen.getByRole('button', { name: /back/i })
+      const backButton = screen.getByRole('button', { name: /arrow-left/i })
       await userEvent.click(backButton)
 
       expect(window.location.pathname).toBe('/')
