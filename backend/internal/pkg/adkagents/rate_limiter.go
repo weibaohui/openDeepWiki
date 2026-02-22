@@ -5,10 +5,68 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/klog/v2"
 )
+
+// 预编译的正则表达式模式
+var (
+	durationPatterns = []struct {
+		pattern  string
+		duration time.Duration
+	}{
+		{`Try again in (\d+)s`, time.Second},
+		{`Retry after (\d+)s`, time.Second},
+		{`Try again in (\d+)m`, time.Minute},
+		{`Retry after (\d+)m`, time.Minute},
+		{`Try again in (\d+)h`, time.Hour},
+		{`Retry after (\d+)h`, time.Hour},
+	}
+
+	timePatterns = []string{
+		`Reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})`,
+		`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})`,
+	}
+)
+
+// precompiledRegexes 预编译的正则表达式（延迟初始化）
+type precompiledRegexes struct {
+	durationRegex     []*regexp.Regexp
+	durationDurations []time.Duration
+	timeRegex         []*regexp.Regexp
+}
+
+var compiledRegexes struct {
+	once    sync.Once
+	regexes *precompiledRegexes
+}
+
+// getCompiledRegexes 获取预编译的正则表达式
+func getCompiledRegexes() *precompiledRegexes {
+	compiledRegexes.once.Do(func() {
+		durationRegex := make([]*regexp.Regexp, len(durationPatterns))
+		durationDurations := make([]time.Duration, len(durationPatterns))
+
+		for i, pt := range durationPatterns {
+			durationRegex[i] = regexp.MustCompile(pt.pattern)
+			durationDurations[i] = pt.duration
+		}
+
+		timeRegex := make([]*regexp.Regexp, len(timePatterns))
+		for i, pattern := range timePatterns {
+			timeRegex[i] = regexp.MustCompile(pattern)
+		}
+
+		compiledRegexes.regexes = &precompiledRegexes{
+			durationRegex:     durationRegex,
+			durationDurations: durationDurations,
+			timeRegex:         timeRegex,
+		}
+	})
+	return compiledRegexes.regexes
+}
 
 // RateLimiter 速率限制处理器
 type RateLimiter struct {
@@ -61,46 +119,28 @@ func (r *RateLimiter) IsRateLimitError(err error) bool {
 	return false
 }
 
-// ParseResetTime 从错误中解析重置时间
+// ParseResetTime 从错误中解析重置时间（使用预编译的正则表达式）
 func (r *RateLimiter) ParseResetTime(err error) time.Time {
 	if err == nil {
 		return time.Time{}
 	}
 
 	errMsg := err.Error()
+	regexes := getCompiledRegexes()
 
-	// 解析持续时间模式：Try again in 60s, Retry after 1m, Try again in 2h
-	durationPatterns := []struct {
-		pattern  string
-		duration time.Duration
-	}{
-		{`Try again in (\d+)s`, time.Second},
-		{`Retry after (\d+)s`, time.Second},
-		{`Try again in (\d+)m`, time.Minute},
-		{`Retry after (\d+)m`, time.Minute},
-		{`Try again in (\d+)h`, time.Hour},
-		{`Retry after (\d+)h`, time.Hour},
-	}
-
-	for _, pt := range durationPatterns {
-		re := regexp.MustCompile(pt.pattern)
+	// 使用预编译的正则表达式解析持续时间
+	for i, re := range regexes.durationRegex {
 		matches := re.FindStringSubmatch(errMsg)
 		if len(matches) >= 2 {
 			var duration int
 			if _, err := fmt.Sscanf(matches[1], "%d", &duration); err == nil {
-				return time.Now().Add(time.Duration(duration) * pt.duration)
+				return time.Now().Add(time.Duration(duration) * regexes.durationDurations[i])
 			}
 		}
 	}
 
-	// 解析具体时间模式：Reset at 2026-02-04 12:00:00
-	timePatterns := []string{
-		`Reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})`,
-		`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})`,
-	}
-
-	for _, pattern := range timePatterns {
-		re := regexp.MustCompile(pattern)
+	// 使用预编译的正则表达式解析具体时间
+	for _, re := range regexes.timeRegex {
 		matches := re.FindStringSubmatch(errMsg)
 		if len(matches) >= 2 {
 			var resetTime time.Time

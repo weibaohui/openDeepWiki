@@ -29,7 +29,7 @@ func (b *ToolBinder) BindTools(tools []*schema.ToolInfo) error {
 }
 
 // BindToModel 将工具绑定到指定模型
-func (b *ToolBinder) BindToModel(model interface{}) error {
+func (b *ToolBinder) BindToModel(model any) error {
 	b.mu.RLock()
 	tools := b.tools
 	b.mu.RUnlock()
@@ -54,9 +54,12 @@ func (b *ToolBinder) BindToModel(model interface{}) error {
 	return nil
 }
 
-// GetTools 获取当前工具列表
+// GetTools 获取当前工具列表（返回副本）
 func (b *ToolBinder) GetTools() []*schema.ToolInfo {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	return b.tools
+
+	tools := make([]*schema.ToolInfo, len(b.tools))
+	copy(tools, b.tools)
+	return tools
 }
