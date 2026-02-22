@@ -2,7 +2,7 @@ FROM alpine:3.21
 
 WORKDIR /app
 
-ENV BINARY_NAME=openDeepWiki
+ENV BINARY_NAME=opendeepwiki
 ENV TZ=Asia/Shanghai
 
 ARG TARGETOS

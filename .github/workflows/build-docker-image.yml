@@ -25,8 +25,8 @@ env:
   DOCKERHUB_USERNAME: weibh
   ALIHUB_URL: registry.cn-hangzhou.aliyuncs.com
   ALIHUB_USERNAME: weibh
-  ALIHUB_IMAGE_REPONAME: openDeepWiki
-  IMAGE_REPONAME: openDeepWiki
+  ALIHUB_IMAGE_REPONAME: opendeepwiki
+  IMAGE_REPONAME: opendeepwiki
 
 jobs:
   build-docker-image:
@@ -124,6 +124,6 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Fly
         if: github.event_name == 'release'
-        run: flyctl deploy -a opendeepwiki --image ghcr.io/${{ github.repository_owner }}/openDeepWiki:latest
+        run: flyctl deploy -a opendeepwiki --image ghcr.io/${{ github.repository_owner }}/opendeepwiki:latest
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

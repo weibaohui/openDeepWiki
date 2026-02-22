@@ -30,7 +30,7 @@ build-linux-cross:
 	@cd backend && for platform in $(LINUX_PLATFORMS); do \
 		GOOS=$${platform%/*} GOARCH=$${platform#*/}; \
 		echo "构建平台: $$GOOS/$$GOARCH ..."; \
-		OUTPUT_FILE="bin/openDeepWiki-$$GOOS-$$GOARCH"; \
+		OUTPUT_FILE="bin/opendeepwiki-$$GOOS-$$GOARCH"; \
 		echo "输出文件: $$OUTPUT_FILE"; \
 		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.GitTag=$(GIT_TAG) -X main.GitRepo=$(GIT_REPOSITORY)" -o "$$OUTPUT_FILE" ./cmd/server/; \
 	done
@@ -45,9 +45,9 @@ build-all-cross:
 	@cd backend && for platform in $(ALL_PLATFORMS); do \
 		GOOS=$${platform%/*} GOARCH=$${platform#*/}; \
 		echo "构建平台: $$GOOS/$$GOARCH ..."; \
-		OUTPUT_FILE="bin/openDeepWiki-$$GOOS-$$GOARCH"; \
+		OUTPUT_FILE="bin/opendeepwiki-$$GOOS-$$GOARCH"; \
 		if [ "$$GOOS" = "windows" ]; then \
-			OUTPUT_FILE="bin/openDeepWiki-$$GOOS-$$GOARCH.exe"; \
+			OUTPUT_FILE="bin/opendeepwiki-$$GOOS-$$GOARCH.exe"; \
 		fi; \
 		echo "输出文件: $$OUTPUT_FILE"; \
 		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.GitTag=$(GIT_TAG) -X main.GitRepo=$(GIT_REPOSITORY)" -o "$$OUTPUT_FILE" ./cmd/server/; \
@@ -64,7 +64,7 @@ build-backend:
 	@mkdir -p backend/bin
 	@cd backend && GOOS=$(shell go env GOOS) GOARCH=$(shell go env GOARCH) \
 	    CGO_ENABLED=0 go build -ldflags "-s -w  -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT)  -X main.GitTag=$(GIT_TAG)  -X main.GitRepo=$(GIT_REPOSITORY)   " \
-	    -o "bin/openDeepWiki" ./cmd/server/
+	    -o "bin/opendeepwiki" ./cmd/server/
 # Build frontend
 build-frontend:
 	@echo "Building frontend..."
@@ -90,7 +90,7 @@ cleanup-embed:
 
 # Run backend
 run-backend:
-	cd backend && ./bin/openDeepWiki -v 6
+	cd backend && ./bin/opendeepwiki -v 6
 
 # Run frontend dev server
 run-frontend:
