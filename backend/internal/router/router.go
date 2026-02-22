@@ -18,6 +18,7 @@ func Setup(
 	userRequestHandler *handler.UserRequestHandler,
 	openAPIHandler *handler.OpenAPIHandler,
 	activityHandler *handler.ActivityHandler,
+	agentHandler *handler.AgentHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -97,6 +98,9 @@ func Setup(
 
 		// 活跃度配置
 		activityHandler.RegisterRoutes(api)
+
+		// Agent 管理
+		agentHandler.RegisterRoutes(api)
 
 		// 用户需求管理
 		userRequests := api.Group("/user-requests")
