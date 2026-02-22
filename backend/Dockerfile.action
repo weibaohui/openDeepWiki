@@ -13,7 +13,7 @@ COPY  backend/skills /app/skills
 COPY  backend/agents /app/agents
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
     && apk upgrade && apk add --no-cache git tzdata   ca-certificates \
-     && rm -rf /var/cache/* && chmod +x server
+     && rm -rf /var/cache/* && chmod +x ${BINARY_NAME}
 
 EXPOSE 8080
-CMD [ "/app/server"]
+CMD [ "/app/${BINARY_NAME}"]
