@@ -15,7 +15,7 @@ type EmbeddingKey struct {
 	BaseURL          string     `json:"base_url" gorm:"size:500;not null"`              // API 地址
 	APIKey           string     `json:"api_key" gorm:"type:text;not null"`                  // API Key
 	Model            string     `json:"model" gorm:"size:255;not null"`                      // 模型名称
-	Dimension        int        `json:"dimension" gorm:"not null;default:1536"`            // 向量维度
+	Dimension        int        `json:"dimension" gorm:"not null;default:2560"`            // 向量维度，Qwen3-Embedding-4B 默认 2560 维
 	Priority         int        `json:"priority" gorm:"default:0;index:idx_embedding_keys_priority"` // 优先级
 	Status           string     `json:"status" gorm:"size:20;default:'enabled';index:idx_embedding_keys_status"` // enabled/disabled
 	RequestCount     int        `json:"request_count" gorm:"default:0"`                     // 请求次数

@@ -24,7 +24,7 @@ type OpenAIConfig struct {
 	Dimension int
 }
 
-// openaiEmbeddingResponse OpenAI API 响应结构
+// openaiEmbeddingResponse OpenAI 兼容 API 响应结构
 type openaiEmbeddingResponse struct {
 	Object string `json:"object"`
 	Data   []struct {
@@ -38,13 +38,14 @@ type openaiEmbeddingResponse struct {
 	} `json:"usage"`
 }
 
-// openaiEmbeddingRequest OpenAI API 请求结构
+// openaiEmbeddingRequest OpenAI 兼容 API 请求结构
 type openaiEmbeddingRequest struct {
 	Input []string `json:"input"`
 	Model string   `json:"model"`
 }
 
-// OpenAIEmbeddingProvider OpenAI 嵌入提供者实现
+// OpenAIEmbeddingProvider 嵌入提供者实现
+// 支持任何兼容 OpenAI API 格式的嵌入服务（包括 Qwen3-Embedding-4B、OpenAI 等）
 // 支持从数据库动态加载配置，优先级顺序：使用指定配置 → 按优先级选择
 type OpenAIEmbeddingProvider struct {
 	configRepo    repository.EmbeddingKeyRepository
@@ -53,7 +54,8 @@ type OpenAIEmbeddingProvider struct {
 	httpClient  *http.Client
 }
 
-// NewOpenAIEmbeddingProvider 创建 OpenAI 嵌入提供者
+// NewOpenAIEmbeddingProvider 创建嵌入提供者
+// 支持任何兼容 OpenAI API 格式的嵌入服务
 // 如果 embeddingKeyID 为 0，则使用默认配置（环境变量或硬编码）
 func NewOpenAIEmbeddingProvider(configRepo repository.EmbeddingKeyRepository, embeddingKeyID uint) (vectordomain.EmbeddingProvider, error) {
 	client := &http.Client{
@@ -69,11 +71,11 @@ func NewOpenAIEmbeddingProvider(configRepo repository.EmbeddingKeyRepository, em
 	// 加载初始配置
 	if err := provider.loadConfig(context.Background()); err != nil {
 		klog.Warningf("OpenAIEmbeddingProvider: 加载配置失败: %v", err)
-		// 设置默认配置
+		// 设置默认配置（Qwen3-Embedding-4B）
 		provider.config = OpenAIConfig{
-			BaseURL:   "https://api.openai.com/v1",
-			Model:     "text-embedding-3-small",
-			Dimension: 1536,
+			BaseURL:   "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			Model:     "text-embedding-v3",
+			Dimension: 2560,
 			Timeout:   30 * time.Second,
 		}
 	}
@@ -83,7 +85,7 @@ func NewOpenAIEmbeddingProvider(configRepo repository.EmbeddingKeyRepository, em
 
 // loadConfig 从数据库加载配置
 func (p *OpenAIEmbeddingProvider) loadConfig(ctx context.Context) error {
-	var config model.EmbeddingKey
+	var config *model.EmbeddingKey
 	var err error
 
 	if p.embeddingKeyID > 0 {
@@ -101,7 +103,7 @@ func (p *OpenAIEmbeddingProvider) loadConfig(ctx context.Context) error {
 		if len(configs) == 0 {
 			return fmt.Errorf("no available embedding config found")
 		}
-		config = configs[0]
+		config = &configs[0]
 		klog.V(6).Infof("OpenAIEmbeddingProvider: 使用配置 %s (ID: %d)", config.Name, config.ID)
 		p.embeddingKeyID = config.ID
 	}

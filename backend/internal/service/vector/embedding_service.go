@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/vector"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	vector_domain "github.com/weibaohui/opendeepwiki/backend/internal/domain/vector"
 	"k8s.io/klog/v2"
@@ -18,7 +17,6 @@ type VectorEmbeddingService struct {
 	vectorRepo     repository.VectorRepository
 	vectorTaskRepo repository.VectorTaskRepository
 	docRepo        repository.DocumentRepository
-	vectorIndex    vector.VectorIndex
 	taskQueue      chan uint
 	workers        int
 }
@@ -29,7 +27,6 @@ func NewVectorEmbeddingService(
 	vectorRepo repository.VectorRepository,
 	vectorTaskRepo repository.VectorTaskRepository,
 	docRepo repository.DocumentRepository,
-	vectorIndex vector.VectorIndex,
 	workers int,
 ) *VectorEmbeddingService {
 	if workers <= 0 {
@@ -41,7 +38,6 @@ func NewVectorEmbeddingService(
 		vectorRepo:     vectorRepo,
 		vectorTaskRepo: vectorTaskRepo,
 		docRepo:        docRepo,
-		vectorIndex:    vectorIndex,
 		taskQueue:      make(chan uint, 100), // 缓冲队列
 		workers:        workers,
 	}
@@ -185,7 +181,7 @@ func (s *VectorEmbeddingService) processTask(ctx context.Context, docID uint) {
 		return
 	}
 
-	// 保存向量
+	// 保存向量到数据库
 	docVector := &model.DocumentVector{
 		DocumentID:  docID,
 		ModelName:   s.provider.ModelName(),
@@ -198,12 +194,6 @@ func (s *VectorEmbeddingService) processTask(ctx context.Context, docID uint) {
 		klog.Warningf("VectorEmbeddingService: 保存向量失败: %v", err)
 		s.vectorTaskRepo.UpdateStatus(ctx, task.ID, "failed", "failed to save vector")
 		return
-	}
-
-	// 添加到索引
-	if err := s.vectorIndex.Add(docID, vectorData); err != nil {
-		klog.Warningf("VectorEmbeddingService: 添加向量到索引失败: %v", err)
-		// 不影响任务完成状态
 	}
 
 	// 更新任务状态为 completed
@@ -223,9 +213,6 @@ func (s *VectorEmbeddingService) RegenerateForDocument(ctx context.Context, docI
 		klog.Warningf("VectorEmbeddingService: 删除现有向量失败: %v", err)
 	}
 
-	// 从索引中删除
-	s.vectorIndex.Remove(docID)
-
 	// 创建新任务
 	return s.GenerateForDocument(ctx, docID)
 }
@@ -233,33 +220,4 @@ func (s *VectorEmbeddingService) RegenerateForDocument(ctx context.Context, docI
 // GetStatus 获取向量生成状态
 func (s *VectorEmbeddingService) GetStatus(ctx context.Context) (*repository.VectorStatusDTO, error) {
 	return s.vectorRepo.GetStatus(ctx)
-}
-
-// RebuildIndex 重建索引
-func (s *VectorEmbeddingService) RebuildIndex(ctx context.Context) error {
-	klog.V(6).Infof("VectorEmbeddingService: 开始重建索引")
-
-	// 获取所有向量
-	allVectors, err := s.vectorRepo.GetAll(ctx)
-	if err != nil {
-		klog.Warningf("VectorEmbeddingService: 获取所有向量失败: %v", err)
-		return fmt.Errorf("get all vectors: %w", err)
-	}
-
-	// 清空索引
-	s.vectorIndex.Rebuild()
-
-	// 添加向量到索引
-	items := make(map[uint][]float32, len(allVectors))
-	for _, vec := range allVectors {
-		items[vec.DocumentID] = vec.Vector
-	}
-
-	if err := s.vectorIndex.AddBatch(items); err != nil {
-		klog.Warningf("VectorEmbeddingService: 添加向量到索引失败: %v", err)
-		return fmt.Errorf("add vectors to index: %w", err)
-	}
-
-	klog.V(6).Infof("VectorEmbeddingService: 索引重建完成，共 %d 个向量", len(items))
-	return nil
 }
