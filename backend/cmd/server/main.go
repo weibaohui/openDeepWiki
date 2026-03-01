@@ -183,6 +183,9 @@ func main() {
 		searchService := vector.NewVectorSearchService(embeddingProvider, vectorRepo, docRepo)
 		embeddingService := vector.NewVectorEmbeddingService(embeddingProvider, vectorRepo, vectorTaskRepo, docRepo, 2)
 		vectorHandler = handler.NewVectorHandler(searchService, embeddingService, vectorRepo, vectorTaskRepo, repoRepo, docRepo)
+	} else {
+		// 如果没有配置 embedding provider，仍然创建 handler（部分功能不可用）
+		vectorHandler = handler.NewVectorHandler(nil, nil, vectorRepo, vectorTaskRepo, repoRepo, docRepo)
 	}
 
 	// 初始化 OpenAPIHandler（AI 友好 API 端点）

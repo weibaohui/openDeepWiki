@@ -59,7 +59,35 @@ func (s *VectorSearchService) Search(ctx context.Context, query string, topK int
 		return nil, fmt.Errorf("generate query vector: %w", err)
 	}
 
-	// 使用内存搜索
+	// 使用向量仓储进行搜索
+	return s.searchWithVector(ctx, queryVector, topK, minSimilarity, filters)
+}
+
+// searchWithVector 使用向量进行搜索
+func (s *VectorSearchService) searchWithVector(ctx context.Context, queryVector []float32, topK int, minSimilarity float64, filters map[string]interface{}) ([]SearchResultDTO, error) {
+	// 检查 vectorRepo 是否支持搜索接口
+	chromemRepo, ok := s.vectorRepo.(interface {
+		Search(ctx context.Context, queryVector []float32, topK int) ([]model.DocumentVector, []float32, error)
+	})
+
+	if ok {
+		// 使用 chromem-go 的高效向量搜索
+		vectors, scores, err := chromemRepo.Search(ctx, queryVector, topK*2)
+		if err != nil {
+			klog.Warningf("VectorSearchService: 向量搜索失败: %v", err)
+			return nil, fmt.Errorf("vector search: %w", err)
+		}
+
+		if len(vectors) == 0 {
+			klog.V(6).Infof("VectorSearchService: 未找到相似结果")
+			return []SearchResultDTO{}, nil
+		}
+
+		// 构建返回结果
+		return s.buildSearchResults(ctx, vectors, scores, minSimilarity, filters, topK)
+	}
+
+	// 回退到内存搜索
 	return s.searchInMemory(ctx, queryVector, topK, minSimilarity, filters)
 }
 
@@ -74,11 +102,50 @@ func (s *VectorSearchService) FindSimilarDocuments(ctx context.Context, docID ui
 		return nil, fmt.Errorf("get document vector: %w", err)
 	}
 
-	// 使用内存搜索
-	return s.findSimilarInMemory(ctx, docID, docVector.Vector, topK, minSimilarity)
+	// 使用向量搜索
+	return s.findSimilarWithVector(ctx, docID, docVector.Vector, topK, minSimilarity)
 }
 
-// searchInMemory 内存中搜索
+// findSimilarWithVector 使用向量查找相似文档
+func (s *VectorSearchService) findSimilarWithVector(ctx context.Context, docID uint, queryVector []float32, topK int, minSimilarity float64) ([]SearchResultDTO, error) {
+	// 检查 vectorRepo 是否支持搜索接口
+	chromemRepo, ok := s.vectorRepo.(interface {
+		Search(ctx context.Context, queryVector []float32, topK int) ([]model.DocumentVector, []float32, error)
+	})
+
+	if ok {
+		// 使用 chromem-go 的高效向量搜索
+		vectors, scores, err := chromemRepo.Search(ctx, queryVector, topK+1)
+		if err != nil {
+			klog.Warningf("VectorSearchService: 向量搜索失败: %v", err)
+			return nil, fmt.Errorf("vector search: %w", err)
+		}
+
+		// 过滤掉自己
+		filteredVectors := make([]model.DocumentVector, 0, topK)
+		filteredScores := make([]float32, 0, topK)
+		for i, v := range vectors {
+			if v.DocumentID != docID {
+				filteredVectors = append(filteredVectors, v)
+				filteredScores = append(filteredScores, scores[i])
+			}
+			if len(filteredVectors) >= topK {
+				break
+			}
+		}
+
+		if len(filteredVectors) == 0 {
+			return []SearchResultDTO{}, nil
+		}
+
+		return s.buildSearchResults(ctx, filteredVectors, filteredScores, minSimilarity, nil, topK)
+	}
+
+	// 回退到内存搜索
+	return s.findSimilarInMemory(ctx, docID, queryVector, topK, minSimilarity)
+}
+
+// searchInMemory 内存中搜索（回退方案）
 func (s *VectorSearchService) searchInMemory(ctx context.Context, queryVector []float32, topK int, minSimilarity float64, filters map[string]interface{}) ([]SearchResultDTO, error) {
 	// 获取所有向量进行相似度计算
 	allVectors, err := s.vectorRepo.GetAll(ctx)
@@ -162,7 +229,7 @@ func (s *VectorSearchService) searchInMemory(ctx context.Context, queryVector []
 	return filteredResults, nil
 }
 
-// findSimilarInMemory 内存中查找相似文档
+// findSimilarInMemory 内存中查找相似文档（回退方案）
 func (s *VectorSearchService) findSimilarInMemory(ctx context.Context, docID uint, queryVector []float32, topK int, minSimilarity float64) ([]SearchResultDTO, error) {
 	// 获取所有向量进行相似度计算
 	allVectors, err := s.vectorRepo.GetAll(ctx)
@@ -240,6 +307,72 @@ func (s *VectorSearchService) findSimilarInMemory(ctx context.Context, docID uin
 	}
 
 	klog.V(6).Infof("VectorSearchService: 找到 %d 个相似文档", len(filteredResults))
+	return filteredResults, nil
+}
+
+// buildSearchResults 从向量搜索结果构建返回结果
+func (s *VectorSearchService) buildSearchResults(ctx context.Context, vectors []model.DocumentVector, scores []float32, minSimilarity float64, filters map[string]interface{}, topK int) ([]SearchResultDTO, error) {
+	// 获取文档 ID 列表
+	docIDs := make([]uint, 0, len(vectors))
+	for _, v := range vectors {
+		docIDs = append(docIDs, v.DocumentID)
+	}
+
+	if len(docIDs) == 0 {
+		return []SearchResultDTO{}, nil
+	}
+
+	// 获取文档详情
+	docs, err := s.getDocumentsByIDs(ctx, docIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get documents: %w", err)
+	}
+
+	// 构建文档映射
+	docMap := make(map[uint]*model.Document)
+	for i := range docs {
+		docMap[docs[i].ID] = &docs[i]
+	}
+
+	// 构建返回结果
+	filteredResults := make([]SearchResultDTO, 0, topK)
+	for i, v := range vectors {
+		if i >= len(scores) {
+			break
+		}
+
+		// 检查最小相似度
+		if float64(scores[i]) < minSimilarity {
+			continue
+		}
+
+		doc, exists := docMap[v.DocumentID]
+		if !exists {
+			continue
+		}
+
+		// 应用过滤条件
+		if !s.applyFilters(doc, filters) {
+			continue
+		}
+
+		snippet := s.generateSnippet(doc.Content, 200)
+
+		resultDTO := SearchResultDTO{
+			DocumentID:     doc.ID,
+			Title:          doc.Title,
+			RepositoryID:   doc.RepositoryID,
+			RepositoryName: "",
+			Similarity:     float64(scores[i]),
+			Snippet:        snippet,
+		}
+
+		filteredResults = append(filteredResults, resultDTO)
+		if len(filteredResults) >= topK {
+			break
+		}
+	}
+
 	return filteredResults, nil
 }
 

@@ -52,6 +52,11 @@ type SearchRequest struct {
 // Search 语义搜索
 // POST /api/vectors/search
 func (h *VectorHandler) Search(c *gin.Context) {
+	if h.searchService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vector search service not configured"})
+		return
+	}
+
 	var req SearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -78,6 +83,11 @@ func (h *VectorHandler) Search(c *gin.Context) {
 // FindSimilarDocuments 查找相似文档
 // GET /api/documents/:id/similar
 func (h *VectorHandler) FindSimilarDocuments(c *gin.Context) {
+	if h.searchService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vector search service not configured"})
+		return
+	}
+
 	docID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid document id"})
@@ -110,6 +120,11 @@ func (h *VectorHandler) FindSimilarDocuments(c *gin.Context) {
 // GenerateVector 为文档生成向量
 // POST /api/documents/:id/vector/generate
 func (h *VectorHandler) GenerateVector(c *gin.Context) {
+	if h.embeddingService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "embedding service not configured"})
+		return
+	}
+
 	docID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid document id"})
@@ -127,6 +142,11 @@ func (h *VectorHandler) GenerateVector(c *gin.Context) {
 // GenerateRepositoryVectors 批量为仓库生成向量
 // POST /api/repositories/:id/vectors/generate
 func (h *VectorHandler) GenerateRepositoryVectors(c *gin.Context) {
+	if h.embeddingService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "embedding service not configured"})
+		return
+	}
+
 	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid repository id"})
@@ -144,6 +164,11 @@ func (h *VectorHandler) GenerateRepositoryVectors(c *gin.Context) {
 // RegenerateVector 重新生成文档的向量
 // POST /api/documents/:id/vector/regenerate
 func (h *VectorHandler) RegenerateVector(c *gin.Context) {
+	if h.embeddingService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "embedding service not configured"})
+		return
+	}
+
 	docID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid document id"})
@@ -161,7 +186,7 @@ func (h *VectorHandler) RegenerateVector(c *gin.Context) {
 // GetVectorStatus 获取向量生成状态
 // GET /api/vectors/status
 func (h *VectorHandler) GetVectorStatus(c *gin.Context) {
-	status, err := h.embeddingService.GetStatus(c.Request.Context())
+	status, err := h.vectorRepo.GetStatus(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

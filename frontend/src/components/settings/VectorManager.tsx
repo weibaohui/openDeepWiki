@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, Table, Tag, Row, Col, Statistic, Button, Space, message, Progress, Tooltip, Modal } from 'antd';
-import { ReloadOutlined, SyncOutlined, PlayCircleOutlined, RedoOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Row, Col, Statistic, Button, Space, message, Progress, Tooltip, Modal, Empty, Alert } from 'antd';
+import { ReloadOutlined, SyncOutlined, PlayCircleOutlined, RedoOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, LoadingOutlined, DatabaseOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { vectorApi, repositoryApi } from '../../services/api';
 import type { VectorStatus, VectorTask, RepositoryVectorStatus, Repository } from '../../types';
@@ -12,7 +12,8 @@ export default function VectorManager() {
     const [repositories, setRepositories] = useState<Repository[]>([]);
     const [repoStatusList, setRepoStatusList] = useState<RepositoryVectorStatus[]>([]);
     const [tasks, setTasks] = useState<VectorTask[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [generatingRepos, setGeneratingRepos] = useState<Set<number>>(new Set());
     const hasDataRef = useRef(false);
@@ -22,8 +23,10 @@ export default function VectorManager() {
         try {
             const res = await vectorApi.getStatus();
             setStatus(res.data);
+            setError(null);
         } catch (error) {
             console.error('Failed to fetch vector status:', error);
+            setError('Failed to load vector status');
         }
     }, []);
 
@@ -43,7 +46,6 @@ export default function VectorManager() {
             const res = await vectorApi.getRepositoryStatusList();
             setRepoStatusList(res.data?.list || []);
         } catch (error) {
-            // 如果接口不存在，根据仓库和状态计算
             console.error('Failed to fetch repo status:', error);
         }
     }, []);
@@ -99,11 +101,15 @@ export default function VectorManager() {
 
     // 为所有仓库生成向量
     const handleGenerateAll = () => {
+        const reposToGenerate = getRepoList().filter(r => r.status !== 'completed');
+        if (reposToGenerate.length === 0) {
+            message.info(t('vectorManager.all_completed', '所有仓库已完成向量化'));
+            return;
+        }
         Modal.confirm({
             title: t('vectorManager.generate_all_confirm_title', '确认生成所有向量'),
-            content: t('vectorManager.generate_all_confirm_content', '将为所有未完成向量化的仓库生成向量，这可能需要较长时间。确定继续吗？'),
+            content: t('vectorManager.generate_all_confirm_content', `将为 ${reposToGenerate.length} 个未完成向量化的仓库生成向量，这可能需要较长时间。确定继续吗？`),
             onOk: async () => {
-                const reposToGenerate = getRepoList().filter(r => r.status !== 'completed');
                 for (const repo of reposToGenerate) {
                     await handleGenerateForRepo(repo.repository_id, repo.repository_name);
                 }
@@ -146,19 +152,21 @@ export default function VectorManager() {
             title: t('vectorManager.documents', '文档数'),
             dataIndex: 'total_documents',
             key: 'total_documents',
-            render: (count) => count || '-'
+            width: 100,
+            render: (count) => count || 0
         },
         {
             title: t('vectorManager.vectorized', '已向量化'),
             dataIndex: 'vectorized_count',
             key: 'vectorized_count',
+            width: 180,
             render: (count, record) => {
-                if (!record.total_documents) return '-';
+                if (!record.total_documents) return <span>0/0</span>;
                 const percent = Math.round((count / record.total_documents) * 100);
                 return (
                     <Space>
                         <span>{count}/{record.total_documents}</span>
-                        <Progress percent={percent} size="small" style={{ width: 80 }} showInfo={false} />
+                        <Progress percent={percent} size="small" style={{ width: 60 }} showInfo={false} />
                     </Space>
                 );
             }
@@ -167,6 +175,7 @@ export default function VectorManager() {
             title: t('vectorManager.status', '状态'),
             dataIndex: 'status',
             key: 'status',
+            width: 120,
             render: (status) => {
                 const statusConfig: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
                     completed: { color: 'success', icon: <CheckCircleOutlined />, text: t('vectorManager.status_completed', '已完成') },
@@ -184,6 +193,7 @@ export default function VectorManager() {
         {
             title: t('vectorManager.actions', '操作'),
             key: 'actions',
+            width: 200,
             render: (_, record) => {
                 const isGenerating = generatingRepos.has(record.repository_id);
                 return (
@@ -238,6 +248,7 @@ export default function VectorManager() {
             title: t('vectorManager.task_status', '状态'),
             dataIndex: 'status',
             key: 'status',
+            width: 100,
             render: (status) => {
                 const statusConfig: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
                     completed: { color: 'success', icon: <CheckCircleOutlined />, text: t('vectorManager.task_completed', '已完成') },
@@ -257,6 +268,7 @@ export default function VectorManager() {
             title: t('vectorManager.created_at', '创建时间'),
             dataIndex: 'created_at',
             key: 'created_at',
+            width: 160,
             render: (date) => date ? new Date(date).toLocaleString() : '-'
         },
         {
@@ -274,10 +286,17 @@ export default function VectorManager() {
         return Math.round((status.vectorized_count / status.total_documents) * 100);
     };
 
+    const repoList = getRepoList();
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
+            {/* 错误提示 */}
+            {error && (
+                <Alert type="error" message={error} showIcon closable onClose={() => setError(null)} />
+            )}
+
             {/* 控制栏 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <Space>
                     <Button
                         icon={autoRefresh ? <SyncOutlined spin /> : <SyncOutlined />}
@@ -285,80 +304,87 @@ export default function VectorManager() {
                     >
                         {autoRefresh ? t('vectorManager.auto_refresh_on', '自动刷新: 开') : t('vectorManager.auto_refresh_off', '自动刷新: 关')}
                     </Button>
-                    <Button icon={<ReloadOutlined />} onClick={fetchAllData}>
+                    <Button icon={<ReloadOutlined />} onClick={fetchAllData} loading={loading}>
                         {t('vectorManager.refresh', '刷新')}
                     </Button>
                 </Space>
-                <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleGenerateAll}>
+                <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleGenerateAll} disabled={repoList.length === 0}>
                     {t('vectorManager.generate_all', '为所有仓库生成向量')}
                 </Button>
             </div>
 
             {/* 状态统计 */}
-            {status && (
-                <Row gutter={[16, 16]}>
-                    <Col xs={12} sm={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title={t('vectorManager.total_documents', '总文档数')}
-                                value={status.total_documents}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={12} sm={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title={t('vectorManager.vectorized_count', '已向量化')}
-                                value={status.vectorized_count}
-                                suffix={<Progress percent={getVectorizedPercent()} size="small" style={{ width: 60 }} showInfo={false} />}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={12} sm={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title={t('vectorManager.pending_count', '待处理')}
-                                value={status.pending_count}
-                                valueStyle={{ color: '#faad14' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={12} sm={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title={t('vectorManager.processing_count', '处理中')}
-                                value={status.processing_count}
-                                valueStyle={{ color: '#1890ff' }}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
-            )}
+            <Row gutter={[16, 16]}>
+                <Col xs={12} sm={12} md={6}>
+                    <Card loading={loading}>
+                        <Statistic
+                            title={t('vectorManager.total_documents', '总文档数')}
+                            value={status?.total_documents || 0}
+                            prefix={<DatabaseOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                    <Card loading={loading}>
+                        <Statistic
+                            title={t('vectorManager.vectorized_count', '已向量化')}
+                            value={status?.vectorized_count || 0}
+                            suffix={status && status.total_documents > 0 ? <Progress percent={getVectorizedPercent()} size="small" style={{ width: 60 }} showInfo={false} /> : null}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                    <Card loading={loading}>
+                        <Statistic
+                            title={t('vectorManager.pending_count', '待处理')}
+                            value={status?.pending_count || 0}
+                            valueStyle={{ color: '#faad14' }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                    <Card loading={loading}>
+                        <Statistic
+                            title={t('vectorManager.processing_count', '处理中')}
+                            value={status?.processing_count || 0}
+                            valueStyle={{ color: '#1890ff' }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
 
             {/* 仓库向量化状态 */}
             <Card title={t('vectorManager.repository_status', '仓库向量化状态')}>
-                <Table
-                    dataSource={getRepoList()}
-                    columns={repoColumns}
-                    rowKey="repository_id"
-                    pagination={false}
-                    loading={loading && repositories.length === 0}
-                    scroll={{ x: 'max-content' }}
-                    size="small"
-                />
+                {repoList.length === 0 ? (
+                    <Empty description={t('vectorManager.no_repositories', '暂无仓库，请先添加仓库')} />
+                ) : (
+                    <Table
+                        dataSource={repoList}
+                        columns={repoColumns}
+                        rowKey="repository_id"
+                        pagination={false}
+                        loading={loading && repositories.length === 0}
+                        scroll={{ x: 'max-content' }}
+                        size="small"
+                    />
+                )}
             </Card>
 
             {/* 向量任务列表 */}
             <Card title={t('vectorManager.task_list', '向量任务列表')}>
-                <Table
-                    dataSource={tasks}
-                    columns={taskColumns}
-                    rowKey="id"
-                    pagination={{ pageSize: 10 }}
-                    loading={loading && tasks.length === 0}
-                    scroll={{ x: 'max-content' }}
-                    size="small"
-                />
+                {tasks.length === 0 ? (
+                    <Empty description={t('vectorManager.no_tasks', '暂无向量任务')} />
+                ) : (
+                    <Table
+                        dataSource={tasks}
+                        columns={taskColumns}
+                        rowKey="id"
+                        pagination={{ pageSize: 10 }}
+                        loading={loading && tasks.length === 0}
+                        scroll={{ x: 'max-content' }}
+                        size="small"
+                    />
+                )}
             </Card>
         </div>
     );
