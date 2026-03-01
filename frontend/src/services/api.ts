@@ -82,15 +82,15 @@ export const apiKeyApi = {
 
 // Embedding Key APIs
 export const embeddingKeyApi = {
-    list: () => api.get<EmbeddingKey[]>('/api/embedding-keys'),
-    get: (id: number) => api.get<EmbeddingKey>(`/api/embedding-keys/${id}`),
-    create: (data: Partial<EmbeddingKey>) => api.post<EmbeddingKey>('/api/embedding-keys', data),
-    update: (id: number, data: Partial<EmbeddingKey>) => api.put<EmbeddingKey>(`/api/embedding-keys/${id}`, data),
-    delete: (id: number) => api.delete(`/api/embedding-keys/${id}`),
-    enable: (id: number) => api.post(`/api/embedding-keys/${id}/enable`),
-    disable: (id: number) => api.post(`/api/embedding-keys/${id}/disable`),
-    testConnection: (id: number) => api.post<{ success: boolean; error?: string }>(`/api/embedding-keys/${id}/test`),
-    getStats: () => api.get<EmbeddingKeyStats>('/api/embedding-keys/stats'),
+    list: () => api.get<EmbeddingKey[]>('/embedding-keys'),
+    get: (id: number) => api.get<EmbeddingKey>(`/embedding-keys/${id}`),
+    create: (data: Partial<EmbeddingKey>) => api.post<EmbeddingKey>('/embedding-keys', data),
+    update: (id: number, data: Partial<EmbeddingKey>) => api.put<EmbeddingKey>(`/embedding-keys/${id}`, data),
+    delete: (id: number) => api.delete(`/embedding-keys/${id}`),
+    enable: (id: number) => api.post(`/embedding-keys/${id}/enable`),
+    disable: (id: number) => api.post(`/embedding-keys/${id}/disable`),
+    testConnection: (id: number) => api.post<{ success: boolean; error?: string }>(`/embedding-keys/${id}/test`),
+    getStats: () => api.get<EmbeddingKeyStats>('/embedding-keys/stats'),
 };
 
 export const syncApi = {
