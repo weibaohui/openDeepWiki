@@ -20,6 +20,8 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/vector"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service/vector/embedding"
 	"github.com/weibaohui/opendeepwiki/backend/internal/subscriber"
 )
 
@@ -171,11 +173,17 @@ func main() {
 	agentHandler := handler.NewAgentHandler(agentService)
 	embeddingKeyHandler := handler.NewEmbeddingKeyHandler(embeddingKeyService)
 
-	// 初始化向量服务（暂时设为 nil，后续实现）
+	// 初始化向量服务
+	embeddingProvider, err := embedding.NewOpenAIEmbeddingProvider(embeddingKeyRepo, 0)
+	if err != nil {
+		klog.Warningf("Failed to create embedding provider: %v", err)
+	}
 	var vectorHandler *handler.VectorHandler
-	// vectorHandler := handler.NewVectorHandler(nil, nil, vectorRepo, vectorTaskRepo, repoRepo, docRepo)
-	_ = vectorRepo      // 暂时避免未使用错误
-	_ = vectorTaskRepo  // 暂时避免未使用错误
+	if embeddingProvider != nil {
+		searchService := vector.NewVectorSearchService(embeddingProvider, vectorRepo, docRepo)
+		embeddingService := vector.NewVectorEmbeddingService(embeddingProvider, vectorRepo, vectorTaskRepo, docRepo, 2)
+		vectorHandler = handler.NewVectorHandler(searchService, embeddingService, vectorRepo, vectorTaskRepo, repoRepo, docRepo)
+	}
 
 	// 初始化 OpenAPIHandler（AI 友好 API 端点）
 	// 提供 /.well-known/openapi.yaml 端点，供 AI 工具使用
