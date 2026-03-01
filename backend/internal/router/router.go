@@ -20,6 +20,7 @@ func Setup(
 	activityHandler *handler.ActivityHandler,
 	agentHandler *handler.AgentHandler,
 	embeddingKeyHandler *handler.EmbeddingKeyHandler,
+	vectorHandler *handler.VectorHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -105,6 +106,11 @@ func Setup(
 
 		// Embedding Key 管理
 		embeddingKeyHandler.RegisterRoutes(api)
+
+		// 向量管理
+		if vectorHandler != nil {
+			vectorHandler.RegisterRoutes(api)
+		}
 
 		// 用户需求管理
 		userRequests := api.Group("/user-requests")

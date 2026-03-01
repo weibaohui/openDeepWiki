@@ -8,6 +8,7 @@ import { useAppConfig } from '@/context/AppConfigContext';
 import APIKeyList from '@/components/settings/APIKeyList';
 import EmbeddingKeyList from '@/components/settings/EmbeddingKeyList';
 import TaskMonitor from '@/components/settings/TaskMonitor';
+import VectorManager from '@/components/settings/VectorManager';
 import AgentEditor from '@/components/agents/AgentEditor';
 import AgentList from '@/components/agents/AgentList';
 
@@ -84,6 +85,11 @@ export default function Settings() {
             key: 'embedding-keys',
             label: t('embeddingKey.title', 'Embedding Model Configuration'),
             children: <EmbeddingKeyList />,
+        },
+        {
+            key: 'vectors',
+            label: t('vectorManager.title', 'Vector Index Management'),
+            children: <VectorManager />,
         },
         {
             key: 'tasks',

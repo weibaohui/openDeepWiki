@@ -61,6 +61,8 @@ func main() {
 	userRequestRepo := repository.NewUserRequestRepository(db)
 	agentVersionRepo := repository.NewAgentVersionRepository(db)
 	embeddingKeyRepo := repository.NewEmbeddingKeyRepository(db)
+	vectorRepo := repository.NewVectorRepository(db)
+	vectorTaskRepo := repository.NewVectorTaskRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo, nil)
@@ -169,6 +171,12 @@ func main() {
 	agentHandler := handler.NewAgentHandler(agentService)
 	embeddingKeyHandler := handler.NewEmbeddingKeyHandler(embeddingKeyService)
 
+	// 初始化向量服务（暂时设为 nil，后续实现）
+	var vectorHandler *handler.VectorHandler
+	// vectorHandler := handler.NewVectorHandler(nil, nil, vectorRepo, vectorTaskRepo, repoRepo, docRepo)
+	_ = vectorRepo      // 暂时避免未使用错误
+	_ = vectorTaskRepo  // 暂时避免未使用错误
+
 	// 初始化 OpenAPIHandler（AI 友好 API 端点）
 	// 提供 /.well-known/openapi.yaml 端点，供 AI 工具使用
 	openAPIHandler := handler.NewOpenAPIHandler(".well-known/openapi.yaml")
@@ -189,7 +197,7 @@ func main() {
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, embeddingKeyHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, embeddingKeyHandler, vectorHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)
