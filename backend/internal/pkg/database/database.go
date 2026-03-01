@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/glebarez/sqlite"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
@@ -21,8 +20,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	case "mysql":
 		dialector = mysql.Open(cfg.Database.DSN)
 	default:
-		// 使用 github.com/glebarez/sqlite 驱动
-		dialector = sqlite.Open(cfg.Database.DSN)
+		// 使用 sqlite_metadata 驱动
+		dialector = MetadataDialector(cfg.Database.DSN)
 	}
 	lc := logger.Config{
 		SlowThreshold:             time.Second, // 慢 SQL 阈值

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, EmbeddingKey, EmbeddingKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory, UserRequest, UserRequestListResponse } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, EmbeddingKey, EmbeddingKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory, UserRequest, UserRequestListResponse, VectorStatus, VectorTaskListResponse, RepositoryVectorStatusListResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -115,6 +115,23 @@ export const syncApi = {
     targetSave: (url: string) => api.post<SyncTargetSaveResponse>('/sync/target-save', { url }),
     targetDelete: (id: number) => api.post<SyncTargetDeleteResponse>('/sync/target-delete', { id }),
     eventList: (params: { repository_id?: number; mode?: string; limit?: number }) => api.get<SyncEventListResponse>('/sync/event-list', { params }),
+};
+
+// Vector APIs
+export const vectorApi = {
+    // 获取向量生成状态
+    getStatus: () => api.get<VectorStatus>('/vectors/status'),
+    // 为文档生成向量
+    generateForDocument: (docId: number) => api.post<{ message: string }>(`/documents/${docId}/vector/generate`),
+    // 为仓库批量生成向量
+    generateForRepository: (repoId: number) => api.post<{ message: string }>(`/repositories/${repoId}/vectors/generate`),
+    // 重新生成文档向量
+    regenerateForDocument: (docId: number) => api.post<{ message: string }>(`/documents/${docId}/vector/regenerate`),
+    // 获取仓库向量化状态列表
+    getRepositoryStatusList: () => api.get<RepositoryVectorStatusListResponse>('/vectors/repositories/status'),
+    // 获取向量任务列表
+    getTasks: (params?: { status?: string; page?: number; page_size?: number }) =>
+        api.get<VectorTaskListResponse>('/vectors/tasks', { params }),
 };
 
 export default api;

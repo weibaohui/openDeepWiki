@@ -3,11 +3,9 @@ package vector
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
-	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/sqvect"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	vectordomain "github.com/weibaohui/opendeepwiki/backend/internal/domain/vector"
 	"k8s.io/klog/v2"
@@ -28,7 +26,6 @@ type VectorSearchService struct {
 	provider   vectordomain.EmbeddingProvider
 	vectorRepo repository.VectorRepository
 	docRepo    repository.DocumentRepository
-	store      *sqvect.Store // sqvect 向量存储（可选）
 }
 
 // NewVectorSearchService 创建向量搜索服务
@@ -41,21 +38,6 @@ func NewVectorSearchService(
 		provider:   provider,
 		vectorRepo: vectorRepo,
 		docRepo:    docRepo,
-	}
-}
-
-// NewVectorSearchServiceWithStore 创建带有 sqvect 存储的向量搜索服务
-func NewVectorSearchServiceWithStore(
-	provider vectordomain.EmbeddingProvider,
-	vectorRepo repository.VectorRepository,
-	docRepo repository.DocumentRepository,
-	store *sqvect.Store,
-) *VectorSearchService {
-	return &VectorSearchService{
-		provider:   provider,
-		vectorRepo: vectorRepo,
-		docRepo:    docRepo,
-		store:      store,
 	}
 }
 
@@ -76,38 +58,36 @@ func (s *VectorSearchService) Search(ctx context.Context, query string, topK int
 		return nil, fmt.Errorf("generate query vector: %w", err)
 	}
 
-	// 如果有 sqvect 存储，使用其高效的向量搜索
-	if s.store != nil {
-		return s.searchWithSqvect(ctx, queryVector, query, topK, minSimilarity, filters)
+	// 使用向量仓储进行搜索
+	return s.searchWithVector(ctx, queryVector, topK, minSimilarity, filters)
+}
+
+// searchWithVector 使用向量进行搜索
+func (s *VectorSearchService) searchWithVector(ctx context.Context, queryVector []float32, topK int, minSimilarity float64, filters map[string]interface{}) ([]SearchResultDTO, error) {
+	// 检查 vectorRepo 是否支持搜索接口
+	chromemRepo, ok := s.vectorRepo.(interface {
+		Search(ctx context.Context, queryVector []float32, topK int) ([]model.DocumentVector, []float32, error)
+	})
+
+	if ok {
+		// 使用 chromem-go 的高效向量搜索
+		vectors, scores, err := chromemRepo.Search(ctx, queryVector, topK*2)
+		if err != nil {
+			klog.Warningf("VectorSearchService: 向量搜索失败: %v", err)
+			return nil, fmt.Errorf("vector search: %w", err)
+		}
+
+		if len(vectors) == 0 {
+			klog.V(6).Infof("VectorSearchService: 未找到相似结果")
+			return []SearchResultDTO{}, nil
+		}
+
+		// 构建返回结果
+		return s.buildSearchResults(ctx, vectors, scores, minSimilarity, filters, topK)
 	}
 
 	// 回退到内存搜索
 	return s.searchInMemory(ctx, queryVector, topK, minSimilarity, filters)
-}
-
-// searchWithSqvect 使用 sqvect 进行向量搜索
-func (s *VectorSearchService) searchWithSqvect(ctx context.Context, queryVector []float32, queryText string, topK int, minSimilarity float64, filters map[string]interface{}) ([]SearchResultDTO, error) {
-	// 构建搜索选项
-	searchOpts := sqvect.SearchOptions{
-		TopK:          topK * 2, // 获取更多结果以便过滤
-		MinSimilarity: minSimilarity,
-		Filter:        s.buildSqvectFilter(filters),
-	}
-
-	// 执行搜索
-	results, err := s.store.Search(ctx, queryVector, searchOpts)
-	if err != nil {
-		klog.Warningf("VectorSearchService: sqvect 搜索失败: %v", err)
-		return nil, fmt.Errorf("sqvect search: %w", err)
-	}
-
-	if len(results) == 0 {
-		klog.V(6).Infof("VectorSearchService: sqvect 未找到相似结果")
-		return []SearchResultDTO{}, nil
-	}
-
-	// 获取文档详情并构建返回结果
-	return s.buildSearchResults(ctx, results, filters, topK)
 }
 
 // searchInMemory 内存中搜索（回退方案）
@@ -205,51 +185,47 @@ func (s *VectorSearchService) FindSimilarDocuments(ctx context.Context, docID ui
 		return nil, fmt.Errorf("get document vector: %w", err)
 	}
 
-	// 如果有 sqvect 存储，使用其高效的向量搜索
-	if s.store != nil {
-		return s.findSimilarWithSqvect(ctx, docID, docVector.Vector, topK, minSimilarity)
+	// 使用向量搜索
+	return s.findSimilarWithVector(ctx, docID, docVector.Vector, topK, minSimilarity)
+}
+
+// findSimilarWithVector 使用向量查找相似文档
+func (s *VectorSearchService) findSimilarWithVector(ctx context.Context, docID uint, queryVector []float32, topK int, minSimilarity float64) ([]SearchResultDTO, error) {
+	// 检查 vectorRepo 是否支持搜索接口
+	chromemRepo, ok := s.vectorRepo.(interface {
+		Search(ctx context.Context, queryVector []float32, topK int) ([]model.DocumentVector, []float32, error)
+	})
+
+	if ok {
+		// 使用 chromem-go 的高效向量搜索
+		vectors, scores, err := chromemRepo.Search(ctx, queryVector, topK+1)
+		if err != nil {
+			klog.Warningf("VectorSearchService: 向量搜索失败: %v", err)
+			return nil, fmt.Errorf("vector search: %w", err)
+		}
+
+		// 过滤掉自己
+		filteredVectors := make([]model.DocumentVector, 0, topK)
+		filteredScores := make([]float32, 0, topK)
+		for i, v := range vectors {
+			if v.DocumentID != docID {
+				filteredVectors = append(filteredVectors, v)
+				filteredScores = append(filteredScores, scores[i])
+			}
+			if len(filteredVectors) >= topK {
+				break
+			}
+		}
+
+		if len(filteredVectors) == 0 {
+			return []SearchResultDTO{}, nil
+		}
+
+		return s.buildSearchResults(ctx, filteredVectors, filteredScores, minSimilarity, nil, topK)
 	}
 
 	// 回退到内存搜索
-	return s.findSimilarInMemory(ctx, docID, docVector.Vector, topK, minSimilarity)
-}
-
-// findSimilarWithSqvect 使用 sqvect 查找相似文档
-func (s *VectorSearchService) findSimilarWithSqvect(ctx context.Context, docID uint, queryVector []float32, topK int, minSimilarity float64) ([]SearchResultDTO, error) {
-	// 构建搜索选项
-	searchOpts := sqvect.SearchOptions{
-		TopK:          topK + 1, // 多获取一个，因为可能包含自己
-		MinSimilarity: minSimilarity,
-	}
-
-	// 执行搜索
-	results, err := s.store.Search(ctx, queryVector, searchOpts)
-	if err != nil {
-		klog.Warningf("VectorSearchService: sqvect 搜索失败: %v", err)
-		return nil, fmt.Errorf("sqvect search: %w", err)
-	}
-
-	// 过滤掉自己并限制数量
-	filteredResults := make([]sqvect.SearchResult, 0, topK)
-	for _, r := range results {
-		docIDFromResult, err := sqvect.ParseDocID(r.DocID)
-		if err != nil {
-			continue
-		}
-		if docIDFromResult != docID {
-			filteredResults = append(filteredResults, r)
-		}
-		if len(filteredResults) >= topK {
-			break
-		}
-	}
-
-	if len(filteredResults) == 0 {
-		return []SearchResultDTO{}, nil
-	}
-
-	// 构建返回结果
-	return s.buildSearchResults(ctx, filteredResults, nil, topK)
+	return s.findSimilarInMemory(ctx, docID, queryVector, topK, minSimilarity)
 }
 
 // findSimilarInMemory 内存中查找相似文档（回退方案）
@@ -333,38 +309,12 @@ func (s *VectorSearchService) findSimilarInMemory(ctx context.Context, docID uin
 	return filteredResults, nil
 }
 
-// buildSqvectFilter 构建 sqvect 过滤条件
-func (s *VectorSearchService) buildSqvectFilter(filters map[string]interface{}) map[string]string {
-	if filters == nil {
-		return nil
-	}
-
-	result := make(map[string]string)
-	for k, v := range filters {
-		switch val := v.(type) {
-		case string:
-			result[k] = val
-		case uint:
-			result[k] = strconv.FormatUint(uint64(val), 10)
-		case int:
-			result[k] = strconv.Itoa(val)
-		case bool:
-			result[k] = strconv.FormatBool(val)
-		}
-	}
-	return result
-}
-
-// buildSearchResults 从 sqvect 搜索结果构建返回结果
-func (s *VectorSearchService) buildSearchResults(ctx context.Context, results []sqvect.SearchResult, filters map[string]interface{}, topK int) ([]SearchResultDTO, error) {
+// buildSearchResults 从向量搜索结果构建返回结果
+func (s *VectorSearchService) buildSearchResults(ctx context.Context, vectors []model.DocumentVector, scores []float32, minSimilarity float64, filters map[string]interface{}, topK int) ([]SearchResultDTO, error) {
 	// 获取文档 ID 列表
-	docIDs := make([]uint, 0, len(results))
-	for _, r := range results {
-		docID, err := sqvect.ParseDocID(r.DocID)
-		if err != nil {
-			continue
-		}
-		docIDs = append(docIDs, docID)
+	docIDs := make([]uint, 0, len(vectors))
+	for _, v := range vectors {
+		docIDs = append(docIDs, v.DocumentID)
 	}
 
 	if len(docIDs) == 0 {
@@ -385,13 +335,17 @@ func (s *VectorSearchService) buildSearchResults(ctx context.Context, results []
 
 	// 构建返回结果
 	filteredResults := make([]SearchResultDTO, 0, topK)
-	for _, r := range results {
-		docID, err := sqvect.ParseDocID(r.DocID)
-		if err != nil {
+	for i, v := range vectors {
+		if i >= len(scores) {
+			break
+		}
+
+		// 检查最小相似度
+		if float64(scores[i]) < minSimilarity {
 			continue
 		}
 
-		doc, exists := docMap[docID]
+		doc, exists := docMap[v.DocumentID]
 		if !exists {
 			continue
 		}
@@ -408,7 +362,7 @@ func (s *VectorSearchService) buildSearchResults(ctx context.Context, results []
 			Title:          doc.Title,
 			RepositoryID:   doc.RepositoryID,
 			RepositoryName: "",
-			Similarity:     r.Score,
+			Similarity:     float64(scores[i]),
 			Snippet:        snippet,
 		}
 

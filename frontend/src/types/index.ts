@@ -268,3 +268,6 @@ export interface ApiResponse<T> {
     message: string;
     data: T;
 }
+
+// 向量相关类型
+export * from './vector';
