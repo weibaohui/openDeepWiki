@@ -2,9 +2,6 @@ module github.com/weibaohui/opendeepwiki/backend
 
 go 1.26.0
 
-// 强制所有依赖使用相同的 sqlite 版本，避免驱动重复注册
-replace modernc.org/sqlite => modernc.org/sqlite v1.38.2
-
 require (
 	github.com/cloudwego/eino v0.7.34
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.8
@@ -13,7 +10,6 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/jung-kurt/gofpdf v1.16.2
-	github.com/liliang-cn/sqvect/v2 v2.7.0
 	github.com/panjf2000/ants/v2 v2.11.5
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
