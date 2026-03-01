@@ -95,3 +95,99 @@ type UserRequestRepository interface {
 	Delete(id uint) error
 	UpdateStatus(id uint, status string) error
 }
+
+// VectorRepository 向量仓储接口
+type VectorRepository interface {
+	// Create 创建向量记录
+	Create(ctx context.Context, vector *model.DocumentVector) error
+
+	// GetByDocumentID 获取文档的向量
+	GetByDocumentID(ctx context.Context, docID uint) (*model.DocumentVector, error)
+
+	// GetByDocumentIDAndModel 获取文档指定模型的向量
+	GetByDocumentIDAndModel(ctx context.Context, docID uint, modelName string) (*model.DocumentVector, error)
+
+	// Delete 删除向量记录
+	Delete(ctx context.Context, id uint) error
+
+	// DeleteByDocumentID 删除文档的所有向量
+	DeleteByDocumentID(ctx context.Context, docID uint) error
+
+	// GetAll 获取所有向量
+	GetAll(ctx context.Context) ([]model.DocumentVector, error)
+
+	// GetVectorizedCount 获取已向量化的文档数量
+	GetVectorizedCount(ctx context.Context) (int64, error)
+
+	// GetStatus 获取向量生成状态统计
+	GetStatus(ctx context.Context) (*VectorStatusDTO, error)
+
+	// BatchCreate 批量创建向量
+	BatchCreate(ctx context.Context, vectors []*model.DocumentVector) error
+}
+
+// VectorTaskRepository 向量任务仓储接口
+type VectorTaskRepository interface {
+	// Create 创建任务
+	Create(ctx context.Context, task *model.VectorTask) error
+
+	// GetByID 获取任务
+	GetByID(ctx context.Context, id uint) (*model.VectorTask, error)
+
+	// GetPendingTasks 获取待处理任务
+	GetPendingTasks(ctx context.Context, limit int) ([]model.VectorTask, error)
+
+	// UpdateStatus 更新任务状态
+	UpdateStatus(ctx context.Context, id uint, status string, errorMsg string) error
+
+	// Delete 删除任务
+	Delete(ctx context.Context, id uint) error
+
+	// DeleteByDocumentID 删除文档的所有任务
+	DeleteByDocumentID(ctx context.Context, docID uint) error
+
+	// GetByDocumentID 获取文档的所有任务
+	GetByDocumentID(ctx context.Context, docID uint) ([]model.VectorTask, error)
+}
+
+// VectorStatusDTO 向量状态数据传输对象
+type VectorStatusDTO struct {
+	TotalDocuments  int64 `json:"total_documents"`
+	VectorizedCount int64 `json:"vectorized_count"`
+	PendingCount    int64 `json:"pending_count"`
+	FailedCount     int64 `json:"failed_count"`
+	ProcessingCount int64 `json:"processing_count"`
+}
+
+// EmbeddingKeyRepository 嵌入模型配置仓储接口
+type EmbeddingKeyRepository interface {
+	// Create 创建嵌入模型配置
+	Create(ctx context.Context, key *model.EmbeddingKey) error
+
+	// GetByID 根据ID获取配置
+	GetByID(ctx context.Context, id uint) (*model.EmbeddingKey, error)
+
+	// List 列出所有配置
+	List(ctx context.Context) ([]model.EmbeddingKey, error)
+
+	// GetAvailable 获取可用的配置（按优先级排序）
+	GetAvailable(ctx context.Context) ([]model.EmbeddingKey, error)
+
+	// Update 更新配置
+	Update(ctx context.Context, key *model.EmbeddingKey) error
+
+	// Delete 删除配置
+	Delete(ctx context.Context, id uint) error
+
+	// IncrementRequestCount 增加请求计数
+	IncrementRequestCount(ctx context.Context, id uint) error
+
+	// IncrementErrorCount 增加错误计数
+	IncrementErrorCount(ctx context.Context, id uint) error
+
+	// UpdateLastUsedAt 更新最后使用时间
+	UpdateLastUsedAt(ctx context.Context, id uint) error
+
+	// SetStatus 设置状态
+	SetStatus(ctx context.Context, id uint, status string) error
+}

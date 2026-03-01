@@ -6,6 +6,7 @@ import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { useAppConfig } from '@/context/AppConfigContext';
 import APIKeyList from '@/components/settings/APIKeyList';
+import EmbeddingKeyList from '@/components/settings/EmbeddingKeyList';
 import TaskMonitor from '@/components/settings/TaskMonitor';
 import AgentEditor from '@/components/agents/AgentEditor';
 import AgentList from '@/components/agents/AgentList';
@@ -78,6 +79,11 @@ export default function Settings() {
             key: 'api-keys',
             label: t('apiKey.title', 'API Key Management'),
             children: <APIKeyList />,
+        },
+        {
+            key: 'embedding-keys',
+            label: t('embeddingKey.title', 'Embedding Model Configuration'),
+            children: <EmbeddingKeyList />,
         },
         {
             key: 'tasks',

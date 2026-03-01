@@ -51,6 +51,14 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	if err := db.AutoMigrate(&model.APIKey{}); err != nil {
 		return nil, err
 	}
+	// 迁移向量相关表
+	if err := db.AutoMigrate(&model.DocumentVector{}, &model.VectorTask{}); err != nil {
+		return nil, err
+	}
+	// 迁移嵌入模型配置表
+	if err := db.AutoMigrate(&model.EmbeddingKey{}); err != nil {
+		return nil, err
+	}
 
 	//把Task表中没有记录的，都改为DefaultWriter
 	db.Model(&model.Task{}).Where("writer_name IS NULL or writer_name = '' ").Update("writer_name", string(domain.DefaultWriter))

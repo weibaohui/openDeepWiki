@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory, UserRequest, UserRequestListResponse } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, EmbeddingKey, EmbeddingKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory, UserRequest, UserRequestListResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -78,6 +78,19 @@ export const apiKeyApi = {
     delete: (id: number) => api.delete(`/api-keys/${id}`),
     updateStatus: (id: number, status: string) => api.patch(`/api-keys/${id}/status`, { status }),
     getStats: () => api.get<APIKeyStats>('/api-keys/stats'),
+};
+
+// Embedding Key APIs
+export const embeddingKeyApi = {
+    list: () => api.get<EmbeddingKey[]>('/api/embedding-keys'),
+    get: (id: number) => api.get<EmbeddingKey>(`/api/embedding-keys/${id}`),
+    create: (data: Partial<EmbeddingKey>) => api.post<EmbeddingKey>('/api/embedding-keys', data),
+    update: (id: number, data: Partial<EmbeddingKey>) => api.put<EmbeddingKey>(`/api/embedding-keys/${id}`, data),
+    delete: (id: number) => api.delete(`/api/embedding-keys/${id}`),
+    enable: (id: number) => api.post(`/api/embedding-keys/${id}/enable`),
+    disable: (id: number) => api.post(`/api/embedding-keys/${id}/disable`),
+    testConnection: (id: number) => api.post<{ success: boolean; error?: string }>(`/api/embedding-keys/${id}/test`),
+    getStats: () => api.get<EmbeddingKeyStats>('/api/embedding-keys/stats'),
 };
 
 export const syncApi = {

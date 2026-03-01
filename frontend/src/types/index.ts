@@ -95,6 +95,35 @@ export interface APIKeyStats {
     total_errors: number;
 }
 
+// EmbeddingKey 嵌入模型配置类型
+export interface EmbeddingKey {
+    id: number;
+    name: string;
+    provider: string; // openai, ollama, http
+    base_url: string;
+    api_key: string;
+    model: string;
+    dimension: number;
+    priority: number;
+    status: 'enabled' | 'disabled';
+    request_count: number;
+    error_count: number;
+    last_used_at: string | null;
+    rate_limit_reset_at: string | null;
+    timeout: number;
+    created_at: string;
+    updated_at: string;
+}
+
+// EmbeddingKeyStats 嵌入模型配置统计
+export interface EmbeddingKeyStats {
+    total_keys: number;
+    active_keys: number;
+    total_requests: number;
+    total_errors: number;
+    last_updated: string;
+}
+
 export interface QueueStatus {
     queue_length: number;
     priority_length: number;

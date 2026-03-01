@@ -3,12 +3,14 @@ package service
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"k8s.io/klog/v2"
@@ -20,16 +22,18 @@ type DocumentService struct {
 	repoRepo   repository.RepoRepository
 	ratingRepo repository.DocumentRatingRepository
 	pdfService *PDFService
+	bus        *eventbus.DocEventBus
 }
 
 // NewDocumentService 创建文档服务
-func NewDocumentService(cfg *config.Config, docRepo repository.DocumentRepository, repoRepo repository.RepoRepository, ratingRepo repository.DocumentRatingRepository) *DocumentService {
+func NewDocumentService(cfg *config.Config, docRepo repository.DocumentRepository, repoRepo repository.RepoRepository, ratingRepo repository.DocumentRatingRepository, bus *eventbus.DocEventBus) *DocumentService {
 	return &DocumentService{
 		cfg:        cfg,
 		docRepo:    docRepo,
 		repoRepo:   repoRepo,
 		ratingRepo: ratingRepo,
 		pdfService: NewPDFService(),
+		bus:        bus,
 	}
 }
 
@@ -64,6 +68,18 @@ func (s *DocumentService) Create(req CreateDocumentRequest) (*model.Document, er
 	if err := s.docRepo.CreateVersioned(doc); err != nil {
 		return nil, err
 	}
+
+	// 发布文档保存事件，触发向量生成
+	if s.bus != nil && doc.IsLatest {
+		_ = s.bus.Publish(context.Background(), eventbus.DocEventSaved, eventbus.DocEvent{
+			Type:         eventbus.DocEventSaved,
+			RepositoryID: doc.RepositoryID,
+			DocID:        doc.ID,
+			Title:        doc.Title,
+			Content:      doc.Content,
+		})
+	}
+
 	return doc, nil
 }
 
@@ -94,6 +110,18 @@ func (s *DocumentService) Update(docID uint, content string) (*model.Document, e
 	if err := s.docRepo.Save(doc); err != nil {
 		return nil, err
 	}
+
+	// 发布文档更新事件，触发向量重新生成
+	if s.bus != nil && doc.IsLatest {
+		_ = s.bus.Publish(context.Background(), eventbus.DocEventUpdated, eventbus.DocEvent{
+			Type:         eventbus.DocEventUpdated,
+			RepositoryID: doc.RepositoryID,
+			DocID:        doc.ID,
+			Title:        doc.Title,
+			Content:      doc.Content,
+		})
+	}
+
 	return doc, nil
 }
 
