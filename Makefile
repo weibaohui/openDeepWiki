@@ -8,10 +8,8 @@ LINUX_PLATFORMS := \
 ALL_PLATFORMS := \
     linux/amd64 \
     linux/arm64 \
-    linux/386 \
     windows/amd64 \
     windows/arm64 \
-    windows/386 \
     darwin/amd64 \
     darwin/arm64
 
