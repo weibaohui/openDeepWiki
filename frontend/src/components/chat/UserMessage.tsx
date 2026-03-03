@@ -1,24 +1,26 @@
 import { UserOutlined } from '@ant-design/icons';
 import type { ChatMessage } from '../../types/chat';
-import MarkdownRender from '../markdown/MarkdownRender';
 
 interface UserMessageProps {
   message: ChatMessage;
+  isLast?: boolean;
 }
 
 export function UserMessage({ message }: UserMessageProps) {
   return (
-    <div className="flex gap-3 justify-end">
-      <div className="flex-1 flex flex-col items-end">
-        <div className="max-w-[80%] bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-2">
-          <MarkdownRender content={message.content} />
+    <div className="bg-[#343541] border-b border-gray-700/50">
+      <div className="max-w-3xl mx-auto px-4 py-6 flex gap-4">
+        {/* 用户头像 */}
+        <div className="w-8 h-8 rounded-full bg-[#5436da] flex items-center justify-center flex-shrink-0">
+          <UserOutlined className="text-white text-sm" />
         </div>
-        <div className="text-xs text-gray-400 mt-1">
-          {new Date(message.created_at).toLocaleTimeString()}
+
+        {/* 消息内容 */}
+        <div className="flex-1 min-w-0">
+          <div className="text-gray-100 leading-relaxed whitespace-pre-wrap">
+            {message.content}
+          </div>
         </div>
-      </div>
-      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-        <UserOutlined className="text-white" />
       </div>
     </div>
   );

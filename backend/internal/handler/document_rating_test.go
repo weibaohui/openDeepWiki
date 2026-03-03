@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 )
@@ -54,7 +55,7 @@ func TestDocumentHandlerSubmitRating(t *testing.T) {
 			}, nil
 		},
 	}
-	docService := service.NewDocumentService(&config.Config{}, nil, nil, ratingRepo)
+	docService := service.NewDocumentService(&config.Config{}, nil, nil, ratingRepo, eventbus.NewDocEventBus())
 	handler := NewDocumentHandler(nil, docService)
 	router := gin.New()
 	router.POST("/documents/:id/ratings", handler.SubmitRating)
@@ -88,7 +89,7 @@ func TestDocumentHandlerGetRatingStats(t *testing.T) {
 			}, nil
 		},
 	}
-	docService := service.NewDocumentService(&config.Config{}, nil, nil, ratingRepo)
+	docService := service.NewDocumentService(&config.Config{}, nil, nil, ratingRepo, eventbus.NewDocEventBus())
 	handler := NewDocumentHandler(nil, docService)
 	router := gin.New()
 	router.GET("/documents/:id/ratings/stats", handler.GetRatingStats)

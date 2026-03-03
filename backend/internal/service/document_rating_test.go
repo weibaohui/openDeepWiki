@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 )
 
@@ -54,7 +55,7 @@ func TestDocumentServiceSubmitRatingCreate(t *testing.T) {
 			}, nil
 		},
 	}
-	service := NewDocumentService(&config.Config{}, nil, nil, ratingRepo)
+	service := NewDocumentService(&config.Config{}, nil, nil, ratingRepo, eventbus.NewDocEventBus())
 
 	stats, err := service.SubmitRating(10, 5)
 	if err != nil {
@@ -86,7 +87,7 @@ func TestDocumentServiceSubmitRatingDuplicate(t *testing.T) {
 			}, nil
 		},
 	}
-	service := NewDocumentService(&config.Config{}, nil, nil, ratingRepo)
+	service := NewDocumentService(&config.Config{}, nil, nil, ratingRepo, eventbus.NewDocEventBus())
 
 	stats, err := service.SubmitRating(22, 3)
 	if err != nil {

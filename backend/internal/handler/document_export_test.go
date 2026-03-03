@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 )
@@ -126,7 +127,7 @@ func TestDocumentHandlerExportPDF(t *testing.T) {
 			return &model.Repository{ID: id, Name: "demo"}, nil
 		},
 	}
-	docService := service.NewDocumentService(&config.Config{}, docRepo, repoRepo, nil)
+	docService := service.NewDocumentService(&config.Config{}, docRepo, repoRepo, nil, eventbus.NewDocEventBus())
 	handler := NewDocumentHandler(nil, docService)
 	router := gin.New()
 	router.GET("/repositories/:id/export-pdf", handler.ExportPDF)
@@ -148,7 +149,7 @@ func TestDocumentHandlerExportPDF(t *testing.T) {
 
 func TestDocumentHandlerExportPDFInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	docService := service.NewDocumentService(&config.Config{}, &mockExportHandlerDocRepo{}, &mockExportHandlerRepoRepo{}, nil)
+	docService := service.NewDocumentService(&config.Config{}, &mockExportHandlerDocRepo{}, &mockExportHandlerRepoRepo{}, nil, eventbus.NewDocEventBus())
 	handler := NewDocumentHandler(nil, docService)
 	router := gin.New()
 	router.GET("/repositories/:id/export-pdf", handler.ExportPDF)

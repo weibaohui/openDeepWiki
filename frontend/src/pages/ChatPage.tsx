@@ -1,17 +1,17 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, message as AntMessage } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { message as AntMessage } from 'antd';
 import { useChat } from '../hooks/useChat';
 import { ChatSidebar, ChatMessageList, ChatInput } from '../components/chat';
 import { repositoryApi } from '../services/api';
 import type { Repository } from '../types';
+import { useState } from 'react';
 
 export function ChatPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const repoId = parseInt(id || '0', 10);
-  const [repo, setRepo] = useState<Repository | null>(null);
+  const [, setRepo] = useState<Repository | null>(null);
 
   // 使用 useCallback 稳定 onError 回调
   const handleError = useCallback((error: string) => {
@@ -71,64 +71,61 @@ export function ChatPage() {
     sendMessage(state.inputValue);
   }, [sendMessage, state.inputValue]);
 
-  return (
-    <div className="flex flex-col h-screen">
-      {/* 头部 */}
-      <div className="flex items-center gap-4 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate(`/repositories/${repoId}`)}
-        >
-          返回
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-lg font-medium">
-            {repo?.name || 'AI 对话'}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {state.currentSession?.title || '选择一个会话开始对话'}
-          </p>
-        </div>
-        {state.connectionStatus === 'disconnected' && (
-          <Button type="primary" onClick={reconnect}>
-            重新连接
-          </Button>
-        )}
-      </div>
+  const handleBack = useCallback(() => {
+    navigate(`/repositories/${repoId}`);
+  }, [navigate, repoId]);
 
-      {/* 主体 */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 侧边栏 */}
-        <ChatSidebar
-          sessions={state.sessions}
-          currentSessionId={state.currentSession?.session_id}
-          loading={state.sessionsLoading}
-          hasMore={state.sessionsHasMore}
-          onCreateSession={handleCreateSession}
-          onSelectSession={handleSelectSession}
-          onDeleteSession={handleDeleteSession}
-          onLoadMore={() => loadSessions(Math.floor(state.sessions.length / 20) + 1)}
+  return (
+    <div className="flex h-screen bg-[#343541]">
+      {/* 侧边栏 */}
+      <ChatSidebar
+        sessions={state.sessions}
+        currentSessionId={state.currentSession?.session_id}
+        loading={state.sessionsLoading}
+        hasMore={state.sessionsHasMore}
+        onCreateSession={handleCreateSession}
+        onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteSession}
+        onLoadMore={() => loadSessions(Math.floor(state.sessions.length / 20) + 1)}
+        onBack={handleBack}
+      />
+
+      {/* 对话区域 */}
+      <div className="flex-1 flex flex-col relative">
+        {/* 连接状态提示 */}
+        {state.connectionStatus === 'disconnected' && (
+          <div className="absolute top-0 left-0 right-0 z-50 bg-red-500/90 text-white px-4 py-2 text-sm text-center">
+            连接已断开
+            <button
+              onClick={reconnect}
+              className="ml-2 underline hover:no-underline"
+            >
+              重新连接
+            </button>
+          </div>
+        )}
+        {state.connectionStatus === 'reconnecting' && (
+          <div className="absolute top-0 left-0 right-0 z-50 bg-yellow-500/90 text-white px-4 py-2 text-sm text-center">
+            正在重新连接...
+          </div>
+        )}
+
+        <ChatMessageList
+          messages={state.messages}
+          loading={state.messagesLoading}
+          isStreaming={state.isStreaming}
+          streamingMessageId={state.streamingMessageId}
         />
 
-        {/* 对话区域 */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
-          <ChatMessageList
-            messages={state.messages}
-            loading={state.messagesLoading}
-            isStreaming={state.isStreaming}
-            streamingMessageId={state.streamingMessageId}
-          />
-
-          <ChatInput
-            value={state.inputValue}
-            isSending={state.isSending}
-            isStreaming={state.isStreaming}
-            connectionStatus={state.connectionStatus}
-            onChange={setInputValue}
-            onSend={handleSend}
-            onStop={stopGeneration}
-          />
-        </div>
+        <ChatInput
+          value={state.inputValue}
+          isSending={state.isSending}
+          isStreaming={state.isStreaming}
+          connectionStatus={state.connectionStatus}
+          onChange={setInputValue}
+          onSend={handleSend}
+          onStop={stopGeneration}
+        />
       </div>
     </div>
   );
