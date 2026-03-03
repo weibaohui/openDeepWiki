@@ -215,16 +215,18 @@ const MessageContent: React.FC<{
         {message.content ? (
           (() => {
             const content = message.content;
+            // 移除 <final> 标签
+            const cleanContent = content.replace(/<final>[\s\S]*?<\/final>/g, '');
             // 解析 <thinking> 标签
             const thinkRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
             const parts: Array<{ type: 'thinking' | 'text'; content: string }> = [];
             let lastIndex = 0;
             let match;
 
-            while ((match = thinkRegex.exec(content)) !== null) {
+            while ((match = thinkRegex.exec(cleanContent)) !== null) {
               // 添加 <thinking> 之前的文本
               if (match.index > lastIndex) {
-                const textContent = content.slice(lastIndex, match.index);
+                const textContent = cleanContent.slice(lastIndex, match.index);
                 if (textContent.trim()) {
                   parts.push({ type: 'text', content: textContent });
                 }
@@ -235,8 +237,8 @@ const MessageContent: React.FC<{
             }
 
             // 添加剩余的文本
-            if (lastIndex < content.length) {
-              const textContent = content.slice(lastIndex);
+            if (lastIndex < cleanContent.length) {
+              const textContent = cleanContent.slice(lastIndex);
               if (textContent.trim()) {
                 parts.push({ type: 'text', content: textContent });
               }
@@ -244,7 +246,7 @@ const MessageContent: React.FC<{
 
             // 如果没有 <thinking> 标签，渲染全部为文本
             if (parts.length === 0) {
-              return <MarkdownRender content={content} />;
+              return <MarkdownRender content={cleanContent} />;
             }
 
             // 渲染各个部分
