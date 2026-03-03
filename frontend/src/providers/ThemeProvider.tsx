@@ -1,4 +1,6 @@
 import { ConfigProvider, theme as antdTheme } from 'antd';
+import { XProvider } from '@ant-design/x';
+import { StyleProvider } from '@ant-design/cssinjs';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { antdLocales, getMessage, type AppLocale } from '@/i18n';
@@ -45,9 +47,13 @@ export function ThemeProvider({ children }: Props) {
 
     return (
         <AppConfigContext.Provider value={value}>
-            <ConfigProvider locale={antdLocales[locale]} theme={{ algorithm }}>
-                {children}
-            </ConfigProvider>
+            <StyleProvider hashPriority="high">
+                <ConfigProvider locale={antdLocales[locale]} theme={{ algorithm }}>
+                    <XProvider>
+                        {children}
+                    </XProvider>
+                </ConfigProvider>
+            </StyleProvider>
         </AppConfigContext.Provider>
     );
 }
