@@ -176,7 +176,15 @@ func main() {
 
 	agentHandler := handler.NewAgentHandler(agentService)
 	embeddingKeyHandler := handler.NewEmbeddingKeyHandler(embeddingKeyService)
-	chatHandler := handler.NewChatHandler(chatService)
+
+	// 创建 AgentFactory
+	agentFactory, err := adkagents.NewAgentFactory(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create agent factory: %v", err)
+	}
+
+	// 创建 ChatHandler，传入 AgentFactory
+	chatHandler := handler.NewChatHandler(chatService, agentFactory)
 	// 启动ChatHub
 	go chatHandler.GetHub().Run()
 

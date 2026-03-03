@@ -9,9 +9,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 )
 
@@ -26,16 +29,17 @@ var upgrader = websocket.Upgrader{
 
 // ChatHandler 对话处理器
 type ChatHandler struct {
-	chatService    service.ChatService
-	hub            *ChatHub
-	agentExecutor  *AgentExecutor // 需要在 domain/chat 中实现
+	chatService  service.ChatService
+	hub          *ChatHub
+	agentFactory *adkagents.AgentFactory
 }
 
 // NewChatHandler 创建处理器
-func NewChatHandler(chatService service.ChatService) *ChatHandler {
+func NewChatHandler(chatService service.ChatService, agentFactory *adkagents.AgentFactory) *ChatHandler {
 	return &ChatHandler{
-		chatService: chatService,
-		hub:         NewChatHub(),
+		chatService:  chatService,
+		hub:          NewChatHub(),
+		agentFactory: agentFactory,
 	}
 }
 
@@ -353,20 +357,149 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 		}
 	}()
 
-	// TODO: 调用AgentExecutor执行
-	// 这里需要实现AgentExecutor，暂时发送模拟消息
+	// 获取 Agent
+	agent, err := h.agentFactory.GetAgent("chat_assistant")
+	if err != nil {
+		client.sendError("AGENT_NOT_FOUND", fmt.Sprintf("无法获取Agent: %v", err))
+		return
+	}
 
-	// 发送assistant_start
+	// 创建AI消息记录
+	assistantMsg, err := h.chatService.CreateAssistantMessage(ctx, client.sessionID)
+	if err != nil {
+		client.sendError("INTERNAL_ERROR", "创建AI消息失败")
+		return
+	}
+
+	// 发送assistant_start事件
 	client.sendEvent(ServerMessage{
 		Type:      "assistant_start",
 		ID:        generateEventID(),
 		Timestamp: time.Now().UnixMilli(),
 		Payload: map[string]interface{}{
-			"message_id": "msg_" + strconv.FormatInt(time.Now().UnixNano(), 10),
+			"message_id": assistantMsg.MessageID,
 		},
 	})
 
-	// TODO: 实际的Agent执行逻辑
+	// 获取历史消息
+	historyMsgs, err := h.chatService.ListMessages(ctx, client.sessionID, 20, nil)
+	if err != nil {
+		client.sendError("INTERNAL_ERROR", "获取历史消息失败")
+		return
+	}
+
+	// 构建ADK消息列表
+	var adkMessages []*schema.Message
+	for _, msg := range historyMsgs {
+		if msg.Status == "completed" || msg.Status == "streaming" {
+			role := schema.User
+			if msg.Role == "assistant" {
+				role = schema.Assistant
+			}
+			adkMessages = append(adkMessages, &schema.Message{
+				Role:    role,
+				Content: msg.Content,
+			})
+		}
+	}
+
+	// 创建Runner并执行
+	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent})
+	iter := runner.Run(ctx, adkMessages)
+
+	var fullContent string
+	var tokenUsed int
+
+	// 遍历事件流
+	for {
+		select {
+		case <-ctx.Done():
+			// 用户取消或超时
+			h.chatService.FinalizeMessage(ctx, assistantMsg.MessageID, tokenUsed, "stopped")
+			client.sendEvent(ServerMessage{
+				Type:      "stopped",
+				ID:        generateEventID(),
+				Timestamp: time.Now().UnixMilli(),
+				Payload: map[string]interface{}{
+					"message_id": assistantMsg.MessageID,
+					"reason":     "user_cancelled",
+				},
+			})
+			return
+		default:
+		}
+
+		event, ok := iter.Next()
+		if !ok {
+			break
+		}
+
+		if event.Err != nil {
+			// 执行出错
+			h.chatService.FinalizeMessage(ctx, assistantMsg.MessageID, tokenUsed, "error")
+			client.sendError("AGENT_ERROR", event.Err.Error())
+			return
+		}
+
+		// 处理输出事件
+		if event.Output != nil && event.Output.MessageOutput != nil {
+			content := event.Output.MessageOutput.Message.Content
+			if content != "" {
+				// 发送内容增量
+				client.sendEvent(ServerMessage{
+					Type:      "content_delta",
+					ID:        generateEventID(),
+					Timestamp: time.Now().UnixMilli(),
+					Payload: map[string]interface{}{
+						"message_id": assistantMsg.MessageID,
+						"delta":      content,
+					},
+				})
+				fullContent += content
+				// 更新数据库中的消息内容
+				h.chatService.UpdateMessageContent(ctx, assistantMsg.MessageID, fullContent)
+			}
+
+			// 处理工具调用
+			if len(event.Output.MessageOutput.Message.ToolCalls) > 0 {
+				for _, tc := range event.Output.MessageOutput.Message.ToolCalls {
+					// 发送工具调用事件
+					client.sendEvent(ServerMessage{
+						Type:      "tool_call",
+						ID:        generateEventID(),
+						Timestamp: time.Now().UnixMilli(),
+						Payload: map[string]interface{}{
+							"tool_call_id": tc.ID,
+							"tool_name":    tc.Function.Name,
+							"arguments":    tc.Function.Arguments,
+						},
+					})
+
+					// 保存工具调用到数据库
+					h.chatService.CreateToolCall(ctx, assistantMsg.MessageID, tc.ID, tc.Function.Name, tc.Function.Arguments)
+				}
+			}
+		}
+
+		// 检查是否退出
+		if event.Action != nil && event.Action.Exit {
+			break
+		}
+	}
+
+	// 完成消息
+	h.chatService.FinalizeMessage(ctx, assistantMsg.MessageID, tokenUsed, "completed")
+
+	// 发送assistant_end事件
+	client.sendEvent(ServerMessage{
+		Type:      "assistant_end",
+		ID:        generateEventID(),
+		Timestamp: time.Now().UnixMilli(),
+		Payload: map[string]interface{}{
+			"message_id": assistantMsg.MessageID,
+			"token_used": tokenUsed,
+		},
+	})
 }
 
 // sendEvent 发送事件
