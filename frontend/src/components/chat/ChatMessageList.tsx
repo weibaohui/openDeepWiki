@@ -1,5 +1,4 @@
 import { useRef, useEffect } from 'react';
-import { Spin, Empty } from 'antd';
 import type { ChatMessage } from '../../types/chat';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
@@ -39,7 +38,14 @@ export function ChatMessageList({
   if (messages.length === 0 && !loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Empty description="开始新的对话吧" />
+        <div className="text-center">
+          <h2 className="text-4xl font-semibold text-gray-100 mb-4">
+            AI 代码助手
+          </h2>
+          <p className="text-gray-400 text-lg">
+            基于代码仓库内容回答您的问题
+          </p>
+        </div>
       </div>
     );
   }
@@ -47,25 +53,33 @@ export function ChatMessageList({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto p-4 space-y-4"
+      className="flex-1 overflow-y-auto"
       onScroll={handleScroll}
     >
-      {messages.map((message) => {
+      {messages.map((message, index) => {
+        const isLast = index === messages.length - 1;
         if (message.role === 'user') {
-          return <UserMessage key={message.message_id} message={message} />;
+          return (
+            <UserMessage
+              key={message.message_id}
+              message={message}
+              isLast={isLast}
+            />
+          );
         }
         return (
           <AssistantMessage
             key={message.message_id}
             message={message}
             isStreaming={isStreaming && message.message_id === streamingMessageId}
+            isLast={isLast}
           />
         );
       })}
 
       {loading && (
-        <div className="flex justify-center py-4">
-          <Spin tip="加载中..." />
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
         </div>
       )}
     </div>

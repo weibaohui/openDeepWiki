@@ -11,7 +11,7 @@ export function ChatPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const repoId = parseInt(id || '0', 10);
-  const [repo, setRepo] = useState<Repository | null>(null);
+  const [, setRepo] = useState<Repository | null>(null);
 
   // 使用 useCallback 稳定 onError 回调
   const handleError = useCallback((error: string) => {
@@ -83,7 +83,6 @@ export function ChatPage() {
         currentSessionId={state.currentSession?.session_id}
         loading={state.sessionsLoading}
         hasMore={state.sessionsHasMore}
-        repoName={repo?.name || 'AI 对话'}
         onCreateSession={handleCreateSession}
         onSelectSession={handleSelectSession}
         onDeleteSession={handleDeleteSession}

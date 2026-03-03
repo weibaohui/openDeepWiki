@@ -15,7 +15,6 @@ interface ChatSidebarProps {
   currentSessionId?: string;
   loading: boolean;
   hasMore: boolean;
-  repoName: string;
   onCreateSession: () => void;
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
