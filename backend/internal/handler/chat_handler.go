@@ -495,9 +495,8 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 
 			content := event.Output.MessageOutput.Message.Content
 			// 对非 final 开头的 assistant 消息，自动添加 thinking 包裹
-			if event.Output.MessageOutput.Role == "assistant" && len(strings.TrimSpace(content)) > 0 && !strings.HasPrefix(content, "<final>") {
+			if event.Output.MessageOutput.Role == "assistant" && len(strings.TrimSpace(content)) > 0 && !strings.HasPrefix(content, "<final>") && !strings.HasPrefix(content, "<thinking>") {
 				content = "<thinking>" + content + "</thinking>"
-				klog.V(6).Info("自动添加 thinking 包裹到消息内容")
 			}
 			if content != "" {
 				// 发送内容增量
