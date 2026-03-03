@@ -1,5 +1,6 @@
 import { Sender } from '@ant-design/x';
 import { StopOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 
 interface ChatInputProps {
   value: string;
@@ -45,13 +46,14 @@ export function ChatInput({
         />
         {/* 停止按钮 */}
         {isStreaming && (
-          <button
+          <Button
+            type="primary"
+            danger
+            icon={<StopOutlined />}
             onClick={onStop}
-            className="absolute right-12 bottom-2 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors z-10"
+            className="absolute right-14 bottom-2 z-10"
             title="停止生成"
-          >
-            <StopOutlined className="text-sm" />
-          </button>
+          />
         )}
         <div className="text-center mt-2 text-xs text-gray-500">
           AI 生成的内容可能存在错误，请仔细核实重要信息
