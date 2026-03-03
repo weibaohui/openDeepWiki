@@ -22,6 +22,14 @@ export interface ToolCall {
   duration_ms: number;
 }
 
+export interface ChatStreamItem {
+  id: string;
+  type: 'tool_call' | 'content_delta';
+  timestamp: number;
+  tool_call_id?: string;
+  content?: string;
+}
+
 // 消息
 export interface ChatMessage {
   id: number;
@@ -36,6 +44,7 @@ export interface ChatMessage {
   token_used: number;
   status: 'pending' | 'streaming' | 'completed' | 'stopped' | 'error';
   isPlaceholder?: boolean;
+  stream_items?: ChatStreamItem[];
   created_at: string;
   completed_at?: string;
 }

@@ -180,7 +180,72 @@ const MessageFooter: React.FC<MessageFooterProps> = ({ id, content, status, onRe
   ) : null;
 };
 
-// 渲染消息内容 - 将思考过程和答案分开
+const toolIconMap: Record<string, string> = {
+  search_code: '🔍',
+  read_file: '📄',
+  list_directory: '📁',
+  list_dir: '📁',
+  get_file_info: 'ℹ️',
+  default: '🔧',
+};
+
+const formatToolArguments = (rawArgs: string): string => {
+  let formattedArgs = rawArgs;
+  try {
+    const args = JSON.parse(rawArgs);
+    if (typeof args === 'object' && args !== null) {
+      formattedArgs = Object.entries(args)
+        .map(([key, value]) => {
+          const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
+          return `${key}: ${valueStr}`;
+        })
+        .join(', ');
+    }
+  } catch {
+    formattedArgs = rawArgs
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'")
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t');
+  }
+  return formattedArgs;
+};
+
+const parseTaggedContent = (content: string): Array<{ type: 'thinking' | 'text' | 'final'; content: string }> => {
+  const parts: Array<{ type: 'thinking' | 'text' | 'final'; content: string }> = [];
+  const tagRegex = /<(thinking|final)>([\s\S]*?)<\/\1>/g;
+  let lastIndex = 0;
+  let tagMatch: RegExpExecArray | null;
+
+  while ((tagMatch = tagRegex.exec(content)) !== null) {
+    if (tagMatch.index > lastIndex) {
+      const text = content.slice(lastIndex, tagMatch.index);
+      if (text.trim()) {
+        parts.push({ type: 'text', content: text });
+      }
+    }
+    parts.push({
+      type: tagMatch[1] === 'thinking' ? 'thinking' : 'final',
+      content: tagMatch[2],
+    });
+    lastIndex = tagMatch.index + tagMatch[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    const rest = content.slice(lastIndex);
+    if (rest.trim()) {
+      parts.push({ type: 'text', content: rest });
+    }
+  }
+
+  if (parts.length === 0 && content.trim()) {
+    parts.push({ type: 'text', content });
+  }
+
+  return parts;
+};
+
 const MessageContent: React.FC<{
   message: ChatMessage;
 }> = ({ message }) => {
@@ -206,117 +271,57 @@ const MessageContent: React.FC<{
   }
 
   // AI 消息：工具调用、思考过程、答案混合流式显示
+  const renderToolCall = (toolCallId: string, toolName: string, rawArgs: string) => {
+    const icon = toolIconMap[toolName] || toolIconMap.default;
+    return (
+      <Think key={toolCallId} title={`${icon} ${toolName}`}>
+        {formatToolArguments(rawArgs)}
+      </Think>
+    );
+  };
+
+  const renderTaggedContent = (content: string, keyPrefix: string) => {
+    const parts = parseTaggedContent(content);
+    return parts.map((part, index) => {
+      const key = `${keyPrefix}_${index}`;
+      if (part.type === 'thinking') {
+        return <Think key={key} title="deep thinking">{part.content}</Think>;
+      }
+      return <MarkdownRender key={key} content={part.content} />;
+    });
+  };
+
+  if (message.stream_items && message.stream_items.length > 0) {
+    return (
+      <div className={styles.messageContent}>
+        {message.stream_items.map((item, index) => {
+          if (item.type === 'tool_call' && item.tool_call_id) {
+            const toolCall = message.tool_calls?.find((tool) => tool.tool_call_id === item.tool_call_id);
+            if (!toolCall) {
+              return null;
+            }
+            return renderToolCall(toolCall.tool_call_id, toolCall.tool_name, toolCall.arguments);
+          }
+          if (item.type === 'content_delta' && item.content) {
+            return (
+              <React.Fragment key={item.id || `content_${index}`}>
+                {renderTaggedContent(item.content, `${item.id || `content_${index}`}`)}
+              </React.Fragment>
+            );
+          }
+          return null;
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.messageContent}>
-      {/* 渲染所有内容：工具调用 + 思考过程 + 答案 */}
       <>
-        {/* 工具调用 */}
-        {message.tool_calls && message.tool_calls.length > 0 && message.tool_calls.map((toolCall) => {
-          const toolIconMap: Record<string, string> = {
-            'search_code': '🔍',
-            'read_file': '📄',
-            'list_directory': '📁',
-            'list_dir': '📁',
-            'get_file_info': 'ℹ️',
-            'default': '🔧',
-          };
-          const icon = toolIconMap[toolCall.tool_name] || '🔧';
-
-          // 解析并格式化 arguments
-          let formattedArgs = toolCall.arguments;
-          try {
-            const args = JSON.parse(toolCall.arguments);
-            if (typeof args === 'object' && args !== null) {
-              formattedArgs = Object.entries(args)
-                .map(([key, value]) => {
-                  const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
-                  return `${key}: ${valueStr}`;
-                })
-                .join(', ');
-            }
-          } catch {
-            // 解析失败，返回原字符串并去掉转义
-            formattedArgs = toolCall.arguments
-              .replace(/\\"/g, '"')
-              .replace(/\\'/g, "'")
-              .replace(/\\n/g, '\n')
-              .replace(/\\r/g, '\r')
-              .replace(/\\t/g, '\t');
-          }
-
-          return (
-            <Think key={toolCall.tool_call_id} title={`${icon} ${toolCall.tool_name}`}>
-              {formattedArgs}
-            </Think>
-          );
-        })}
-        {message.content ? (
-          (() => {
-            const content = message.content;
-            // 解析 <thinking> 和 <final> 标签
-            const parts: Array<{ type: 'thinking' | 'text' | 'final'; content: string }> = [];
-            let lastIndex = 0;
-
-            // 首先处理 <thinking> 标签
-            const thinkRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
-            let thinkMatch;
-            while ((thinkMatch = thinkRegex.exec(content)) !== null) {
-              // 添加 <thinking> 之前的文本
-              if (thinkMatch.index > lastIndex) {
-                const textContent = content.slice(lastIndex, thinkMatch.index);
-                if (textContent.trim()) {
-                  parts.push({ type: 'text', content: textContent });
-                }
-              }
-              // 添加 thinking 内容
-              parts.push({ type: 'thinking', content: thinkMatch[1] });
-              lastIndex = thinkMatch.index + thinkMatch[0].length;
-            }
-
-            // 添加剩余的文本
-            if (lastIndex < content.length) {
-              const remainingText = content.slice(lastIndex);
-              // 检查是否有 <final> 标签
-              const finalMatch = remainingText.match(/<final>([\s\S]*?)<\/final>/);
-              if (finalMatch) {
-                // 添加 <final> 之前的文本
-                const beforeFinal = remainingText.slice(0, finalMatch.index);
-                if (beforeFinal.trim()) {
-                  parts.push({ type: 'text', content: beforeFinal });
-                }
-                // 添加 final 内容
-                parts.push({ type: 'final', content: finalMatch[1] });
-              } else {
-                // 没有标签，添加全部为文本
-                if (remainingText.trim()) {
-                  parts.push({ type: 'text', content: remainingText });
-                }
-              }
-            }
-
-            // 如果没有标签，渲染全部为文本
-            if (parts.length === 0) {
-              return <MarkdownRender content={content} />;
-            }
-
-            // 渲染各个部分
-            return (
-              <>
-                {parts.map((part, index) => (
-                  <React.Fragment key={index}>
-                    {part.type === 'thinking' ? (
-                      <Think title={'deep thinking'}>{part.content}</Think>
-                    ) : part.type === 'final' ? (
-                      <MarkdownRender content={part.content} />
-                    ) : (
-                      <MarkdownRender content={part.content} />
-                    )}
-                  </React.Fragment>
-                ))}
-              </>
-            );
-          })()
-        ) : null}
+        {message.tool_calls?.map((toolCall) => (
+          renderToolCall(toolCall.tool_call_id, toolCall.tool_name, toolCall.arguments)
+        ))}
+        {message.content ? renderTaggedContent(message.content, 'content') : null}
       </>
     </div>
   );

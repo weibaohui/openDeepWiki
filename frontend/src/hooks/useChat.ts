@@ -3,6 +3,7 @@ import type {
   ChatState,
   ChatSession,
   ChatMessage,
+  ChatStreamItem,
   ServerMessage,
   ClientMessage,
   ToolCall,
@@ -219,6 +220,19 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
             if (!exists) {
               lastMsg.tool_calls = [...(lastMsg.tool_calls || []), toolCall];
             }
+            const streamItems = [...(lastMsg.stream_items || [])];
+            const streamItemExists = streamItems.some(
+              (item) => item.type === 'tool_call' && item.tool_call_id === payload.tool_call_id,
+            );
+            if (!streamItemExists) {
+              const streamItem: ChatStreamItem = {
+                id: `tool_${payload.tool_call_id}`,
+                type: 'tool_call',
+                timestamp: message.timestamp,
+                tool_call_id: payload.tool_call_id,
+              };
+              lastMsg.stream_items = [...streamItems, streamItem];
+            }
           }
           return { ...prev, messages };
         });
@@ -281,6 +295,15 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
             }
             msg.content += payload.delta;
             msg.status = 'streaming';
+            msg.stream_items = [
+              ...(msg.stream_items || []),
+              {
+                id: `content_${message.timestamp}_${(msg.stream_items || []).length}`,
+                type: 'content_delta',
+                timestamp: message.timestamp,
+                content: payload.delta,
+              },
+            ];
             lastDeltaByMessageIdRef.current.set(payload.message_id, payload.delta);
             console.log('[content_delta] 追加内容到现有消息');
           } else {
@@ -297,6 +320,14 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
               token_used: 0,
               created_at: new Date().toISOString(),
               tool_calls: [],
+              stream_items: [
+                {
+                  id: `content_${message.timestamp}_0`,
+                  type: 'content_delta',
+                  timestamp: message.timestamp,
+                  content: payload.delta,
+                },
+              ],
             };
             messages.push(assistantMsg);
             lastDeltaByMessageIdRef.current.set(payload.message_id, payload.delta);
@@ -415,6 +446,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       token_used: 0,
       isPlaceholder: true,
       created_at: new Date().toISOString(),
+      stream_items: [],
     };
 
     setState((prev) => ({
