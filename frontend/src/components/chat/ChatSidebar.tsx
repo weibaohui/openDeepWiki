@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Button, Empty, Popconfirm } from 'antd';
+import { Button, Empty } from 'antd';
+import { Conversations } from '@ant-design/x';
+import type { ConversationsProps } from '@ant-design/x';
 import {
   PlusOutlined,
-  DeleteOutlined,
-  MessageOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   ArrowLeftOutlined,
+  DeleteOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import type { ChatSession } from '../../types/chat';
 
@@ -34,6 +36,30 @@ export function ChatSidebar({
   onBack,
 }: ChatSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // 将 sessions 转换为 Conversations 需要的格式
+  const conversationItems: ConversationsProps['items'] = sessions.map((session) => ({
+    key: session.session_id,
+    label: session.title || '新对话',
+    icon: <MessageOutlined />,
+  }));
+
+  // 处理菜单操作
+  const menuConfig: ConversationsProps['menu'] = (item) => ({
+    items: [
+      {
+        key: 'delete',
+        label: '删除会话',
+        icon: <DeleteOutlined />,
+        danger: true,
+        onClick: () => onDeleteSession(item.key as string),
+      },
+    ],
+  });
+
+  const handleMenuClick: ConversationsProps['onActiveChange'] = (key) => {
+    onSelectSession(key as string);
+  };
 
   if (isCollapsed) {
     return (
@@ -66,43 +92,13 @@ export function ChatSidebar({
         {sessions.length === 0 && !loading ? (
           <Empty className="mt-8" description="暂无会话" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
-          <div className="space-y-1">
-            {sessions.map((session) => (
-              <div
-                key={session.session_id}
-                className={`group flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-colors ${
-                  session.session_id === currentSessionId
-                    ? 'bg-gray-700/50'
-                    : 'hover:bg-gray-700/30'
-                }`}
-                onClick={() => onSelectSession(session.session_id)}
-              >
-                <MessageOutlined className="text-gray-400 flex-shrink-0 text-sm" />
-                <div className="flex-1 min-w-0">
-                  <div className="truncate text-sm text-gray-200">
-                    {session.title || '新对话'}
-                  </div>
-                </div>
-                <Popconfirm
-                  title="删除会话"
-                  description="确定要删除这个会话吗？"
-                  onConfirm={(e) => {
-                    e?.stopPropagation();
-                    onDeleteSession(session.session_id);
-                  }}
-                  okText="删除"
-                  cancelText="取消"
-                >
-                  <button
-                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-400 transition-all"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <DeleteOutlined className="text-xs" />
-                  </button>
-                </Popconfirm>
-              </div>
-            ))}
-          </div>
+          <Conversations
+            items={conversationItems}
+            activeKey={currentSessionId}
+            onActiveChange={handleMenuClick}
+            menu={menuConfig}
+            className="bg-transparent"
+          />
         )}
 
         {hasMore && !loading && sessions.length > 0 && (
