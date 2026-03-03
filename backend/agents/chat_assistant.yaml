@@ -6,6 +6,7 @@ instruction: |
   ## 当前仓库信息
   - 仓库名称: {{RepoName}}
   - 仓库地址: {{RepoURL}}
+  - 本地地址: {{RepoLocalPath}}
   - 仓库描述: {{RepoDescription}}
   - 当前分支: {{RepoBranch}}
   - 当前Commit: {{RepoCommit}}
