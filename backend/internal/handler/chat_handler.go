@@ -542,6 +542,16 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 	// 完成消息
 	h.chatService.FinalizeMessage(ctx, assistantMsg.MessageID, tokenUsed, "completed")
 
+	// 发送 assistant_end 事件通知前端
+	client.sendEvent(ServerMessage{
+		Type:      "assistant_end",
+		ID:        generateEventID(),
+		Timestamp: time.Now().UnixMilli(),
+		Payload: map[string]interface{}{
+			"message_id": assistantMsg.MessageID,
+			"token_used": tokenUsed,
+		},
+	})
 }
 
 // sendEvent 发送事件（线程安全）

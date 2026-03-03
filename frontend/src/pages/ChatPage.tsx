@@ -215,38 +215,50 @@ const MessageContent: React.FC<{
         {message.content ? (
           (() => {
             const content = message.content;
-            // 移除 <final> 标签
-            const cleanContent = content.replace(/<final>[\s\S]*?<\/final>/g, '');
-            // 解析 <thinking> 标签
-            const thinkRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
-            const parts: Array<{ type: 'thinking' | 'text'; content: string }> = [];
+            // 解析 <thinking> 和 <final> 标签
+            const parts: Array<{ type: 'thinking' | 'text' | 'final'; content: string }> = [];
             let lastIndex = 0;
-            let match;
 
-            while ((match = thinkRegex.exec(cleanContent)) !== null) {
+            // 首先处理 <thinking> 标签
+            const thinkRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
+            let thinkMatch;
+            while ((thinkMatch = thinkRegex.exec(content)) !== null) {
               // 添加 <thinking> 之前的文本
-              if (match.index > lastIndex) {
-                const textContent = cleanContent.slice(lastIndex, match.index);
+              if (thinkMatch.index > lastIndex) {
+                const textContent = content.slice(lastIndex, thinkMatch.index);
                 if (textContent.trim()) {
                   parts.push({ type: 'text', content: textContent });
                 }
               }
               // 添加 thinking 内容
-              parts.push({ type: 'thinking', content: match[1] });
-              lastIndex = match.index + match[0].length;
+              parts.push({ type: 'thinking', content: thinkMatch[1] });
+              lastIndex = thinkMatch.index + thinkMatch[0].length;
             }
 
             // 添加剩余的文本
-            if (lastIndex < cleanContent.length) {
-              const textContent = cleanContent.slice(lastIndex);
-              if (textContent.trim()) {
-                parts.push({ type: 'text', content: textContent });
+            if (lastIndex < content.length) {
+              const remainingText = content.slice(lastIndex);
+              // 检查是否有 <final> 标签
+              const finalMatch = remainingText.match(/<final>([\s\S]*?)<\/final>/);
+              if (finalMatch) {
+                // 添加 <final> 之前的文本
+                const beforeFinal = remainingText.slice(0, finalMatch.index);
+                if (beforeFinal.trim()) {
+                  parts.push({ type: 'text', content: beforeFinal });
+                }
+                // 添加 final 内容
+                parts.push({ type: 'final', content: finalMatch[1] });
+              } else {
+                // 没有标签，添加全部为文本
+                if (remainingText.trim()) {
+                  parts.push({ type: 'text', content: remainingText });
+                }
               }
             }
 
-            // 如果没有 <thinking> 标签，渲染全部为文本
+            // 如果没有标签，渲染全部为文本
             if (parts.length === 0) {
-              return <MarkdownRender content={cleanContent} />;
+              return <MarkdownRender content={content} />;
             }
 
             // 渲染各个部分
@@ -256,6 +268,8 @@ const MessageContent: React.FC<{
                   <React.Fragment key={index}>
                     {part.type === 'thinking' ? (
                       <Think title={'deep thinking'}>{part.content}</Think>
+                    ) : part.type === 'final' ? (
+                      <MarkdownRender content={part.content} />
                     ) : (
                       <MarkdownRender content={part.content} />
                     )}
