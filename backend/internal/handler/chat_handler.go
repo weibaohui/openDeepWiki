@@ -1,0 +1,407 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/weibaohui/opendeepwiki/backend/internal/model"
+	"github.com/weibaohui/opendeepwiki/backend/internal/service"
+)
+
+// WebSocket upgrader
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true // 允许跨域，生产环境应该配置具体域名
+	},
+}
+
+// ChatHandler 对话处理器
+type ChatHandler struct {
+	chatService    service.ChatService
+	hub            *ChatHub
+	agentExecutor  *AgentExecutor // 需要在 domain/chat 中实现
+}
+
+// NewChatHandler 创建处理器
+func NewChatHandler(chatService service.ChatService) *ChatHandler {
+	return &ChatHandler{
+		chatService: chatService,
+		hub:         NewChatHub(),
+	}
+}
+
+// GetHub 获取Hub（用于启动）
+func (h *ChatHandler) GetHub() *ChatHub {
+	return h.hub
+}
+
+// RegisterRoutes 注册路由
+func (h *ChatHandler) RegisterRoutes(r *gin.RouterGroup) {
+	chat := r.Group("/repositories/:id/chat")
+	{
+		// 会话管理
+		chat.POST("/sessions", h.CreateSession)
+		chat.GET("/sessions", h.ListSessions)
+		chat.GET("/sessions/:session_id", h.GetSession)
+		chat.DELETE("/sessions/:session_id", h.DeleteSession)
+
+		// WebSocket
+		chat.GET("/sessions/:session_id/stream", h.WebSocket)
+	}
+}
+
+// CreateSession 创建会话
+func (h *ChatHandler) CreateSession(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的仓库ID"})
+		return
+	}
+
+	session, err := h.chatService.CreateSession(c.Request.Context(), uint(repoID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, session)
+}
+
+// ListSessions 获取会话列表
+func (h *ChatHandler) ListSessions(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的仓库ID"})
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	sessions, total, err := h.chatService.ListSessions(c.Request.Context(), uint(repoID), page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items":     sessions,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// GetSession 获取会话详情
+func (h *ChatHandler) GetSession(c *gin.Context) {
+	sessionID := c.Param("session_id")
+
+	session, err := h.chatService.GetSession(c.Request.Context(), sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "会话不存在"})
+		return
+	}
+
+	// 获取消息列表（默认10条）
+	messages, err := h.chatService.ListMessages(c.Request.Context(), sessionID, 10, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"session":  session,
+		"messages": messages,
+	})
+}
+
+// DeleteSession 删除会话
+func (h *ChatHandler) DeleteSession(c *gin.Context) {
+	sessionID := c.Param("session_id")
+
+	if err := h.chatService.DeleteSession(c.Request.Context(), sessionID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+}
+
+// WebSocket WebSocket连接
+func (h *ChatHandler) WebSocket(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的仓库ID"})
+		return
+	}
+
+	sessionID := c.Param("session_id")
+
+	// 验证会话存在且属于该仓库
+	session, err := h.chatService.GetSession(c.Request.Context(), sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "会话不存在"})
+		return
+	}
+
+	if session.RepoID != uint(repoID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "会话不属于该仓库"})
+		return
+	}
+
+	// 升级WebSocket
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "WebSocket升级失败"})
+		return
+	}
+
+	// 创建客户端
+	client := &Client{
+		hub:       h.hub,
+		conn:      conn,
+		send:      make(chan []byte, 256),
+		sessionID: sessionID,
+		repoID:    uint(repoID),
+		stopChan:  make(chan struct{}),
+	}
+
+	// 注册到Hub
+	h.hub.register <- client
+
+	// 启动读写协程
+	go client.writePump()
+	go client.readPump(h)
+}
+
+// Client 表示一个WebSocket客户端
+type Client struct {
+	hub       *ChatHub
+	conn      *websocket.Conn
+	send      chan []byte
+	sessionID string
+	repoID    uint
+	stopChan  chan struct{}
+	mu        sync.Mutex
+}
+
+// readPump 读取消息
+func (c *Client) readPump(h *ChatHandler) {
+	defer func() {
+		c.hub.unregister <- c
+		c.conn.Close()
+	}()
+
+	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	for {
+		_, message, err := c.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				fmt.Printf("WebSocket error: %v\n", err)
+			}
+			break
+		}
+
+		// 解析消息
+		var msg ClientMessage
+		if err := json.Unmarshal(message, &msg); err != nil {
+			c.sendError("INVALID_MESSAGE", "消息格式错误")
+			continue
+		}
+
+		// 处理消息
+		switch msg.Type {
+		case "message":
+			h.handleMessage(c, &msg)
+		case "stop":
+			h.handleStop(c)
+		case "ping":
+			c.sendPong()
+		default:
+			c.sendError("UNKNOWN_TYPE", "未知的消息类型")
+		}
+	}
+}
+
+// writePump 写入消息
+func (c *Client) writePump() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
+
+	for {
+		select {
+		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if !ok {
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+
+			c.conn.WriteMessage(websocket.TextMessage, message)
+
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}
+}
+
+// sendError 发送错误消息
+func (c *Client) sendError(code, message string) {
+	event := ServerMessage{
+		Type:      "error",
+		ID:        generateEventID(),
+		Timestamp: time.Now().UnixMilli(),
+		Payload: ErrorPayload{
+			Code:      code,
+			Message:   message,
+			Retryable: false,
+		},
+	}
+	data, _ := json.Marshal(event)
+	c.send <- data
+}
+
+// sendPong 发送pong
+func (c *Client) sendPong() {
+	event := ServerMessage{
+		Type:      "pong",
+		ID:        generateEventID(),
+		Timestamp: time.Now().UnixMilli(),
+	}
+	data, _ := json.Marshal(event)
+	c.send <- data
+}
+
+// handleMessage 处理用户消息
+func (h *ChatHandler) handleMessage(client *Client, msg *ClientMessage) {
+	ctx := context.Background()
+
+	// 检查消息数量限制
+	count, err := h.chatService.CountMessages(ctx, client.sessionID)
+	if err != nil {
+		client.sendError("INTERNAL_ERROR", "检查消息数量失败")
+		return
+	}
+
+	if count >= 1000 {
+		client.sendError("MESSAGE_LIMIT", "会话消息数量已达上限")
+		return
+	}
+
+	// 保存用户消息
+	userMsg, err := h.chatService.CreateUserMessage(ctx, client.sessionID, msg.Content)
+	if err != nil {
+		client.sendError("INTERNAL_ERROR", "保存消息失败")
+		return
+	}
+
+	// 如果是第一条消息，更新会话标题
+	if count == 0 {
+		title := msg.Content
+		if len(title) > 50 {
+			title = title[:50] + "..."
+		}
+		h.chatService.UpdateSessionTitle(ctx, client.sessionID, title)
+	}
+
+	// 启动Agent执行
+	go h.runAgent(client, userMsg)
+}
+
+// handleStop 处理停止请求
+func (h *ChatHandler) handleStop(client *Client) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	close(client.stopChan)
+	client.stopChan = make(chan struct{})
+}
+
+// runAgent 运行Agent
+func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
+	// 创建可取消的上下文
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 监听停止信号
+	go func() {
+		select {
+		case <-client.stopChan:
+			cancel()
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	// TODO: 调用AgentExecutor执行
+	// 这里需要实现AgentExecutor，暂时发送模拟消息
+
+	// 发送assistant_start
+	client.sendEvent(ServerMessage{
+		Type:      "assistant_start",
+		ID:        generateEventID(),
+		Timestamp: time.Now().UnixMilli(),
+		Payload: map[string]interface{}{
+			"message_id": "msg_" + strconv.FormatInt(time.Now().UnixNano(), 10),
+		},
+	})
+
+	// TODO: 实际的Agent执行逻辑
+}
+
+// sendEvent 发送事件
+func (c *Client) sendEvent(event ServerMessage) {
+	data, _ := json.Marshal(event)
+	select {
+	case c.send <- data:
+	default:
+		// 发送通道已满，丢弃消息
+	}
+}
+
+// generateEventID 生成事件ID
+func generateEventID() string {
+	return fmt.Sprintf("evt_%d", time.Now().UnixNano())
+}
+
+// ClientMessage 客户端消息
+type ClientMessage struct {
+	Type    string `json:"type"`              // message, stop, ping
+	Content string `json:"content,omitempty"` // type=message时使用
+	ID      string `json:"id"`
+}
+
+// ServerMessage 服务端消息
+type ServerMessage struct {
+	Type      string      `json:"type"`
+	ID        string      `json:"id"`
+	Timestamp int64       `json:"timestamp"`
+	Payload   interface{} `json:"payload,omitempty"`
+}
+
+// ErrorPayload 错误载荷
+type ErrorPayload struct {
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Retryable bool   `json:"retryable"`
+}

@@ -10,6 +10,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/glebarez/go-sqlite v1.22.0
 	github.com/glebarez/sqlite v1.11.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/panjf2000/ants/v2 v2.11.5
 	github.com/philippgille/chromem-go v0.7.0

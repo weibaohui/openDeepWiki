@@ -65,6 +65,9 @@ func main() {
 	embeddingKeyRepo := repository.NewEmbeddingKeyRepository(db)
 	vectorRepo := repository.NewVectorRepository(db)
 	vectorTaskRepo := repository.NewVectorTaskRepository(db)
+	chatSessionRepo := repository.NewChatSessionRepository(db)
+	chatMessageRepo := repository.NewChatMessageRepository(db)
+	chatToolCallRepo := repository.NewChatToolCallRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo, nil)
@@ -73,6 +76,7 @@ func main() {
 	userRequestService := service.NewUserRequestService(userRequestRepo, repoRepo)
 	agentService := service.NewAgentService(agentVersionRepo, cfg.Agent.Dir)
 	embeddingKeyService := service.NewEmbeddingKeyService(embeddingKeyRepo)
+	chatService := service.NewChatService(chatSessionRepo, chatMessageRepo, chatToolCallRepo)
 
 	//初始化系列Writer
 	titleRewriter, err := writers.NewTitleRewriter(cfg, docRepo, taskRepo)
@@ -172,6 +176,9 @@ func main() {
 
 	agentHandler := handler.NewAgentHandler(agentService)
 	embeddingKeyHandler := handler.NewEmbeddingKeyHandler(embeddingKeyService)
+	chatHandler := handler.NewChatHandler(chatService)
+	// 启动ChatHub
+	go chatHandler.GetHub().Run()
 
 	// 初始化向量服务
 	embeddingProvider, err := embedding.NewOpenAIEmbeddingProvider(embeddingKeyRepo, 0)
@@ -208,7 +215,7 @@ func main() {
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, embeddingKeyHandler, vectorHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, embeddingKeyHandler, vectorHandler, chatHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)
