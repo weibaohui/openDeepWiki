@@ -275,6 +275,18 @@ export function ChatPage() {
     deleteSession(sessionId);
   }, [deleteSession]);
 
+  // 会话列表加载后的处理：自动创建/选中会话
+  useEffect(() => {
+    // 如果会话列表加载完成且为空，自动创建新会话
+    if (!state.sessionsLoading && state.sessions.length === 0) {
+      handleCreateSession();
+    }
+    // 如果有会话列表但没有当前会话，自动选中第一个
+    if (!state.sessionsLoading && state.sessions.length > 0 && !state.currentSession) {
+      handleSelectSession(state.sessions[0].session_id);
+    }
+  }, [state.sessionsLoading, state.sessions, state.currentSession, handleCreateSession, handleSelectSession]);
+
   const handleSend = useCallback(() => {
     if (!state.inputValue.trim()) return;
     sendMessage(state.inputValue);
