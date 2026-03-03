@@ -52,6 +52,7 @@ func (r *chatMessageRepository) ListBySessionID(ctx context.Context, sessionID s
 
 	query := r.db.WithContext(ctx).
 		Where("session_id = ?", sessionID).
+		Where("role != ?", "tool"). // 过滤掉 role='tool' 的内部消息
 		Preload("ToolCalls").
 		Order("created_at DESC")
 
