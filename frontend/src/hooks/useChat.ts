@@ -226,21 +226,30 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
             const regex = new RegExp(`${thinkTagStart}(.*?)${thinkTagEnd}`, 'gs');
             const matches = delta.match(regex);
             if (matches) {
-              // 为每个 Think 段落创建独立消息
+              // 为每个 Think 段落创建独立消息（检查是否已存在，避免重复）
               matches.forEach((match) => {
                 const thinkContent = match[1];
-                const thinkMsg: ChatMessage = {
-                  id: Date.now() + Math.random(),
-                  session_id: prev.currentSession?.session_id || '',
-                  message_id: `think_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-                  role: 'assistant',
-                  content_type: 'thinking',
-                  content: thinkContent,
-                  status: 'completed',
-                  token_used: 0,
-                  created_at: new Date().toISOString(),
-                };
-                messages.push(thinkMsg);
+                // 使用 filter 获取不包含当前 think 内容的消息，避免找到刚刚 push 的消息
+                const messagesWithoutThisThink = messages.filter(m =>
+                  !(m.content_type === 'thinking' && thinkContent.includes(m.content))
+                );
+                const existingThinkMsg = messagesWithoutThisThink.find(m =>
+                  m.content_type === 'thinking' && m.content === thinkContent
+                );
+                if (!existingThinkMsg) {
+                  const thinkMsg: ChatMessage = {
+                    id: Date.now() + Math.random(),
+                    session_id: prev.currentSession?.session_id || '',
+                    message_id: `think_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+                    role: 'assistant',
+                    content_type: 'thinking',
+                    content: thinkContent,
+                    status: 'completed',
+                    token_used: 0,
+                    created_at: new Date().toISOString(),
+                  };
+                  messages.push(thinkMsg);
+                }
               });
             }
 
