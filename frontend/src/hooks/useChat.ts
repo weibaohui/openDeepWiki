@@ -132,23 +132,39 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
           streamingMessageId: payload.message_id,
         });
 
-        // 添加AI消息占位
-        const assistantMsg: ChatMessage = {
-          id: Date.now(),
-          session_id: currentSessionIdRef.current || '',
-          message_id: payload.message_id,
-          role: 'assistant',
-          content: '',
-          content_type: 'text',
-          status: 'streaming',
-          token_used: 0,
-          created_at: new Date().toISOString(),
-          tool_calls: [],
-        };
-        setState((prev) => ({
-          ...prev,
-          messages: [...prev.messages, assistantMsg],
-        }));
+        setState((prev) => {
+          // 检查是否已存在相同 message_id 的消息，避免重复
+          const existingMsg = prev.messages.find((m) => m.message_id === payload.message_id);
+          if (existingMsg) {
+            // 如果消息已存在，只更新状态和工具调用
+            return {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                m.message_id === payload.message_id
+                  ? { ...m, status: 'streaming', tool_calls: [] }
+                  : m
+              ),
+            };
+          }
+
+          // 添加新的AI消息占位
+          const assistantMsg: ChatMessage = {
+            id: Date.now(),
+            session_id: currentSessionIdRef.current || '',
+            message_id: payload.message_id,
+            role: 'assistant',
+            content: '',
+            content_type: 'text',
+            status: 'streaming',
+            token_used: 0,
+            created_at: new Date().toISOString(),
+            tool_calls: [],
+          };
+          return {
+            ...prev,
+            messages: [...prev.messages, assistantMsg],
+          };
+        });
         break;
       }
 

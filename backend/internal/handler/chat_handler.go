@@ -453,6 +453,8 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 
 	var fullContent string
 	var tokenUsed int
+	// 追踪已发送的 content，避免重复
+	sentContents := make(map[string]bool)
 
 	// 遍历事件流
 	for {
@@ -499,19 +501,25 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 				content = "<thinking>" + content + "</thinking>"
 			}
 			if content != "" {
-				// 发送内容增量
-				client.sendEvent(ServerMessage{
-					Type:      "content_delta",
-					ID:        generateEventID(),
-					Timestamp: time.Now().UnixMilli(),
-					Payload: map[string]interface{}{
-						"message_id": assistantMsg.MessageID,
-						"delta":      content,
-					},
-				})
-				fullContent += content
-				// 更新数据库中的消息内容
-				h.chatService.UpdateMessageContent(ctx, assistantMsg.MessageID, fullContent)
+				// 检查是否已发送过相同内容，避免重复
+				if !sentContents[content] {
+					sentContents[content] = true
+					// 发送内容增量
+					client.sendEvent(ServerMessage{
+						Type:      "content_delta",
+						ID:        assistantMsg.MessageID,
+						Timestamp: time.Now().UnixMilli(),
+						Payload: map[string]interface{}{
+							"message_id": assistantMsg.MessageID,
+							"delta":      content,
+						},
+					})
+					fullContent += content
+					// 更新数据库中的消息内容
+					h.chatService.UpdateMessageContent(ctx, assistantMsg.MessageID, fullContent)
+				}
+				// 发送后清空去重 map，避免无限增长
+				sentContents = make(map[string]bool)
 			}
 
 			// 处理工具调用
