@@ -42,8 +42,8 @@ tools:
   - search_files
   - git_log
   - git_show
-maxIterations: 10
+maxIterations: 200
 
 exit:
   condition: response_complete
-  maxIterations: 10
+  maxIterations: 200
