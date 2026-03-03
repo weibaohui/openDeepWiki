@@ -1,11 +1,10 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, message as AntMessage } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useChat } from '../hooks/useChat';
 import { ChatSidebar, ChatMessageList, ChatInput } from '../components/chat';
 import { repositoryApi } from '../services/api';
-import { useState } from 'react';
 import type { Repository } from '../types';
 
 export function ChatPage() {
@@ -13,6 +12,11 @@ export function ChatPage() {
   const navigate = useNavigate();
   const repoId = parseInt(id || '0', 10);
   const [repo, setRepo] = useState<Repository | null>(null);
+
+  // 使用 useCallback 稳定 onError 回调
+  const handleError = useCallback((error: string) => {
+    AntMessage.error(error);
+  }, []);
 
   const {
     state,
@@ -26,7 +30,7 @@ export function ChatPage() {
     reconnect,
   } = useChat({
     repoId,
-    onError: (error) => AntMessage.error(error),
+    onError: handleError,
   });
 
   // 加载仓库信息
