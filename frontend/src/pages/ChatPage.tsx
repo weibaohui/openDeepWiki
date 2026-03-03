@@ -10,6 +10,7 @@ import {
   RobotOutlined,
   UserOutlined,
   SyncOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import {
   XProvider,
@@ -447,6 +448,9 @@ export function ChatPage() {
     };
   });
 
+  // 是否显示思考中提示
+  const showThinkingIndicator = state.isSending && !state.isStreaming;
+
   return (
     <XProvider>
       {contextHolder}
@@ -533,6 +537,20 @@ export function ChatPage() {
                 }}
                 items={bubbleItems}
                 role={roleConfig}
+              />
+            )}
+
+            {/* 思考中提示 */}
+            {showThinkingIndicator && (
+              <Bubble
+                role="assistant"
+                avatar={aiAvatar}
+                content={
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
+                    <LoadingOutlined spin style={{ fontSize: 16 }} />
+                    <span>思考中...</span>
+                  </div>
+                }
               />
             )}
 
