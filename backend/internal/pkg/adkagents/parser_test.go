@@ -122,7 +122,7 @@ func TestParser_Validate(t *testing.T) {
 				Name:          "LargeMaxIter",
 				Description:   "An agent with too large maxIterations",
 				Instruction:   "Do something.",
-				MaxIterations: 200,
+				MaxIterations: 1001,
 			},
 			wantErr: true,
 		},

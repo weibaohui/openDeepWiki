@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 )
 
@@ -128,7 +129,7 @@ func TestDocumentServiceExportPDF(t *testing.T) {
 			return &model.Repository{ID: id, Name: "demo"}, nil
 		},
 	}
-	service := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil)
+	service := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil, eventbus.NewDocEventBus())
 
 	data, filename, err := service.ExportPDF(1)
 	if err != nil {
@@ -156,7 +157,7 @@ func TestDocumentServiceExportPDFNoDocs(t *testing.T) {
 			return &model.Repository{ID: id, Name: "demo"}, nil
 		},
 	}
-	service := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil)
+	service := NewDocumentService(&config.Config{}, docRepo, repoRepo, nil, eventbus.NewDocEventBus())
 
 	_, _, err := service.ExportPDF(2)
 	if err == nil {
