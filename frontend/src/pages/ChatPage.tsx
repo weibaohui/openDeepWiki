@@ -377,8 +377,10 @@ export function ChatPage() {
     },
   };
 
-  // 转换消息为 Bubble.List 需要的格式
-  const bubbleItems = state.messages.map((msg: ChatMessage) => {
+  // 转换消息为 Bubble.List 需要的格式（过滤掉 role=tool 的系统消息）
+  const bubbleItems = state.messages
+    .filter((msg: ChatMessage) => msg.role !== 'tool')
+    .map((msg: ChatMessage) => {
     const isStreamingMessage = state.isStreaming && msg.message_id === state.streamingMessageId;
 
     return {
