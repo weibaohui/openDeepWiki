@@ -125,49 +125,6 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
   // 处理服务端消息
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
-      case 'assistant_start': {
-        const payload = message.payload as { message_id: string };
-        updateState({
-          isStreaming: true,
-          streamingMessageId: payload.message_id,
-        });
-
-        setState((prev) => {
-          // 检查是否已存在相同 message_id 的消息，避免重复
-          const existingMsg = prev.messages.find((m) => m.message_id === payload.message_id);
-          if (existingMsg) {
-            // 如果消息已存在，只更新状态和工具调用
-            return {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.message_id === payload.message_id
-                  ? { ...m, status: 'streaming', tool_calls: [] }
-                  : m
-              ),
-            };
-          }
-
-          // 添加新的AI消息占位
-          const assistantMsg: ChatMessage = {
-            id: Date.now(),
-            session_id: currentSessionIdRef.current || '',
-            message_id: payload.message_id,
-            role: 'assistant',
-            content: '',
-            content_type: 'text',
-            status: 'streaming',
-            token_used: 0,
-            created_at: new Date().toISOString(),
-            tool_calls: [],
-          };
-          return {
-            ...prev,
-            messages: [...prev.messages, assistantMsg],
-          };
-        });
-        break;
-      }
-
       case 'thinking_start': {
         // 思考开始，可以添加思考状态
         break;
@@ -229,12 +186,33 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
         setState((prev) => {
           const messages = [...prev.messages];
           const msg = messages.find((m) => m.message_id === payload.message_id);
-          if (!msg) return prev;
 
-          // 直接追加 delta 到消息内容
-          msg.content += payload.delta;
+          if (msg) {
+            // 消息已存在，追加内容
+            msg.content += payload.delta;
+          } else {
+            // 消息不存在，创建新消息
+            const assistantMsg: ChatMessage = {
+              id: Date.now(),
+              session_id: currentSessionIdRef.current || '',
+              message_id: payload.message_id,
+              role: 'assistant',
+              content: payload.delta,
+              content_type: 'text',
+              status: 'streaming',
+              token_used: 0,
+              created_at: new Date().toISOString(),
+              tool_calls: [],
+            };
+            messages.push(assistantMsg);
+          }
 
-          return { ...prev, messages };
+          return {
+            ...prev,
+            messages,
+            isStreaming: true,
+            streamingMessageId: payload.message_id,
+          };
         });
         break;
       }

@@ -406,16 +406,6 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 		return
 	}
 
-	// 发送assistant_start事件
-	client.sendEvent(ServerMessage{
-		Type:      "assistant_start",
-		ID:        generateEventID(),
-		Timestamp: time.Now().UnixMilli(),
-		Payload: map[string]interface{}{
-			"message_id": assistantMsg.MessageID,
-		},
-	})
-
 	// 获取历史消息
 	historyMsgs, err := h.chatService.ListMessages(ctx, client.sessionID, 20, nil)
 	if err != nil {
@@ -518,8 +508,7 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 					// 更新数据库中的消息内容
 					h.chatService.UpdateMessageContent(ctx, assistantMsg.MessageID, fullContent)
 				}
-				// 发送后清空去重 map，避免无限增长
-				sentContents = make(map[string]bool)
+
 			}
 
 			// 处理工具调用
@@ -548,7 +537,8 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 			break
 		}
 	}
-
+	// 发送后清空去重 map，避免无限增长
+	sentContents = make(map[string]bool)
 	// 完成消息
 	h.chatService.FinalizeMessage(ctx, assistantMsg.MessageID, tokenUsed, "completed")
 
