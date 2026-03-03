@@ -29,15 +29,17 @@ var upgrader = websocket.Upgrader{
 
 // ChatHandler 对话处理器
 type ChatHandler struct {
-	chatService  service.ChatService
-	hub          *ChatHub
-	agentFactory *adkagents.AgentFactory
+	chatService   service.ChatService
+	repoService   *service.RepositoryService
+	hub           *ChatHub
+	agentFactory  *adkagents.AgentFactory
 }
 
 // NewChatHandler 创建处理器
-func NewChatHandler(chatService service.ChatService, agentFactory *adkagents.AgentFactory) *ChatHandler {
+func NewChatHandler(chatService service.ChatService, repoService *service.RepositoryService, agentFactory *adkagents.AgentFactory) *ChatHandler {
 	return &ChatHandler{
 		chatService:  chatService,
+		repoService:  repoService,
 		hub:          NewChatHub(),
 		agentFactory: agentFactory,
 	}
@@ -356,6 +358,18 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 			return
 		}
 	}()
+
+	// 获取仓库信息并注入到 session
+	if h.repoService != nil {
+		repo, err := h.repoService.Get(client.repoID)
+		if err == nil && repo != nil {
+			adk.AddSessionValue(ctx, "RepoName", repo.Name)
+			adk.AddSessionValue(ctx, "RepoURL", repo.URL)
+			adk.AddSessionValue(ctx, "RepoDescription", repo.Description)
+			adk.AddSessionValue(ctx, "RepoBranch", repo.CloneBranch)
+			adk.AddSessionValue(ctx, "RepoCommit", repo.CloneCommit)
+		}
+	}
 
 	// 获取 Agent
 	agent, err := h.agentFactory.GetAgent("chat_assistant")
