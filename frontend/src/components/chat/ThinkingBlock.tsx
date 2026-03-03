@@ -76,6 +76,30 @@ const toolIconMap: Record<string, string> = {
   'default': '🔧',
 };
 
+// 解析并格式化 arguments
+const formatArguments = (argsStr: string): string => {
+  try {
+    // 尝试解析 JSON
+    const args = JSON.parse(argsStr);
+    // 格式化为易读的字符串
+    if (typeof args === 'object' && args !== null) {
+      return Object.entries(args)
+        .map(([key, value]) => {
+          const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
+          return `${key}: ${valueStr}`;
+        })
+        .join(', ');
+    }
+    return argsStr;
+  } catch {
+    // 解析失败，返回原字符串并去掉转义
+    return argsStr
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'")
+      .replace(/\\\\/g, '\\');
+  }
+};
+
 export function ThinkingBlock({ toolCalls }: ThinkingBlockProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const { styles } = useStyles();
@@ -85,7 +109,7 @@ export function ThinkingBlock({ toolCalls }: ThinkingBlockProps) {
   const groups: ToolCallGroup[] = toolCalls.map(tc => ({
     id: tc.tool_call_id,
     name: tc.tool_name,
-    arguments: tc.arguments,
+    arguments: formatArguments(tc.arguments),
     status: tc.status === 'completed' ? 'completed' : tc.status === 'error' ? 'error' : 'running',
   }));
 
