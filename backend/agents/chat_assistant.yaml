@@ -28,7 +28,7 @@ instruction: |
   3. 从文件中发现了什么
   4. 如何组织答案
 
-model: "default"
+model: ""
 tools:
   - list_dir
   - read_file

@@ -177,17 +177,6 @@ func main() {
 	agentHandler := handler.NewAgentHandler(agentService)
 	embeddingKeyHandler := handler.NewEmbeddingKeyHandler(embeddingKeyService)
 
-	// 创建 AgentFactory
-	agentFactory, err := adkagents.NewAgentFactory(cfg)
-	if err != nil {
-		log.Fatalf("Failed to create agent factory: %v", err)
-	}
-
-	// 创建 ChatHandler，传入 AgentFactory
-	chatHandler := handler.NewChatHandler(chatService, agentFactory)
-	// 启动ChatHub
-	go chatHandler.GetHub().Run()
-
 	// 初始化向量服务
 	embeddingProvider, err := embedding.NewOpenAIEmbeddingProvider(embeddingKeyRepo, 0)
 	if err != nil {
@@ -217,6 +206,17 @@ func main() {
 		log.Fatalf("Failed to create enhanced model provider: %v", err)
 	}
 	manager.SetEnhancedModelProvider(enhancedModelProvider)
+
+	// 创建 AgentFactory（必须在 Manager 设置 EnhancedModelProvider 之后）
+	agentFactory, err := adkagents.NewAgentFactory(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create agent factory: %v", err)
+	}
+
+	// 创建 ChatHandler，传入 AgentFactory
+	chatHandler := handler.NewChatHandler(chatService, agentFactory)
+	// 启动ChatHub
+	go chatHandler.GetHub().Run()
 
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
