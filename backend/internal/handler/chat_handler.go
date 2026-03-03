@@ -359,15 +359,13 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 		}
 	}()
 
-	// 获取仓库信息并注入到 session
+	// 获取仓库信息
+	var repoInfo string
 	if h.repoService != nil {
 		repo, err := h.repoService.Get(client.repoID)
 		if err == nil && repo != nil {
-			adk.AddSessionValue(ctx, "RepoName", repo.Name)
-			adk.AddSessionValue(ctx, "RepoURL", repo.URL)
-			adk.AddSessionValue(ctx, "RepoDescription", repo.Description)
-			adk.AddSessionValue(ctx, "RepoBranch", repo.CloneBranch)
-			adk.AddSessionValue(ctx, "RepoCommit", repo.CloneCommit)
+			repoInfo = fmt.Sprintf("## 当前仓库信息\n- 仓库名称: %s\n- 仓库地址: %s\n- 仓库描述: %s\n- 当前分支: %s\n- 当前Commit: %s\n",
+				repo.Name, repo.URL, repo.Description, repo.CloneBranch, repo.CloneCommit)
 		}
 	}
 
@@ -404,6 +402,15 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 
 	// 构建ADK消息列表
 	var adkMessages []*schema.Message
+
+	// 添加系统消息（仓库信息）
+	if repoInfo != "" {
+		adkMessages = append(adkMessages, &schema.Message{
+			Role:    schema.System,
+			Content: repoInfo,
+		})
+	}
+
 	for _, msg := range historyMsgs {
 		if msg.Status == "completed" || msg.Status == "streaming" {
 			role := schema.User
