@@ -48,48 +48,66 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
 
   // 建立WebSocket连接
   const connect = useCallback(() => {
-    if (!currentSessionIdRef.current) return;
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (!currentSessionIdRef.current) {
+      console.log('[WebSocket] No session ID, skipping connection');
+      return;
+    }
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log('[WebSocket] Already connected');
+      return;
+    }
 
+    console.log('[WebSocket] Connecting...');
     updateState({ connectionStatus: 'connecting' });
 
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/repositories/${repoId}/chat/sessions/${currentSessionIdRef.current}/stream`;
+    // 使用相对路径，让 Vite 代理处理 WebSocket
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/repositories/${repoId}/chat/sessions/${currentSessionIdRef.current}/stream`;
+    console.log('[WebSocket] URL:', wsUrl);
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      updateState({ connectionStatus: 'connected', error: null });
-      reconnectAttemptsRef.current = 0;
-    };
+      ws.onopen = () => {
+        console.log('[WebSocket] Connected');
+        updateState({ connectionStatus: 'connected', error: null });
+        reconnectAttemptsRef.current = 0;
+      };
 
-    ws.onmessage = (event) => {
-      try {
-        const message: ServerMessage = JSON.parse(event.data);
-        handleServerMessage(message);
-      } catch (err) {
-        console.error('Failed to parse message:', err);
-      }
-    };
+      ws.onmessage = (event) => {
+        try {
+          const message: ServerMessage = JSON.parse(event.data);
+          handleServerMessage(message);
+        } catch (err) {
+          console.error('Failed to parse message:', err);
+        }
+      };
 
-    ws.onerror = () => {
+      ws.onerror = (err) => {
+        console.error('[WebSocket] Error:', err);
+        updateState({ connectionStatus: 'disconnected' });
+        if (onError) onError('WebSocket连接错误');
+      };
+
+      ws.onclose = (event) => {
+        console.log('[WebSocket] Closed:', event.code, event.reason);
+        updateState({ connectionStatus: 'disconnected' });
+        wsRef.current = null;
+
+        // 自动重连
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          updateState({ connectionStatus: 'reconnecting' });
+          reconnectTimerRef.current = setTimeout(() => {
+            reconnectAttemptsRef.current++;
+            connect();
+          }, RECONNECT_DELAY);
+        }
+      };
+    } catch (err) {
+      console.error('[WebSocket] Failed to create:', err);
       updateState({ connectionStatus: 'disconnected' });
-      if (onError) onError('WebSocket连接错误');
-    };
-
-    ws.onclose = () => {
-      updateState({ connectionStatus: 'disconnected' });
-      wsRef.current = null;
-
-      // 自动重连
-      if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-        updateState({ connectionStatus: 'reconnecting' });
-        reconnectTimerRef.current = setTimeout(() => {
-          reconnectAttemptsRef.current++;
-          connect();
-        }, RECONNECT_DELAY);
-      }
-    };
+    }
   }, [repoId, onError, updateState]);
 
   // 断开连接
