@@ -198,6 +198,7 @@ type Client struct {
 	repoID    uint
 	stopChan  chan struct{}
 	mu        sync.Mutex
+	closed    bool // 标记连接是否已关闭
 }
 
 // readPump 读取消息
@@ -271,8 +272,15 @@ func (c *Client) writePump() {
 	}
 }
 
-// sendError 发送错误消息
+// sendError 发送错误消息（线程安全）
 func (c *Client) sendError(code, message string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return
+	}
+
 	event := ServerMessage{
 		Type:      "error",
 		ID:        generateEventID(),
@@ -284,18 +292,31 @@ func (c *Client) sendError(code, message string) {
 		},
 	}
 	data, _ := json.Marshal(event)
-	c.send <- data
+	select {
+	case c.send <- data:
+	default:
+	}
 }
 
-// sendPong 发送pong
+// sendPong 发送pong（线程安全）
 func (c *Client) sendPong() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return
+	}
+
 	event := ServerMessage{
 		Type:      "pong",
 		ID:        generateEventID(),
 		Timestamp: time.Now().UnixMilli(),
 	}
 	data, _ := json.Marshal(event)
-	c.send <- data
+	select {
+	case c.send <- data:
+	default:
+	}
 }
 
 // handleMessage 处理用户消息
@@ -523,8 +544,15 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 	})
 }
 
-// sendEvent 发送事件
+// sendEvent 发送事件（线程安全）
 func (c *Client) sendEvent(event ServerMessage) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return // 连接已关闭，不发送
+	}
+
 	data, _ := json.Marshal(event)
 	select {
 	case c.send <- data:

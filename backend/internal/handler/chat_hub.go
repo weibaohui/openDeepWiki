@@ -29,7 +29,13 @@ func (h *ChatHub) Run() {
 		case client := <-h.unregister:
 			if _, ok := h.clients[client.sessionID]; ok {
 				delete(h.clients, client.sessionID)
-				close(client.send)
+				// 先设置关闭标志，再关闭通道
+				client.mu.Lock()
+				if !client.closed {
+					client.closed = true
+					close(client.send)
+				}
+				client.mu.Unlock()
 			}
 		}
 	}

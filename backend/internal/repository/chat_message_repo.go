@@ -52,6 +52,7 @@ func (r *chatMessageRepository) ListBySessionID(ctx context.Context, sessionID s
 
 	query := r.db.WithContext(ctx).
 		Where("session_id = ?", sessionID).
+		Preload("ToolCalls").
 		Order("created_at DESC")
 
 	// 如果指定了beforeID，只查询在该消息之前的消息
