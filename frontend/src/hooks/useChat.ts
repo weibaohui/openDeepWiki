@@ -213,9 +213,47 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
         setState((prev) => {
           const messages = [...prev.messages];
           const msg = messages.find((m) => m.message_id === payload.message_id);
-          if (msg) {
-            msg.content += payload.delta;
+          if (!msg) return prev;
+
+          // 处理 <Think> 标签的思考段落
+          const delta = payload.delta;
+          const thinkTagStart = '<Think>';
+          const thinkTagEnd = '</Think>';
+
+          // 如果当前 delta 包含 Think 标签，按段落处理
+          if (delta.includes(thinkTagStart)) {
+            // 查找所有 <Think> 段落
+            const regex = new RegExp(`${thinkTagStart}(.*?)${thinkTagEnd}`, 'gs');
+            const matches = delta.match(regex);
+            if (matches) {
+              // 为每个 Think 段落创建独立消息
+              matches.forEach((match) => {
+                const thinkContent = match[1];
+                const thinkMsg: ChatMessage = {
+                  id: Date.now() + Math.random(),
+                  session_id: prev.currentSession?.session_id || '',
+                  message_id: `think_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+                  role: 'assistant',
+                  content_type: 'thinking',
+                  content: thinkContent,
+                  status: 'completed',
+                  token_used: 0,
+                  created_at: new Date().toISOString(),
+                };
+                messages.push(thinkMsg);
+              });
+            }
+
+            // 处理剩余的普通内容（Think 标签之外的）
+            const remainingContent = delta.replace(regex, '');
+            if (remainingContent) {
+              msg.content += remainingContent;
+            }
+          } else {
+            // 没有 Think 标签，直接追加
+            msg.content += delta;
           }
+
           return { ...prev, messages };
         });
         break;

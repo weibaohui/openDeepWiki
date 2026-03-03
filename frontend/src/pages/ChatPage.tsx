@@ -135,6 +135,16 @@ const useStyle = createStyles(({ token, css }) => ({
         background: transparent;
       }
     }
+    .thinking-paragraph {
+      padding: 8px 12px;
+      background: ${token.colorFillQuaternary};
+      border-radius: ${token.borderRadiusSM}px;
+      border-left: 3px solid ${token.colorPrimary};
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: ${token.colorTextSecondary};
+      font-style: italic;
+    }
   `,
 }));
 
@@ -198,16 +208,22 @@ const MessageContent: React.FC<{
         </div>
       )}
 
-      {/* 答案内容 */}
-      <div className="answer-wrapper">
-        {message.content ? (
-          <MarkdownRender content={message.content} />
-        ) : isStreamingMessage && !message.tool_calls?.length ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
-            <span className="animate-pulse">思考中...</span>
-          </div>
-        ) : null}
-      </div>
+      {/* 内容：思考段落或答案 */}
+      {message.content_type === 'thinking' ? (
+        <div className="thinking-paragraph">
+          {message.content}
+        </div>
+      ) : (
+        <div className="answer-wrapper">
+          {message.content ? (
+            <MarkdownRender content={message.content} />
+          ) : isStreamingMessage && !message.tool_calls?.length ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
+              <span className="animate-pulse">思考中...</span>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 };
