@@ -187,10 +187,12 @@ const MessageContent: React.FC<{
   message: ChatMessage;
   isStreaming: boolean;
   streamingMessageId: string | null;
-}> = ({ message, isStreaming, streamingMessageId }) => {
+  isThinking: boolean;
+}> = ({ message, isStreaming, streamingMessageId, isThinking }) => {
   const { styles } = useStyle();
   const { token } = useToken();
   const isStreamingMessage = isStreaming && message.message_id === streamingMessageId;
+  const isThinkingMessage = isThinking && message.role === 'assistant' && isStreamingMessage;
 
   if (message.role === 'user') {
     return (
@@ -278,6 +280,10 @@ const MessageContent: React.FC<{
               </>
             );
           })()
+        ) : isThinkingMessage ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
+            <span className="animate-pulse">思考中...</span>
+          </div>
         ) : isStreamingMessage && !message.tool_calls?.length ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
             <span className="animate-pulse">思考中...</span>
@@ -451,6 +457,7 @@ export function ChatPage() {
           message={msg}
           isStreaming={state.isStreaming}
           streamingMessageId={state.streamingMessageId}
+          isThinking={state.isThinking}
         />
       ),
       status: (msg.status === 'streaming' ? 'updating' : msg.status === 'pending' ? 'loading' : 'success') as 'updating' | 'loading' | 'success' | 'error' | 'abort',
@@ -553,20 +560,6 @@ export function ChatPage() {
                 }}
                 items={bubbleItems}
                 role={roleConfig}
-              />
-            )}
-
-            {/* 思考中提示 */}
-            {showThinkingIndicator && (
-              <Bubble
-                role="assistant"
-                avatar={aiAvatar}
-                content={
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
-                    <LoadingOutlined spin style={{ fontSize: 16 }} />
-                    <span>思考中...</span>
-                  </div>
-                }
               />
             )}
 

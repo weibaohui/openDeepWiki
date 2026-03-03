@@ -32,6 +32,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     connectionStatus: 'disconnected',
     isSending: false,
     isStreaming: false,
+    isThinking: false,
     streamingMessageId: null,
     error: null,
   });
@@ -126,12 +127,14 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
       case 'thinking_start': {
-        // 思考开始，可以添加思考状态
+        // 思考开始，设置思考状态
+        updateState({ isThinking: true });
         break;
       }
 
       case 'thinking_end': {
         // 思考结束
+        updateState({ isThinking: false });
         break;
       }
 

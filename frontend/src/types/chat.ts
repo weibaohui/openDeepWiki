@@ -110,6 +110,7 @@ export interface ChatState {
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
   isSending: boolean;
   isStreaming: boolean;
+  isThinking: boolean;
   streamingMessageId: string | null;
   error: string | null;
 }

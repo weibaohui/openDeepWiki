@@ -413,6 +413,16 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 		return
 	}
 
+	// 发送 thinking_start 事件通知前端开始处理
+	client.sendEvent(ServerMessage{
+		Type:      "thinking_start",
+		ID:        generateEventID(),
+		Timestamp: time.Now().UnixMilli(),
+		Payload: map[string]interface{}{
+			"message_id": assistantMsg.MessageID,
+		},
+	})
+
 	// 构建ADK消息列表
 	var adkMessages []*schema.Message
 
