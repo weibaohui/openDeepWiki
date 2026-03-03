@@ -136,12 +136,20 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       }
 
       case 'tool_call': {
-        const payload = message.payload as { tool_call_id: string; tool_name: string; arguments: Record<string, unknown> };
+        const payload = message.payload as { tool_call_id: string; tool_name: string; arguments: unknown };
+        // 处理 arguments：如果是字符串直接使用，如果是对象则序列化
+        let argumentsStr: string;
+        if (typeof payload.arguments === 'string') {
+          argumentsStr = payload.arguments;
+        } else {
+          argumentsStr = JSON.stringify(payload.arguments);
+        }
+
         const toolCall: ToolCall = {
           id: Date.now(),
           tool_call_id: payload.tool_call_id,
           tool_name: payload.tool_name,
-          arguments: JSON.stringify(payload.arguments),
+          arguments: argumentsStr,
           status: 'running',
           duration_ms: 0,
         };

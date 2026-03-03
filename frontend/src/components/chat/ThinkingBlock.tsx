@@ -93,10 +93,17 @@ const formatArguments = (argsStr: string): string => {
     return argsStr;
   } catch {
     // 解析失败，返回原字符串并去掉转义
-    return argsStr
-      .replace(/\\"/g, '"')
-      .replace(/\\'/g, "'")
-      .replace(/\\\\/g, '\\');
+    // 需要匹配实际的转义序列
+    let result = argsStr;
+
+    // 处理常见的转义序列
+    result = result.replace(/\\"/g, '"');      // \" -> "
+    result = result.replace(/\\'/g, "'");      // \' -> '
+    result = result.replace(/\\n/g, '\n');      // \n -> 换行
+    result = result.replace(/\\r/g, '\r');      // \r -> 回车
+    result = result.replace(/\\t/g, '\t');      // \t -> 制表符
+
+    return result;
   }
 };
 
