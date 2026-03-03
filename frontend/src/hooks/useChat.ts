@@ -41,6 +41,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentSessionIdRef = useRef<string | null>(sessionId || null);
+  const placeholderMessageIdRef = useRef<string | null>(null);
 
   // 更新状态的辅助函数
   const updateState = useCallback((updates: Partial<ChatState>) => {
@@ -126,9 +127,26 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
   // 处理服务端消息
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
+      case 'assistant_start': {
+        // 助手开始响应，保持占位符状态
+        break;
+      }
+
       case 'thinking_start': {
-        // 思考开始，设置思考状态
+        // 思考开始，更新占位符消息的 message_id 为后端发送的 ID
         updateState({ isThinking: true });
+        setState((prev) => {
+          const messages = [...prev.messages];
+          const lastMsg = messages[messages.length - 1];
+          if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isPlaceholder) {
+            // 更新 message_id 为后端发送的 ID
+            const payload = message.payload as { message_id: string };
+            placeholderMessageIdRef.current = payload.message_id;
+            lastMsg.message_id = payload.message_id;
+            delete lastMsg.isPlaceholder;
+          }
+          return { ...prev, messages };
+        });
         break;
       }
 
@@ -161,6 +179,10 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
           const messages = [...prev.messages];
           const lastMsg = messages[messages.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
+            // 移除占位符标记
+            if (lastMsg.isPlaceholder) {
+              delete lastMsg.isPlaceholder;
+            }
             // 检查是否已存在相同 tool_call_id，避免重复
             const exists = lastMsg.tool_calls?.some((tc) => tc.tool_call_id === payload.tool_call_id);
             if (!exists) {
@@ -201,6 +223,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
           if (msg) {
             // 消息已存在，追加内容
             msg.content += payload.delta;
+            msg.status = 'streaming';
           } else {
             // 消息不存在，创建新消息
             const assistantMsg: ChatMessage = {
@@ -245,6 +268,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
             isStreaming: false,
             streamingMessageId: null,
             isSending: false,
+            isThinking: false,
           };
         });
         break;
@@ -265,6 +289,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
             isStreaming: false,
             streamingMessageId: null,
             isSending: false,
+            isThinking: false,
           };
         });
         break;
@@ -296,6 +321,8 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
 
     if (!content.trim()) return;
 
+    const assistantPlaceholderId = `msg_assistant_${Date.now()}`;
+
     // 添加用户消息到列表
     const userMsg: ChatMessage = {
       id: Date.now(),
@@ -309,11 +336,26 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       created_at: new Date().toISOString(),
     };
 
+    // 添加助手占位消息
+    const assistantPlaceholderMsg: ChatMessage = {
+      id: Date.now() + 1,
+      session_id: currentSessionIdRef.current || '',
+      message_id: assistantPlaceholderId,
+      role: 'assistant',
+      content: '',
+      content_type: 'text',
+      status: 'pending',
+      token_used: 0,
+      isPlaceholder: true,
+      created_at: new Date().toISOString(),
+    };
+
     setState((prev) => ({
       ...prev,
-      messages: [...prev.messages, userMsg],
+      messages: [...prev.messages, userMsg, assistantPlaceholderMsg],
       inputValue: '',
       isSending: true,
+      streamingMessageId: assistantPlaceholderId,
     }));
 
     // 发送消息

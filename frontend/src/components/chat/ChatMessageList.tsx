@@ -1,9 +1,8 @@
 import { useRef, useEffect } from 'react';
-import { Bubble } from '@ant-design/x';
+import { Bubble, Think } from '@ant-design/x';
 import { UserOutlined, RobotOutlined } from '@ant-design/icons';
 import type { ChatMessage } from '../../types/chat';
 import MarkdownRender from '../markdown/MarkdownRender';
-import { ThinkingBlock } from './ThinkingBlock';
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -51,6 +50,40 @@ export function ChatMessageList({
     </div>
   );
 
+  // 工具名称到图标的映射
+  const toolIconMap: Record<string, string> = {
+    'search_code': '🔍',
+    'read_file': '📄',
+    'list_directory': '📁',
+    'list_dir': '📁',
+    'get_file_info': 'ℹ️',
+    'default': '🔧',
+  };
+
+  // 解析并格式化 arguments
+  const formatArguments = (argsStr: string): string => {
+    try {
+      const args = JSON.parse(argsStr);
+      if (typeof args === 'object' && args !== null) {
+        return Object.entries(args)
+          .map(([key, value]) => {
+            const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
+            return `${key}: ${valueStr}`;
+          })
+          .join(', ');
+      }
+      return argsStr;
+    } catch {
+      let result = argsStr;
+      result = result.replace(/\\"/g, '"');
+      result = result.replace(/\\'/g, "'");
+      result = result.replace(/\\n/g, '\n');
+      result = result.replace(/\\r/g, '\r');
+      result = result.replace(/\\t/g, '\t');
+      return result;
+    }
+  };
+
   // 渲染消息内容
   const renderMessageContent = (message: ChatMessage) => {
     const isStreamingMessage = isStreaming && message.message_id === streamingMessageId;
@@ -63,13 +96,28 @@ export function ChatMessageList({
       );
     }
 
+    // 占位符消息
+    if (message.isPlaceholder) {
+      return (
+        <div className="flex items-center gap-2 text-gray-400">
+          <span className="animate-pulse">思考中</span>
+        </div>
+      );
+    }
+
     // AI 消息
     return (
       <div className="text-gray-100 leading-relaxed">
-        {/* 思考过程 */}
-        {message.tool_calls && message.tool_calls.length > 0 && (
-          <ThinkingBlock toolCalls={message.tool_calls} />
-        )}
+        {/* 工具调用 */}
+        {message.tool_calls && message.tool_calls.length > 0 && message.tool_calls.map((toolCall) => {
+          const icon = toolIconMap[toolCall.tool_name] || '🔧';
+          const formattedArgs = formatArguments(toolCall.arguments);
+          return (
+            <Think key={toolCall.tool_call_id} title={`${icon} ${toolCall.tool_name}`}>
+              {formattedArgs}
+            </Think>
+          );
+        })}
 
         {/* 回答内容 */}
         {message.content ? (

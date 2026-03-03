@@ -35,6 +35,7 @@ export interface ChatMessage {
   model?: string;
   token_used: number;
   status: 'pending' | 'streaming' | 'completed' | 'stopped' | 'error';
+  isPlaceholder?: boolean;
   created_at: string;
   completed_at?: string;
 }

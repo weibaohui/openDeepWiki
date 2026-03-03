@@ -10,7 +10,6 @@ import {
   RobotOutlined,
   UserOutlined,
   SyncOutlined,
-  LoadingOutlined,
 } from '@ant-design/icons';
 import {
   XProvider,
@@ -26,7 +25,6 @@ import { repositoryApi } from '../services/api';
 import type { Repository } from '../types';
 import type { ChatSession, ChatMessage } from '../types/chat';
 import MarkdownRender from '../components/markdown/MarkdownRender';
-import { ThinkingBlock } from '../components/chat/ThinkingBlock';
 
 const { useToken } = theme;
 
@@ -187,13 +185,11 @@ const MessageContent: React.FC<{
   message: ChatMessage;
   isStreaming: boolean;
   streamingMessageId: string | null;
-  isThinking: boolean;
-}> = ({ message, isStreaming, streamingMessageId, isThinking }) => {
+}> = ({ message, isStreaming: _isStreaming, streamingMessageId: _streamingMessageId }) => {
   const { styles } = useStyle();
   const { token } = useToken();
-  const isStreamingMessage = isStreaming && message.message_id === streamingMessageId;
-  const isThinkingMessage = isThinking && message.role === 'assistant' && isStreamingMessage;
 
+  // 用户消息
   if (message.role === 'user') {
     return (
       <div style={{ color: token.colorWhite, whiteSpace: 'pre-wrap' }}>
@@ -202,18 +198,61 @@ const MessageContent: React.FC<{
     );
   }
 
-  // AI 消息：先显示工具调用，再显示思考过程，最后显示答案
+  // 占位符消息或空内容的 assistant 消息
+  if (message.isPlaceholder || (message.role === 'assistant' && !message.content && !message.tool_calls?.length && (message.status === 'pending' || message.status === 'streaming'))) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
+        <span className="animate-pulse">思考中...</span>
+      </div>
+    );
+  }
+
+  // AI 消息：工具调用、思考过程、答案混合流式显示
   return (
     <div className={styles.messageContent}>
-      {/* 工具调用 */}
-      {message.tool_calls && message.tool_calls.length > 0 && (
-        <div className="thinking-wrapper">
-          <ThinkingBlock toolCalls={message.tool_calls} />
-        </div>
-      )}
+      {/* 渲染所有内容：工具调用 + 思考过程 + 答案 */}
+      <>
+        {/* 工具调用 */}
+        {message.tool_calls && message.tool_calls.length > 0 && message.tool_calls.map((toolCall) => {
+          const toolIconMap: Record<string, string> = {
+            'search_code': '🔍',
+            'read_file': '📄',
+            'list_directory': '📁',
+            'list_dir': '📁',
+            'get_file_info': 'ℹ️',
+            'default': '🔧',
+          };
+          const icon = toolIconMap[toolCall.tool_name] || '🔧';
 
-      {/* 内容：解析 <thinking> 标签 */}
-      <div className="answer-wrapper">
+          // 解析并格式化 arguments
+          let formattedArgs = toolCall.arguments;
+          try {
+            const args = JSON.parse(toolCall.arguments);
+            if (typeof args === 'object' && args !== null) {
+              formattedArgs = Object.entries(args)
+                .map(([key, value]) => {
+                  const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
+                  return `${key}: ${valueStr}`;
+                })
+                .join(', ');
+            }
+          } catch {
+            // 解析失败，返回原字符串并去掉转义
+            formattedArgs = toolCall.arguments
+              .replace(/\\"/g, '"')
+              .replace(/\\'/g, "'")
+              .replace(/\\n/g, '\n')
+              .replace(/\\r/g, '\r')
+              .replace(/\\t/g, '\t');
+          }
+
+          return (
+            <Think key={toolCall.tool_call_id} title={`${icon} ${toolCall.tool_name}`}>
+              {formattedArgs}
+            </Think>
+          );
+        })}
+
         {message.content ? (
           (() => {
             const content = message.content;
@@ -280,16 +319,8 @@ const MessageContent: React.FC<{
               </>
             );
           })()
-        ) : isThinkingMessage ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
-            <span className="animate-pulse">思考中...</span>
-          </div>
-        ) : isStreamingMessage && !message.tool_calls?.length ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
-            <span className="animate-pulse">思考中...</span>
-          </div>
         ) : null}
-      </div>
+      </>
     </div>
   );
 };
@@ -447,32 +478,31 @@ export function ChatPage() {
   const bubbleItems = state.messages
     .filter((msg: ChatMessage) => msg.role !== 'tool')
     .map((msg: ChatMessage) => {
-    const isStreamingMessage = state.isStreaming && msg.message_id === state.streamingMessageId;
+      const isStreamingMessage = state.isStreaming && msg.message_id === state.streamingMessageId;
 
-    return {
-      key: msg.message_id,
-      role: msg.role,
-      content: (
-        <MessageContent
-          message={msg}
-          isStreaming={state.isStreaming}
-          streamingMessageId={state.streamingMessageId}
-          isThinking={state.isThinking}
-        />
-      ),
-      status: (msg.status === 'streaming' ? 'updating' : msg.status === 'pending' ? 'loading' : 'success') as 'updating' | 'loading' | 'success' | 'error' | 'abort',
-      footer: msg.role === 'assistant' && !isStreamingMessage && msg.content ? (
-        <MessageFooter
-          id={msg.message_id}
-          content={msg.content}
-          status={msg.status}
-        />
-      ) : undefined,
-    };
-  });
+      return {
+        key: msg.message_id,
+        role: msg.role,
+        content: (
+          <MessageContent
+            message={msg}
+            isStreaming={state.isStreaming}
+            streamingMessageId={state.streamingMessageId}
+          />
+        ),
+        status: (msg.status === 'streaming' ? 'updating' : msg.status === 'pending' ? 'loading' : 'success') as 'updating' | 'loading' | 'success' | 'error' | 'abort',
+        footer: msg.role === 'assistant' && !isStreamingMessage && msg.content ? (
+          <MessageFooter
+            id={msg.message_id}
+            content={msg.content}
+            status={msg.status}
+          />
+        ) : undefined,
+      };
+    });
 
   // 是否显示思考中提示
-  const showThinkingIndicator = state.isSending && !state.isStreaming;
+  // const showThinkingIndicator = state.isSending && !state.isStreaming;
 
   return (
     <XProvider>
@@ -585,10 +615,10 @@ export function ChatPage() {
                   state.connectionStatus === 'connecting'
                     ? '连接中...'
                     : state.connectionStatus === 'reconnecting'
-                    ? '重新连接中...'
-                    : state.connectionStatus === 'disconnected'
-                    ? '未连接'
-                    : '输入消息...'
+                      ? '重新连接中...'
+                      : state.connectionStatus === 'disconnected'
+                        ? '未连接'
+                        : '输入消息...'
                 }
                 autoSize={{ minRows: 2, maxRows: 6 }}
                 style={{ width: '100%' }}
