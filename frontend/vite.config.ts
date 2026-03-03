@@ -15,10 +15,10 @@ export default defineConfig({
     },
 
     proxy: {
-
       '/api': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
+        ws: true,  // 启用 WebSocket 代理
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req) => {
             const originalPath = req.url;
@@ -26,6 +26,9 @@ export default defineConfig({
             // @ts-expect-error 代理请求对象缺少 path 类型定义
             proxyReq.path = originalPath.replace('%2F%2F', '//');
             console.log(`Restored path: ${proxyReq.path}`);
+          });
+          proxy.on('error', (err) => {
+            console.error('Proxy error:', err);
           });
         },
       },

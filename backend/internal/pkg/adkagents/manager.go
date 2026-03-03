@@ -105,7 +105,19 @@ func newManagerInternal(cfg *config.Config) (*Manager, error) {
 	}
 
 	// 初始加载
-	_, _ = loader.LoadFromDir(cfg.Agent.Dir)
+	results, err := loader.LoadFromDir(cfg.Agent.Dir)
+	if err != nil {
+		klog.Errorf("[Manager] Failed to load agents from dir %s: %v", cfg.Agent.Dir, err)
+	} else {
+		klog.Infof("[Manager] Loaded %d agents from %s", len(results), cfg.Agent.Dir)
+		for _, r := range results {
+			if r.Error != nil {
+				klog.Errorf("[Manager] Failed to load agent: %v", r.Error)
+			} else if r.Agent != nil {
+				klog.Infof("[Manager] Registered agent: %s", r.Agent.Name)
+			}
+		}
+	}
 
 	// 启动热加载
 	m.startWatcher()

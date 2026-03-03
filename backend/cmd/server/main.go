@@ -65,6 +65,9 @@ func main() {
 	embeddingKeyRepo := repository.NewEmbeddingKeyRepository(db)
 	vectorRepo := repository.NewVectorRepository(db)
 	vectorTaskRepo := repository.NewVectorTaskRepository(db)
+	chatSessionRepo := repository.NewChatSessionRepository(db)
+	chatMessageRepo := repository.NewChatMessageRepository(db)
+	chatToolCallRepo := repository.NewChatToolCallRepository(db)
 
 	// 初始化 Service
 	docService := service.NewDocumentService(cfg, docRepo, repoRepo, ratingRepo, nil)
@@ -73,6 +76,7 @@ func main() {
 	userRequestService := service.NewUserRequestService(userRequestRepo, repoRepo)
 	agentService := service.NewAgentService(agentVersionRepo, cfg.Agent.Dir)
 	embeddingKeyService := service.NewEmbeddingKeyService(embeddingKeyRepo)
+	chatService := service.NewChatService(chatSessionRepo, chatMessageRepo, chatToolCallRepo)
 
 	//初始化系列Writer
 	titleRewriter, err := writers.NewTitleRewriter(cfg, docRepo, taskRepo)
@@ -203,12 +207,23 @@ func main() {
 	}
 	manager.SetEnhancedModelProvider(enhancedModelProvider)
 
+	// 创建 AgentFactory（必须在 Manager 设置 EnhancedModelProvider 之后）
+	agentFactory, err := adkagents.NewAgentFactory(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create agent factory: %v", err)
+	}
+
+	// 创建 ChatHandler，传入 AgentFactory 和 RepositoryService
+	chatHandler := handler.NewChatHandler(chatService, repoService, agentFactory)
+	// 启动ChatHub
+	go chatHandler.GetHub().Run()
+
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, embeddingKeyHandler, vectorHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, embeddingKeyHandler, vectorHandler, chatHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

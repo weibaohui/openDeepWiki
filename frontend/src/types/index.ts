@@ -271,3 +271,6 @@ export interface ApiResponse<T> {
 
 // 向量相关类型
 export * from './vector';
+
+// 对话相关类型
+export * from './chat';

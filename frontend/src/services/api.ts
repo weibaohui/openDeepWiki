@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, EmbeddingKey, EmbeddingKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory, UserRequest, UserRequestListResponse, VectorStatus, VectorTaskListResponse, RepositoryVectorStatusListResponse } from '../types';
+import type { Repository, Task, Document, DocumentRatingStats, APIKey, APIKeyStats, EmbeddingKey, EmbeddingKeyStats, GlobalMonitorData, SyncStartResponse, SyncStatusResponse, TaskUsage, SyncRepositoryListResponse, SyncDocumentListResponse, SyncTargetListResponse, SyncTargetSaveResponse, SyncTargetDeleteResponse, SyncEventListResponse, IncrementalUpdateHistory, UserRequest, UserRequestListResponse, VectorStatus, VectorTaskListResponse, RepositoryVectorStatusListResponse, ChatSession, ChatMessage } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/';
 
@@ -115,6 +115,23 @@ export const syncApi = {
     targetSave: (url: string) => api.post<SyncTargetSaveResponse>('/sync/target-save', { url }),
     targetDelete: (id: number) => api.post<SyncTargetDeleteResponse>('/sync/target-delete', { id }),
     eventList: (params: { repository_id?: number; mode?: string; limit?: number }) => api.get<SyncEventListResponse>('/sync/event-list', { params }),
+};
+
+// Chat APIs
+export const chatApi = {
+    // 创建会话
+    createSession: (repoId: number) => api.post<{ session_id: string; repository_id: number; created_at: string }>(`/repositories/${repoId}/chat/sessions`),
+    // 获取会话列表
+    listSessions: (repoId: number, params?: { page?: number; page_size?: number }) =>
+        api.get<{ items: ChatSession[]; total: number; page: number; page_size: number }>(`/repositories/${repoId}/chat/sessions`, { params }),
+    // 获取会话详情（包含消息历史）
+    getSession: (repoId: number, sessionId: string) =>
+        api.get<{ session: ChatSession; messages: ChatMessage[] }>(`/repositories/${repoId}/chat/sessions/${sessionId}`),
+    // 删除会话
+    deleteSession: (repoId: number, sessionId: string) => api.delete(`/repositories/${repoId}/chat/sessions/${sessionId}`),
+    // 获取消息列表
+    listMessages: (repoId: number, sessionId: string, params?: { limit?: number; before_id?: string }) =>
+        api.get<ChatMessage[]>(`/repositories/${repoId}/chat/sessions/${sessionId}/messages`, { params }),
 };
 
 // Vector APIs

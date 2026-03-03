@@ -90,8 +90,8 @@ func (p *Parser) Validate(agent *AgentDefinition) error {
 	if agent.MaxIterations <= 0 {
 		return fmt.Errorf("%w: maxIterations must be positive", ErrInvalidConfig)
 	}
-	if agent.MaxIterations > 100 {
-		return fmt.Errorf("%w: maxIterations cannot exceed 100", ErrInvalidConfig)
+	if agent.MaxIterations > 1000 {
+		return fmt.Errorf("%w: maxIterations cannot exceed 1000", ErrInvalidConfig)
 	}
 
 	return nil

@@ -131,3 +131,10 @@ init-config:
 	else \
 		echo "backend/config.yaml already exists"; \
 	fi
+
+# Kill processes using ports 3000 and 8080
+stop:
+	@echo "Killing processes on ports 3000 and 8080..."
+	@lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
+	@lsof -ti:8080 2>/dev/null | xargs kill -9 2>/dev/null || true
+	@echo "Ports 3000 and 8080 are now free"

@@ -149,3 +149,46 @@ type VectorTask struct {
 	CompletedAt  *time.Time `json:"completed_at"`
 	Document     *Document  `json:"document,omitempty" gorm:"foreignKey:DocumentID"`
 }
+
+// ChatSession 对话会话表
+type ChatSession struct {
+	ID        uint          `json:"id" gorm:"primaryKey"`
+	SessionID string        `json:"session_id" gorm:"size:64;uniqueIndex"`  // 唯一会话标识
+	RepoID    uint          `json:"repo_id" gorm:"index"`                   // 关联仓库ID
+	Title     string        `json:"title" gorm:"size:255"`                  // 会话标题
+	Status    string        `json:"status" gorm:"size:20;default:'active'"` // active, archived, deleted
+	Messages  []ChatMessage `json:"messages,omitempty" gorm:"foreignKey:SessionID;references:SessionID"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+// ChatMessage 对话消息表
+type ChatMessage struct {
+	ID          uint           `json:"id" gorm:"primaryKey"`
+	SessionID   string         `json:"session_id" gorm:"size:64;index"`                // 所属会话
+	MessageID   string         `json:"message_id" gorm:"size:64;uniqueIndex"`          // 唯一消息标识
+	ParentID    *string        `json:"parent_id" gorm:"size:64;index"`                 // 父消息ID（用于支持分支对话）
+	Role        string         `json:"role" gorm:"size:20"`                            // user, assistant, system, tool
+	Content     string         `json:"content" gorm:"type:text"`                       // 消息内容
+	ContentType string         `json:"content_type" gorm:"size:20;default:'text'"`     // text, thinking, tool_call, tool_result
+	ToolCalls   []ChatToolCall `json:"tool_calls,omitempty" gorm:"foreignKey:MessageID"` // 关联的工具调用
+	Model       string         `json:"model" gorm:"size:50"`                           // 使用的模型
+	TokenUsed   int            `json:"token_used" gorm:"default:0"`                    // Token使用量
+	Status      string         `json:"status" gorm:"size:20;default:'completed'"`      // pending, streaming, completed, stopped, error
+	CreatedAt   time.Time      `json:"created_at"`
+	CompletedAt *time.Time     `json:"completed_at"`
+}
+
+// ChatToolCall 工具调用表
+type ChatToolCall struct {
+	ID          uint       `json:"id" gorm:"primaryKey"`
+	MessageID   string     `json:"message_id" gorm:"size:64;index"`         // 所属消息
+	ToolCallID  string     `json:"tool_call_id" gorm:"size:64;uniqueIndex"` // 工具调用标识
+	ToolName    string     `json:"tool_name" gorm:"size:100"`               // 工具名称
+	Arguments   string     `json:"arguments" gorm:"type:text"`              // 调用参数（JSON）
+	Result      string     `json:"result" gorm:"type:text"`                 // 执行结果
+	Status      string     `json:"status" gorm:"size:20;default:'pending'"` // pending, running, completed, error
+	StartedAt   *time.Time `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at"`
+	DurationMs  int        `json:"duration_ms" gorm:"default:0"`            // 执行耗时（毫秒）
+}
