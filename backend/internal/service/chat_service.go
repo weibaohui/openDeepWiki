@@ -29,6 +29,7 @@ type ChatService interface {
 
 	// 工具调用管理
 	CreateToolCall(ctx context.Context, messageID, toolCallID, toolName, arguments string) (*model.ChatToolCall, error)
+	CreateOrUpdateToolCall(ctx context.Context, messageID, toolCallID, toolName, arguments string) (*model.ChatToolCall, error)
 	UpdateToolResult(ctx context.Context, toolCallID, result string, durationMs int) error
 }
 
@@ -173,6 +174,25 @@ func (s *chatService) CreateToolCall(ctx context.Context, messageID, toolCallID,
 
 	if err := s.toolCallRepo.Create(ctx, toolCall); err != nil {
 		return nil, fmt.Errorf("创建工具调用记录失败: %w", err)
+	}
+
+	return toolCall, nil
+}
+
+// CreateOrUpdateToolCall 创建或更新工具调用记录（Upsert）
+func (s *chatService) CreateOrUpdateToolCall(ctx context.Context, messageID, toolCallID, toolName, arguments string) (*model.ChatToolCall, error) {
+	now := time.Now()
+	toolCall := &model.ChatToolCall{
+		MessageID:  messageID,
+		ToolCallID: toolCallID,
+		ToolName:   toolName,
+		Arguments:  arguments,
+		Status:     "running",
+		StartedAt:  &now,
+	}
+
+	if err := s.toolCallRepo.CreateOrUpdate(ctx, toolCall); err != nil {
+		return nil, fmt.Errorf("创建或更新工具调用记录失败: %w", err)
 	}
 
 	return toolCall, nil

@@ -476,7 +476,7 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 					})
 
 					// 保存工具调用到数据库
-					h.chatService.CreateToolCall(ctx, assistantMsg.MessageID, tc.ID, tc.Function.Name, tc.Function.Arguments)
+					h.chatService.CreateOrUpdateToolCall(ctx, assistantMsg.MessageID, tc.ID, tc.Function.Name, tc.Function.Arguments)
 				}
 			}
 		}

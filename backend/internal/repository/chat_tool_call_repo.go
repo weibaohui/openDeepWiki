@@ -11,6 +11,7 @@ import (
 // ChatToolCallRepository 工具调用仓储接口
 type ChatToolCallRepository interface {
 	Create(ctx context.Context, toolCall *model.ChatToolCall) error
+	CreateOrUpdate(ctx context.Context, toolCall *model.ChatToolCall) error
 	GetByToolCallID(ctx context.Context, toolCallID string) (*model.ChatToolCall, error)
 	ListByMessageID(ctx context.Context, messageID string) ([]*model.ChatToolCall, error)
 	UpdateResult(ctx context.Context, toolCallID, result string, durationMs int) error
@@ -30,6 +31,14 @@ func NewChatToolCallRepository(db *gorm.DB) ChatToolCallRepository {
 // Create 创建工具调用记录
 func (r *chatToolCallRepository) Create(ctx context.Context, toolCall *model.ChatToolCall) error {
 	return r.db.WithContext(ctx).Create(toolCall).Error
+}
+
+// CreateOrUpdate 创建或更新工具调用记录（Upsert）
+func (r *chatToolCallRepository) CreateOrUpdate(ctx context.Context, toolCall *model.ChatToolCall) error {
+	return r.db.WithContext(ctx).
+		Where("tool_call_id = ?", toolCall.ToolCallID).
+		Assign(toolCall).
+		FirstOrCreate(toolCall).Error
 }
 
 // GetByToolCallID 根据toolCallID获取工具调用
