@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { message as AntMessage, Button, theme } from 'antd';
 import { createStyles } from 'antd-style';
@@ -17,6 +17,7 @@ import {
   Sender,
   Conversations,
   Actions,
+  Think,
 } from '@ant-design/x';
 import type { BubbleListProps, ConversationsProps } from '@ant-design/x';
 import { useChat } from '../hooks/useChat';
@@ -198,32 +199,74 @@ const MessageContent: React.FC<{
     );
   }
 
-  // AI 消息：先显示思考过程，再显示答案
+  // AI 消息：先显示工具调用，再显示思考过程，最后显示答案
   return (
     <div className={styles.messageContent}>
-      {/* 思考过程 */}
+      {/* 工具调用 */}
       {message.tool_calls && message.tool_calls.length > 0 && (
         <div className="thinking-wrapper">
-          <ThinkingBlock toolCalls={message.tool_calls} isComplete={!isStreamingMessage} />
+          <ThinkingBlock toolCalls={message.tool_calls} />
         </div>
       )}
 
-      {/* 内容：思考段落或答案 */}
-      {message.content_type === 'thinking' ? (
-        <div className="thinking-paragraph">
-          {message.content}
-        </div>
-      ) : (
-        <div className="answer-wrapper">
-          {message.content ? (
-            <MarkdownRender content={message.content} />
-          ) : isStreamingMessage && !message.tool_calls?.length ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
-              <span className="animate-pulse">思考中...</span>
-            </div>
-          ) : null}
-        </div>
-      )}
+      {/* 内容：解析 <thinking> 标签 */}
+      <div className="answer-wrapper">
+        {message.content ? (
+          (() => {
+            const content = message.content;
+            // 解析 <thinking> 标签
+            const thinkRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
+            const parts: Array<{ type: 'thinking' | 'text'; content: string }> = [];
+            let lastIndex = 0;
+            let match;
+
+            while ((match = thinkRegex.exec(content)) !== null) {
+              // 添加 <thinking> 之前的文本
+              if (match.index > lastIndex) {
+                const textContent = content.slice(lastIndex, match.index);
+                if (textContent.trim()) {
+                  parts.push({ type: 'text', content: textContent });
+                }
+              }
+              // 添加 thinking 内容
+              parts.push({ type: 'thinking', content: match[1] });
+              lastIndex = match.index + match[0].length;
+            }
+
+            // 添加剩余的文本
+            if (lastIndex < content.length) {
+              const textContent = content.slice(lastIndex);
+              if (textContent.trim()) {
+                parts.push({ type: 'text', content: textContent });
+              }
+            }
+
+            // 如果没有 <thinking> 标签，渲染全部为文本
+            if (parts.length === 0) {
+              return <MarkdownRender content={content} />;
+            }
+
+            // 渲染各个部分
+            return (
+              <>
+                {parts.map((part, index) => (
+                  <React.Fragment key={index}>
+                    {part.type === 'thinking' ? (
+                      <Think title={'deep thinking'}>{part.content}</Think>
+                    ) : (
+                      <MarkdownRender content={part.content} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </>
+            );
+          })()
+        ) : isStreamingMessage && !message.tool_calls?.length ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
+            <span className="animate-pulse">思考中...</span>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 };

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { LoadingOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
 import { createStyles } from 'antd-style';
 import type { ToolCall } from '../../types/chat';
@@ -66,7 +65,6 @@ interface ToolCallGroup {
 
 interface ThinkingBlockProps {
   toolCalls: ToolCall[];
-  isComplete: boolean;
 }
 
 // 工具名称到图标的映射
@@ -78,7 +76,7 @@ const toolIconMap: Record<string, string> = {
   'default': '🔧',
 };
 
-export function ThinkingBlock({ toolCalls, isComplete }: ThinkingBlockProps) {
+export function ThinkingBlock({ toolCalls }: ThinkingBlockProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const { styles } = useStyles();
   const { token } = useToken();
@@ -91,14 +89,12 @@ export function ThinkingBlock({ toolCalls, isComplete }: ThinkingBlockProps) {
     status: tc.status === 'completed' ? 'completed' : tc.status === 'error' ? 'error' : 'running',
   }));
 
-  const runningCount = groups.filter(g => g.status === 'running').length;
-
   return (
     <div className={styles.container}>
       {/* 头部 */}
       <div className={styles.header} onClick={() => setIsExpanded(!isExpanded)}>
         <span className={styles.headerText}>
-          {isComplete ? `已使用 ${groups.length} 个工具` : `正在使用工具 (${runningCount}/${groups.length})`}
+          已使用 {groups.length} 个工具
         </span>
         {isExpanded ? '▼' : '▶'}
       </div>
@@ -111,10 +107,7 @@ export function ThinkingBlock({ toolCalls, isComplete }: ThinkingBlockProps) {
 
             return (
               <div key={group.id} className={styles.toolItem}>
-                {group.status === 'running' && (
-                  <LoadingOutlined style={{ fontSize: 14, color: token.colorPrimary }} spin />
-                )}
-                <span style={{ opacity: group.status === 'completed' ? 0.5 : 1 }}>
+                <span>
                   {icon} {group.name}
                 </span>
                 <code style={{ color: token.colorTextSecondary, fontSize: 12 }}>

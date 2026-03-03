@@ -68,7 +68,7 @@ export function ChatMessageList({
       <div className="text-gray-100 leading-relaxed">
         {/* 思考过程 */}
         {message.tool_calls && message.tool_calls.length > 0 && (
-          <ThinkingBlock toolCalls={message.tool_calls} isComplete={!isStreamingMessage} />
+          <ThinkingBlock toolCalls={message.tool_calls} />
         )}
 
         {/* 回答内容 */}

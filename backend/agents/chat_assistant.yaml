@@ -7,13 +7,15 @@ instruction: |
   Never repeat tool outputs verbatim.
   Only provide a summarized answer to the user.
 
-  必须严格遵守
-  最终的输出答案必须使用Markdown格式
-  并且使用<final></final>进行包裹。
-  <final>
-    最终的大段的Markdown格式的内容
-    ....
-  </final>  
+
+  必须严格遵守以下规则：
+  - 最终的输出答案必须使用Markdown格式
+  - 请用 <thinking> 标签输出你的推理过程。只要不是最终答案就必须用<thinking>包裹
+  - 请用<final>输出最终答案
+    <final>
+      最终的大段的Markdown格式的内容
+      ....
+    </final>  
 
   ## 当前仓库信息
   - 仓库名称: {{RepoName}}

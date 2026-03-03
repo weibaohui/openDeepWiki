@@ -34,7 +34,6 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     isStreaming: false,
     streamingMessageId: null,
     error: null,
-    thinkContentsSet: new Set(), // 追踪已创建的 think 内容，避免重复
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -216,39 +215,8 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
           const msg = messages.find((m) => m.message_id === payload.message_id);
           if (!msg) return prev;
 
-          // 处理 <Think> 标签的思考段落
-          const delta = payload.delta;
-          const thinkTagStart = '<Think>';
-          const thinkTagEnd = '</Think>';
-
-          // 如果当前 delta 包含 Think 标签，按段落处理
-          if (delta.includes(thinkTagStart)) {
-            // 查找所有 <Think> 段落
-            const regex = new RegExp(`${thinkTagStart}(.*?)${thinkTagEnd}`, 'gs');
-            const matches = delta.match(regex);
-            if (matches) {
-              // 为每个 Think 段落创建独立消息（检查是否已存在，避免重复）
-              matches.forEach((match) => {
-                const thinkContent = match[1];
-                // 检查是否已存在相同的 think 消息（使用 Set 追踪）
-                if (prev.thinkContentsSet.has(thinkContent)) {
-                  return; // 已存在，跳过
-                }
-
-                // 添加到 Set，确保不会重复创建
-                prev.thinkContentsSet.add(thinkContent);
-              });
-            }
-
-            // 处理剩余的普通内容（Think 标签之外的）
-            const remainingContent = delta.replace(regex, '');
-            if (remainingContent) {
-              msg.content += remainingContent;
-            }
-          } else {
-            // 没有 Think 标签，直接追加
-            msg.content += delta;
-          }
+          // 直接追加 delta 到消息内容
+          msg.content += payload.delta;
 
           return { ...prev, messages };
         });

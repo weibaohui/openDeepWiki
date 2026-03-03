@@ -112,5 +112,4 @@ export interface ChatState {
   isStreaming: boolean;
   streamingMessageId: string | null;
   error: string | null;
-  thinkContentsSet: Set<string>; // 追踪已创建的 think 内容，避免重复
 }
