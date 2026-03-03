@@ -34,6 +34,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     isStreaming: false,
     streamingMessageId: null,
     error: null,
+    thinkContentsSet: new Set(), // 追踪已创建的 think 内容，避免重复
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -229,27 +230,13 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
               // 为每个 Think 段落创建独立消息（检查是否已存在，避免重复）
               matches.forEach((match) => {
                 const thinkContent = match[1];
-                // 使用 filter 获取不包含当前 think 内容的消息，避免找到刚刚 push 的消息
-                const messagesWithoutThisThink = messages.filter(m =>
-                  !(m.content_type === 'thinking' && thinkContent.includes(m.content))
-                );
-                const existingThinkMsg = messagesWithoutThisThink.find(m =>
-                  m.content_type === 'thinking' && m.content === thinkContent
-                );
-                if (!existingThinkMsg) {
-                  const thinkMsg: ChatMessage = {
-                    id: Date.now() + Math.random(),
-                    session_id: prev.currentSession?.session_id || '',
-                    message_id: `think_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-                    role: 'assistant',
-                    content_type: 'thinking',
-                    content: thinkContent,
-                    status: 'completed',
-                    token_used: 0,
-                    created_at: new Date().toISOString(),
-                  };
-                  messages.push(thinkMsg);
+                // 检查是否已存在相同的 think 消息（使用 Set 追踪）
+                if (prev.thinkContentsSet.has(thinkContent)) {
+                  return; // 已存在，跳过
                 }
+
+                // 添加到 Set，确保不会重复创建
+                prev.thinkContentsSet.add(thinkContent);
               });
             }
 
