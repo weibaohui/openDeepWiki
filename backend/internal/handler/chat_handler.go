@@ -16,6 +16,7 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
+	"k8s.io/klog/v2"
 )
 
 // WebSocket upgrader
@@ -485,6 +486,12 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 
 		// 处理输出事件
 		if event.Output != nil && event.Output.MessageOutput != nil {
+			// 跳过 role="tool" 的系统消息（不发送给前端，也不存数据库）
+			if event.Output.MessageOutput.Role == "tool" {
+				klog.V(6).Info("跳过 role=tool 的系统消息，不发送给前端")
+				continue
+			}
+
 			content := event.Output.MessageOutput.Message.Content
 			if content != "" {
 				// 发送内容增量
