@@ -29,10 +29,10 @@ var upgrader = websocket.Upgrader{
 
 // ChatHandler 对话处理器
 type ChatHandler struct {
-	chatService   service.ChatService
-	repoService   *service.RepositoryService
-	hub           *ChatHub
-	agentFactory  *adkagents.AgentFactory
+	chatService  service.ChatService
+	repoService  *service.RepositoryService
+	hub          *ChatHub
+	agentFactory *adkagents.AgentFactory
 }
 
 // NewChatHandler 创建处理器
