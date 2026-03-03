@@ -364,8 +364,8 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 	if h.repoService != nil {
 		repo, err := h.repoService.Get(client.repoID)
 		if err == nil && repo != nil {
-			repoInfo = fmt.Sprintf("## 当前仓库信息\n- 仓库名称: %s\n- 仓库地址: %s\n- 仓库描述: %s\n- 当前分支: %s\n- 当前Commit: %s\n",
-				repo.Name, repo.URL, repo.Description, repo.CloneBranch, repo.CloneCommit)
+			repoInfo = fmt.Sprintf("## 当前仓库信息\n- 仓库名称: %s\n- 仓库地址: %s\n- 本地路径: %s\n- 仓库描述: %s\n- 当前分支: %s\n- 当前Commit: %s\n",
+				repo.Name, repo.URL, repo.LocalPath, repo.Description, repo.CloneBranch, repo.CloneCommit)
 		}
 	}
 
