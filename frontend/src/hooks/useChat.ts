@@ -177,7 +177,11 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
           const messages = [...prev.messages];
           const lastMsg = messages[messages.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.tool_calls = [...(lastMsg.tool_calls || []), toolCall];
+            // 检查是否已存在相同 tool_call_id，避免重复
+            const exists = lastMsg.tool_calls?.some((tc) => tc.tool_call_id === payload.tool_call_id);
+            if (!exists) {
+              lastMsg.tool_calls = [...(lastMsg.tool_calls || []), toolCall];
+            }
           }
           return { ...prev, messages };
         });
