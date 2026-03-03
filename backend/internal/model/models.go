@@ -168,7 +168,7 @@ type ChatMessage struct {
 	SessionID   string         `json:"session_id" gorm:"size:64;index"`                // 所属会话
 	MessageID   string         `json:"message_id" gorm:"size:64;uniqueIndex"`          // 唯一消息标识
 	ParentID    *string        `json:"parent_id" gorm:"size:64;index"`                 // 父消息ID（用于支持分支对话）
-	Role        string         `json:"role" gorm:"size:20"`                            // user, assistant, system, tool
+	Role        string         `json:"role" gorm:"size:20"`                            // user, assistant, system
 	Content     string         `json:"content" gorm:"type:text"`                       // 消息内容
 	ContentType string         `json:"content_type" gorm:"size:20;default:'text'"`     // text, thinking, tool_call, tool_result
 	ToolCalls   []ChatToolCall `json:"tool_calls,omitempty" gorm:"foreignKey:MessageID"` // 关联的工具调用
