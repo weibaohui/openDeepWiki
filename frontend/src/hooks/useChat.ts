@@ -38,10 +38,14 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
   });
 
   const wsRef = useRef<WebSocket | null>(null);
+  const wsSessionIdRef = useRef<string | null>(sessionId || null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentSessionIdRef = useRef<string | null>(sessionId || null);
   const placeholderMessageIdRef = useRef<string | null>(null);
+  const lastDeltaByMessageIdRef = useRef<Map<string, string>>(new Map());
+  const connectRef = useRef<() => void>(() => { });
+  const handleServerMessageRef = useRef<(message: ServerMessage) => void>(() => { });
 
   // 更新状态的辅助函数
   const updateState = useCallback((updates: Partial<ChatState>) => {
@@ -50,13 +54,22 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
 
   // 建立WebSocket连接
   const connect = useCallback(() => {
-    if (!currentSessionIdRef.current) {
+    const targetSessionId = currentSessionIdRef.current;
+    if (!targetSessionId) {
       console.log('[WebSocket] No session ID, skipping connection');
       return;
     }
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] Already connected');
-      return;
+    if (wsRef.current) {
+      const isSameSession = wsSessionIdRef.current === targetSessionId;
+      if ((wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) && isSameSession) {
+        console.log('[WebSocket] Already connected');
+        return;
+      }
+      if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+        wsRef.current.close();
+      }
+      wsRef.current = null;
+      wsSessionIdRef.current = null;
     }
 
     console.log('[WebSocket] Connecting...');
@@ -64,7 +77,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
 
     // 使用相对路径，让 Vite 代理处理 WebSocket
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/api/repositories/${repoId}/chat/sessions/${currentSessionIdRef.current}/stream`;
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/repositories/${repoId}/chat/sessions/${targetSessionId}/stream`;
     console.log('[WebSocket] URL:', wsUrl);
 
     try {
@@ -73,6 +86,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
 
       ws.onopen = () => {
         console.log('[WebSocket] Connected');
+        wsSessionIdRef.current = targetSessionId;
         updateState({ connectionStatus: 'connected', error: null });
         reconnectAttemptsRef.current = 0;
       };
@@ -80,7 +94,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       ws.onmessage = (event) => {
         try {
           const message: ServerMessage = JSON.parse(event.data);
-          handleServerMessage(message);
+          handleServerMessageRef.current(message);
         } catch (err) {
           console.error('Failed to parse message:', err);
         }
@@ -96,13 +110,16 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
         console.log('[WebSocket] Closed:', event.code, event.reason);
         updateState({ connectionStatus: 'disconnected' });
         wsRef.current = null;
+        if (wsSessionIdRef.current === targetSessionId) {
+          wsSessionIdRef.current = null;
+        }
 
         // 自动重连
-        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        if (currentSessionIdRef.current === targetSessionId && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
           updateState({ connectionStatus: 'reconnecting' });
           reconnectTimerRef.current = setTimeout(() => {
             reconnectAttemptsRef.current++;
-            connect();
+            connectRef.current();
           }, RECONNECT_DELAY);
         }
       };
@@ -111,6 +128,10 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       updateState({ connectionStatus: 'disconnected' });
     }
   }, [repoId, onError, updateState]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   // 断开连接
   const disconnect = useCallback(() => {
@@ -122,6 +143,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       wsRef.current.close();
       wsRef.current = null;
     }
+    wsSessionIdRef.current = null;
   }, []);
 
   // 处理服务端消息
@@ -138,12 +160,21 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
         setState((prev) => {
           const messages = [...prev.messages];
           const lastMsg = messages[messages.length - 1];
+          console.log('[thinking_start] 当前消息列表:', messages.map(m => ({ id: m.message_id, role: m.role, isPlaceholder: m.isPlaceholder })));
+          console.log('[thinking_start] 最后一条消息:', lastMsg);
           if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isPlaceholder) {
             // 更新 message_id 为后端发送的 ID
             const payload = message.payload as { message_id: string };
+            console.log('[thinking_start] 更新占位消息 ID:', payload.message_id);
             placeholderMessageIdRef.current = payload.message_id;
             lastMsg.message_id = payload.message_id;
             delete lastMsg.isPlaceholder;
+          } else {
+            console.log('[thinking_start] 未找到占位消息，条件不满足:', {
+              hasLastMsg: !!lastMsg,
+              role: lastMsg?.role,
+              isPlaceholder: lastMsg?.isPlaceholder
+            });
           }
           return { ...prev, messages };
         });
@@ -215,17 +246,46 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
 
       case 'content_delta': {
         const payload = message.payload as { message_id: string; delta: string };
+        console.log('[content_delta] 收到消息:', payload);
 
         setState((prev) => {
           const messages = [...prev.messages];
-          const msg = messages.find((m) => m.message_id === payload.message_id);
+          console.log('[content_delta] 当前消息列表:', messages.map(m => ({ id: m.message_id, role: m.role, isPlaceholder: m.isPlaceholder })));
+
+          // 先按 message_id 查找
+          let msg = messages.find((m) => m.message_id === payload.message_id);
+          console.log('[content_delta] 按 message_id 查找结果:', msg ? '找到' : '未找到');
+
+          // 如果找不到，尝试查找占位消息（可能是 thinking_start 还没更新 ID）
+          if (!msg) {
+            msg = messages.find((m) => m.role === 'assistant' && m.isPlaceholder);
+            console.log('[content_delta] 查找占位消息结果:', msg ? '找到' : '未找到');
+            if (msg) {
+              // 更新占位消息的 ID 为后端发送的真实 ID
+              console.log('[content_delta] 更新占位消息 ID:', payload.message_id);
+              msg.message_id = payload.message_id;
+              delete msg.isPlaceholder;
+            }
+          }
 
           if (msg) {
             // 消息已存在，追加内容
+            const lastDelta = lastDeltaByMessageIdRef.current.get(payload.message_id);
+            if (lastDelta === payload.delta) {
+              return {
+                ...prev,
+                messages,
+                isStreaming: true,
+                streamingMessageId: payload.message_id,
+              };
+            }
             msg.content += payload.delta;
             msg.status = 'streaming';
+            lastDeltaByMessageIdRef.current.set(payload.message_id, payload.delta);
+            console.log('[content_delta] 追加内容到现有消息');
           } else {
             // 消息不存在，创建新消息
+            console.log('[content_delta] 创建新消息');
             const assistantMsg: ChatMessage = {
               id: Date.now(),
               session_id: currentSessionIdRef.current || '',
@@ -239,6 +299,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
               tool_calls: [],
             };
             messages.push(assistantMsg);
+            lastDeltaByMessageIdRef.current.set(payload.message_id, payload.delta);
           }
 
           return {
@@ -262,6 +323,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
             msg.token_used = payload.token_used;
             msg.completed_at = new Date().toISOString();
           }
+          lastDeltaByMessageIdRef.current.delete(payload.message_id);
           return {
             ...prev,
             messages,
@@ -283,6 +345,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
           if (msg) {
             msg.status = 'stopped';
           }
+          lastDeltaByMessageIdRef.current.delete(payload.message_id);
           return {
             ...prev,
             messages,
@@ -311,6 +374,10 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
         break;
     }
   }, [updateState, onError]);
+
+  useEffect(() => {
+    handleServerMessageRef.current = handleServerMessage;
+  }, [handleServerMessage]);
 
   // 发送消息
   const sendMessage = useCallback((content: string) => {
@@ -409,6 +476,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       }));
 
       // 建立WebSocket连接
+      disconnect();
       setTimeout(() => connect(), 0);
 
       return newSession;
@@ -418,7 +486,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       if (onError) onError(errorMsg);
       throw err;
     }
-  }, [repoId, connect, updateState, onError]);
+  }, [repoId, connect, disconnect, updateState, onError]);
 
   // 加载会话列表
   const loadSessions = useCallback(async (page = 1) => {
@@ -455,13 +523,14 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       }));
 
       // 建立WebSocket连接
+      disconnect();
       setTimeout(() => connect(), 0);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '加载会话失败';
       updateState({ error: errorMsg, messagesLoading: false });
       if (onError) onError(errorMsg);
     }
-  }, [repoId, connect, updateState, onError]);
+  }, [repoId, connect, disconnect, updateState, onError]);
 
   // 删除会话
   const deleteSession = useCallback(async (targetSessionId: string) => {

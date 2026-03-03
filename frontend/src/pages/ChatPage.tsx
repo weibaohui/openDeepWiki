@@ -183,9 +183,7 @@ const MessageFooter: React.FC<MessageFooterProps> = ({ id, content, status, onRe
 // 渲染消息内容 - 将思考过程和答案分开
 const MessageContent: React.FC<{
   message: ChatMessage;
-  isStreaming: boolean;
-  streamingMessageId: string | null;
-}> = ({ message, isStreaming: _isStreaming, streamingMessageId: _streamingMessageId }) => {
+}> = ({ message }) => {
   const { styles } = useStyle();
   const { token } = useToken();
 
@@ -252,7 +250,6 @@ const MessageContent: React.FC<{
             </Think>
           );
         })}
-
         {message.content ? (
           (() => {
             const content = message.content;
@@ -375,7 +372,7 @@ export function ChatPage() {
   const handleCreateSession = useCallback(async () => {
     try {
       await createSession();
-    } catch (err) {
+    } catch {
       // 错误已在 hook 中处理
     }
   }, [createSession]);
@@ -475,8 +472,16 @@ export function ChatPage() {
   };
 
   // 转换消息为 Bubble.List 需要的格式（过滤掉 role=tool 的系统消息）
-  const bubbleItems = state.messages
-    .filter((msg: ChatMessage) => msg.role !== 'tool')
+  const deduplicatedMessages = Array.from(
+    state.messages.reduce((acc, msg) => {
+      if (msg.role !== 'tool') {
+        acc.set(msg.message_id, msg);
+      }
+      return acc;
+    }, new Map<string, ChatMessage>()).values(),
+  );
+
+  const bubbleItems = deduplicatedMessages
     .map((msg: ChatMessage) => {
       const isStreamingMessage = state.isStreaming && msg.message_id === state.streamingMessageId;
 
@@ -486,8 +491,6 @@ export function ChatPage() {
         content: (
           <MessageContent
             message={msg}
-            isStreaming={state.isStreaming}
-            streamingMessageId={state.streamingMessageId}
           />
         ),
         status: (msg.status === 'streaming' ? 'updating' : msg.status === 'pending' ? 'loading' : 'success') as 'updating' | 'loading' | 'success' | 'error' | 'abort',
