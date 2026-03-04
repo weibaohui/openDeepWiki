@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { message as AntMessage, Button, theme } from 'antd';
 import { createStyles } from 'antd-style';
@@ -9,22 +9,19 @@ import {
   ArrowLeftOutlined,
   RobotOutlined,
   UserOutlined,
-  SyncOutlined,
 } from '@ant-design/icons';
 import {
   XProvider,
   Bubble,
   Sender,
   Conversations,
-  Actions,
-  Think,
 } from '@ant-design/x';
 import type { BubbleListProps, ConversationsProps } from '@ant-design/x';
 import { useChat } from '../hooks/useChat';
 import { repositoryApi } from '../services/api';
 import type { Repository } from '../types';
 import type { ChatSession, ChatMessage } from '../types/chat';
-import MarkdownRender from '../components/markdown/MarkdownRender';
+import { MessageContent, MessageFooter } from '../components/chat';
 
 const { useToken } = theme;
 
@@ -147,185 +144,6 @@ const useStyle = createStyles(({ token, css }) => ({
     }
   `,
 }));
-
-// ==================== Components ====================
-
-interface MessageFooterProps {
-  id?: string;
-  content: string;
-  status?: string;
-  onRetry?: (id: string) => void;
-}
-
-const MessageFooter: React.FC<MessageFooterProps> = ({ id, content, status, onRetry }) => {
-  const items = [
-    {
-      key: 'retry',
-      label: '重试',
-      icon: <SyncOutlined />,
-      onClick: () => {
-        if (id && onRetry) {
-          onRetry(id);
-        }
-      },
-    },
-    {
-      key: 'copy',
-      actionRender: <Actions.Copy text={content} />,
-    },
-  ];
-
-  return status !== 'streaming' && status !== 'loading' ? (
-    <div style={{ display: 'flex' }}>{id && <Actions items={items} />}</div>
-  ) : null;
-};
-
-const toolIconMap: Record<string, string> = {
-  search_code: '🔍',
-  read_file: '📄',
-  list_directory: '📁',
-  list_dir: '📁',
-  get_file_info: 'ℹ️',
-  default: '🔧',
-};
-
-const formatToolArguments = (rawArgs: string): string => {
-  let formattedArgs = rawArgs;
-  try {
-    const args = JSON.parse(rawArgs);
-    if (typeof args === 'object' && args !== null) {
-      formattedArgs = Object.entries(args)
-        .map(([key, value]) => {
-          const valueStr = typeof value === 'string' ? `"${value}"` : String(value);
-          return `${key}: ${valueStr}`;
-        })
-        .join(', ');
-    }
-  } catch {
-    formattedArgs = rawArgs
-      .replace(/\\"/g, '"')
-      .replace(/\\'/g, "'")
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '\r')
-      .replace(/\\t/g, '\t');
-  }
-  return formattedArgs;
-};
-
-const parseTaggedContent = (content: string): Array<{ type: 'thinking' | 'text' | 'final'; content: string }> => {
-  const parts: Array<{ type: 'thinking' | 'text' | 'final'; content: string }> = [];
-  const tagRegex = /<(thinking|final)>([\s\S]*?)<\/\1>/g;
-  let lastIndex = 0;
-  let tagMatch: RegExpExecArray | null;
-
-  while ((tagMatch = tagRegex.exec(content)) !== null) {
-    if (tagMatch.index > lastIndex) {
-      const text = content.slice(lastIndex, tagMatch.index);
-      if (text.trim()) {
-        parts.push({ type: 'text', content: text });
-      }
-    }
-    parts.push({
-      type: tagMatch[1] === 'thinking' ? 'thinking' : 'final',
-      content: tagMatch[2],
-    });
-    lastIndex = tagMatch.index + tagMatch[0].length;
-  }
-
-  if (lastIndex < content.length) {
-    const rest = content.slice(lastIndex);
-    if (rest.trim()) {
-      parts.push({ type: 'text', content: rest });
-    }
-  }
-
-  if (parts.length === 0 && content.trim()) {
-    parts.push({ type: 'text', content });
-  }
-
-  return parts;
-};
-
-const MessageContent: React.FC<{
-  message: ChatMessage;
-}> = ({ message }) => {
-  const { styles } = useStyle();
-  const { token } = useToken();
-
-  // 用户消息
-  if (message.role === 'user') {
-    return (
-      <div style={{ color: token.colorWhite, whiteSpace: 'pre-wrap' }}>
-        {message.content}
-      </div>
-    );
-  }
-
-  // 占位符消息或空内容的 assistant 消息
-  if (message.isPlaceholder || (message.role === 'assistant' && !message.content && !message.tool_calls?.length && (message.status === 'pending' || message.status === 'streaming'))) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: token.colorTextSecondary }}>
-        <span className="animate-pulse">思考中...</span>
-      </div>
-    );
-  }
-
-  // AI 消息：工具调用、思考过程、答案混合流式显示
-  const renderToolCall = (toolCallId: string, toolName: string, rawArgs: string) => {
-    const icon = toolIconMap[toolName] || toolIconMap.default;
-    return (
-      <Think key={toolCallId} title={`${icon} ${toolName}`}>
-        {formatToolArguments(rawArgs)}
-      </Think>
-    );
-  };
-
-  const renderTaggedContent = (content: string, keyPrefix: string) => {
-    const parts = parseTaggedContent(content);
-    return parts.map((part, index) => {
-      const key = `${keyPrefix}_${index}`;
-      if (part.type === 'thinking') {
-        return <Think key={key} title="deep thinking">{part.content}</Think>;
-      }
-      return <MarkdownRender key={key} content={part.content} />;
-    });
-  };
-
-  if (message.stream_items && message.stream_items.length > 0) {
-    return (
-      <div className={styles.messageContent}>
-        {message.stream_items.map((item, index) => {
-          if (item.type === 'tool_call' && item.tool_call_id) {
-            const toolCall = message.tool_calls?.find((tool) => tool.tool_call_id === item.tool_call_id);
-            if (!toolCall) {
-              return null;
-            }
-            return renderToolCall(toolCall.tool_call_id, toolCall.tool_name, toolCall.arguments);
-          }
-          if (item.type === 'content_delta' && item.content) {
-            return (
-              <React.Fragment key={item.id || `content_${index}`}>
-                {renderTaggedContent(item.content, `${item.id || `content_${index}`}`)}
-              </React.Fragment>
-            );
-          }
-          return null;
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.messageContent}>
-      <>
-        {message.tool_calls?.map((toolCall) => (
-          renderToolCall(toolCall.tool_call_id, toolCall.tool_name, toolCall.arguments)
-        ))}
-        {message.content ? renderTaggedContent(message.content, 'content') : null}
-      </>
-    </div>
-  );
-};
 
 // ==================== Main Page ====================
 

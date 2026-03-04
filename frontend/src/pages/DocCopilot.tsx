@@ -1,40 +1,81 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   CloseOutlined,
-  CopyOutlined,
-  DislikeOutlined,
-  LikeOutlined,
   PlusOutlined,
-  ReloadOutlined,
+  ExpandOutlined,
+  CompressOutlined,
   RobotFilled,
   UserOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
-import type { BubbleListProps } from '@ant-design/x';
+import type { BubbleListProps, ConversationsProps } from '@ant-design/x';
 import {
   Bubble,
   Sender,
   Welcome,
+  Conversations,
+  XProvider,
 } from '@ant-design/x';
-import type { GetRef } from 'antd';
-import { Button, message, Space, Typography } from 'antd';
+import { Button, message, Space, Typography, theme } from 'antd';
 import { createStyles } from 'antd-style';
 import { useAppConfig } from '@/context/AppConfigContext';
-import MarkdownRender from '@/components/markdown/MarkdownRender';
-import { chatApi } from '@/services/api';
+import { MessageContent, MessageFooter } from '@/components/chat';
+import { useChat } from '@/hooks/useChat';
+import type { ChatSession, ChatMessage } from '@/types/chat';
 
 const { Text } = Typography;
+const { useToken } = theme;
 
+// ==================== Styles ====================
 const useCopilotStyle = createStyles(({ token, css }) => ({
   copilotContainer: css`
     display: flex;
-    flex-direction: column;
     height: 100%;
     background: ${token.colorBgContainer};
     border-left: 1px solid ${token.colorBorderSecondary};
+    transition: all 0.3s ease;
+    overflow: hidden;
   `,
-  copilotHeader: css`
+  // 小型模式样式
+  compactMode: css`
+    flex-direction: column;
+    width: 380px;
+  `,
+  // 放大模式样式
+  expandedMode: css`
+    flex-direction: row;
+    width: 850px;
+  `,
+  // 侧边栏（仅放大模式显示）
+  sidebar: css`
+    width: 220px;
+    border-right: 1px solid ${token.colorBorderSecondary};
+    display: flex;
+    flex-direction: column;
+    background: ${token.colorBgLayout};
+  `,
+  sidebarHeader: css`
+    padding: 16px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
+  `,
+  conversations: css`
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    .ant-conversations-list {
+      padding-inline-start: 0;
+    }
+  `,
+  // 主聊天区域
+  chatArea: css`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  `,
+  // 头部
+  header: css`
     height: 52px;
-    box-sizing: border-box;
     border-bottom: 1px solid ${token.colorBorderSecondary};
     display: flex;
     align-items: center;
@@ -49,22 +90,17 @@ const useCopilotStyle = createStyles(({ token, css }) => ({
     align-items: center;
     gap: 8px;
   `,
+  // 消息列表区域
   chatList: css`
     flex: 1;
     overflow: auto;
     padding: 16px;
   `,
-  chatWelcome: css`
+  // 欢迎语样式
+  welcomeContainer: css`
     margin-bottom: 16px;
-    padding: 12px 16px;
-    border-radius: 12px;
-    background: ${token.colorBgTextHover};
   `,
-  chatSender: css`
-    padding: 16px;
-    border-top: 1px solid ${token.colorBorderSecondary};
-    flex-shrink: 0;
-  `,
+  // 占位提示
   placeholder: css`
     display: flex;
     flex-direction: column;
@@ -75,282 +111,349 @@ const useCopilotStyle = createStyles(({ token, css }) => ({
     padding: 24px;
     text-align: center;
   `,
-  avatar: css`
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  // 发送区域
+  senderArea: css`
+    padding: 16px;
+    border-top: 1px solid ${token.colorBorderSecondary};
+    flex-shrink: 0;
   `,
-  assistantAvatar: css`
-    background: #10a37f;
-    color: #fff;
-  `,
-  userAvatar: css`
-    background: #1677ff;
-    color: #fff;
+  // 连接状态提示
+  connectionAlert: css`
+    padding: 8px 16px;
+    text-align: center;
+    font-size: 13px;
   `,
 }));
 
+// ==================== Props ====================
 interface DocCopilotProps {
   repoId: number;
   docId?: number;
   onClose: () => void;
 }
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  status?: 'loading' | 'success' | 'error';
-}
-
-const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId, onClose }) => {
+// ==================== Component ====================
+const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose }) => {
   const { t } = useAppConfig();
   const { styles } = useCopilotStyle();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string>('');
-  const listRef = useRef<GetRef<typeof Bubble.List>>(null);
+  const { token } = useToken();
+  const [, contextHolder] = message.useMessage();
 
-  // Initialize chat session
+  // 缩放状态
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // 使用 useChat Hook
+  const handleError = useCallback((error: string) => {
+    message.error(error);
+  }, []);
+
+  const {
+    state,
+    createSession,
+    loadSessions,
+    loadSession,
+    deleteSession,
+    sendMessage,
+    stopGeneration,
+    setInputValue,
+    reconnect,
+  } = useChat({
+    repoId,
+    onError: handleError,
+  });
+
+  // 初始加载
   useEffect(() => {
-    const initSession = async () => {
-      try {
-        const response = await chatApi.createSession(repoId);
-        setSessionId(response.data.session_id);
-      } catch (error) {
-        console.error('Failed to create chat session:', error);
-        message.error('Failed to initialize AI assistant');
-      }
-    };
-    initSession();
-  }, [repoId]);
+    if (repoId) {
+      loadSessions(1);
+    }
+  }, [repoId, loadSessions]);
 
-  // Scroll to bottom when messages change
+  // 自动创建/选中会话
   useEffect(() => {
-    listRef.current?.scrollTo({ top: 999999 });
-  }, [messages]);
+    if (!state.sessionsLoading && state.sessions.length === 0) {
+      createSession();
+    }
+    if (!state.sessionsLoading && state.sessions.length > 0 && !state.currentSession) {
+      loadSession(state.sessions[0].session_id);
+    }
+  }, [state.sessionsLoading, state.sessions, state.currentSession, createSession, loadSession]);
 
-  const handleSend = useCallback(async () => {
-    if (!inputValue.trim() || !sessionId || isLoading) return;
+  // 处理发送消息
+  const handleSend = useCallback(() => {
+    if (!state.inputValue.trim()) return;
+    sendMessage(state.inputValue);
+  }, [sendMessage, state.inputValue]);
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue.trim(),
-      status: 'success',
-    };
-
-    const assistantMessageId = (Date.now() + 1).toString();
-    const assistantMessage: Message = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      status: 'loading',
-    };
-
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    setInputValue('');
-    setIsLoading(true);
-
+  // 处理新建会话
+  const handleCreateSession = useCallback(async () => {
     try {
-      // Start streaming
-      const response = await fetch(`/api/chat/${sessionId}/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: userMessage.content,
-          doc_id: docId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      const decoder = new TextDecoder();
-      let accumulatedContent = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.type === 'content' && data.content) {
-                accumulatedContent += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: accumulatedContent, status: 'success' as const }
-                      : msg
-                  )
-                );
-              } else if (data.type === 'error') {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: data.error || 'Error occurred', status: 'error' as const }
-                      : msg
-                  )
-                );
-              }
-            } catch {
-              // Ignore parse errors for keep-alive lines
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Chat error:', error);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: 'Sorry, an error occurred. Please try again.', status: 'error' as const }
-            : msg
-        )
-      );
-    } finally {
-      setIsLoading(false);
+      await createSession();
+    } catch {
+      // 错误已在 hook 中处理
     }
-  }, [inputValue, sessionId, isLoading, docId]);
+  }, [createSession]);
 
-  const handleNewChat = useCallback(async () => {
-    setMessages([]);
-    try {
-      const response = await chatApi.createSession(repoId);
-      setSessionId(response.data.session_id);
-    } catch (error) {
-      console.error('Failed to create new session:', error);
-      message.error('Failed to start new chat');
-    }
-  }, [repoId]);
+  // 处理选中共话
+  const handleSelectSession = useCallback((sessionId: string) => {
+    loadSession(sessionId);
+  }, [loadSession]);
 
-  const renderMessageContent = (content: string, role: string) => {
-    if (role === 'assistant') {
-      return <MarkdownRender content={content} />;
-    }
-    return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
-  };
+  // 处理删除会话
+  const handleDeleteSession = useCallback((sessionId: string) => {
+    deleteSession(sessionId);
+  }, [deleteSession]);
 
-  const renderAssistantAvatar = () => (
-    <div className={`${styles.avatar} ${styles.assistantAvatar}`}>
-      <RobotFilled />
+  // 切换缩放状态
+  const toggleExpand = useCallback(() => {
+    setIsExpanded((prev) => !prev);
+  }, []);
+
+  // 用户头像
+  const userAvatar = (
+    <div style={{
+      width: 32,
+      height: 32,
+      borderRadius: '50%',
+      background: token.colorPrimary,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <UserOutlined style={{ color: '#fff', fontSize: 16 }} />
     </div>
   );
 
-  const renderUserAvatar = () => (
-    <div className={`${styles.avatar} ${styles.userAvatar}`}>
-      <UserOutlined />
+  // AI 头像
+  const aiAvatar = (
+    <div style={{
+      width: 32,
+      height: 32,
+      borderRadius: '50%',
+      background: '#10a37f',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <RobotFilled style={{ color: '#fff', fontSize: 16 }} />
     </div>
   );
 
-  const role: BubbleListProps['role'] = {
-    assistant: {
-      placement: 'start',
-      avatar: renderAssistantAvatar(),
-      footer: (props) => {
-        if (props.data?.status === 'loading') return null;
-        return (
-          <Space size={4}>
-            <Button type="text" size="small" icon={<ReloadOutlined />} />
-            <Button type="text" size="small" icon={<CopyOutlined />} />
-            <Button type="text" size="small" icon={<LikeOutlined />} />
-            <Button type="text" size="small" icon={<DislikeOutlined />} />
-          </Space>
-        );
-      },
-    },
+  // Bubble 角色配置
+  const roleConfig: BubbleListProps['role'] = {
     user: {
       placement: 'end',
-      avatar: renderUserAvatar(),
+      avatar: userAvatar,
+      styles: {
+        content: {
+          background: token.colorPrimary,
+          borderRadius: 16,
+          padding: '12px 16px',
+        },
+      },
+    },
+    assistant: {
+      placement: 'start',
+      avatar: aiAvatar,
+      styles: {
+        content: {
+          background: token.colorBgContainer,
+          borderRadius: 16,
+          padding: 16,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.06)',
+        },
+      },
     },
   };
 
-  const welcomeNode = (
-    <div className={styles.chatWelcome}>
-      <Welcome
-        variant="borderless"
-        title={t('ai.welcome_title', '👋 AI 文档助手')}
-        description={t('ai.welcome_desc', '基于当前文档内容回答您的问题')}
-      />
-    </div>
+  // 转换消息为 Bubble.List 需要的格式
+  const deduplicatedMessages = Array.from(
+    state.messages.reduce((acc, msg) => {
+      if (msg.role !== 'tool') {
+        acc.set(msg.message_id, msg);
+      }
+      return acc;
+    }, new Map<string, ChatMessage>()).values(),
   );
 
-  return (
-    <div className={styles.copilotContainer} style={{ width: 380 }}>
-      {/* Header */}
-      <div className={styles.copilotHeader}>
-        <div className={styles.headerTitle}>
-          <RobotFilled style={{ color: '#10a37f' }} />
-          {t('ai.copilot_title', 'AI 助手')}
-        </div>
-        <Space size={0}>
-          <Button
-            type="text"
-            icon={<PlusOutlined />}
-            onClick={handleNewChat}
-            title={t('ai.new_chat', '新建对话')}
-          />
-          <Button
-            type="text"
-            icon={<CloseOutlined />}
-            onClick={onClose}
-            title={t('common.close')}
-          />
-        </Space>
-      </div>
+  const bubbleItems = deduplicatedMessages.map((msg: ChatMessage) => {
+    const isStreamingMessage = state.isStreaming && msg.message_id === state.streamingMessageId;
 
-      {/* Chat List */}
-      <div className={styles.chatList}>
-        {messages.length === 0 ? (
-          <>
-            {welcomeNode}
-            <div className={styles.placeholder}>
-              <Text type="secondary">
-                {t('ai.placeholder', '输入您关于文档的问题，AI 助手将为您解答')}
-              </Text>
-            </div>
-          </>
-        ) : (
-          <Bubble.List
-            ref={listRef}
-            items={messages.map((msg) => ({
-              key: msg.id,
-              role: msg.role,
-              content: renderMessageContent(msg.content, msg.role),
-              status: msg.status === 'loading' ? 'loading' : 'success',
-            }))}
-            role={role}
-          />
-        )}
-      </div>
-
-      {/* Sender */}
-      <div className={styles.chatSender}>
-        <Sender
-          value={inputValue}
-          onChange={setInputValue}
-          onSubmit={handleSend}
-          loading={isLoading}
-          placeholder={t('ai.input_placeholder', '输入消息...')}
-          disabled={!sessionId}
+    return {
+      key: msg.message_id,
+      role: msg.role,
+      content: <MessageContent message={msg} />,
+      status: (msg.status === 'streaming' ? 'updating' : msg.status === 'pending' ? 'loading' : 'success') as 'updating' | 'loading' | 'success' | 'error' | 'abort',
+      footer: msg.role === 'assistant' && !isStreamingMessage && msg.content ? (
+        <MessageFooter
+          id={msg.message_id}
+          content={msg.content}
+          status={msg.status}
         />
+      ) : undefined,
+    };
+  });
+
+  // 会话列表项
+  const conversationItems: ConversationsProps['items'] = state.sessions.map((session: ChatSession) => ({
+    key: session.session_id,
+    label: session.title || '新对话',
+    group: new Date(session.created_at).toDateString() === new Date().toDateString() ? '今天' : '更早',
+  }));
+
+  // 判断是否显示侧边栏（仅放大模式且有条目时）
+  const showSidebar = isExpanded && conversationItems.length > 0;
+
+  return (
+    <XProvider>
+      {contextHolder}
+      <div
+        className={`${styles.copilotContainer} ${isExpanded ? styles.expandedMode : styles.compactMode}`}
+      >
+        {/* 侧边栏 - 仅放大模式显示 */}
+        {showSidebar && (
+          <div className={styles.sidebar}>
+            <div className={styles.sidebarHeader}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleCreateSession}
+                block
+              >
+                新建对话
+              </Button>
+            </div>
+            <Conversations
+              items={conversationItems}
+              activeKey={state.currentSession?.session_id}
+              onActiveChange={(key) => handleSelectSession(key as string)}
+              className={styles.conversations}
+              groupable
+              menu={(conversation) => ({
+                items: [
+                  {
+                    label: '删除',
+                    key: 'delete',
+                    icon: <DeleteOutlined />,
+                    danger: true,
+                    onClick: () => handleDeleteSession(conversation.key as string),
+                  },
+                ],
+              })}
+            />
+          </div>
+        )}
+
+        {/* 主聊天区域 */}
+        <div className={styles.chatArea}>
+          {/* Header */}
+          <div className={styles.header}>
+            <div className={styles.headerTitle}>
+              <RobotFilled style={{ color: '#10a37f' }} />
+              <span>{isExpanded ? t('ai.copilot_title', 'AI 文档助手') : t('ai.copilot_title_short', 'AI 助手')}</span>
+            </div>
+            <Space size={0}>
+              {/* 新建对话按钮 - 小型模式显示 */}
+              {!isExpanded && (
+                <Button
+                  type="text"
+                  icon={<PlusOutlined />}
+                  onClick={handleCreateSession}
+                  title={t('ai.new_chat', '新建对话')}
+                />
+              )}
+              {/* 缩放切换按钮 */}
+              <Button
+                type="text"
+                icon={isExpanded ? <CompressOutlined /> : <ExpandOutlined />}
+                onClick={toggleExpand}
+                title={isExpanded ? t('ai.collapse', '缩小') : t('ai.expand', '放大')}
+              />
+              {/* 关闭按钮 */}
+              <Button
+                type="text"
+                icon={<CloseOutlined />}
+                onClick={onClose}
+                title={t('common.close')}
+              />
+            </Space>
+          </div>
+
+          {/* 连接状态提示 */}
+          {state.connectionStatus === 'disconnected' && (
+            <div
+              className={styles.connectionAlert}
+              style={{ background: token.colorErrorBg, color: token.colorError }}
+            >
+              <span>连接已断开</span>
+              <Button type="link" onClick={reconnect} size="small">
+                重新连接
+              </Button>
+            </div>
+          )}
+          {state.connectionStatus === 'reconnecting' && (
+            <div
+              className={styles.connectionAlert}
+              style={{ background: token.colorWarningBg, color: token.colorWarning }}
+            >
+              正在重新连接...
+            </div>
+          )}
+
+          {/* 消息列表 */}
+          <div className={styles.chatList}>
+            {bubbleItems.length === 0 ? (
+              <>
+                <div className={styles.welcomeContainer}>
+                  <Welcome
+                    variant="borderless"
+                    title={t('ai.welcome_title', '👋 AI 文档助手')}
+                    description={t('ai.welcome_desc', '基于当前文档内容回答您的问题')}
+                  />
+                </div>
+                <div className={styles.placeholder}>
+                  <Text type="secondary">
+                    {t('ai.placeholder', '输入您关于文档的问题，AI 助手将为您解答')}
+                  </Text>
+                </div>
+              </>
+            ) : (
+              <Bubble.List
+                style={{
+                  maxWidth: isExpanded ? 760 : 380,
+                  width: '100%',
+                }}
+                items={bubbleItems}
+                role={roleConfig}
+              />
+            )}
+          </div>
+
+          {/* Sender */}
+          <div className={styles.senderArea}>
+            <Sender
+              value={state.inputValue}
+              onChange={setInputValue}
+              onSubmit={handleSend}
+              onCancel={stopGeneration}
+              loading={state.isStreaming}
+              disabled={state.connectionStatus !== 'connected'}
+              placeholder={
+                state.connectionStatus === 'connecting'
+                  ? '连接中...'
+                  : state.connectionStatus === 'reconnecting'
+                    ? '重新连接中...'
+                    : state.connectionStatus === 'disconnected'
+                      ? '未连接'
+                      : '输入消息...'
+              }
+              autoSize={{ minRows: 2, maxRows: 6 }}
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    </XProvider>
   );
 };
 
