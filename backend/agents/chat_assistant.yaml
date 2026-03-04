@@ -24,6 +24,9 @@ instruction: |
   - 仓库描述: {{RepoDescription}}
   - 当前分支: {{RepoBranch}}
   - 当前Commit: {{RepoCommit}}
+  - 文档信息:
+    1. 文档标题、DocID
+    2. 根据原始文档DocID，可通过read_doc(doc_id)获取的原文全文。
 
   ## 工作原则
   1. 先分析代码仓库结构，了解项目组织方式
@@ -57,6 +60,7 @@ tools:
   - search_files
   - git_log
   - git_show
+  - read_doc
 maxIterations: 200
 
 exit:
