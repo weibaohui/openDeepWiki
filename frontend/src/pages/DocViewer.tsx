@@ -22,7 +22,8 @@ import {
     ArrowDownOutlined,
     RobotOutlined,
     BranchesOutlined,
-    CodeOutlined
+    CodeOutlined,
+    RobotFilled
 } from '@ant-design/icons';
 
 import {
@@ -49,6 +50,7 @@ import {
 import type { MenuProps } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownRender from '@/components/markdown/MarkdownRender';
+import DocCopilot from './DocCopilot';
 import type { Document, Repository, Task, DocumentRatingStats, TaskUsage } from '../types';
 import { documentApi, repositoryApi, taskApi, userRequestApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
@@ -84,6 +86,7 @@ export default function DocViewer() {
     const [userRequestLoading, setUserRequestLoading] = useState(false);
     const [tokenUsage, setTokenUsage] = useState<TaskUsage | null>(null);
     const [tokenUsageLoading, setTokenUsageLoading] = useState(false);
+    const [copilotOpen, setCopilotOpen] = useState(true);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -193,7 +196,6 @@ export default function DocViewer() {
                 setTokenUsage(data);
             } catch (error) {
                 console.error('Failed to fetch token usage:', error);
-                // 不显示错误，静默失败
             } finally {
                 setTokenUsageLoading(false);
             }
@@ -381,7 +383,7 @@ export default function DocViewer() {
 
     const metaInfo = document ? (
         <div style={{ marginBottom: 12, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-            <Space direction={screens.md ? 'horizontal' : 'vertical'} split={screens.md ? undefined : false} size={screens.md ? 'middle' : 4} style={{ width: '100%' }}>
+            <Space orientation={screens.md ? 'horizontal' : 'vertical'} separator={screens.md ? undefined : false} size={screens.md ? 'middle' : 4} style={{ width: '100%' }}>
                 <span><CalendarOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
                     {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
                 <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
@@ -435,7 +437,7 @@ export default function DocViewer() {
             borderRadius: '6px'
         }}>
             {tokenUsageLoading ? <Spin size="small" /> : (
-                <Space direction="vertical" size={6}>
+                <Space orientation="vertical" size={6}>
                     <div>
                         <Space size={6}>
                             <DatabaseOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
@@ -478,7 +480,7 @@ export default function DocViewer() {
             padding: '12px',
             borderRadius: '6px'
         }}>
-            <Space direction="vertical" size={6}>
+            <Space orientation="vertical" size={6}>
                 {document.clone_branch && (
                     <div>
                         <Space size={6}>
@@ -601,8 +603,9 @@ export default function DocViewer() {
     );
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <Layout style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row' }}>
             {contextHolder}
+            {/* Left Sidebar - Document List */}
             {screens.lg ? (
                 <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)', overflow: 'auto', height: '100vh' }}>
                     <SidebarContent />
@@ -613,13 +616,15 @@ export default function DocViewer() {
                     placement="left"
                     onClose={() => setMobileMenuOpen(false)}
                     open={mobileMenuOpen}
-                    width={280}
+                    size={280}
                     styles={{ body: { padding: 0 } }}
                 >
                     <SidebarContent />
                 </Drawer>
             )}
-            <Layout>
+
+            {/* Middle Content Area */}
+            <Layout style={{ flex: 1, minWidth: 0 }}>
                 <Header style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -649,6 +654,17 @@ export default function DocViewer() {
                     </div>
                     {repository && (
                         <Space size="small">
+                            {/* AI Copilot Toggle Button */}
+                            {!copilotOpen && (
+                                <Button
+                                    type="primary"
+                                    icon={<RobotFilled />}
+                                    onClick={() => setCopilotOpen(true)}
+                                    size={screens.md ? 'middle' : 'small'}
+                                >
+                                    {screens.md && t('ai.copilot_title', 'AI 助手')}
+                                </Button>
+                            )}
                             <Dropdown menu={{ items: exportMenuItems, onClick: handleExportMenuClick }} placement="bottomRight">
                                 <Button icon={<DownloadOutlined />} size={screens.md ? 'middle' : 'small'}>
                                     {screens.md && t('document.export_docs', '导出文档')}
@@ -784,7 +800,7 @@ export default function DocViewer() {
                                             {recentDocuments.length === 0 ? (
                                                 <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
                                             ) : (
-                                                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                                <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                                                     {recentDocuments.map((item) => (
                                                         <Button
                                                             key={item.id}
@@ -814,7 +830,7 @@ export default function DocViewer() {
                                 {repoInfoInfo}
                             </div>
                         ) : (
-                            <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
+                            <Card variant="borderless" style={{ background: 'transparent', boxShadow: 'none' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
                                     <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
@@ -828,12 +844,22 @@ export default function DocViewer() {
                     </div>
                 </Content>
             </Layout>
+
+            {/* Right Sidebar - AI Copilot */}
+            {copilotOpen && id && (
+                <DocCopilot
+                    repoId={Number(id)}
+                    docId={docId ? Number(docId) : undefined}
+                    onClose={() => setCopilotOpen(false)}
+                />
+            )}
+
             <Drawer
                 title={t('document.versions')}
                 placement="right"
                 open={versionDrawerOpen}
                 onClose={() => setVersionDrawerOpen(false)}
-                width={260}
+                size={260}
             >
                 {sortedVersions.length === 0 ? (
                     <Empty
@@ -841,7 +867,7 @@ export default function DocViewer() {
                         description={t('document.no_versions')}
                     />
                 ) : (
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                         {sortedVersions.map((item) => {
                             const isCurrent = document ? item.id === document.id : false;
                             return (
@@ -854,7 +880,7 @@ export default function DocViewer() {
                                     }}
                                     style={{ padding: 0, height: 'auto', textAlign: 'left' }}
                                 >
-                                    <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                                    <Space orientation="vertical" size={2} style={{ width: '100%' }}>
                                         <Space size={6}>
                                             <span>{t('document.version_label').replace('{{version}}', String(item.version))}</span>
                                             {isCurrent && <CheckOutlined style={{ color: 'var(--ant-color-success)' }} />}
