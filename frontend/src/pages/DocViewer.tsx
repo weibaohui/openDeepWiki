@@ -381,7 +381,7 @@ export default function DocViewer() {
 
     const metaInfo = document ? (
         <div style={{ marginBottom: 12, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-            <Space direction={screens.md ? 'horizontal' : 'vertical'} split={screens.md ? undefined : false} size={screens.md ? 'middle' : 4} style={{ width: '100%' }}>
+            <Space orientation={screens.md ? 'horizontal' : 'vertical'} separator={screens.md ? undefined : false} size={screens.md ? 'middle' : 4} style={{ width: '100%' }}>
                 <span><CalendarOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
                     {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
                 <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
@@ -435,7 +435,7 @@ export default function DocViewer() {
             borderRadius: '6px'
         }}>
             {tokenUsageLoading ? <Spin size="small" /> : (
-                <Space direction="vertical" size={6}>
+                <Space orientation="vertical" size={6}>
                     <div>
                         <Space size={6}>
                             <DatabaseOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
@@ -478,7 +478,7 @@ export default function DocViewer() {
             padding: '12px',
             borderRadius: '6px'
         }}>
-            <Space direction="vertical" size={6}>
+            <Space orientation="vertical" size={6}>
                 {document.clone_branch && (
                     <div>
                         <Space size={6}>
@@ -613,7 +613,7 @@ export default function DocViewer() {
                     placement="left"
                     onClose={() => setMobileMenuOpen(false)}
                     open={mobileMenuOpen}
-                    width={280}
+                    size={280}
                     styles={{ body: { padding: 0 } }}
                 >
                     <SidebarContent />
@@ -784,7 +784,7 @@ export default function DocViewer() {
                                             {recentDocuments.length === 0 ? (
                                                 <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
                                             ) : (
-                                                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                                <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                                                     {recentDocuments.map((item) => (
                                                         <Button
                                                             key={item.id}
@@ -814,7 +814,7 @@ export default function DocViewer() {
                                 {repoInfoInfo}
                             </div>
                         ) : (
-                            <Card bordered={false} style={{ background: 'transparent', boxShadow: 'none' }}>
+                            <Card variant="borderless" style={{ background: 'transparent', boxShadow: 'none' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
                                     <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
@@ -833,7 +833,7 @@ export default function DocViewer() {
                 placement="right"
                 open={versionDrawerOpen}
                 onClose={() => setVersionDrawerOpen(false)}
-                width={260}
+                size={260}
             >
                 {sortedVersions.length === 0 ? (
                     <Empty
@@ -841,7 +841,7 @@ export default function DocViewer() {
                         description={t('document.no_versions')}
                     />
                 ) : (
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                         {sortedVersions.map((item) => {
                             const isCurrent = document ? item.id === document.id : false;
                             return (
@@ -854,7 +854,7 @@ export default function DocViewer() {
                                     }}
                                     style={{ padding: 0, height: 'auto', textAlign: 'left' }}
                                 >
-                                    <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                                    <Space orientation="vertical" size={2} style={{ width: '100%' }}>
                                         <Space size={6}>
                                             <span>{t('document.version_label').replace('{{version}}', String(item.version))}</span>
                                             {isCurrent && <CheckOutlined style={{ color: 'var(--ant-color-success)' }} />}
