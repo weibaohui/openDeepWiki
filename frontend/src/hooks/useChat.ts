@@ -60,6 +60,12 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
       console.log('[WebSocket] No session ID, skipping connection');
       return;
     }
+
+    // 临时会话不建立 WebSocket 连接
+    if (targetSessionId.startsWith('temp_')) {
+      console.log('[WebSocket] Temporary session, skipping connection');
+      return;
+    }
     if (wsRef.current) {
       const isSameSession = wsSessionIdRef.current === targetSessionId;
       if ((wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) && isSameSession) {
@@ -411,20 +417,79 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
   }, [handleServerMessage]);
 
   // 发送消息
-  const sendMessage = useCallback((content: string) => {
+  const sendMessage = useCallback(async (content: string) => {
+    if (!content.trim()) return;
+
+    const currentSession = state.currentSession;
+    if (!currentSession) {
+      if (onError) onError('没有活跃的会话');
+      return;
+    }
+
+    let targetSessionId = currentSessionIdRef.current || '';
+
+    // 如果是临时会话，先创建真实会话
+    if (currentSession.isTemporary) {
+      try {
+        // 内联创建真实会话，避免函数顺序依赖问题
+        const response = await chatApi.createSession(repoId);
+        const realSession: ChatSession = {
+          id: Date.now(),
+          session_id: response.data.session_id,
+          repo_id: repoId,
+          title: content.trim().slice(0, 20) || '新对话',
+          status: 'active',
+          created_at: response.data.created_at,
+          updated_at: response.data.created_at,
+        };
+        targetSessionId = realSession.session_id;
+
+        // 更新当前会话和会话列表（替换临时会话）
+        currentSessionIdRef.current = targetSessionId;
+        setState((prev) => ({
+          ...prev,
+          currentSession: realSession,
+          sessions: prev.sessions.map((s) =>
+            s.session_id === currentSession.session_id ? realSession : s
+          ),
+        }));
+
+        // 建立 WebSocket 连接
+        disconnect();
+        // 等待连接建立
+        await new Promise<void>((resolve) => {
+          setTimeout(() => {
+            connect();
+            resolve();
+          }, 100);
+        });
+
+        // 等待 WebSocket 连接就绪
+        let attempts = 0;
+        while (wsRef.current?.readyState !== WebSocket.OPEN && attempts < 50) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          attempts++;
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : '创建会话失败';
+        updateState({ error: errorMsg });
+        if (onError) onError(errorMsg);
+        return;
+      }
+    }
+
+    // 检查 WebSocket 连接
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       if (onError) onError('WebSocket未连接');
       return;
     }
-
-    if (!content.trim()) return;
 
     const assistantPlaceholderId = `msg_assistant_${Date.now()}`;
 
     // 添加用户消息到列表
     const userMsg: ChatMessage = {
       id: Date.now(),
-      session_id: currentSessionIdRef.current || '',
+      session_id: targetSessionId,
       message_id: `msg_user_${Date.now()}`,
       role: 'user',
       content: content.trim(),
@@ -437,7 +502,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     // 添加助手占位消息
     const assistantPlaceholderMsg: ChatMessage = {
       id: Date.now() + 1,
-      session_id: currentSessionIdRef.current || '',
+      session_id: targetSessionId,
       message_id: assistantPlaceholderId,
       role: 'assistant',
       content: '',
@@ -465,7 +530,7 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     };
 
     wsRef.current.send(JSON.stringify(message));
-  }, [onError]);
+  }, [state.currentSession, repoId, connect, disconnect, updateState, onError]);
 
   // 停止生成
   const stopGeneration = useCallback(() => {
@@ -484,41 +549,40 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     updateState({ inputValue: value });
   }, [updateState]);
 
-  // 创建会话
+  // 创建临时会话（点击"新建对话"时调用，不写入数据库）
   const createSession = useCallback(async () => {
     try {
-      const response = await chatApi.createSession(repoId);
-      const newSession: ChatSession = {
+      const tempSession: ChatSession = {
         id: Date.now(),
-        session_id: response.data.session_id,
+        session_id: `temp_${Date.now()}`,
         repo_id: repoId,
         title: '新对话',
         status: 'active',
-        created_at: response.data.created_at,
-        updated_at: response.data.created_at,
+        isTemporary: true,  // 标记为临时会话
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
-      currentSessionIdRef.current = newSession.session_id;
+      currentSessionIdRef.current = tempSession.session_id;
 
       setState((prev) => ({
         ...prev,
-        currentSession: newSession,
-        sessions: [newSession, ...prev.sessions],
+        currentSession: tempSession,
+        sessions: [tempSession, ...prev.sessions],
         messages: [],
       }));
 
-      // 建立WebSocket连接
+      // 临时会话不建立 WebSocket 连接
       disconnect();
-      setTimeout(() => connect(), 0);
 
-      return newSession;
+      return tempSession;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '创建会话失败';
       updateState({ error: errorMsg });
       if (onError) onError(errorMsg);
       throw err;
     }
-  }, [repoId, connect, disconnect, updateState, onError]);
+  }, [repoId, disconnect, updateState, onError]);
 
   // 加载会话列表
   const loadSessions = useCallback(async (page = 1) => {
@@ -542,6 +606,18 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
   // 加载会话详情
   const loadSession = useCallback(async (targetSessionId: string) => {
     try {
+      // 如果当前是临时会话，从列表中移除（清理临时会话）
+      setState((prev) => {
+        const current = prev.currentSession;
+        if (current?.isTemporary) {
+          return {
+            ...prev,
+            sessions: prev.sessions.filter((s) => s.session_id !== current.session_id),
+          };
+        }
+        return prev;
+      });
+
       updateState({ messagesLoading: true });
       const response = await chatApi.getSession(repoId, targetSessionId);
 
