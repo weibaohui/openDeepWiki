@@ -117,12 +117,6 @@ const useCopilotStyle = createStyles(({ token, css }) => ({
     border-top: 1px solid ${token.colorBorderSecondary};
     flex-shrink: 0;
   `,
-  // 连接状态提示
-  connectionAlert: css`
-    padding: 8px 16px;
-    text-align: center;
-    font-size: 13px;
-  `,
 }));
 
 // ==================== Props ====================
@@ -381,6 +375,19 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
           {/* Header */}
           <div className={styles.header}>
             <div className={styles.headerTitle}>
+              {/* 连接状态指示器 */}
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: state.connectionStatus === 'connected' ? '#52c41a' : '#999',
+                  display: 'inline-block',
+                  cursor: state.connectionStatus === 'disconnected' ? 'pointer' : 'default',
+                }}
+                title={state.connectionStatus === 'connected' ? '已连接' : '未连接'}
+                onClick={state.connectionStatus === 'disconnected' ? reconnect : undefined}
+              />
               <RobotFilled style={{ color: '#10a37f' }} />
               <span>{isExpanded ? t('ai.copilot_title', 'AI 文档助手') : t('ai.copilot_title_short', 'AI 助手')}</span>
             </div>
@@ -410,27 +417,6 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
               />
             </Space>
           </div>
-
-          {/* 连接状态提示 */}
-          {state.connectionStatus === 'disconnected' && (
-            <div
-              className={styles.connectionAlert}
-              style={{ background: token.colorErrorBg, color: token.colorError }}
-            >
-              <span>连接已断开</span>
-              <Button type="link" onClick={reconnect} size="small">
-                重新连接
-              </Button>
-            </div>
-          )}
-          {state.connectionStatus === 'reconnecting' && (
-            <div
-              className={styles.connectionAlert}
-              style={{ background: token.colorWarningBg, color: token.colorWarning }}
-            >
-              正在重新连接...
-            </div>
-          )}
 
           {/* 消息列表 */}
           <div className={styles.chatList}>
