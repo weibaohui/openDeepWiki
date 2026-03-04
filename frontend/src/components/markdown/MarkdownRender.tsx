@@ -120,7 +120,7 @@ const preprocessMermaidCode = (code: string): string => {
   });
 
   // 修复：为包含特殊字符的节点文本添加引号
-  // 匹配节点定义：节点ID[文本] 或 节点ID(文本)
+  // 匹配节点定义：节点ID[文本]、节点ID(文本)、节点ID{文本}
   // 如果文本包含特殊字符（@、:、/ 等），则添加引号
   sanitizedCode = sanitizedCode.replace(/(\w+)(\[([^\]]*?)\])/g, (match, id, fullContent, content) => {
     // 检查内容是否包含特殊字符
@@ -134,6 +134,14 @@ const preprocessMermaidCode = (code: string): string => {
     // 检查内容是否包含特殊字符
     if (/[@:\/\\]/.test(content)) {
       return `${id}("${content}")`;
+    }
+    return match;
+  });
+
+  sanitizedCode = sanitizedCode.replace(/(\w+)(\{([^}]*?)\})/g, (match, id, fullContent, content) => {
+    // 检查内容是否包含特殊字符
+    if (/[@:\/\\]/.test(content)) {
+      return `${id}{"${content}"}`;
     }
     return match;
   });
