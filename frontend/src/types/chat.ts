@@ -7,6 +7,7 @@ export interface ChatSession {
   status: 'active' | 'archived' | 'deleted';
   created_at: string;
   updated_at: string;
+  isTemporary?: boolean;  // 标记是否为临时会话（未写入数据库）
 }
 
 // 工具调用
