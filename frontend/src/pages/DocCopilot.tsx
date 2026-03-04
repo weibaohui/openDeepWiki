@@ -179,11 +179,42 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
     }
   }, [state.sessionsLoading, state.sessions, state.currentSession, createSession, loadSession]);
 
+  // 处理输入框聚焦 - 自动建立连接
+  const handleInputFocus = useCallback(async () => {
+    // 如果已经连接，无需处理
+    if (state.connectionStatus === 'connected') {
+      return;
+    }
+
+    // 如果没有当前会话，先创建会话
+    if (!state.currentSession) {
+      // 如果有会话列表但没有选中，加载第一个
+      if (state.sessions.length > 0) {
+        await loadSession(state.sessions[0].session_id);
+      } else {
+        // 没有会话，创建新会话
+        await createSession();
+      }
+    } else {
+      // 有会话但未连接，尝试重新连接
+      reconnect();
+    }
+  }, [state.connectionStatus, state.currentSession, state.sessions, createSession, loadSession, reconnect]);
+
   // 处理发送消息
   const handleSend = useCallback(() => {
     if (!state.inputValue.trim()) return;
+    // 确保已连接再发送
+    if (state.connectionStatus !== 'connected') {
+      message.warning('正在建立连接，请稍候...');
+      handleInputFocus().then(() => {
+        // 连接建立后发送消息
+        setTimeout(() => sendMessage(state.inputValue), 500);
+      });
+      return;
+    }
     sendMessage(state.inputValue);
-  }, [sendMessage, state.inputValue]);
+  }, [sendMessage, state.inputValue, state.connectionStatus, handleInputFocus]);
 
   // 处理新建会话
   const handleCreateSession = useCallback(async () => {
@@ -437,17 +468,9 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
               onChange={setInputValue}
               onSubmit={handleSend}
               onCancel={stopGeneration}
+              onFocus={handleInputFocus}
               loading={state.isStreaming}
-              disabled={state.connectionStatus !== 'connected'}
-              placeholder={
-                state.connectionStatus === 'connecting'
-                  ? '连接中...'
-                  : state.connectionStatus === 'reconnecting'
-                    ? '重新连接中...'
-                    : state.connectionStatus === 'disconnected'
-                      ? '未连接'
-                      : '输入消息...'
-              }
+              placeholder="输入消息..."
               autoSize={{ minRows: 2, maxRows: 6 }}
             />
           </div>
