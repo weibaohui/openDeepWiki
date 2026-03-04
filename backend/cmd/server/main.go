@@ -213,8 +213,8 @@ func main() {
 		log.Fatalf("Failed to create agent factory: %v", err)
 	}
 
-	// 创建 ChatHandler，传入 AgentFactory 和 RepositoryService
-	chatHandler := handler.NewChatHandler(chatService, repoService, agentFactory)
+	// 创建 ChatHandler，传入 AgentFactory、RepositoryService 和 DocumentService
+	chatHandler := handler.NewChatHandler(chatService, repoService, docService, agentFactory)
 	// 启动ChatHub
 	go chatHandler.GetHub().Run()
 

@@ -33,15 +33,17 @@ var upgrader = websocket.Upgrader{
 type ChatHandler struct {
 	chatService  service.ChatService
 	repoService  *service.RepositoryService
+	docService   *service.DocumentService
 	hub          *ChatHub
 	agentFactory *adkagents.AgentFactory
 }
 
 // NewChatHandler 创建处理器
-func NewChatHandler(chatService service.ChatService, repoService *service.RepositoryService, agentFactory *adkagents.AgentFactory) *ChatHandler {
+func NewChatHandler(chatService service.ChatService, repoService *service.RepositoryService, docService *service.DocumentService, agentFactory *adkagents.AgentFactory) *ChatHandler {
 	return &ChatHandler{
 		chatService:  chatService,
 		repoService:  repoService,
+		docService:   docService,
 		hub:          NewChatHub(),
 		agentFactory: agentFactory,
 	}
@@ -389,6 +391,18 @@ func (h *ChatHandler) runAgent(client *Client, userMsg *model.ChatMessage) {
 		if err == nil && repo != nil {
 			repoInfo = fmt.Sprintf("## 当前仓库信息\n- 仓库名称: %s\n- 仓库地址: %s\n- 本地路径: %s\n- 仓库描述: %s\n- 当前分支: %s\n- 当前Commit: %s\n",
 				repo.Name, repo.URL, repo.LocalPath, repo.Description, repo.CloneBranch, repo.CloneCommit)
+
+			// 追加文档列表供智能体查阅
+			if h.docService != nil {
+				docs, err := h.docService.GetByRepository(client.repoID)
+				if err == nil && len(docs) > 0 {
+					repoInfo += "\n## 文档列表\n"
+					for _, doc := range docs {
+						repoInfo += fmt.Sprintf("- 标题: %s, DocID: %d\n", doc.Title, doc.ID)
+					}
+					repoInfo += "\n可根据原始文档DocID，通过read_doc(doc_id)获取原文全文\n"
+				}
+			}
 		}
 	}
 
