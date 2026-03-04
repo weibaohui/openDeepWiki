@@ -17,6 +17,8 @@ import (
 type RunTerminalCommandTool struct {
 	// WorkingDir is the default working directory for commands
 	WorkingDir string
+	// basePath is the root directory for security validation
+	basePath string
 	// Timeout is the maximum duration for command execution
 	Timeout time.Duration
 	// AllowedCommands is a list of allowed command prefixes (empty = allow all)
@@ -35,12 +37,8 @@ type RunTerminalCommandArgs struct {
 func NewRunTerminalCommandTool(workingDir string) *RunTerminalCommandTool {
 	return &RunTerminalCommandTool{
 		WorkingDir: workingDir,
+		basePath:   workingDir,
 		Timeout:    30 * time.Second,
-		// AllowedCommands: []string{
-		// 	"uv", "python", "cd", "file", "find", "grep", "tree", "wc", "cat", "echo", "ls", "pwd", "head", "tail",
-		// 	"sort", "uniq", "cut", "awk", "sed", "tr", "dirname", "basename",
-		// 	"git", "go", "npm", "yarn", "node", "sleep", "yes",
-		// },
 	}
 }
 
@@ -64,7 +62,7 @@ Returns stdout and stderr from the command execution.`,
 			},
 			"working_dir": {
 				Type:     schema.String,
-				Desc:     "Optional working directory for the command. Defaults to current directory.",
+				Desc:     "Optional working directory for the command. Must be within the repository directory. Defaults to repository root directory.",
 				Required: false,
 			},
 		}),
@@ -100,6 +98,16 @@ func (t *RunTerminalCommandTool) InvokableRun(ctx context.Context, argumentsInJS
 	workingDir := t.WorkingDir
 	if args.WorkingDir != "" {
 		workingDir = args.WorkingDir
+	}
+
+	// Security validation: ensure working directory is within base path
+	if err := ValidateWorkingDir(t.basePath, workingDir); err != nil {
+		return "", fmt.Errorf("security violation: %w", err)
+	}
+
+	// Security validation: check for path traversal in command
+	if ContainsPathTraversal(args.Command) {
+		return "", fmt.Errorf("security violation: command contains path traversal sequences")
 	}
 
 	// Create command with timeout context

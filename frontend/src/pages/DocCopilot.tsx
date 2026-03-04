@@ -46,7 +46,8 @@ const useCopilotStyle = createStyles(({ token, css }) => ({
   // 放大模式样式
   expandedMode: css`
     flex-direction: row;
-    width: 850px;
+    flex: 1;
+    width: auto;
   `,
   // 侧边栏（仅放大模式显示）
   sidebar: css`
@@ -97,6 +98,14 @@ const useCopilotStyle = createStyles(({ token, css }) => ({
     flex: 1;
     overflow: auto;
     padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  `,
+  // 聊天内容容器（展开模式居中）
+  chatContent: css`
+    width: 100%;
+    max-width: 900px;
   `,
   // 欢迎语样式
   welcomeContainer: css`
@@ -118,6 +127,8 @@ const useCopilotStyle = createStyles(({ token, css }) => ({
     padding: 16px;
     border-top: 1px solid ${token.colorBorderSecondary};
     flex-shrink: 0;
+    display: flex;
+    justify-content: center;
   `,
 }));
 
@@ -126,10 +137,11 @@ interface DocCopilotProps {
   repoId: number;
   docId?: number;
   onClose: () => void;
+  onExpandChange?: (isExpanded: boolean) => void;
 }
 
 // ==================== Component ====================
-const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose }) => {
+const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose, onExpandChange }) => {
   const { t } = useAppConfig();
   const { styles } = useCopilotStyle();
   const { token } = useToken();
@@ -137,6 +149,10 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
 
   // 缩放状态
   const [isExpanded, setIsExpanded] = useState(false);
+  // 通知父组件展开状态变化
+  useEffect(() => {
+    onExpandChange?.(isExpanded);
+  }, [isExpanded, onExpandChange]);
   // 侧边栏显示状态（默认隐藏）
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
@@ -446,7 +462,7 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
           {/* 消息列表 */}
           <div className={styles.chatList}>
             {bubbleItems.length === 0 ? (
-              <>
+              <div className={styles.chatContent}>
                 <div className={styles.welcomeContainer}>
                   <Welcome
                     variant="borderless"
@@ -459,13 +475,10 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
                     {t('ai.placeholder', '输入您关于文档的问题，AI 助手将为您解答')}
                   </Text>
                 </div>
-              </>
+              </div>
             ) : (
               <Bubble.List
-                style={{
-                  maxWidth: isExpanded ? 760 : 380,
-                  width: '100%',
-                }}
+                className={styles.chatContent}
                 items={bubbleItems}
                 role={roleConfig}
               />
@@ -474,16 +487,18 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
 
           {/* Sender */}
           <div className={styles.senderArea}>
-            <Sender
-              value={state.inputValue}
-              onChange={setInputValue}
-              onSubmit={handleSend}
-              onCancel={stopGeneration}
-              onFocus={handleInputFocus}
-              loading={state.isStreaming}
-              placeholder="输入消息..."
-              autoSize={{ minRows: 2, maxRows: 6 }}
-            />
+            <div className={styles.chatContent}>
+              <Sender
+                value={state.inputValue}
+                onChange={setInputValue}
+                onSubmit={handleSend}
+                onCancel={stopGeneration}
+                onFocus={handleInputFocus}
+                loading={state.isStreaming}
+                placeholder="输入消息..."
+                autoSize={{ minRows: 2, maxRows: 6 }}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -67,6 +67,11 @@ func (t *GitCloneTool) InvokableRun(ctx context.Context, arguments string, opts 
 		klog.V(6).Infof("[GitCloneTool] 自动生成目标目录名: %s", args.TargetDir)
 	}
 
+	// 安全验证：检查目标目录是否包含路径遍历
+	if ContainsPathTraversal(args.TargetDir) {
+		return "", fmt.Errorf("security violation: target_dir contains path traversal sequences")
+	}
+
 	// 检查目标目录是否已存在
 	targetPath := filepath.Join(t.basePath, args.TargetDir)
 	if _, err := os.Stat(targetPath); err == nil {

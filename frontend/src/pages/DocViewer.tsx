@@ -23,7 +23,8 @@ import {
     RobotOutlined,
     BranchesOutlined,
     CodeOutlined,
-    RobotFilled
+    RobotFilled,
+    MoreOutlined
 } from '@ant-design/icons';
 
 import {
@@ -87,6 +88,14 @@ export default function DocViewer() {
     const [tokenUsage, setTokenUsage] = useState<TaskUsage | null>(null);
     const [tokenUsageLoading, setTokenUsageLoading] = useState(false);
     const [copilotOpen, setCopilotOpen] = useState(true);
+    const [copilotExpanded, setCopilotExpanded] = useState(false);
+
+    // 当关闭 AI 助手时，重置展开状态
+    useEffect(() => {
+        if (!copilotOpen) {
+            setCopilotExpanded(false);
+        }
+    }, [copilotOpen]);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -311,21 +320,6 @@ export default function DocViewer() {
         }
     };
 
-    const exportMenuItems: MenuProps['items'] = [
-        { key: 'zip', label: t('document.export_zip', '导出 ZIP') },
-        { key: 'pdf', label: t('document.export_pdf', '导出 PDF') },
-    ];
-
-    const handleExportMenuClick: MenuProps['onClick'] = ({ key }) => {
-        if (key === 'zip') {
-            handleExportZip();
-            return;
-        }
-        if (key === 'pdf') {
-            handleExportPdf();
-        }
-    };
-
     const handleOpenVersions = () => {
         setVersionDrawerOpen(true);
     };
@@ -381,9 +375,73 @@ export default function DocViewer() {
         );
     }
 
+    // 文档操作菜单项
+    const docActionItems: MenuProps['items'] = [
+        {
+            key: 'export',
+            label: t('document.export_docs', '导出文档'),
+            icon: <DownloadOutlined />,
+            children: [
+                { key: 'zip', label: t('document.export_zip', '导出 ZIP'), icon: <DownloadOutlined /> },
+                { key: 'pdf', label: t('document.export_pdf', '导出 PDF'), icon: <DownloadOutlined /> },
+            ],
+        },
+        { type: 'divider' },
+        {
+            key: 'edit',
+            label: editing ? t('common.cancel') : t('common.edit'),
+            icon: editing ? <CloseOutlined /> : <EditOutlined />,
+        },
+        ...(editing ? [{
+            key: 'save',
+            label: t('common.save'),
+            icon: <SaveOutlined />,
+        }] : []),
+        {
+            key: 'regenerate',
+            label: t('document.regenerate'),
+            icon: <ReloadOutlined />,
+        },
+        {
+            key: 'versions',
+            label: t('document.versions'),
+            icon: <TagsOutlined />,
+        },
+    ];
+
+    const handleDocActionClick: MenuProps['onClick'] = ({ key }) => {
+        if (key === 'zip') {
+            handleExportZip();
+        } else if (key === 'pdf') {
+            handleExportPdf();
+        } else if (key === 'edit') {
+            if (editing) {
+                setEditing(false);
+                setEditContent(document?.content || '');
+            } else {
+                setEditing(true);
+            }
+        } else if (key === 'save') {
+            handleSave();
+        } else if (key === 'regenerate') {
+            handleRegenerate();
+        } else if (key === 'versions') {
+            handleOpenVersions();
+        }
+    };
+
     const metaInfo = document ? (
-        <div style={{ marginBottom: 12, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-            <Space orientation={screens.md ? 'horizontal' : 'vertical'} separator={screens.md ? undefined : false} size={screens.md ? 'middle' : 4} style={{ width: '100%' }}>
+        <div style={{
+            marginBottom: 12,
+            fontSize: '12px',
+            color: 'var(--ant-color-text-secondary)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 8,
+        }}>
+            <Space orientation={screens.md ? 'horizontal' : 'vertical'} separator={screens.md ? undefined : false} size={screens.md ? 'middle' : 4}>
                 <span><CalendarOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
                     {t('document.created_at')}: {formatDateTime(document.created_at)}</span>
                 <span> <ClockCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
@@ -397,6 +455,21 @@ export default function DocViewer() {
                     </span>
                 )}
             </Space>
+            {!isIndexView && (
+                <Dropdown
+                    menu={{ items: docActionItems, onClick: handleDocActionClick }}
+                    placement="bottomRight"
+                >
+                    <Button
+                        type="text"
+                        icon={<MoreOutlined />}
+                        size="small"
+                        style={{ fontSize: '12px' }}
+                    >
+                        {t('common.actions', '操作')}
+                    </Button>
+                </Dropdown>
+            )}
         </div>
     ) : null;
 
@@ -623,9 +696,11 @@ export default function DocViewer() {
                 </Drawer>
             )}
 
-            {/* Middle Content Area */}
+            {/* Middle Content Area - 当AI助手展开时隐藏 */}
+            {!copilotExpanded && (
             <Layout style={{ flex: 1, minWidth: 0 }}>
                 <Header style={{
+                    height: 52,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -664,41 +739,6 @@ export default function DocViewer() {
                                 >
                                     {screens.md && t('ai.copilot_title', 'AI 助手')}
                                 </Button>
-                            )}
-                            <Dropdown menu={{ items: exportMenuItems, onClick: handleExportMenuClick }} placement="bottomRight">
-                                <Button icon={<DownloadOutlined />} size={screens.md ? 'middle' : 'small'}>
-                                    {screens.md && t('document.export_docs', '导出文档')}
-                                </Button>
-                            </Dropdown>
-                            {!isIndexView && document && (
-                                editing ? (
-                                    <>
-                                        <Button icon={<CloseOutlined />} onClick={() => {
-                                            setEditing(false);
-                                            setEditContent(document?.content || '');
-                                        }} size={screens.md ? 'middle' : 'small'}>
-                                            {screens.md && t('common.cancel')}
-                                        </Button>
-                                        <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} size={screens.md ? 'middle' : 'small'}>
-                                            {screens.md && t('common.save')}
-                                        </Button>
-                                        <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
-                                            {screens.md && t('document.versions')}
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Button icon={<EditOutlined />} onClick={() => setEditing(true)} size={screens.md ? 'middle' : 'small'}>
-                                            {screens.md && t('common.edit')}
-                                        </Button>
-                                        <Button icon={<ReloadOutlined />} onClick={handleRegenerate} size={screens.md ? 'middle' : 'small'}>
-                                            {screens.md && t('document.regenerate')}
-                                        </Button>
-                                        <Button icon={<TagsOutlined />} onClick={handleOpenVersions} size={screens.md ? 'middle' : 'small'}>
-                                            {screens.md && t('document.versions')}
-                                        </Button>
-                                    </>
-                                )
                             )}
                         </Space>
                     )}
@@ -830,10 +870,10 @@ export default function DocViewer() {
                                 {repoInfoInfo}
                             </div>
                         ) : (
-                            <Card variant="borderless" style={{ background: 'transparent', boxShadow: 'none' }}>
+                            <Card variant="borderless" style={{ background: 'var(--ant-color-bg-container)' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MarkdownRender content={document?.content || ''} style={{ background: 'transparent' }} />
+                                    <MarkdownRender content={document?.content || ''} />
                                     {rateInfo}
                                     {tokenUsageInfo}
                                     {repoInfoInfo}
@@ -844,14 +884,24 @@ export default function DocViewer() {
                     </div>
                 </Content>
             </Layout>
+            )}
 
             {/* Right Sidebar - AI Copilot */}
             {copilotOpen && id && (
-                <DocCopilot
-                    repoId={Number(id)}
-                    docId={docId ? Number(docId) : undefined}
-                    onClose={() => setCopilotOpen(false)}
-                />
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100vh',
+                    flex: copilotExpanded ? 1 : 'unset',
+                    width: copilotExpanded ? 'auto' : undefined
+                }}>
+                    <DocCopilot
+                        repoId={Number(id)}
+                        docId={docId ? Number(docId) : undefined}
+                        onClose={() => setCopilotOpen(false)}
+                        onExpandChange={(expanded) => setCopilotExpanded(expanded)}
+                    />
+                </div>
             )}
 
             <Drawer
