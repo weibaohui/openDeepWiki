@@ -13,6 +13,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^2.1.0",
     "@ant-design/icons": "^5.3.7",
     "@ant-design/x": "^2.3.0",
     "@ant-design/x-markdown": "^2.3.0",
