@@ -196,7 +196,6 @@ export default function DocViewer() {
                 setTokenUsage(data);
             } catch (error) {
                 console.error('Failed to fetch token usage:', error);
-                // 不显示错误，静默失败
             } finally {
                 setTokenUsageLoading(false);
             }
@@ -604,7 +603,7 @@ export default function DocViewer() {
     );
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <Layout style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row' }}>
             {contextHolder}
             {/* Left Sidebar - Document List */}
             {screens.lg ? (
@@ -624,8 +623,8 @@ export default function DocViewer() {
                 </Drawer>
             )}
 
-            {/* Main Content Area */}
-            <Layout style={{ display: 'flex', flexDirection: 'row' }}>
+            {/* Middle Content Area */}
+            <Layout style={{ flex: 1, minWidth: 0 }}>
                 <Header style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -844,16 +843,17 @@ export default function DocViewer() {
                         )}
                     </div>
                 </Content>
-
-                {/* Right Sidebar - AI Copilot */}
-                {copilotOpen && id && (
-                    <DocCopilot
-                        repoId={Number(id)}
-                        docId={docId ? Number(docId) : undefined}
-                        onClose={() => setCopilotOpen(false)}
-                    />
-                )}
             </Layout>
+
+            {/* Right Sidebar - AI Copilot */}
+            {copilotOpen && id && (
+                <DocCopilot
+                    repoId={Number(id)}
+                    docId={docId ? Number(docId) : undefined}
+                    onClose={() => setCopilotOpen(false)}
+                />
+            )}
+
             <Drawer
                 title={t('document.versions')}
                 placement="right"
