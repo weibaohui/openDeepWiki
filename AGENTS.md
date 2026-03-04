@@ -47,39 +47,6 @@ chore/xxx     # 工程性调整
 
 ---
 
-### 2.3 必须基于 Worktree 开展工作（AI 强制）
-
-* AI 必须为任务创建独立 `worktree`，不得在主目录操作
-
-```bash
-repo_name=$(basename "$(git rev-parse --show-toplevel)")
-mkdir -p ../ai-worktrees/${repo_name}
-git worktree add ../ai-worktrees/${repo_name}/<task-name> <branch>
-cd ../ai-worktrees/${repo_name}/<task-name>
-```
-
-* 进入后必须先执行环境初始化：
-
-```bash
-make setup
-make build
-```
-
-* 所有修改仅允许发生在 `../ai-worktrees/${repo_name}/<task-name>/` 内
-
-* 任务完成后，运行下面的命令进行编译测试，如果有错误，请修改。
-```bash
-make setup
-make build
-```
-
-* 任务完成后要提醒人类进行分支合并操作。合并完成后，删除该 worktree
-
-```bash
-git worktree remove ../ai-worktrees/${repo_name}/<task-name>
-git worktree prune
-```
-
 
 
 ### 2.4 写代码前必须先写文档
