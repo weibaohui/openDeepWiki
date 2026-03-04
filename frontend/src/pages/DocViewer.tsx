@@ -22,7 +22,8 @@ import {
     ArrowDownOutlined,
     RobotOutlined,
     BranchesOutlined,
-    CodeOutlined
+    CodeOutlined,
+    RobotFilled
 } from '@ant-design/icons';
 
 import {
@@ -49,6 +50,7 @@ import {
 import type { MenuProps } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownRender from '@/components/markdown/MarkdownRender';
+import DocCopilot from './DocCopilot';
 import type { Document, Repository, Task, DocumentRatingStats, TaskUsage } from '../types';
 import { documentApi, repositoryApi, taskApi, userRequestApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
@@ -84,6 +86,7 @@ export default function DocViewer() {
     const [userRequestLoading, setUserRequestLoading] = useState(false);
     const [tokenUsage, setTokenUsage] = useState<TaskUsage | null>(null);
     const [tokenUsageLoading, setTokenUsageLoading] = useState(false);
+    const [copilotOpen, setCopilotOpen] = useState(true);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -193,7 +196,6 @@ export default function DocViewer() {
                 setTokenUsage(data);
             } catch (error) {
                 console.error('Failed to fetch token usage:', error);
-                // 不显示错误，静默失败
             } finally {
                 setTokenUsageLoading(false);
             }
@@ -601,8 +603,9 @@ export default function DocViewer() {
     );
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <Layout style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row' }}>
             {contextHolder}
+            {/* Left Sidebar - Document List */}
             {screens.lg ? (
                 <Sider width={250} theme="light" style={{ borderRight: '1px solid var(--ant-color-border-secondary)', overflow: 'auto', height: '100vh' }}>
                     <SidebarContent />
@@ -619,7 +622,9 @@ export default function DocViewer() {
                     <SidebarContent />
                 </Drawer>
             )}
-            <Layout>
+
+            {/* Middle Content Area */}
+            <Layout style={{ flex: 1, minWidth: 0 }}>
                 <Header style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -649,6 +654,17 @@ export default function DocViewer() {
                     </div>
                     {repository && (
                         <Space size="small">
+                            {/* AI Copilot Toggle Button */}
+                            {!copilotOpen && (
+                                <Button
+                                    type="primary"
+                                    icon={<RobotFilled />}
+                                    onClick={() => setCopilotOpen(true)}
+                                    size={screens.md ? 'middle' : 'small'}
+                                >
+                                    {screens.md && t('ai.copilot_title', 'AI 助手')}
+                                </Button>
+                            )}
                             <Dropdown menu={{ items: exportMenuItems, onClick: handleExportMenuClick }} placement="bottomRight">
                                 <Button icon={<DownloadOutlined />} size={screens.md ? 'middle' : 'small'}>
                                     {screens.md && t('document.export_docs', '导出文档')}
@@ -828,6 +844,16 @@ export default function DocViewer() {
                     </div>
                 </Content>
             </Layout>
+
+            {/* Right Sidebar - AI Copilot */}
+            {copilotOpen && id && (
+                <DocCopilot
+                    repoId={Number(id)}
+                    docId={docId ? Number(docId) : undefined}
+                    onClose={() => setCopilotOpen(false)}
+                />
+            )}
+
             <Drawer
                 title={t('document.versions')}
                 placement="right"
