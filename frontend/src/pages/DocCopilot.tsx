@@ -7,6 +7,8 @@ import {
   RobotFilled,
   UserOutlined,
   DeleteOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
 } from '@ant-design/icons';
 import type { BubbleListProps, ConversationsProps } from '@ant-design/x';
 import {
@@ -135,6 +137,8 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
 
   // 缩放状态
   const [isExpanded, setIsExpanded] = useState(false);
+  // 侧边栏显示状态（默认隐藏）
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   // 使用 useChat Hook
   const handleError = useCallback((error: string) => {
@@ -231,7 +235,19 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
 
   // 切换缩放状态
   const toggleExpand = useCallback(() => {
-    setIsExpanded((prev) => !prev);
+    setIsExpanded((prev) => {
+      const next = !prev;
+      // 缩小模式时自动隐藏侧边栏
+      if (!next) {
+        setIsSidebarVisible(false);
+      }
+      return next;
+    });
+  }, []);
+
+  // 切换侧边栏显示状态
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarVisible((prev) => !prev);
   }, []);
 
   // 用户头像
@@ -327,8 +343,8 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
     group: new Date(session.created_at).toDateString() === new Date().toDateString() ? '今天' : '更早',
   }));
 
-  // 判断是否显示侧边栏（仅放大模式且有条目时）
-  const showSidebar = isExpanded && conversationItems.length > 0;
+  // 判断是否显示侧边栏（放大模式、手动展开且有条目时）
+  const showSidebar = isExpanded && isSidebarVisible && conversationItems.length > 0;
 
   return (
     <XProvider>
@@ -399,6 +415,15 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose 
                   icon={<PlusOutlined />}
                   onClick={handleCreateSession}
                   title={t('ai.new_chat', '新建对话')}
+                />
+              )}
+              {/* 侧边栏切换按钮 - 放大模式显示 */}
+              {isExpanded && (
+                <Button
+                  type="text"
+                  icon={isSidebarVisible ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+                  onClick={toggleSidebar}
+                  title={isSidebarVisible ? '隐藏对话列表' : '显示对话列表'}
                 />
               )}
               {/* 缩放切换按钮 */}
