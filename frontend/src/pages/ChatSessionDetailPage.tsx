@@ -15,7 +15,6 @@ import {
     ArrowLeftOutlined,
     FileTextOutlined,
     MessageOutlined,
-    PlusOutlined,
 } from '@ant-design/icons';
 import type { ChatSession } from '@/types/chat';
 import type { Document, Repository } from '@/types';
@@ -212,13 +211,6 @@ export default function ChatSessionDetailPage() {
                             </Space>
                         </Title>
                     </div>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate(`/repo/${repoId}/chat/new`)}
-                    >
-                        新对话
-                    </Button>
                 </Header>
 
                 <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>

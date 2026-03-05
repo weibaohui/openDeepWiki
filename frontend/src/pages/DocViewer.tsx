@@ -649,6 +649,7 @@ export default function DocViewer() {
                     <Menu
                         mode="inline"
                         selectedKeys={docId ? [docId] : isIndexView ? ['index'] : []}
+                        defaultOpenKeys={['documents-group']}
                         style={{ borderRight: 0 }}
                         items={[
                             {

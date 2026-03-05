@@ -173,6 +173,7 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose,
     stopGeneration,
     setInputValue,
     reconnect,
+    updateLocalSession,
   } = useChat({
     repoId,
     onError: handleError,
@@ -448,13 +449,26 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose,
               {state.currentSession && !state.currentSession.isTemporary && (
                 <>
                   {state.currentSession.visibility === 'public' ? (
-                    <Tooltip title="已设为公开，所有用户可在对话记录中查看">
+                    <Tooltip title="点击取消公开，其他人将无法在对话记录中查看此对话">
                       <Button
                         type="text"
                         icon={<GlobalOutlined />}
                         style={{ color: '#52c41a' }}
+                        onClick={async () => {
+                          const sessionId = state.currentSession!.session_id;
+                          // 立即更新本地状态，提供即时反馈
+                          updateLocalSession(sessionId, { visibility: 'private' });
+                          try {
+                            await chatApi.updateVisibility(repoId, sessionId, 'private');
+                            message.success('已取消公开');
+                          } catch {
+                            // 如果失败，回滚状态
+                            updateLocalSession(sessionId, { visibility: 'public' });
+                            message.error('设置失败');
+                          }
+                        }}
                       >
-                        已公开
+                        已公开（点击取消）
                       </Button>
                     </Tooltip>
                   ) : (
@@ -464,11 +478,15 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose,
                         icon={<GlobalOutlined />}
                         size="small"
                         onClick={async () => {
+                          const sessionId = state.currentSession!.session_id;
+                          // 立即更新本地状态，提供即时反馈
+                          updateLocalSession(sessionId, { visibility: 'public' });
                           try {
-                            await chatApi.updateVisibility(repoId, state.currentSession!.session_id, 'public');
-                            await loadSessions(1);
+                            await chatApi.updateVisibility(repoId, sessionId, 'public');
                             message.success('已设为公开，其他人可以在对话记录中查看');
                           } catch {
+                            // 如果失败，回滚状态
+                            updateLocalSession(sessionId, { visibility: 'private' });
                             message.error('设置失败');
                           }
                         }}

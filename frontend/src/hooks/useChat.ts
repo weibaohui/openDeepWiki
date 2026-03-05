@@ -677,6 +677,24 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     };
   }, [disconnect]);
 
+  // 更新本地会话状态（用于可见性等字段的即时更新）
+  const updateLocalSession = useCallback((sessionId: string, updates: Partial<ChatSession>) => {
+    setState((prev) => {
+      const updatedSessions = prev.sessions.map((s) =>
+        s.session_id === sessionId ? { ...s, ...updates } : s
+      );
+      const updatedCurrentSession =
+        prev.currentSession?.session_id === sessionId
+          ? { ...prev.currentSession, ...updates }
+          : prev.currentSession;
+      return {
+        ...prev,
+        sessions: updatedSessions,
+        currentSession: updatedCurrentSession,
+      };
+    });
+  }, []);
+
   return {
     state,
     createSession,
@@ -687,5 +705,6 @@ export function useChat({ repoId, sessionId, onError }: UseChatOptions) {
     stopGeneration,
     setInputValue,
     reconnect,
+    updateLocalSession,
   };
 }
