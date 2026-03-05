@@ -15,7 +15,8 @@ instruction: |
     <final>
       最终的大段的Markdown格式的内容
       ....
-    </final>  
+    </final>
+  - <final></final>之外不能有任何字符。    
 
   ## 当前仓库信息
   - 仓库名称: {{RepoName}}
