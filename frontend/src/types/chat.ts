@@ -5,6 +5,9 @@ export interface ChatSession {
   repo_id: number;
   title: string;
   status: 'active' | 'archived' | 'deleted';
+  visibility?: 'public' | 'private';
+  created_by?: number;
+  message_count?: number;
   created_at: string;
   updated_at: string;
   isTemporary?: boolean;  // 标记是否为临时会话（未写入数据库）

@@ -24,7 +24,8 @@ import {
     BranchesOutlined,
     CodeOutlined,
     RobotFilled,
-    MoreOutlined
+    MoreOutlined,
+    MessageOutlined
 } from '@ant-design/icons';
 
 import {
@@ -647,17 +648,42 @@ export default function DocViewer() {
                 <>
                     <Menu
                         mode="inline"
-                        selectedKeys={docId ? [docId] : []}
+                        selectedKeys={docId ? [docId] : isIndexView ? ['index'] : []}
                         style={{ borderRight: 0 }}
-                        items={documents.map(doc => ({
-                            key: String(doc.id),
-                            icon: <FileTextOutlined />,
-                            label: doc.title,
-                            onClick: () => {
-                                navigate(`/repo/${id}/doc/${doc.id}`);
-                                setMobileMenuOpen(false);
+                        items={[
+                            {
+                                key: 'index',
+                                icon: <FileTextOutlined />,
+                                label: '文档总览',
+                                onClick: () => {
+                                    navigate(`/repo/${id}/index`);
+                                    setMobileMenuOpen(false);
+                                }
+                            },
+                            {
+                                key: 'documents-group',
+                                icon: <FileTextOutlined />,
+                                label: '文档列表',
+                                children: documents.map(doc => ({
+                                    key: String(doc.id),
+                                    icon: <FileTextOutlined />,
+                                    label: doc.title,
+                                    onClick: () => {
+                                        navigate(`/repo/${id}/doc/${doc.id}`);
+                                        setMobileMenuOpen(false);
+                                    }
+                                }))
+                            },
+                            {
+                                key: 'chat',
+                                icon: <MessageOutlined />,
+                                label: '对话记录',
+                                onClick: () => {
+                                    navigate(`/repo/${id}/chat`);
+                                    setMobileMenuOpen(false);
+                                }
                             }
-                        }))}
+                        ]}
                     />
                     <div style={{ padding: '16px' }}>
                         <Button

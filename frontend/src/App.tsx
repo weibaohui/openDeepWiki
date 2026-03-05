@@ -8,6 +8,8 @@ import UserRequestList from './pages/UserRequestList';
 import APIKeyManager from './pages/APIKeyManager';
 import Settings from './pages/Settings';
 import Sync from './pages/Sync';
+import ChatSessionsPage from './pages/ChatSessionsPage';
+import ChatSessionDetailPage from './pages/ChatSessionDetailPage';
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
           <Route path="/repo/:id/index" element={<DocViewer />} />
           <Route path="/repo/:id/doc/:docId" element={<DocViewer />} />
           <Route path="/repo/:id/user-requests" element={<UserRequestList />} />
+          <Route path="/repo/:id/chat" element={<ChatSessionsPage />} />
+          <Route path="/repo/:id/chat/:sessionId" element={<ChatSessionDetailPage />} />
           <Route path="/api-keys" element={<APIKeyManager />} />
           <Route path="/settings" element={<Settings />} />
                     <Route path="/sync" element={<Sync />} />

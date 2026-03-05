@@ -61,8 +61,11 @@ func (h *ChatHandler) RegisterRoutes(r *gin.RouterGroup) {
 		// 会话管理
 		chat.POST("/sessions", h.CreateSession)
 		chat.GET("/sessions", h.ListSessions)
+		chat.GET("/sessions/public", h.ListPublicSessions)
 		chat.GET("/sessions/:session_id", h.GetSession)
+		chat.GET("/sessions/:session_id/view", h.GetSessionView)
 		chat.DELETE("/sessions/:session_id", h.DeleteSession)
+		chat.PUT("/sessions/:session_id/visibility", h.UpdateSessionVisibility)
 
 		// WebSocket
 		chat.GET("/sessions/:session_id/stream", h.WebSocket)
@@ -144,6 +147,118 @@ func (h *ChatHandler) DeleteSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+}
+
+// ListPublicSessions 获取公开会话列表
+func (h *ChatHandler) ListPublicSessions(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的仓库ID"})
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	sessions, total, err := h.chatService.ListPublicSessions(c.Request.Context(), uint(repoID), page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items":     sessions,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// GetSessionView 获取会话详情（供展示使用）
+func (h *ChatHandler) GetSessionView(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的仓库ID"})
+		return
+	}
+
+	sessionID := c.Param("session_id")
+
+	// 获取会话
+	session, err := h.chatService.GetSession(c.Request.Context(), sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "会话不存在"})
+		return
+	}
+
+	// 验证会话属于该仓库
+	if session.RepoID != uint(repoID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "会话不属于该仓库"})
+		return
+	}
+
+	// 权限检查：私有会话需要验证
+	if session.Visibility == "private" {
+		// TODO: 获取当前用户ID并验证是否为创建者
+		// 暂时允许访问，后续添加用户认证后再完善
+	}
+
+	// 获取消息列表
+	messages, err := h.chatService.ListMessages(c.Request.Context(), sessionID, 100, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"session":  session,
+		"messages": messages,
+	})
+}
+
+// UpdateSessionVisibility 更新会话可见性
+func (h *ChatHandler) UpdateSessionVisibility(c *gin.Context) {
+	repoID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的仓库ID"})
+		return
+	}
+
+	sessionID := c.Param("session_id")
+
+	var req struct {
+		Visibility string `json:"visibility" binding:"required,oneof=public private"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
+		return
+	}
+
+	// 获取会话
+	session, err := h.chatService.GetSession(c.Request.Context(), sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "会话不存在"})
+		return
+	}
+
+	// 验证会话属于该仓库
+	if session.RepoID != uint(repoID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "会话不属于该仓库"})
+		return
+	}
+
+	// TODO: 权限检查，验证当前用户是否为会话创建者
+
+	// 更新可见性
+	if err := h.chatService.UpdateSessionVisibility(c.Request.Context(), sessionID, req.Visibility); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"session_id": sessionID,
+		"visibility": req.Visibility,
+	})
 }
 
 // WebSocket WebSocket连接

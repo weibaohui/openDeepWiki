@@ -124,11 +124,20 @@ export const chatApi = {
     // 获取会话列表
     listSessions: (repoId: number, params?: { page?: number; page_size?: number }) =>
         api.get<{ items: ChatSession[]; total: number; page: number; page_size: number }>(`/repositories/${repoId}/chat/sessions`, { params }),
+    // 获取公开会话列表
+    listPublicSessions: (repoId: number, params?: { page?: number; page_size?: number }) =>
+        api.get<{ items: ChatSession[]; total: number; page: number; page_size: number }>(`/repositories/${repoId}/chat/sessions/public`, { params }),
     // 获取会话详情（包含消息历史）
     getSession: (repoId: number, sessionId: string) =>
         api.get<{ session: ChatSession; messages: ChatMessage[] }>(`/repositories/${repoId}/chat/sessions/${sessionId}`),
+    // 获取会话详情（展示用）
+    getSessionView: (repoId: number, sessionId: string) =>
+        api.get<{ session: ChatSession; messages: ChatMessage[] }>(`/repositories/${repoId}/chat/sessions/${sessionId}/view`),
     // 删除会话
     deleteSession: (repoId: number, sessionId: string) => api.delete(`/repositories/${repoId}/chat/sessions/${sessionId}`),
+    // 更新会话可见性
+    updateVisibility: (repoId: number, sessionId: string, visibility: 'public' | 'private') =>
+        api.put<{ session_id: string; visibility: string }>(`/repositories/${repoId}/chat/sessions/${sessionId}/visibility`, { visibility }),
     // 获取消息列表
     listMessages: (repoId: number, sessionId: string, params?: { limit?: number; before_id?: string }) =>
         api.get<ChatMessage[]>(`/repositories/${repoId}/chat/sessions/${sessionId}/messages`, { params }),

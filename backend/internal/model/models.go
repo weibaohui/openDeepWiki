@@ -152,14 +152,17 @@ type VectorTask struct {
 
 // ChatSession 对话会话表
 type ChatSession struct {
-	ID        uint          `json:"id" gorm:"primaryKey"`
-	SessionID string        `json:"session_id" gorm:"size:64;uniqueIndex"`  // 唯一会话标识
-	RepoID    uint          `json:"repo_id" gorm:"index"`                   // 关联仓库ID
-	Title     string        `json:"title" gorm:"size:255"`                  // 会话标题
-	Status    string        `json:"status" gorm:"size:20;default:'active'"` // active, archived, deleted
-	Messages  []ChatMessage `json:"messages,omitempty" gorm:"foreignKey:SessionID;references:SessionID"`
-	CreatedAt time.Time     `json:"created_at"`
-	UpdatedAt time.Time     `json:"updated_at"`
+	ID           uint          `json:"id" gorm:"primaryKey"`
+	SessionID    string        `json:"session_id" gorm:"size:64;uniqueIndex"`            // 唯一会话标识
+	RepoID       uint          `json:"repo_id" gorm:"index"`                             // 关联仓库ID
+	Title        string        `json:"title" gorm:"size:255"`                            // 会话标题
+	Status       string        `json:"status" gorm:"size:20;default:'active'"`           // active, archived, deleted
+	Visibility   string        `json:"visibility" gorm:"size:20;default:'private'"`      // public, private
+	CreatedBy    uint          `json:"created_by" gorm:"index;default:0"`                // 创建者用户ID
+	MessageCount int           `json:"message_count" gorm:"default:0"`                   // 消息数量缓存
+	Messages     []ChatMessage `json:"messages,omitempty" gorm:"foreignKey:SessionID;references:SessionID"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
 }
 
 // ChatMessage 对话消息表

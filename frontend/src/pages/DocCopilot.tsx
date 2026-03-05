@@ -9,6 +9,7 @@ import {
   DeleteOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import type { BubbleListProps, ConversationsProps } from '@ant-design/x';
 import {
@@ -18,12 +19,13 @@ import {
   Conversations,
   XProvider,
 } from '@ant-design/x';
-import { Button, message, Space, Typography, theme } from 'antd';
+import { Button, message, Space, Typography, theme, Tooltip } from 'antd';
 import { createStyles } from 'antd-style';
 import { useAppConfig } from '@/context/AppConfigContext';
 import { MessageContent, MessageFooter } from '@/components/chat';
 import { useChat } from '@/hooks/useChat';
 import type { ChatSession, ChatMessage } from '@/types/chat';
+import { chatApi } from '@/services/api';
 
 const { Text } = Typography;
 const { useToken } = theme;
@@ -441,6 +443,41 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose,
                   onClick={toggleSidebar}
                   title={isSidebarVisible ? '隐藏对话列表' : '显示对话列表'}
                 />
+              )}
+              {/* 可见性切换按钮 - 仅当有当前会话时显示 */}
+              {state.currentSession && !state.currentSession.isTemporary && (
+                <>
+                  {state.currentSession.visibility === 'public' ? (
+                    <Tooltip title="已设为公开，所有用户可在对话记录中查看">
+                      <Button
+                        type="text"
+                        icon={<GlobalOutlined />}
+                        style={{ color: '#52c41a' }}
+                      >
+                        已公开
+                      </Button>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip title="设为公开后，其他人可以在对话记录中查看此对话">
+                      <Button
+                        type="primary"
+                        icon={<GlobalOutlined />}
+                        size="small"
+                        onClick={async () => {
+                          try {
+                            await chatApi.updateVisibility(repoId, state.currentSession!.session_id, 'public');
+                            await loadSessions(1);
+                            message.success('已设为公开，其他人可以在对话记录中查看');
+                          } catch {
+                            message.error('设置失败');
+                          }
+                        }}
+                      >
+                        设为公开
+                      </Button>
+                    </Tooltip>
+                  )}
+                </>
               )}
               {/* 缩放切换按钮 */}
               <Button

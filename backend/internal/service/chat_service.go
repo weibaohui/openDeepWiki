@@ -15,8 +15,11 @@ type ChatService interface {
 	CreateSession(ctx context.Context, repoID uint) (*model.ChatSession, error)
 	GetSession(ctx context.Context, sessionID string) (*model.ChatSession, error)
 	ListSessions(ctx context.Context, repoID uint, page, pageSize int) ([]*model.ChatSession, int64, error)
+	ListPublicSessions(ctx context.Context, repoID uint, page, pageSize int) ([]*model.ChatSession, int64, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	UpdateSessionTitle(ctx context.Context, sessionID, title string) error
+	UpdateSessionVisibility(ctx context.Context, sessionID, visibility string) error
+	UpdateMessageCount(ctx context.Context, sessionID string) error
 
 	// 消息管理
 	CreateUserMessage(ctx context.Context, sessionID, content string) (*model.ChatMessage, error)
@@ -84,6 +87,25 @@ func (s *chatService) GetSession(ctx context.Context, sessionID string) (*model.
 // ListSessions 获取会话列表
 func (s *chatService) ListSessions(ctx context.Context, repoID uint, page, pageSize int) ([]*model.ChatSession, int64, error) {
 	return s.sessionRepo.ListByRepoID(ctx, repoID, page, pageSize)
+}
+
+// ListPublicSessions 获取公开会话列表
+func (s *chatService) ListPublicSessions(ctx context.Context, repoID uint, page, pageSize int) ([]*model.ChatSession, int64, error) {
+	return s.sessionRepo.ListPublicByRepoID(ctx, repoID, page, pageSize)
+}
+
+// UpdateSessionVisibility 更新会话可见性
+func (s *chatService) UpdateSessionVisibility(ctx context.Context, sessionID, visibility string) error {
+	return s.sessionRepo.UpdateVisibility(ctx, sessionID, visibility)
+}
+
+// UpdateMessageCount 更新消息数量
+func (s *chatService) UpdateMessageCount(ctx context.Context, sessionID string) error {
+	count, err := s.messageRepo.CountBySessionID(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	return s.sessionRepo.UpdateMessageCount(ctx, sessionID, int(count))
 }
 
 // DeleteSession 删除会话

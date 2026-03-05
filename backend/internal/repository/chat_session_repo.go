@@ -13,9 +13,12 @@ type ChatSessionRepository interface {
 	Create(ctx context.Context, session *model.ChatSession) error
 	GetBySessionID(ctx context.Context, sessionID string) (*model.ChatSession, error)
 	ListByRepoID(ctx context.Context, repoID uint, page, pageSize int) ([]*model.ChatSession, int64, error)
+	ListPublicByRepoID(ctx context.Context, repoID uint, page, pageSize int) ([]*model.ChatSession, int64, error)
 	Update(ctx context.Context, session *model.ChatSession) error
 	Delete(ctx context.Context, sessionID string) error
 	UpdateTitle(ctx context.Context, sessionID, title string) error
+	UpdateVisibility(ctx context.Context, sessionID, visibility string) error
+	UpdateMessageCount(ctx context.Context, sessionID string, count int) error
 }
 
 // chatSessionRepository 实现
@@ -95,4 +98,48 @@ func (r *chatSessionRepository) UpdateTitle(ctx context.Context, sessionID, titl
 			"title":      title,
 			"updated_at": time.Now(),
 		}).Error
+}
+
+// ListPublicByRepoID 获取仓库的公开会话列表
+func (r *chatSessionRepository) ListPublicByRepoID(ctx context.Context, repoID uint, page, pageSize int) ([]*model.ChatSession, int64, error) {
+	var sessions []*model.ChatSession
+	var total int64
+
+	// 查询总数
+	if err := r.db.WithContext(ctx).
+		Model(&model.ChatSession{}).
+		Where("repo_id = ? AND status != 'deleted' AND visibility = 'public'", repoID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 查询列表
+	offset := (page - 1) * pageSize
+	err := r.db.WithContext(ctx).
+		Where("repo_id = ? AND status != 'deleted' AND visibility = 'public'", repoID).
+		Order("updated_at DESC").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&sessions).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return sessions, total, nil
+}
+
+// UpdateVisibility 更新会话可见性
+func (r *chatSessionRepository) UpdateVisibility(ctx context.Context, sessionID, visibility string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.ChatSession{}).
+		Where("session_id = ?", sessionID).
+		Update("visibility", visibility).Error
+}
+
+// UpdateMessageCount 更新消息数量
+func (r *chatSessionRepository) UpdateMessageCount(ctx context.Context, sessionID string, count int) error {
+	return r.db.WithContext(ctx).
+		Model(&model.ChatSession{}).
+		Where("session_id = ?", sessionID).
+		Update("message_count", count).Error
 }
