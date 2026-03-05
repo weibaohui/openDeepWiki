@@ -8,8 +8,6 @@ openDeepWiki 是一个基于 AI 的代码仓库智能解读平台，能够自动
 
 ## 🌟 在线体验
 
-[https://opendeepwiki.fly.dev/](https://opendeepwiki.fly.dev/)
-
 [https://opendeepwiki.k8m.site/](https://opendeepwiki.k8m.site/) 
 
 无需安装配置，立即体验 openDeepWiki 的强大功能！
