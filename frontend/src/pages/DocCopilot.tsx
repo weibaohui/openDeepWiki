@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CloseOutlined,
   PlusOutlined,
@@ -40,16 +40,19 @@ const useCopilotStyle = createStyles(({ token, css }) => ({
     transition: all 0.3s ease;
     overflow: hidden;
   `,
-  // 小型模式样式
+  // 小型模式样式 - 桌面端380px，移动端100%
   compactMode: css`
     flex-direction: column;
     width: 380px;
+    @media (max-width: 768px) {
+      width: 100%;
+    }
   `,
   // 放大模式样式
   expandedMode: css`
     flex-direction: row;
     flex: 1;
-    width: auto;
+    width: 100%;
   `,
   // 侧边栏（仅放大模式显示）
   sidebar: css`
@@ -151,9 +154,13 @@ const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose,
 
   // 缩放状态
   const [isExpanded, setIsExpanded] = useState(false);
-  // 通知父组件展开状态变化
+  // 通知父组件展开状态变化（仅在变化时通知，避免挂载时触发）
+  const prevExpandedRef = useRef(isExpanded);
   useEffect(() => {
-    onExpandChange?.(isExpanded);
+    if (prevExpandedRef.current !== isExpanded) {
+      prevExpandedRef.current = isExpanded;
+      onExpandChange?.(isExpanded);
+    }
   }, [isExpanded, onExpandChange]);
   // 侧边栏显示状态（默认隐藏）
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);

@@ -88,15 +88,9 @@ export default function DocViewer() {
     const [userRequestLoading, setUserRequestLoading] = useState(false);
     const [tokenUsage, setTokenUsage] = useState<TaskUsage | null>(null);
     const [tokenUsageLoading, setTokenUsageLoading] = useState(false);
-    const [copilotOpen, setCopilotOpen] = useState(true);
+    // AI助手开关状态 - 默认关闭
+    const [copilotOpen, setCopilotOpen] = useState(false);
     const [copilotExpanded, setCopilotExpanded] = useState(false);
-
-    // 当关闭 AI 助手时，重置展开状态
-    useEffect(() => {
-        if (!copilotOpen) {
-            setCopilotExpanded(false);
-        }
-    }, [copilotOpen]);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -761,7 +755,13 @@ export default function DocViewer() {
                                 <Button
                                     type="primary"
                                     icon={<RobotFilled />}
-                                    onClick={() => setCopilotOpen(true)}
+                                    onClick={() => {
+                                        setCopilotOpen(true);
+                                        // 小屏下自动展开AI助手（全屏模式）
+                                        if (!screens.md) {
+                                            setCopilotExpanded(true);
+                                        }
+                                    }}
                                     size={screens.md ? 'middle' : 'small'}
                                 >
                                     {screens.md && t('ai.copilot_title', 'AI 助手')}
@@ -919,14 +919,28 @@ export default function DocViewer() {
                     display: 'flex',
                     flexDirection: 'column',
                     height: '100vh',
-                    flex: copilotExpanded ? 1 : 'unset',
-                    width: copilotExpanded ? 'auto' : undefined
+                    // 小屏下始终全屏，大屏下根据展开状态
+                    flex: (copilotExpanded || !screens.md) ? 1 : 'unset',
+                    width: (copilotExpanded || !screens.md) ? '100%' : undefined,
+                    position: !screens.md ? 'absolute' : undefined,
+                    top: !screens.md ? 0 : undefined,
+                    left: !screens.md ? 0 : undefined,
+                    zIndex: !screens.md ? 100 : undefined,
                 }}>
                     <DocCopilot
                         repoId={Number(id)}
                         docId={docId ? Number(docId) : undefined}
-                        onClose={() => setCopilotOpen(false)}
-                        onExpandChange={(expanded) => setCopilotExpanded(expanded)}
+                        onClose={() => {
+                            setCopilotOpen(false);
+                            setCopilotExpanded(false);
+                        }}
+                        onExpandChange={(expanded) => {
+                            setCopilotExpanded(expanded);
+                            // 小屏下关闭展开时，同时关闭AI助手
+                            if (!screens.md && !expanded) {
+                                setCopilotOpen(false);
+                            }
+                        }}
                     />
                 </div>
             )}
