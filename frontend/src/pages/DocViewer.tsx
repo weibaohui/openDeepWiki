@@ -583,12 +583,19 @@ export default function DocViewer() {
                 backgroundColor: 'var(--ant-color-bg-container)'
             }}>
                 {repository?.name && (
-                    <div>
-                        <Text strong style={{ fontSize: '18px', display: 'block', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <Text strong style={{
+                            fontSize: '18px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                            minWidth: 0
+                        }}>
                             {repository.name}
                         </Text>
                         {repositoryUrl && (
-                            <Space size={8} align="center" wrap>
+                            <Space size={4} align="center">
                                 <Button
                                     type="text"
                                     icon={<ExportOutlined />}
