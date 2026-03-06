@@ -126,30 +126,6 @@ type IncrementalUpdateHistory struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// DocumentVector 文档向量模型，用于存储文档的向量嵌入
-type DocumentVector struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	DocumentID  uint      `json:"document_id" gorm:"index:idx_doc_vectors_document_id;not null"`
-	ModelName   string    `json:"model_name" gorm:"size:100;index:idx_doc_vectors_model;not null"`
-	Vector      []float32 `json:"-" gorm:"type:blob;not null"` // BLOB 存储向量数据，不直接 JSON 序列化
-	Dimension   int       `json:"dimension" gorm:"not null"`
-	GeneratedAt time.Time `json:"generated_at" gorm:"not null"`
-	Metadata    string    `json:"metadata" gorm:"type:text"` // JSON 格式的额外元数据
-	Document    *Document `json:"document,omitempty" gorm:"foreignKey:DocumentID"`
-}
-
-// VectorTask 向量生成任务模型，用于跟踪向量生成的状态
-type VectorTask struct {
-	ID           uint       `json:"id" gorm:"primaryKey"`
-	DocumentID   uint       `json:"document_id" gorm:"index;not null"`
-	Status       string     `json:"status" gorm:"size:20;index;not null;default:'pending'"` // pending, processing, completed, failed
-	ErrorMessage string     `json:"error_message" gorm:"type:text"`
-	CreatedAt    time.Time  `json:"created_at" gorm:"not null"`
-	StartedAt    *time.Time `json:"started_at"`
-	CompletedAt  *time.Time `json:"completed_at"`
-	Document     *Document  `json:"document,omitempty" gorm:"foreignKey:DocumentID"`
-}
-
 // ChatSession 对话会话表
 type ChatSession struct {
 	ID           uint          `json:"id" gorm:"primaryKey"`

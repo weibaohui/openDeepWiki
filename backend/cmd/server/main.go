@@ -20,8 +20,6 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/service"
 	"github.com/weibaohui/opendeepwiki/backend/internal/service/orchestrator"
 	syncservice "github.com/weibaohui/opendeepwiki/backend/internal/service/sync"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/vector"
-	"github.com/weibaohui/opendeepwiki/backend/internal/service/vector/embedding"
 	"github.com/weibaohui/opendeepwiki/backend/internal/subscriber"
 )
 
@@ -62,9 +60,6 @@ func main() {
 	incrementalHistoryRepo := repository.NewIncrementalUpdateHistoryRepository(db)
 	userRequestRepo := repository.NewUserRequestRepository(db)
 	agentVersionRepo := repository.NewAgentVersionRepository(db)
-	embeddingKeyRepo := repository.NewEmbeddingKeyRepository(db)
-	vectorRepo := repository.NewVectorRepository(db)
-	vectorTaskRepo := repository.NewVectorTaskRepository(db)
 	chatSessionRepo := repository.NewChatSessionRepository(db)
 	chatMessageRepo := repository.NewChatMessageRepository(db)
 	chatToolCallRepo := repository.NewChatToolCallRepository(db)
@@ -75,7 +70,6 @@ func main() {
 	taskUsageService := service.NewTaskUsageService(taskUsageRepo)
 	userRequestService := service.NewUserRequestService(userRequestRepo, repoRepo)
 	agentService := service.NewAgentService(agentVersionRepo, cfg.Agent.Dir)
-	embeddingKeyService := service.NewEmbeddingKeyService(embeddingKeyRepo)
 	chatService := service.NewChatService(chatSessionRepo, chatMessageRepo, chatToolCallRepo)
 
 	//初始化系列Writer
@@ -175,22 +169,6 @@ func main() {
 	userRequestHandler := handler.NewUserRequestHandler(userRequestService, taskEventBus, taskService)
 
 	agentHandler := handler.NewAgentHandler(agentService)
-	embeddingKeyHandler := handler.NewEmbeddingKeyHandler(embeddingKeyService)
-
-	// 初始化向量服务
-	embeddingProvider, err := embedding.NewOpenAIEmbeddingProvider(embeddingKeyRepo, 0)
-	if err != nil {
-		klog.Warningf("Failed to create embedding provider: %v", err)
-	}
-	var vectorHandler *handler.VectorHandler
-	if embeddingProvider != nil {
-		searchService := vector.NewVectorSearchService(embeddingProvider, vectorRepo, docRepo)
-		embeddingService := vector.NewVectorEmbeddingService(embeddingProvider, vectorRepo, vectorTaskRepo, docRepo, 2)
-		vectorHandler = handler.NewVectorHandler(searchService, embeddingService, vectorRepo, vectorTaskRepo, repoRepo, docRepo)
-	} else {
-		// 如果没有配置 embedding provider，仍然创建 handler（部分功能不可用）
-		vectorHandler = handler.NewVectorHandler(nil, nil, vectorRepo, vectorTaskRepo, repoRepo, docRepo)
-	}
 
 	// 初始化 OpenAPIHandler（AI 友好 API 端点）
 	// 提供 /.well-known/openapi.yaml 端点，供 AI 工具使用
@@ -223,7 +201,7 @@ func main() {
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
-	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, embeddingKeyHandler, vectorHandler, chatHandler)
+	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, chatHandler)
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

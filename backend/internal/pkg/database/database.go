@@ -50,14 +50,6 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	if err := db.AutoMigrate(&model.APIKey{}); err != nil {
 		return nil, err
 	}
-	// 迁移向量相关表
-	if err := db.AutoMigrate(&model.DocumentVector{}, &model.VectorTask{}); err != nil {
-		return nil, err
-	}
-	// 迁移嵌入模型配置表
-	if err := db.AutoMigrate(&model.EmbeddingKey{}); err != nil {
-		return nil, err
-	}
 	// 迁移对话相关表
 	if err := db.AutoMigrate(&model.ChatSession{}, &model.ChatMessage{}, &model.ChatToolCall{}); err != nil {
 		return nil, err

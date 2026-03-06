@@ -13,7 +13,6 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/panjf2000/ants/v2 v2.11.5
-	github.com/philippgille/chromem-go v0.7.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.6.0

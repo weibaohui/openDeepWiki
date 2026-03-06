@@ -19,8 +19,6 @@ func Setup(
 	openAPIHandler *handler.OpenAPIHandler,
 	activityHandler *handler.ActivityHandler,
 	agentHandler *handler.AgentHandler,
-	embeddingKeyHandler *handler.EmbeddingKeyHandler,
-	vectorHandler *handler.VectorHandler,
 	chatHandler *handler.ChatHandler,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
@@ -104,14 +102,6 @@ func Setup(
 
 		// Agent 管理
 		agentHandler.RegisterRoutes(api)
-
-		// Embedding Key 管理
-		embeddingKeyHandler.RegisterRoutes(api)
-
-		// 向量管理
-		if vectorHandler != nil {
-			vectorHandler.RegisterRoutes(api)
-		}
 
 		// 对话管理
 		if chatHandler != nil {
