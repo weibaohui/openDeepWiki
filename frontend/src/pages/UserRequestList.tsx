@@ -42,7 +42,8 @@ export default function UserRequestList() {
 
     useEffect(() => {
         fetchRequests();
-    }, [id, page, pageSize, statusFilter, t]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, page, pageSize, statusFilter]);
 
     const handleDelete = (requestId: number) => {
         Modal.confirm({

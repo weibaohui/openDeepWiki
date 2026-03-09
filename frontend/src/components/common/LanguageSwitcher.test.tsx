@@ -16,12 +16,12 @@ Object.defineProperty(window, 'localStorage', {
 
 // Mock antd Select
 vi.mock('antd', async () => {
-  const antd = await vi.importActual<any>('antd')
+  const antd = await vi.importActual<typeof import('antd')>('antd')
   return {
     ...antd,
-    Select: ({ value, options, onChange }: any) => (
+    Select: ({ value, options, onChange }: { value: string; options: { value: string; label: string }[]; onChange?: (val: string) => void }) => (
       <div data-testid="language-select" onClick={() => onChange && onChange(value)}>
-        {options.map((opt: any) => (
+        {options.map((opt) => (
           <div key={opt.value} data-label={opt.label}>{opt.label}</div>
         ))}
       </div>

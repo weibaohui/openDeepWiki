@@ -3,8 +3,8 @@
  * 测试 API Key 相关的 API 调用
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { http } from 'msw'
+import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { apiKeyApi } from './api'
 
@@ -61,14 +61,11 @@ describe('apiKeyApi', () => {
   describe('list', () => {
     it('应该成功获取 API Key 列表', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({
-              data: [mockApiKey],
-              total: 1
-            })
-          )
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({
+            data: [mockApiKey],
+            total: 1
+          }, { status: 200 })
         })
       )
 
@@ -83,11 +80,8 @@ describe('apiKeyApi', () => {
 
     it('当 API 返回错误时应该抛出异常', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return res(
-            ctx.status(500),
-            ctx.json({ error: 'Server error' })
-          )
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ error: 'Server error' }, { status: 500 })
         })
       )
 
@@ -98,11 +92,8 @@ describe('apiKeyApi', () => {
   describe('get', () => {
     it('应该成功获取指定 ID 的 API Key', async () => {
       server.use(
-        http.get('/api/api-keys/1', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json(mockApiKey)
-          )
+        http.get('/api/api-keys/1', () => {
+          return HttpResponse.json(mockApiKey, { status: 200 })
         })
       )
 
@@ -115,11 +106,8 @@ describe('apiKeyApi', () => {
 
     it('当 API Key 不存在时应该返回 404', async () => {
       server.use(
-        http.get('/api/api-keys/999', (req, res, ctx) => {
-          return res(
-            ctx.status(404),
-            ctx.json({ error: 'Not found' })
-          )
+        http.get('/api/api-keys/999', () => {
+          return HttpResponse.json({ error: 'Not found' }, { status: 404 })
         })
       )
 
@@ -139,19 +127,16 @@ describe('apiKeyApi', () => {
       }
 
       server.use(
-        http.post('/api/api-keys', (req, res, ctx) => {
-          return res(
-            ctx.status(201),
-            ctx.json({
-              ...newKey,
-              id: 2,
-              status: 'enabled',
-              request_count: 0,
-              error_count: 0,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-          )
+        http.post('/api/api-keys', () => {
+          return HttpResponse.json({
+            ...newKey,
+            id: 2,
+            status: 'enabled',
+            request_count: 0,
+            error_count: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, { status: 201 })
         })
       )
 
@@ -168,11 +153,8 @@ describe('apiKeyApi', () => {
       }
 
       server.use(
-        http.post('/api/api-keys', (req, res, ctx) => {
-          return res(
-            ctx.status(400),
-            ctx.json({ error: 'Name is required' })
-          )
+        http.post('/api/api-keys', () => {
+          return HttpResponse.json({ error: 'Name is required' }, { status: 400 })
         })
       )
 
@@ -188,14 +170,11 @@ describe('apiKeyApi', () => {
       }
 
       server.use(
-        http.put('/api/api-keys/1', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({
-              ...mockApiKey,
-              ...updateData
-            })
-          )
+        http.put('/api/api-keys/1', () => {
+          return HttpResponse.json({
+            ...mockApiKey,
+            ...updateData
+          }, { status: 200 })
         })
       )
 
@@ -208,11 +187,8 @@ describe('apiKeyApi', () => {
 
     it('当 API Key 不存在时应该返回 404', async () => {
       server.use(
-        http.put('/api/api-keys/999', (req, res, ctx) => {
-          return res(
-            ctx.status(404),
-            ctx.json({ error: 'Not found' })
-          )
+        http.put('/api/api-keys/999', () => {
+          return HttpResponse.json({ error: 'Not found' }, { status: 404 })
         })
       )
 
@@ -223,11 +199,8 @@ describe('apiKeyApi', () => {
   describe('delete', () => {
     it('应该成功删除 API Key', async () => {
       server.use(
-        http.delete('/api/api-keys/1', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({ message: 'deleted successfully' })
-          )
+        http.delete('/api/api-keys/1', () => {
+          return HttpResponse.json({ message: 'deleted successfully' }, { status: 200 })
         })
       )
 
@@ -238,11 +211,8 @@ describe('apiKeyApi', () => {
 
     it('当 API Key 不存在时应该返回 404', async () => {
       server.use(
-        http.delete('/api/api-keys/999', (req, res, ctx) => {
-          return res(
-            ctx.status(404),
-            ctx.json({ error: 'Not found' })
-          )
+        http.delete('/api/api-keys/999', () => {
+          return HttpResponse.json({ error: 'Not found' }, { status: 404 })
         })
       )
 
@@ -253,11 +223,8 @@ describe('apiKeyApi', () => {
   describe('updateStatus', () => {
     it('应该成功更新 API Key 状态', async () => {
       server.use(
-        http.patch('/api/api-keys/1/status', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({ message: 'status updated successfully' })
-          )
+        http.patch('/api/api-keys/1/status', () => {
+          return HttpResponse.json({ message: 'status updated successfully' }, { status: 200 })
         })
       )
 
@@ -268,11 +235,8 @@ describe('apiKeyApi', () => {
 
     it('当状态无效时应该返回错误', async () => {
       server.use(
-        http.patch('/api/api-keys/1/status', (req, res, ctx) => {
-          return res(
-            ctx.status(400),
-            ctx.json({ error: 'Invalid status' })
-          )
+        http.patch('/api/api-keys/1/status', () => {
+          return HttpResponse.json({ error: 'Invalid status' }, { status: 400 })
         })
       )
 
@@ -292,11 +256,8 @@ describe('apiKeyApi', () => {
       }
 
       server.use(
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json(mockStats)
-          )
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats, { status: 200 })
         })
       )
 

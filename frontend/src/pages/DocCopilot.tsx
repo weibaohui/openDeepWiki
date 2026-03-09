@@ -146,7 +146,7 @@ interface DocCopilotProps {
 }
 
 // ==================== Component ====================
-const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, docId: _docId, onClose, onExpandChange }) => {
+const DocCopilot: React.FC<DocCopilotProps> = ({ repoId, onClose, onExpandChange }) => {
   const { t } = useAppConfig();
   const { styles } = useCopilotStyle();
   const { token } = useToken();

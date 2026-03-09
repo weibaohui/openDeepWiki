@@ -1,11 +1,10 @@
-import { http } from 'msw'
-import { HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import APIKeyList from './APIKeyList'
 import type { APIKey } from '../../types'
 
 // Mock 服务器
-const server = setupServer(...handlers)
+const server = setupServer()
 
 beforeAll(() => server.listen())
 beforeEach(() => server.resetHandlers())
@@ -66,11 +65,11 @@ describe('APIKeyList', () => {
   describe('API Key List', () => {
     it('应该渲染API Key列表', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -84,11 +83,11 @@ describe('APIKeyList', () => {
 
     it('应该显示API Key脱敏', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -103,11 +102,11 @@ describe('APIKeyList', () => {
 
     it('应该显示提供商', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -121,11 +120,11 @@ describe('APIKeyList', () => {
 
     it('应该显示模型', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -139,11 +138,11 @@ describe('APIKeyList', () => {
 
     it('应该显示状态', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -159,11 +158,11 @@ describe('APIKeyList', () => {
   describe('API Key Stats', () => {
     it('应该显示统计信息', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -182,11 +181,11 @@ describe('APIKeyList', () => {
   describe('Add API Key', () => {
     it('应该打开添加模态框', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -217,14 +216,14 @@ describe('APIKeyList', () => {
       }
 
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         }),
-        http.post('/api/api-keys', (req, res, ctx) => {
-          return res(ctx.status(201).json(newKey))
+        http.post('/api/api-keys', () => {
+          return HttpResponse.json(newKey, { status: 201 })
         })
       )
 
@@ -251,11 +250,11 @@ describe('APIKeyList', () => {
   describe('Edit API Key', () => {
     it('应该打开编辑模态框', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 
@@ -273,14 +272,14 @@ describe('APIKeyList', () => {
       const updatedKey = { ...mockApiKeys[0], name: 'updated-key', priority: 10 }
 
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         }),
-        http.put('/api/api-keys/1', (req, res, ctx) => {
-          return Response.json(updatedKey)
+        http.put('/api/api-keys/1', () => {
+          return HttpResponse.json(updatedKey)
         })
       )
 
@@ -305,15 +304,15 @@ describe('APIKeyList', () => {
   describe('Delete API Key', () => {
     it('应该删除API Key', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         }),
         http.delete('/api/api-keys/1', () => {
-          return Response.json({ message: 'deleted successfully' })
-        }))
+          return HttpResponse.json({ message: 'deleted successfully' })
+        })
       )
 
       render(<APIKeyList />)
@@ -323,11 +322,12 @@ describe('APIKeyList', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /ok/i })).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: /ok/i }))
+      })
 
-        await waitFor(() => {
-          expect(screen.queryByText('test-key-1')).not.toBeInTheDocument()
-        })
+      await userEvent.click(screen.getByRole('button', { name: /ok/i }))
+
+      await waitFor(() => {
+        expect(screen.queryByText('test-key-1')).not.toBeInTheDocument()
       })
     })
   })
@@ -335,14 +335,14 @@ describe('APIKeyList', () => {
   describe('Update Status', () => {
     it('应该更新API Key状态', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         }),
-        http.patch('/api/api-keys/1/status', (req, res, ctx) => {
-          return Response.json({ message: 'status updated successfully' })
+        http.patch('/api/api-keys/1/status', () => {
+          return HttpResponse.json({ message: 'status updated successfully' })
         })
       )
 
@@ -360,11 +360,11 @@ describe('APIKeyList', () => {
   describe('Refresh', () => {
     it('应该刷新数据', async () => {
       server.use(
-        http.get('/api/api-keys', (req, res, ctx) => {
-          return Response.json({ data: mockApiKeys, total: 2 })
+        http.get('/api/api-keys', () => {
+          return HttpResponse.json({ data: mockApiKeys, total: 2 })
         }),
-        http.get('/api/api-keys/stats', (req, res, ctx) => {
-          return Response.json(mockStats)
+        http.get('/api/api-keys/stats', () => {
+          return HttpResponse.json(mockStats)
         })
       )
 

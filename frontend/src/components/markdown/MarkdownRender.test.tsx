@@ -4,7 +4,7 @@ import MarkdownRender from './MarkdownRender'
 
 // Mock @uiw/react-md-editor
 vi.mock('@uiw/react-md-editor', () => ({
-  default: ({ value, preview }: any) => {
+  default: ({ value, preview }: { value: string; preview?: boolean }) => {
     if (preview) {
       return <div data-testid="markdown-preview" dangerouslySetInnerHTML={{ __html: value }} />
     }

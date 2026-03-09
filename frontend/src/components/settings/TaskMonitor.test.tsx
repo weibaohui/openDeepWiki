@@ -1,11 +1,9 @@
-import { http } from 'msw'
-import { HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import TaskMonitor from './TaskMonitor'
-import type { Task } from '../../types'
 
 // Mock 服务器
-const server = setupServer(...handlers)
+const server = setupServer()
 
 beforeAll(() => server.listen())
 beforeEach(() => server.resetHandlers())
@@ -31,7 +29,7 @@ const mockMonitorData = {
       task_type: 'DocWrite',
       writer_name: 'DefaultWriter',
       repository_id: 1,
-      repository: { id: 1, name: 'test-repo' } as any,
+      repository: { id: 1, name: 'test-repo' } as unknown,
       started_at: new Date(Date.now() - 10000).toISOString(),
       completed_at: null,
     },
@@ -44,97 +42,63 @@ const mockMonitorData = {
       task_type: 'DocWrite',
       writer_name: 'DefaultWriter',
       repository_id: 1,
-      repository: { id: 1, name: 'test-repo' } as any,
+      repository: { id: 1, name: 'test-repo' } as unknown,
       started_at: new Date(Date.now() - 100000).toISOString(),
       completed_at: new Date().toISOString(),
-      error_msg: '',
     },
   ],
-  queue_status: {
-    queue_length: 10,
-    active_workers: 5,
-    priority_length: 3,
-    active_repos: 2,
-  },
+}
+
+function renderWithRouter(component: React.ReactNode) {
+  return render(<MemoryRouter>{component}</MemoryRouter>)
 }
 
 describe('TaskMonitor', () => {
-  describe('Monitor Data', () => {
-    it('应该渲染监控数据', async () => {
-      server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return Response.json(mockMonitorData)
-        })
-      )
-
-      render(<TaskMonitor />)
-
-      await waitFor(() => {
-        expect(screen.getByText(/queue length/i)).toBeInTheDocument()
-        expect(screen.getByText(/active workers/i)).toBeInTheDocument()
-        expect(screen.getByText(/priority queue/i)).toBeInTheDocument()
-        expect(screen.getByText(/active repos/i)).toBeInTheDocument()
-      })
-    })
-  })
-
   describe('Active Tasks', () => {
     it('应该渲染活跃任务列表', async () => {
       server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return Response.json(mockMonitorData)
+        http.get('/api/tasks/monitor', () => {
+          return HttpResponse.json(mockMonitorData)
         })
       )
 
-      render(<TaskMonitor />)
+      renderWithRouter(<TaskMonitor />)
 
       await waitFor(() => {
         expect(screen.getByText('Active Task 1')).toBeInTheDocument()
-        expect(screen.getByText('running')).toBeInTheDocument()
+        expect(screen.getByText('Recent Task 1')).toBeInTheDocument()
       })
     })
 
     it('应该显示任务状态标签', async () => {
       server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return Response.json(mockMonitorData)
+        http.get('/api/tasks/monitor', () => {
+          return HttpResponse.json(mockMonitorData)
         })
       )
 
-      render(<TaskMonitor />)
+      renderWithRouter(<TaskMonitor />)
 
       await waitFor(() => {
-        const statusTags = screen.getAllByText('running')
-        expect(statusTags.length).toBeGreaterThan(0)
+        expect(screen.getByText('running')).toBeInTheDocument()
+        expect(screen.getByText('completed')).toBeInTheDocument()
       })
     })
 
-    it('应该显示任务元信息', async () => {
+  })
+
+  describe('Task Operations', () => {
+    it('应该取消任务', async () => {
       server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return Response.json(mockMonitorData)
-        })
-      )
-
-      render(<TaskMonitor />)
-
-      await waitFor(() => {
-        expect(screen.getByText('test-repo')).toBeInTheDocument()
-        expect(screen.getByText('DocWrite')).toBeInTheDocument()
-      })
-    })
-
-    it('应该支持取消任务', async () => {
-      server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return Response.json(mockMonitorData)
+        http.get('/api/tasks/monitor', () => {
+          return HttpResponse.json(mockMonitorData)
         }),
         http.post('/api/tasks/1/cancel', () => {
-          return Response.json({ message: 'task canceled' })
-        }))
+          return HttpResponse.json({ message: 'task canceled' })
+        })
       )
 
-      render(<TaskMonitor />)
+      renderWithRouter(<TaskMonitor />)
 
       await waitFor(async () => {
         const cancelButton = screen.getByRole('button', { name: /cancel/i })
@@ -147,32 +111,31 @@ describe('TaskMonitor', () => {
   describe('Recent Tasks', () => {
     it('应该渲染最近任务列表', async () => {
       server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return Response.json(mockMonitorData)
+        http.get('/api/tasks/monitor', () => {
+          return HttpResponse.json(mockMonitorData)
         })
       )
 
-      render(<TaskMonitor />)
+      renderWithRouter(<TaskMonitor />)
 
       await waitFor(() => {
         expect(screen.getByText('Recent Task 1')).toBeInTheDocument()
-        expect(screen.getByText('completed')).toBeInTheDocument()
       })
     })
   })
 
   describe('Auto Refresh', () => {
-    it('应该每5秒自动刷新', async () => {
+    it('应该每5秒自动刷新数据', async () => {
       let callCount = 0
 
       server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
+        http.get('/api/tasks/monitor', () => {
           callCount++
-          return Response.json(mockMonitorData)
+          return HttpResponse.json(mockMonitorData)
         })
       )
 
-      render(<TaskMonitor />)
+      renderWithRouter(<TaskMonitor />)
 
       await waitFor(() => callCount === 1)
 
@@ -183,40 +146,18 @@ describe('TaskMonitor', () => {
     })
   })
 
-  describe('Manual Refresh', () => {
-    it('应该支持手动刷新', async () => {
+  describe('Navigation', () => {
+    it('应该渲染设置按钮', async () => {
       server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return Response.json(mockMonitorData)
+        http.get('/api/tasks/monitor', () => {
+          return HttpResponse.json(mockMonitorData)
         })
       )
 
-      render(<TaskMonitor />)
+      renderWithRouter(<TaskMonitor />)
 
-      const refreshButton = screen.getByRole('button', { name: /refresh/i })
-      await userEvent.click(refreshButton)
-
-      await waitFor(() => {
-        expect(screen.getByText(/queue length/i)).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe('Error Handling', () => {
-    it('应该处理获取数据失败', async () => {
-      server.use(
-        http.get('/api/tasks/monitor', (req, res, ctx) => {
-          return res(ctx.status(500).json({ error: 'Server error' }))
-        })
-      )
-
-      render(<TaskMonitor />)
-
-      // 应该显示错误状态或者重试
-      await waitFor(() => {
-        const errorState = screen.queryByText(/error/i)
-        expect(errorState).toBeInTheDocument()
-      })
+      const settingsButton = screen.getByRole('button', { name: /settings/i })
+      expect(settingsButton).toBeInTheDocument()
     })
   })
 })

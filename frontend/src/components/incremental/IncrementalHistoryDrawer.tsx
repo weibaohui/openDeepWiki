@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Drawer, List, Spin, Empty, Typography, Space, Tag, message } from 'antd';
 import { HistoryOutlined, FolderAddOutlined, EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { repositoryApi } from '@/services/api';
@@ -19,13 +19,7 @@ export function IncrementalHistoryDrawer({ visible, repositoryId, onClose }: Inc
     const [history, setHistory] = useState<IncrementalUpdateHistory[]>([]);
     const [messageApi] = message.useMessage();
 
-    useEffect(() => {
-        if (visible && repositoryId) {
-            fetchHistory();
-        }
-    }, [visible, repositoryId]);
-
-    const fetchHistory = async () => {
+    const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
             const response = await repositoryApi.getIncrementalHistory(repositoryId);
@@ -36,7 +30,13 @@ export function IncrementalHistoryDrawer({ visible, repositoryId, onClose }: Inc
         } finally {
             setLoading(false);
         }
-    };
+    }, [repositoryId]);
+
+    useEffect(() => {
+        if (visible && repositoryId) {
+            fetchHistory();
+        }
+    }, [visible, repositoryId, fetchHistory]);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '-';

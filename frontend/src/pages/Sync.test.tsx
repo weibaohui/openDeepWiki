@@ -1,7 +1,6 @@
-import { http } from 'msw'
-import { HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Sync from './Sync'
 import type { Repository, Document, Task } from '../types'
 
@@ -27,7 +26,7 @@ vi.mock('@/context/AppConfigContext', () => ({
 }))
 
 // Mock 服务器
-const server = setupServer(...handlers)
+const server = setupServer()
 
 beforeAll(() => server.listen())
 beforeEach(() => server.resetHandlers())
@@ -103,11 +102,11 @@ describe('Sync', () => {
   describe('Local Sync URL', () => {
     it('应该渲染本地同步地址', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -120,11 +119,11 @@ describe('Sync', () => {
 
     it('应该支持复制同步地址', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -142,17 +141,17 @@ describe('Sync', () => {
   describe('Sync Mode Selection', () => {
     it('应该支持推送模式', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/repositories/1/documents', (req, res, ctx) => {
-          return Response.json(mockDocuments)
+        http.get('/api/repositories/1/documents', () => {
+          return HttpResponse.json(mockDocuments)
         }),
-        http.get('/api/repositories/1/tasks', (req, res, ctx) => {
-          return Response.json(mockTasks)
+        http.get('/api/repositories/1/tasks', () => {
+          return HttpResponse.json(mockTasks)
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -168,11 +167,11 @@ describe('Sync', () => {
 
     it('应该支持拉取模式', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -190,15 +189,15 @@ describe('Sync', () => {
   describe('Target Server Configuration', () => {
     it('应该保存同步目标', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         }),
         http.post('/api/sync/target-save', () => {
-          return Response.json({ id: 1, url: 'http://target-server/api/sync' })
-        }))
+          return HttpResponse.json({ id: 1, url: 'http://target-server/api/sync' })
+        })
       )
 
       renderWithRouter(<Sync />)
@@ -221,11 +220,11 @@ describe('Sync', () => {
       ]
 
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: savedTargets, total: 2 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: savedTargets, total: 2 })
         })
       )
 
@@ -241,15 +240,15 @@ describe('Sync', () => {
       ]
 
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: savedTargets, total: 1 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: savedTargets, total: 1 })
         }),
         http.post('/api/sync/target-delete', () => {
-          return Response.json({ id: 1, message: 'deleted successfully' })
-        }))
+          return HttpResponse.json({ id: 1, message: 'deleted successfully' })
+        })
       )
 
       renderWithRouter(<Sync />)
@@ -266,11 +265,11 @@ describe('Sync', () => {
   describe('Repository Selection', () => {
     it('应该加载仓库列表', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -288,17 +287,17 @@ describe('Sync', () => {
   describe('Document Selection', () => {
     it('应该加载文档列表', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/repositories/1/documents', (req, res, ctx) => {
-          return Response.json(mockDocuments)
+        http.get('/api/repositories/1/documents', () => {
+          return HttpResponse.json(mockDocuments)
         }),
-        http.get('/api/repositories/1/tasks', (req, res, ctx) => {
-          return Response.json(mockTasks)
+        http.get('/api/repositories/1/tasks', () => {
+          return HttpResponse.json(mockTasks)
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -311,17 +310,17 @@ describe('Sync', () => {
 
     it('应该支持多选文档', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/repositories/1/documents', (req, res, ctx) => {
-          return Response.json(mockDocuments)
+        http.get('/api/repositories/1/documents', () => {
+          return HttpResponse.json(mockDocuments)
         }),
-        http.get('/api/repositories/1/tasks', (req, res, ctx) => {
-          return Response.json(mockTasks)
+        http.get('/api/repositories/1/tasks', () => {
+          return HttpResponse.json(mockTasks)
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -338,20 +337,20 @@ describe('Sync', () => {
   describe('Start Sync', () => {
     it('应该启动同步', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/repositories/1/documents', (req, res, ctx) => {
-          return Response.json(mockDocuments)
+        http.get('/api/repositories/1/documents', () => {
+          return HttpResponse.json(mockDocuments)
         }),
-        http.get('/api/repositories/1/tasks', (req, res, ctx) => {
-          return Response.json(mockTasks)
+        http.get('/api/repositories/1/tasks', () => {
+          return HttpResponse.json(mockTasks)
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         }),
         http.post('/api/sync', () => {
-          return Response.json({
+          return HttpResponse.json({
             code: 0,
             data: {
               sync_id: 'sync-123',
@@ -360,7 +359,7 @@ describe('Sync', () => {
               status: 'running',
             },
           })
-        }))
+        })
       )
 
       renderWithRouter(<Sync />)
@@ -384,20 +383,20 @@ describe('Sync', () => {
   describe('Sync Progress', () => {
     it('应该显示同步进度', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/repositories/1/documents', (req, res, ctx) => {
-          return Response.json(mockDocuments)
+        http.get('/api/repositories/1/documents', () => {
+          return HttpResponse.json(mockDocuments)
         }),
-        http.get('/api/repositories/1/tasks', (req, res, ctx) => {
-          return Response.json(mockTasks)
+        http.get('/api/repositories/1/tasks', () => {
+          return HttpResponse.json(mockTasks)
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         }),
-        http.get('/api/sync/status/sync-123', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/sync/status/sync-123', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               sync_id: 'sync-123',
@@ -424,11 +423,11 @@ describe('Sync', () => {
   describe('Sync History', () => {
     it('应该打开历史抽屉', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         })
       )
 
@@ -457,14 +456,14 @@ describe('Sync', () => {
       ]
 
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([mockRepository])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([mockRepository])
         }),
-        http.get('/api/sync/target-list', (req, res, ctx) => {
-          return Response.json({ data: [], total: 0 })
+        http.get('/api/sync/target-list', () => {
+          return HttpResponse.json({ data: [], total: 0 })
         }),
-        http.get('/api/sync/event-list', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/sync/event-list', () => {
+          return HttpResponse.json({
             code: 0,
             data: mockHistory,
           })

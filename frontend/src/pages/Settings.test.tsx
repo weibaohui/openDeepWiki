@@ -1,10 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Settings from './Settings'
-import APIKeyList from '@/components/settings/APIKeyList'
-import TaskMonitor from '@/components/settings/TaskMonitor'
 
 // Mock components
 vi.mock('@/components/settings/APIKeyList', () => ({

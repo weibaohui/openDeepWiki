@@ -55,6 +55,7 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ fileName, onBack }) => {
 
   useEffect(() => {
     fetchAgent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileName]);
 
   const fetchAgent = async () => {
@@ -127,6 +128,7 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ fileName, onBack }) => {
   const handleShowVersions = useCallback(() => {
     setShowVersions(true);
     fetchVersions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileName]);
 
   const handleRestoreVersion = async (version: number) => {

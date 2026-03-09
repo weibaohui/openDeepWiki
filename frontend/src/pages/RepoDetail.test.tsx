@@ -1,7 +1,6 @@
-import { http } from 'msw'
-import { HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import RepoDetail from './RepoDetail'
 import type { Task, Repository } from '../types'
 
@@ -27,7 +26,7 @@ vi.mock('@/context/AppConfigContext', () => ({
 }))
 
 // Mock 服务器
-const server = setupServer(...handlers)
+const server = setupServer()
 
 beforeAll(() => server.listen())
 beforeEach(() => server.resetHandlers())
@@ -97,8 +96,8 @@ describe('RepoDetail', () => {
   describe('Task List', () => {
     it('应该渲染任务列表', async () => {
       server.use(
-        http.get('/api/repositories/1', () => new Response(JSON.stringify(mockRepository), { headers: { 'Content-Type': 'application/json' }}),
-        http.get('/api/repositories/1/tasks', () => new Response(JSON.stringify(mockTasks), { headers: { 'Content-Type': 'application/json' }})
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks))
       )
 
       renderWithRouter(<RepoDetail />)
@@ -112,8 +111,8 @@ describe('RepoDetail', () => {
 
     it('应该显示任务状态标签', async () => {
       server.use(
-        http.get('/api/repositories/1', () => new Response(JSON.stringify(mockRepository), { headers: { 'Content-Type': 'application/json' }}),
-        http.get('/api/repositories/1/tasks', () => new Response(JSON.stringify(mockTasks), { headers: { 'Content-Type': 'application/json' }})
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks))
       )
 
       renderWithRouter(<RepoDetail />)
@@ -130,10 +129,10 @@ describe('RepoDetail', () => {
   describe('Task Operations', () => {
     it('应该运行任务', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks),
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks)),
         http.post('/api/tasks/2/run', () => {
-          return Response.json({ message: 'task started', status: 'queued' })
+          return HttpResponse.json({ message: 'task started', status: 'queued' })
         })
       )
 
@@ -147,11 +146,11 @@ describe('RepoDetail', () => {
 
     it('应该重试任务', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks),
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks)),
         http.post('/api/tasks/3/retry', () => {
-          return Response.json({ message: 'task retry started', status: 'queued' })
-        }))
+          return HttpResponse.json({ message: 'task retry started', status: 'queued' })
+        })
       )
 
       renderWithRouter(<RepoDetail />)
@@ -165,11 +164,11 @@ describe('RepoDetail', () => {
     it('应该取消任务', async () => {
       const runningTask = { ...mockTasks[1], id: 4, status: 'running' as Task['status'] }
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => new Response(JSON.stringify([runningTask]), { headers: { 'Content-Type': 'application/json' }}),
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json([runningTask])),
         http.post('/api/tasks/4/cancel', () => {
-          return Response.json({ message: 'task canceled', status: 'canceled' })
-        }))
+          return HttpResponse.json({ message: 'task canceled', status: 'canceled' })
+        })
       )
 
       renderWithRouter(<RepoDetail />)
@@ -182,11 +181,11 @@ describe('RepoDetail', () => {
 
     it('应该删除任务', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks),
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks)),
         http.delete('/api/tasks/1', () => {
-          return Response.json({ message: 'task deleted' })
-        }))
+          return HttpResponse.json({ message: 'task deleted' })
+        })
       )
 
       renderWithRouter(<RepoDetail />)
@@ -201,11 +200,11 @@ describe('RepoDetail', () => {
   describe('Repository Operations', () => {
     it('应该运行所有任务', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks),
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks)),
         http.post('/api/repositories/1/run-all', () => {
-          return Response.json({ message: 'all tasks started' })
-        }))
+          return HttpResponse.json({ message: 'all tasks started' })
+        })
       )
 
       renderWithRouter(<RepoDetail />)
@@ -216,11 +215,11 @@ describe('RepoDetail', () => {
 
     it('应该重新克隆仓库', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks),
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks)),
         http.post('/api/repositories/1/clone', () => {
-          return Response.json({ message: 'clone started' })
-        }))
+          return HttpResponse.json({ message: 'clone started' })
+        })
       )
 
       renderWithRouter(<RepoDetail />)
@@ -231,11 +230,11 @@ describe('RepoDetail', () => {
 
     it('应该删除仓库', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks),
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks)),
         http.delete('/api/repositories/1', () => {
-          return Response.json({ message: 'repository deleted' })
-        }))
+          return HttpResponse.json({ message: 'repository deleted' })
+        })
       )
 
       renderWithRouter(<RepoDetail />)
@@ -250,11 +249,11 @@ describe('RepoDetail', () => {
       let callCount = 0
 
       server.use(
-        http.get('/api/repositories/1', (req, res, ctx) => {
+        http.get('/api/repositories/1', () => {
           callCount++
-          return Response.json(mockRepository)
+          return HttpResponse.json(mockRepository)
         }),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks)
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks))
       )
 
       renderWithRouter(<RepoDetail />)
@@ -271,8 +270,8 @@ describe('RepoDetail', () => {
   describe('Navigation', () => {
     it('应该渲染返回按钮', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks)
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks))
       )
 
       renderWithRouter(<RepoDetail />)
@@ -283,8 +282,8 @@ describe('RepoDetail', () => {
 
     it('应该渲染文档导出按钮', async () => {
       server.use(
-        http.get('/api/repositories/1', () => Response.json(mockRepository),
-        http.get('/api/repositories/1/tasks', () => Response.json(mockTasks)
+        http.get('/api/repositories/1', () => HttpResponse.json(mockRepository)),
+        http.get('/api/repositories/1/tasks', () => HttpResponse.json(mockTasks))
       )
 
       renderWithRouter(<RepoDetail />)

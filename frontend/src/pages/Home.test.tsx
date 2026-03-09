@@ -1,5 +1,4 @@
-import { http } from 'msw'
-import { HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { MemoryRouter } from 'react-router-dom'
 import Home from './Home'
@@ -27,7 +26,7 @@ vi.mock('@/context/AppConfigContext', () => ({
 }))
 
 // Mock 服务器
-const server = setupServer(...handlers)
+const server = setupServer()
 
 beforeAll(() => server.listen())
 beforeEach(() => server.resetHandlers())
@@ -63,8 +62,8 @@ describe('Home', () => {
   describe('Repository List', () => {
     it('应该渲染空状态', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
         })
       )
 
@@ -75,10 +74,10 @@ describe('Home', () => {
       })
     })
 
-    it('应该渲染仓库卡片列表', async () => {
+    it('应该渲染仓库列表', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json(mockRepositories)
+        http.get('/api/repositories', () => {
+          return HttpResponse.json(mockRepositories)
         })
       )
 
@@ -92,8 +91,8 @@ describe('Home', () => {
 
     it('应该显示仓库状态标签', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json(mockRepositories)
+        http.get('/api/repositories', () => {
+          return HttpResponse.json(mockRepositories)
         })
       )
 
@@ -109,8 +108,8 @@ describe('Home', () => {
   describe('Add Repository', () => {
     it('应该打开添加模态框', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json([])
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
         })
       )
 
@@ -134,9 +133,11 @@ describe('Home', () => {
       }
 
       server.use(
-        http.get('/api/repositories', () => new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' }}),
-        http.post('/api/repositories', (req, res, ctx) => {
-          return res(ctx.status(201).json(newRepo))
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
+        }),
+        http.post('/api/repositories', () => {
+          return HttpResponse.json(newRepo, { status: 201 })
         })
       )
 
@@ -158,9 +159,11 @@ describe('Home', () => {
 
     it('应该处理重复URL错误', async () => {
       server.use(
-        http.get('/api/repositories', () => new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' }}),
-        http.post('/api/repositories', (req, res, ctx) => {
-          return res(ctx.status(409).json({ error: 'repository already exists' }))
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
+        }),
+        http.post('/api/repositories', () => {
+          return HttpResponse.json({ error: 'repository already exists' }, { status: 409 })
         })
       )
 
@@ -182,16 +185,15 @@ describe('Home', () => {
 
     it('应该验证必填字段', async () => {
       server.use(
-        http.get('/api/repositories', () => new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' }})
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
+        })
       )
 
       renderWithRouter(<Home />)
 
       const addButton = screen.getByRole('button', { name: /add new/i })
       await userEvent.click(addButton)
-
-      const urlInput = screen.getByPlaceholderText(/github/i)
-      await userEvent.clear(urlInput)
 
       const okButton = screen.getByRole('button', { name: /ok/i })
       await userEvent.click(okButton)
@@ -205,8 +207,8 @@ describe('Home', () => {
   describe('Search Filter', () => {
     it('应该按名称搜索仓库', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json(mockRepositories)
+        http.get('/api/repositories', () => {
+          return HttpResponse.json(mockRepositories)
         })
       )
 
@@ -223,8 +225,8 @@ describe('Home', () => {
 
     it('应该显示无搜索结果', async () => {
       server.use(
-        http.get('/api/repositories', (req, res, ctx) => {
-          return Response.json(mockRepositories)
+        http.get('/api/repositories', () => {
+          return HttpResponse.json(mockRepositories)
         })
       )
 
@@ -242,7 +244,9 @@ describe('Home', () => {
   describe('Navigation', () => {
     it('应该渲染导航栏', async () => {
       server.use(
-        http.get('/api/repositories', () => new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' }})
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
+        })
       )
 
       renderWithRouter(<Home />)
@@ -254,7 +258,9 @@ describe('Home', () => {
 
     it('应该渲染语言切换器', async () => {
       server.use(
-        http.get('/api/repositories', () => new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' }})
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
+        })
       )
 
       renderWithRouter(<Home />)
@@ -264,7 +270,9 @@ describe('Home', () => {
 
     it('应该渲染主题切换器', async () => {
       server.use(
-        http.get('/api/repositories', () => new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' }})
+        http.get('/api/repositories', () => {
+          return HttpResponse.json([])
+        })
       )
 
       renderWithRouter(<Home />)

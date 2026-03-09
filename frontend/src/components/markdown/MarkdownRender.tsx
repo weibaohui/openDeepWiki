@@ -124,7 +124,7 @@ const preprocessMermaidCode = (code: string): string => {
   // 如果文本包含特殊字符（@、:、/ 等），则添加引号
   sanitizedCode = sanitizedCode.replace(/(\w+)(\[([^\]]*?)\])/g, (match, id, _fullContent, content) => {
     // 检查内容是否包含特殊字符
-    if (/[@:\/\\]/.test(content)) {
+    if (/[@:/\\]/.test(content)) {
       return `${id}["${content}"]`;
     }
     return match;
@@ -132,7 +132,7 @@ const preprocessMermaidCode = (code: string): string => {
 
   sanitizedCode = sanitizedCode.replace(/(\w+)(\(([^)]*?)\))/g, (match, id, _fullContent, content) => {
     // 检查内容是否包含特殊字符
-    if (/[@:\/\\]/.test(content)) {
+    if (/[@:/\\]/.test(content)) {
       return `${id}("${content}")`;
     }
     return match;
@@ -140,7 +140,7 @@ const preprocessMermaidCode = (code: string): string => {
 
   sanitizedCode = sanitizedCode.replace(/(\w+)(\{([^}]*?)\})/g, (match, id, _fullContent, content) => {
     // 检查内容是否包含特殊字符
-    if (/[@:\/\\]/.test(content)) {
+    if (/[@:/\\]/.test(content)) {
       return `${id}{"${content}"}`;
     }
     return match;

@@ -4,17 +4,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import userEvent from '@testing-library/user-event'
 import APIKeyManager from './APIKeyManager'
-import * as api from '../services/api'
 
 // Mock antd message
 vi.mock('antd', async () => {
-  const antd = await vi.importActual<any>('antd')
+  const antd = await vi.importActual<typeof import('antd')>('antd')
   return {
     ...antd,
     message: {

@@ -1,7 +1,6 @@
-import { http } from 'msw'
-import { HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import UserRequestList from './UserRequestList'
 import type { UserRequest } from '../types'
 
@@ -27,7 +26,7 @@ vi.mock('@/context/AppConfigContext', () => ({
 }))
 
 // Mock 服务器
-const server = setupServer(...handlers)
+const server = setupServer()
 
 beforeAll(() => server.listen())
 beforeEach(() => server.resetHandlers())
@@ -81,8 +80,8 @@ describe('UserRequestList', () => {
   describe('Request List', () => {
     it('应该渲染用户需求列表', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: mockRequests,
@@ -102,8 +101,8 @@ describe('UserRequestList', () => {
 
     it('应该显示需求状态', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: mockRequests,
@@ -123,8 +122,8 @@ describe('UserRequestList', () => {
 
     it('应该显示创建时间', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: mockRequests,
@@ -146,8 +145,8 @@ describe('UserRequestList', () => {
   describe('Delete Request', () => {
     it('应该删除用户需求', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: mockRequests,
@@ -156,8 +155,8 @@ describe('UserRequestList', () => {
           })
         }),
         http.delete('/api/user-requests/1', () => {
-          return Response.json({ code: 0, message: 'deleted successfully' })
-        }))
+          return HttpResponse.json({ code: 0, message: 'deleted successfully' })
+        })
       )
 
       renderWithRouter(<UserRequestList />)
@@ -179,8 +178,8 @@ describe('UserRequestList', () => {
 
     it('应该显示删除确认对话框', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: mockRequests,
@@ -200,8 +199,8 @@ describe('UserRequestList', () => {
   describe('Status Filter', () => {
     it('应该支持按状态过滤', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: [mockRequests[0]],
@@ -224,8 +223,8 @@ describe('UserRequestList', () => {
 
     it('应该支持清除过滤', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: mockRequests,
@@ -253,8 +252,8 @@ describe('UserRequestList', () => {
   describe('Pagination', () => {
     it('应该支持分页', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: [mockRequests[0]],
@@ -275,8 +274,8 @@ describe('UserRequestList', () => {
   describe('Refresh', () => {
     it('应该支持手动刷新', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: mockRequests,
@@ -300,8 +299,8 @@ describe('UserRequestList', () => {
   describe('Empty State', () => {
     it('应该显示空状态', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: [],
@@ -322,8 +321,8 @@ describe('UserRequestList', () => {
   describe('Navigation', () => {
     it('应该渲染返回按钮', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: [],
@@ -343,8 +342,8 @@ describe('UserRequestList', () => {
   describe('Header', () => {
     it('应该渲染标题', async () => {
       server.use(
-        http.get('/api/repositories/1/user-requests', (req, res, ctx) => {
-          return Response.json({
+        http.get('/api/repositories/1/user-requests', () => {
+          return HttpResponse.json({
             code: 0,
             data: {
               list: [],
