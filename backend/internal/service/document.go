@@ -314,3 +314,110 @@ func (s *DocumentService) GetRatingStats(documentID uint) (*model.DocumentRating
 func (s *DocumentService) GetTokenUsage(docID uint) (*model.TaskUsage, error) {
 	return s.docRepo.GetTokenUsageByDocID(docID)
 }
+
+// DocumentSearchResult 文档搜索结果
+type DocumentSearchResult struct {
+	DocID    uint   `json:"doc_id"`
+	RepoID   uint   `json:"repo_id"`
+	RepoName string `json:"repo_name"`
+	Title    string `json:"title"`
+	Filename string `json:"filename"`
+	Snippet  string `json:"snippet"`
+}
+
+// SearchDocuments 搜索文档内容（关键词匹配）
+// query: 搜索关键词
+// repoID: 限定仓库ID（可选，nil 表示搜索所有仓库）
+func (s *DocumentService) SearchDocuments(ctx context.Context, query string, repoID *uint) ([]DocumentSearchResult, error) {
+	// 获取所有最新文档
+	var docs []model.Document
+	if repoID != nil {
+		// 搜索指定仓库
+		var err error
+		docs, err = s.docRepo.GetByRepository(*repoID)
+		if err != nil {
+			return nil, fmt.Errorf("获取仓库文档失败: %w", err)
+		}
+	} else {
+		// 搜索所有仓库，只获取最新文档
+		allDocs, err := s.docRepo.GetAllLatest()
+		if err != nil {
+			return nil, fmt.Errorf("获取所有文档失败: %w", err)
+		}
+		docs = allDocs
+	}
+
+	// 关键词搜索（不区分大小写）
+	queryLower := strings.ToLower(query)
+	var results []DocumentSearchResult
+
+	for _, doc := range docs {
+		// 在标题、文件名、内容中搜索
+		titleLower := strings.ToLower(doc.Title)
+		filenameLower := strings.ToLower(doc.Filename)
+		contentLower := strings.ToLower(doc.Content)
+
+		if strings.Contains(titleLower, queryLower) ||
+			strings.Contains(filenameLower, queryLower) ||
+			strings.Contains(contentLower, queryLower) {
+			// 获取仓库名称
+			repoName := ""
+			repo, err := s.repoRepo.GetBasic(doc.RepositoryID)
+			if err == nil && repo != nil {
+				repoName = repo.Name
+			}
+
+			// 生成上下文片段
+			snippet := generateSnippet(doc.Content, query, 200)
+
+			results = append(results, DocumentSearchResult{
+				DocID:    doc.ID,
+				RepoID:   doc.RepositoryID,
+				RepoName: repoName,
+				Title:    doc.Title,
+				Filename: doc.Filename,
+				Snippet:  snippet,
+			})
+		}
+	}
+
+	// 限制返回数量
+	if len(results) > 20 {
+		results = results[:20]
+	}
+
+	return results, nil
+}
+
+// generateSnippet 生成搜索结果片段
+func generateSnippet(content, query string, maxLen int) string {
+	// 查找关键词位置（不区分大小写）
+	idx := strings.Index(strings.ToLower(content), strings.ToLower(query))
+	if idx == -1 {
+		// 未找到关键词，返回内容开头
+		if len(content) > maxLen {
+			return content[:maxLen] + "..."
+		}
+		return content
+	}
+
+	// 计算片段起始位置，让关键词出现在片段中间位置
+	start := idx - 50
+	if start < 0 {
+		start = 0
+	}
+	end := idx + len(query) + 150
+	if end > len(content) {
+		end = len(content)
+	}
+
+	snippet := content[start:end]
+	if start > 0 {
+		snippet = "..." + snippet
+	}
+	if end < len(content) {
+		snippet = snippet + "..."
+	}
+
+	return snippet
+}

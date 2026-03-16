@@ -354,6 +354,20 @@ func (m *mockDocRepo) GetByTaskID(taskID uint) ([]model.Document, error) {
 	return out, nil
 }
 
+// GetAllLatest 获取所有仓库的最新文档
+func (m *mockDocRepo) GetAllLatest() ([]model.Document, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	var out []model.Document
+	for _, doc := range m.docs {
+		if doc.IsLatest {
+			out = append(out, *doc)
+		}
+	}
+	return out, nil
+}
+
 type mockTaskUsageRepo struct {
 	usages map[uint][]model.TaskUsage
 	err    error

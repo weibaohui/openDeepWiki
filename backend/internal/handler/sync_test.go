@@ -174,6 +174,9 @@ func (m *mockSyncDocRepo) ClearLatestByTaskID(taskID uint) error { return nil }
 // GetByTaskID 按任务获取文档
 func (m *mockSyncDocRepo) GetByTaskID(taskID uint) ([]model.Document, error) { return nil, nil }
 
+// GetAllLatest 获取所有仓库的最新文档
+func (m *mockSyncDocRepo) GetAllLatest() ([]model.Document, error) { return nil, nil }
+
 type mockSyncTaskUsageRepo struct{}
 
 // Create 新增任务用量记录

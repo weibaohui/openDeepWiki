@@ -81,6 +81,10 @@ func (m *mockExportDocRepo) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, 
 	return nil, nil
 }
 
+func (m *mockExportDocRepo) GetAllLatest() ([]model.Document, error) {
+	return nil, nil
+}
+
 type mockExportRepoRepo struct {
 	GetBasicFunc func(id uint) (*model.Repository, error)
 }

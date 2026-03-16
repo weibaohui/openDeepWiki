@@ -35,6 +35,7 @@ type DocumentRepository interface {
 	Create(doc *model.Document) error
 	GetByRepository(repoID uint) ([]model.Document, error)
 	GetAllDocumentsTitleAndID(repoID uint) ([]model.Document, error)
+	GetAllLatest() ([]model.Document, error)
 	GetVersions(repoID uint, title string) ([]model.Document, error)
 	Get(id uint) (*model.Document, error)
 	Save(doc *model.Document) error
