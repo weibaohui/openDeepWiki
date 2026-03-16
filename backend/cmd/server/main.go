@@ -13,7 +13,10 @@ import (
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain/writers"
 	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
+	"github.com/weibaohui/opendeepwiki/backend/internal/mcp"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/adkagents"
+	"github.com/mark3labs/mcp-go/server"
+	"github.com/gin-gonic/gin"
 	"github.com/weibaohui/opendeepwiki/backend/internal/pkg/database"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
 	"github.com/weibaohui/opendeepwiki/backend/internal/router"
@@ -196,12 +199,31 @@ func main() {
 	// 启动ChatHub
 	go chatHandler.GetHub().Run()
 
+	// 创建 MCP Server，为 AI 编程工具提供文档查询接口
+	mcpServer := mcp.NewMCPServer(repoService, docService)
+	klog.V(6).Info("MCP Server 已初始化")
+
+	// 创建 SSE Server 实例并复用（避免每次请求创建新实例）
+	// 配置 basePath 为 /mcp，使 SSE Server 正确处理 /mcp/sse 和 /mcp/message 路径
+	sseServer := server.NewSSEServer(mcpServer.GetServer(), server.WithStaticBasePath("/mcp"))
+
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
 
 	// 设置路由
 	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, chatHandler)
+
+	// 添加 MCP SSE 端点
+	// 提供 /mcp/sse 端点，供 Cursor、Claude Code 等 AI 编程工具使用
+	r.GET("/mcp/sse", func(c *gin.Context) {
+		sseServer.ServeHTTP(c.Writer, c.Request)
+	})
+	// 添加 /mcp/message 端点，支持客户端发送 JSON-RPC 消息
+	r.POST("/mcp/message", func(c *gin.Context) {
+		sseServer.ServeHTTP(c.Writer, c.Request)
+	})
+	klog.V(6).Info("MCP SSE 端点已注册: /mcp/sse, /mcp/message")
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)

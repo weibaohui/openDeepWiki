@@ -2,3 +2,98 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 按照 [AGENTS.md](AGENTS.md) 中的约定开展工作
+
+
+
+---
+
+## AI 开发工作流程（必须遵守）
+
+### 新需求开发步骤
+
+当接到新需求时，必须按以下步骤执行：
+
+#### 1. 创建功能分支
+```bash
+repo_name=$(basename "$(git rev-parse --show-toplevel)")
+mkdir -p ../ai-worktrees/${repo_name}
+git checkout -b feature/<功能名称>
+git worktree add ../ai-worktrees/${repo_name}/<功能名称> feature/<功能名称>
+cd ../ai-worktrees/${repo_name}/<功能名称>
+```
+
+#### 2. 环境初始化
+```bash
+make setup
+make build
+```
+
+
+#### 3. 编写需求文档
+在 `docs/` 目录下创建：
+- 需求说明文档（描述要解决的问题、功能目标）
+- 设计文档（核心设计思路、影响模块、变更记录表）
+
+遵循 `docs/文档编写规范/README.md` 中的约定。
+
+#### 4. 编写代码
+- 遵循编码约定（注释、可读性、API 一致性、日志使用 zap）
+- 禁止随意删除已有注释
+- 关键业务逻辑必须有详细注释
+
+#### 5. 编译与测试
+```bash
+make setup
+make build
+```
+- 确保项目可正常编译/构建
+- 运行已有单元测试
+- 对新增功能补充必要的单元测试
+
+#### 6. 安全扫描
+- 检查逻辑漏洞、越权访问、输入未校验、敏感信息泄露
+- 检查不必要的高权限操作、不安全的默认配置
+
+#### 7. 编写功能总结文档
+在 `docs/` 目录下创建功能总结文档，内容包括：
+- 实现了什么
+- 与需求的对应关系
+- 关键实现点
+- 已知限制或待改进点
+
+#### 8. 提交代码
+
+使用gh 命令 发起pr
+```bash
+gh pr create --title "feat: 功能描述" --body "实现了什么，与需求的对应关系，关键实现点，已知限制或待改进点"
+```
+
+#### 9. 提醒合并
+提醒人类进行分支合并操作。
+
+#### 10. 清理工作区（合并后执行）
+```bash
+git worktree remove ../ai-worktrees/${repo_name}/<功能名称>
+git worktree prune
+```
+
+---
+
+### 缺陷修复步骤
+
+修复缺陷时，遵循类似的流程，但在 `bugs/` 目录下创建：
+- `XXX-缺陷标题/XXX-缺陷标题-缺陷说明.md`
+- `XXX-缺陷标题/XXX-缺陷标题-缺陷分析.md`
+- `XXX-缺陷标题/XXX-缺陷标题-修复总结.md`
+
+---
+
+### 底线原则
+
+若发现以下情况，立即停止编码并提示人类介入：
+- 无法确认仓库规范
+- 文档目录或需求目录不清晰
+- 接口定义存在冲突或歧义
+- 关键安全逻辑不明确
+
+---

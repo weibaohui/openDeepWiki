@@ -244,3 +244,12 @@ func (r *documentRepository) GetTokenUsageByDocID(docID uint) (*model.TaskUsage,
 		APIKeyName:       result.APIKeyNames,
 	}, nil
 }
+
+// GetAllLatest 获取所有仓库的最新文档
+func (r *documentRepository) GetAllLatest() ([]model.Document, error) {
+	var docs []model.Document
+	err := r.db.Where("is_latest = ?", true).
+		Order("repository_id, sort_order").
+		Find(&docs).Error
+	return docs, err
+}

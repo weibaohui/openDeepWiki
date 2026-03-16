@@ -91,6 +91,10 @@ func (m *mockDocRepo) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, error)
 	return nil, nil
 }
 
+func (m *mockDocRepo) GetAllLatest() ([]model.Document, error) {
+	return nil, nil
+}
+
 type mockTaskRepo struct {
 	tasks map[uint]*model.Task
 }

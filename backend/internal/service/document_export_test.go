@@ -13,6 +13,7 @@ import (
 
 type mockExportDocRepo struct {
 	GetByRepositoryFunc func(repoID uint) ([]model.Document, error)
+	GetAllLatestFunc    func() ([]model.Document, error)
 }
 
 func (m *mockExportDocRepo) Create(doc *model.Document) error {
@@ -79,6 +80,13 @@ func (m *mockExportDocRepo) GetByTaskID(taskID uint) ([]model.Document, error) {
 
 func (m *mockExportDocRepo) GetTokenUsageByDocID(docID uint) (*model.TaskUsage, error) {
 	return nil, nil
+}
+
+func (m *mockExportDocRepo) GetAllLatest() ([]model.Document, error) {
+	if m.GetAllLatestFunc != nil {
+		return m.GetAllLatestFunc()
+	}
+	return nil, errors.New("GetAllLatest not implemented in mock")
 }
 
 type mockExportRepoRepo struct {

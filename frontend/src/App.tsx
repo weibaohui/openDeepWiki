@@ -10,6 +10,7 @@ import Settings from './pages/Settings';
 import Sync from './pages/Sync';
 import ChatSessionsPage from './pages/ChatSessionsPage';
 import ChatSessionDetailPage from './pages/ChatSessionDetailPage';
+import MCPPage from './pages/MCPPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path="/api-keys" element={<APIKeyManager />} />
           <Route path="/settings" element={<Settings />} />
                     <Route path="/sync" element={<Sync />} />
+          <Route path="/mcp" element={<MCPPage />} />
         </Routes>
       </HashRouter>
     </ThemeProvider>
