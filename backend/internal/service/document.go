@@ -349,7 +349,8 @@ func (s *DocumentService) SearchDocuments(ctx context.Context, query string, rep
 
 	// 关键词搜索（不区分大小写）
 	queryLower := strings.ToLower(query)
-	var results []DocumentSearchResult
+	var matchedDocs []model.Document
+	repoIDs := make(map[uint]struct{})
 
 	for _, doc := range docs {
 		// 在标题、文件名、内容中搜索
@@ -360,25 +361,35 @@ func (s *DocumentService) SearchDocuments(ctx context.Context, query string, rep
 		if strings.Contains(titleLower, queryLower) ||
 			strings.Contains(filenameLower, queryLower) ||
 			strings.Contains(contentLower, queryLower) {
-			// 获取仓库名称
-			repoName := ""
-			repo, err := s.repoRepo.GetBasic(doc.RepositoryID)
-			if err == nil && repo != nil {
-				repoName = repo.Name
-			}
-
-			// 生成上下文片段
-			snippet := generateSnippet(doc.Content, query, 200)
-
-			results = append(results, DocumentSearchResult{
-				DocID:    doc.ID,
-				RepoID:   doc.RepositoryID,
-				RepoName: repoName,
-				Title:    doc.Title,
-				Filename: doc.Filename,
-				Snippet:  snippet,
-			})
+			matchedDocs = append(matchedDocs, doc)
+			repoIDs[doc.RepositoryID] = struct{}{}
 		}
+	}
+
+	// 批量获取仓库信息，避免 N+1 查询
+	repoMap := make(map[uint]string)
+	for id := range repoIDs {
+		repo, err := s.repoRepo.GetBasic(id)
+		if err == nil && repo != nil {
+			repoMap[id] = repo.Name
+		}
+	}
+
+	// 构建结果
+	var results []DocumentSearchResult
+	for _, doc := range matchedDocs {
+		repoName := repoMap[doc.RepositoryID]
+		// 生成上下文片段
+		snippet := generateSnippet(doc.Content, query, 200)
+
+		results = append(results, DocumentSearchResult{
+			DocID:    doc.ID,
+			RepoID:   doc.RepositoryID,
+			RepoName: repoName,
+			Title:    doc.Title,
+			Filename: doc.Filename,
+			Snippet:  snippet,
+		})
 	}
 
 	// 限制返回数量
@@ -390,13 +401,33 @@ func (s *DocumentService) SearchDocuments(ctx context.Context, query string, rep
 }
 
 // generateSnippet 生成搜索结果片段
+// 使用 rune 处理 UTF-8 字符，避免字节索引导致的中文字符截断问题
 func generateSnippet(content, query string, maxLen int) string {
+	// 将内容转换为 rune 切片处理 UTF-8 字符
+	contentRunes := []rune(content)
+	queryRunes := []rune(strings.ToLower(query))
+	contentLower := []rune(strings.ToLower(content))
+
 	// 查找关键词位置（不区分大小写）
-	idx := strings.Index(strings.ToLower(content), strings.ToLower(query))
+	idx := -1
+	for i := 0; i <= len(contentLower)-len(queryRunes); i++ {
+		match := true
+		for j := 0; j < len(queryRunes); j++ {
+			if contentLower[i+j] != queryRunes[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			idx = i
+			break
+		}
+	}
+
 	if idx == -1 {
 		// 未找到关键词，返回内容开头
-		if len(content) > maxLen {
-			return content[:maxLen] + "..."
+		if len(contentRunes) > maxLen {
+			return string(contentRunes[:maxLen]) + "..."
 		}
 		return content
 	}
@@ -406,16 +437,16 @@ func generateSnippet(content, query string, maxLen int) string {
 	if start < 0 {
 		start = 0
 	}
-	end := idx + len(query) + 150
-	if end > len(content) {
-		end = len(content)
+	end := idx + len(queryRunes) + 150
+	if end > len(contentRunes) {
+		end = len(contentRunes)
 	}
 
-	snippet := content[start:end]
+	snippet := string(contentRunes[start:end])
 	if start > 0 {
 		snippet = "..." + snippet
 	}
-	if end < len(content) {
+	if end < len(contentRunes) {
 		snippet = snippet + "..."
 	}
 

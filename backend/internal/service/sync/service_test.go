@@ -3,6 +3,7 @@ package syncservice
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 	"time"
 
@@ -365,6 +366,16 @@ func (m *mockDocRepo) GetAllLatest() ([]model.Document, error) {
 			out = append(out, *doc)
 		}
 	}
+	// 排序以确保结果稳定
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].RepositoryID != out[j].RepositoryID {
+			return out[i].RepositoryID < out[j].RepositoryID
+		}
+		if out[i].SortOrder != out[j].SortOrder {
+			return out[i].SortOrder < out[j].SortOrder
+		}
+		return out[i].ID < out[j].ID
+	})
 	return out, nil
 }
 

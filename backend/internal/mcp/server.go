@@ -104,14 +104,20 @@ func (w *MCPServerWrapper) handleListRepositories(ctx context.Context, request m
 	var repoInfos []map[string]interface{}
 	for _, repo := range repos {
 		// 获取每个仓库的文档数量
-		docs, _ := w.docService.GetByRepository(repo.ID)
+		docCount := 0
+		docs, err := w.docService.GetByRepository(repo.ID)
+		if err != nil {
+			klog.V(6).Infof("MCP: 获取仓库 %d 文档列表失败: %v", repo.ID, err)
+		} else {
+			docCount = len(docs)
+		}
 		repoInfos = append(repoInfos, map[string]interface{}{
 			"id":             repo.ID,
 			"name":           repo.Name,
 			"url":            repo.URL,
 			"status":         repo.Status,
 			"branch":         repo.CloneBranch,
-			"document_count": len(docs),
+			"document_count": docCount,
 			"updated_at":     repo.UpdatedAt,
 		})
 	}
@@ -137,6 +143,13 @@ func (w *MCPServerWrapper) handleGetRepository(ctx context.Context, request mcp.
 
 	if repoID > 0 {
 		repo, err = w.repoService.Get(uint(repoID))
+		if err != nil {
+			klog.Errorf("MCP: 获取仓库失败 (id=%d): %v", repoID, err)
+			return mcp.NewToolResultError(fmt.Sprintf("获取仓库失败: %v", err)), nil
+		}
+		if repo == nil {
+			return mcp.NewToolResultError(fmt.Sprintf("未找到ID为 %d 的仓库", repoID)), nil
+		}
 	} else if repoName != "" {
 		// 通过名称查找仓库
 		repos, listErr := w.repoService.List()

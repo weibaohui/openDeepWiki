@@ -203,6 +203,9 @@ func main() {
 	mcpServer := mcp.NewMCPServer(repoService, docService)
 	klog.V(6).Info("MCP Server 已初始化")
 
+	// 创建 SSE Server 实例并复用（避免每次请求创建新实例）
+	sseServer := server.NewSSEServer(mcpServer.GetServer())
+
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
 	taskService.StartPendingTaskScheduler(context.Background(), 10*time.Second)
@@ -213,11 +216,13 @@ func main() {
 	// 添加 MCP SSE 端点
 	// 提供 /mcp/sse 端点，供 Cursor、Claude Code 等 AI 编程工具使用
 	r.GET("/mcp/sse", func(c *gin.Context) {
-		// 使用 mcp-go 的 SSE handler
-		handler := server.NewSSEServer(mcpServer.GetServer())
-		handler.ServeHTTP(c.Writer, c.Request)
+		sseServer.ServeHTTP(c.Writer, c.Request)
 	})
-	klog.V(6).Info("MCP SSE 端点已注册: /mcp/sse")
+	// 添加 /mcp/message 端点，支持客户端发送 JSON-RPC 消息
+	r.POST("/mcp/message", func(c *gin.Context) {
+		sseServer.ServeHTTP(c.Writer, c.Request)
+	})
+	klog.V(6).Info("MCP SSE 端点已注册: /mcp/sse, /mcp/message")
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)
