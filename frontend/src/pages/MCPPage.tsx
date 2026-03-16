@@ -1,0 +1,328 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    ApiOutlined,
+    CopyOutlined,
+    CheckOutlined,
+    ArrowLeftOutlined,
+    ToolOutlined,
+    CodeOutlined,
+    SettingOutlined,
+    LinkOutlined,
+    InfoCircleOutlined
+} from '@ant-design/icons';
+import {
+    Button,
+    Card,
+    Tag,
+    Layout,
+    Typography,
+    Space,
+    Divider,
+    Alert,
+    Tabs,
+    List,
+    Badge,
+    message
+} from 'antd';
+import { ThemeSwitcher } from '@/components/common/ThemeSwitcher';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+
+const { Header, Content } = Layout;
+const { Title, Text, Paragraph } = Typography;
+
+// MCP 工具定义
+const mcpTools = [
+    {
+        name: 'list_repositories',
+        description: '列出所有可用的代码仓库。返回仓库列表，包含名称、URL、状态、文档数量等信息。',
+        parameters: [] as string[],
+    },
+    {
+        name: 'get_repository',
+        description: '获取仓库详情，包含该仓库下的所有文档列表。可以通过 repo_id 或 repo_name 查询。',
+        parameters: ['repo_id (可选)', 'repo_name (可选)'],
+    },
+    {
+        name: 'search_documents',
+        description: '搜索文档内容。通过关键词在文档标题、文件名、内容中进行匹配搜索。可以限定在特定仓库内搜索，也可以全局搜索。',
+        parameters: ['query (必需)', 'repo_id (可选)'],
+    },
+    {
+        name: 'read_document',
+        description: '读取文档的完整内容（Markdown 格式）。返回文档的全部内容，包含元信息如所属仓库、分支、版本等。',
+        parameters: ['doc_id (必需)'],
+    },
+];
+
+// MCP 配置文件模板
+const getMCPConfig = (baseUrl: string) => ({
+    "mcpServers": {
+        "openDeepWiki": {
+            "url": `${baseUrl}/mcp/sse`,
+            "timeout": 30000
+        }
+    }
+});
+
+export default function MCPPage() {
+    const navigate = useNavigate();
+    const [copied, setCopied] = useState(false);
+    const [baseUrl, setBaseUrl] = useState('');
+
+    useEffect(() => {
+        // 获取当前服务器地址
+        const currentUrl = window.location.origin;
+        setBaseUrl(currentUrl);
+    }, []);
+
+    const mcpConfig = getMCPConfig(baseUrl || 'http://localhost:8080');
+    const configJson = JSON.stringify(mcpConfig, null, 2);
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(configJson);
+            setCopied(true);
+            message.success('配置已复制到剪贴板');
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            message.error('复制失败');
+        }
+    };
+
+    return (
+        <Layout style={{ minHeight: '100vh' }}>
+            <Header style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 24px',
+                background: 'var(--ant-color-bg-container)',
+                borderBottom: '1px solid var(--ant-color-border-secondary)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <Button
+                        type="text"
+                        icon={<ArrowLeftOutlined />}
+                        onClick={() => navigate('/')}
+                        style={{ marginRight: 16 }}
+                    >
+                        返回
+                    </Button>
+                    <ApiOutlined style={{ fontSize: '24px', marginRight: '8px', color: 'var(--ant-color-primary)' }} />
+                    <Title level={4} style={{ margin: 0 }}>MCP 服务</Title>
+                </div>
+                <Space>
+                    <LanguageSwitcher />
+                    <ThemeSwitcher />
+                </Space>
+            </Header>
+
+            <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+                <Alert
+                    message="MCP (Model Context Protocol) 服务"
+                    description="通过 MCP 协议，AI 编程工具（如 Cursor、Claude Code、Windsurf）可以直接查询项目文档，无需手动复制粘贴。"
+                    type="info"
+                    showIcon
+                    icon={<InfoCircleOutlined />}
+                    style={{ marginBottom: 24 }}
+                />
+
+                <Tabs
+                    defaultActiveKey="status"
+                    items={[
+                        {
+                            key: 'status',
+                            label: (
+                                <span>
+                                    <Badge status="success" style={{ marginRight: 8 }} />
+                                    服务状态
+                                </span>
+                            ),
+                            children: (
+                                <Card>
+                                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                        <div>
+                                            <Title level={5}>服务状态</Title>
+                                            <Space>
+                                                <Badge status="success" text="运行中" />
+                                                <Text type="secondary">MCP SSE 端点: {baseUrl}/mcp/sse</Text>
+                                            </Space>
+                                        </div>
+
+                                        <Divider />
+
+                                        <div>
+                                            <Title level={5}>支持的客户端</Title>
+                                            <Space wrap>
+                                                <Tag color="blue">Cursor</Tag>
+                                                <Tag color="purple">Claude Code</Tag>
+                                                <Tag color="cyan">Windsurf</Tag>
+                                                <Tag color="green">Cline</Tag>
+                                                <Tag color="orange">Roo Code</Tag>
+                                            </Space>
+                                        </div>
+
+                                        <Divider />
+
+                                        <div>
+                                            <Title level={5}>端点信息</Title>
+                                            <List
+                                                bordered
+                                                dataSource={[
+                                                    { label: 'SSE 端点', value: `${baseUrl}/mcp/sse` },
+                                                    { label: '消息端点', value: `${baseUrl}/mcp/message` },
+                                                    { label: '协议版本', value: 'MCP 2024-11-05' },
+                                                    { label: '传输方式', value: 'SSE (Server-Sent Events)' },
+                                                ]}
+                                                renderItem={(item) => (
+                                                    <List.Item>
+                                                        <Text strong style={{ width: 120, display: 'inline-block' }}>{item.label}:</Text>
+                                                        <CodeOutlined />
+                                                        <Text code copyable>{item.value}</Text>
+                                                    </List.Item>
+                                                )}
+                                            />
+                                        </div>
+                                    </Space>
+                                </Card>
+                            ),
+                        },
+                        {
+                            key: 'tools',
+                            label: (
+                                <span>
+                                    <ToolOutlined style={{ marginRight: 8 }} />
+                                    可用工具
+                                </span>
+                            ),
+                            children: (
+                                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                    {mcpTools.map((tool) => (
+                                        <Card key={tool.name} size="small">
+                                            <Space direction="vertical" style={{ width: '100%' }}>
+                                                <Space>
+                                                    <ToolOutlined style={{ color: 'var(--ant-color-primary)' }} />
+                                                    <Text strong style={{ fontSize: 16 }}>{tool.name}</Text>
+                                                    {tool.parameters.length > 0 ? (
+                                                        <Tag style={{ fontSize: 12 }}>{tool.parameters.length} 个参数</Tag>
+                                                    ) : (
+                                                        <Tag style={{ fontSize: 12 }} color="green">无需参数</Tag>
+                                                    )}
+                                                </Space>
+                                                <Paragraph style={{ margin: 0, color: 'var(--ant-color-text-secondary)' }}>
+                                                    {tool.description}
+                                                </Paragraph>
+                                                {tool.parameters.length > 0 && (
+                                                    <div>
+                                                        <Text type="secondary" style={{ fontSize: 12 }}>参数:</Text>
+                                                        <Space wrap style={{ marginLeft: 8 }}>
+                                                            {tool.parameters.map((param) => (
+                                                                <Tag key={param} style={{ fontSize: 12 }} color="blue">{param}</Tag>
+                                                            ))}
+                                                        </Space>
+                                                    </div>
+                                                )}
+                                            </Space>
+                                        </Card>
+                                    ))}
+                                </Space>
+                            ),
+                        },
+                        {
+                            key: 'config',
+                            label: (
+                                <span>
+                                    <SettingOutlined style={{ marginRight: 8 }} />
+                                    配置指南
+                                </span>
+                            ),
+                            children: (
+                                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                    <Card
+                                        title={
+                                            <Space>
+                                                <CodeOutlined />
+                                                MCP 配置文件
+                                            </Space>
+                                        }
+                                        extra={
+                                            <Button
+                                                type="primary"
+                                                icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+                                                onClick={handleCopy}
+                                                size="small"
+                                            >
+                                                {copied ? '已复制' : '复制配置'}
+                                            </Button>
+                                        }
+                                    >
+                                        <pre style={{
+                                            background: 'var(--ant-color-bg-layout)',
+                                            padding: 16,
+                                            borderRadius: 8,
+                                            overflow: 'auto',
+                                            fontSize: 13,
+                                            lineHeight: 1.6
+                                        }}>
+                                            <code>{configJson}</code>
+                                        </pre>
+                                    </Card>
+
+                                    <Card
+                                        title={
+                                            <Space>
+                                                <LinkOutlined />
+                                                客户端配置说明
+                                            </Space>
+                                        }
+                                    >
+                                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                            <div>
+                                                <Title level={5}>1. Cursor 配置</Title>
+                                                <Paragraph>
+                                                    打开 Cursor Settings → MCP，点击 "Add New MCP Server"，
+                                                    选择 SSE 类型，填入 URL: <Text code>{baseUrl}/mcp/sse</Text>
+                                                </Paragraph>
+                                            </div>
+
+                                            <Divider />
+
+                                            <div>
+                                                <Title level={5}>2. Claude Code 配置</Title>
+                                                <Paragraph>
+                                                    Claude Code 会自动检测 MCP 配置。在配置文件中添加以上内容后，
+                                                    重启 Claude Code 即可使用。
+                                                </Paragraph>
+                                            </div>
+
+                                            <Divider />
+
+                                            <div>
+                                                <Title level={5}>3. Windsurf 配置</Title>
+                                                <Paragraph>
+                                                    打开 Windsurf Settings → AI → MCP，
+                                                    添加新的 MCP Server，填入 SSE URL: <Text code>{baseUrl}/mcp/sse</Text>
+                                                </Paragraph>
+                                            </div>
+
+                                            <Divider />
+
+                                            <div>
+                                                <Title level={5}>4. 其他支持 MCP 的客户端</Title>
+                                                <Paragraph>
+                                                    大多数支持 MCP 协议的客户端都可以通过配置文件或界面配置。
+                                                    请参考各自客户端的 MCP 配置文档。
+                                                </Paragraph>
+                                            </div>
+                                        </Space>
+                                    </Card>
+                                </Space>
+                            ),
+                        },
+                    ]}
+                />
+            </Content>
+        </Layout>
+    );
+}

@@ -13,7 +13,8 @@ import {
     CheckCircleOutlined,
     LoadingOutlined,
     WarningOutlined,
-    FolderOutlined
+    FolderOutlined,
+    ApiOutlined
 } from '@ant-design/icons';
 import { Button, Input, Card, Modal, List, Tag, Spin, Layout, Typography, Space, Empty, Grid, message } from 'antd';
 import type { Repository } from '../types';
@@ -121,6 +122,7 @@ export default function Home() {
                         <LanguageSwitcher />
                         <ThemeSwitcher />
                         <Button type="text" icon={<SyncOutlined />} onClick={() => navigate('/sync')} title={t('sync.title')} />
+                        <Button type="text" icon={<ApiOutlined />} onClick={() => navigate('/mcp')} title="MCP 服务" />
                         <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/settings')} />
                     </Space>
                 </Header>

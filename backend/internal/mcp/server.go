@@ -26,7 +26,6 @@ func NewMCPServer(repoSvc *service.RepositoryService, docSvc *service.DocumentSe
 	s := server.NewMCPServer(
 		"openDeepWiki",
 		"1.0.0",
-		server.WithToolCapabilities(false),
 		server.WithRecovery(),
 	)
 
@@ -46,6 +45,11 @@ func NewMCPServer(repoSvc *service.RepositoryService, docSvc *service.DocumentSe
 // GetServer 返回底层的 mcp-go Server
 func (w *MCPServerWrapper) GetServer() *server.MCPServer {
 	return w.server
+}
+
+// logMCPActivity 记录 MCP 活动日志
+func logMCPActivity(format string, args ...interface{}) {
+	klog.V(6).Infof("[MCP] "+format, args...)
 }
 
 // registerTools 注册所有 MCP 工具

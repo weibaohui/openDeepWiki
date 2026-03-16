@@ -204,7 +204,8 @@ func main() {
 	klog.V(6).Info("MCP Server 已初始化")
 
 	// 创建 SSE Server 实例并复用（避免每次请求创建新实例）
-	sseServer := server.NewSSEServer(mcpServer.GetServer())
+	// 配置 basePath 为 /mcp，使 SSE Server 正确处理 /mcp/sse 和 /mcp/message 路径
+	sseServer := server.NewSSEServer(mcpServer.GetServer(), server.WithStaticBasePath("/mcp"))
 
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
 	cleanupStuckTasks(taskService)
