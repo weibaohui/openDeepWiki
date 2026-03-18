@@ -16,8 +16,17 @@ import (
 //go:embed all:agents/*.yaml
 var agentsFS embed.FS
 
-// ExtractAgents 将内嵌的 agents 文件释放到指定目录
-// 如果目标目录已存在且有文件，不会覆盖现有文件
+// ExtractAgents 将内嵌的 agents 文件释放到指定目录。
+//
+// 参数:
+//   - targetDir: 目标目录路径
+//
+// 返回:
+//   - 错误信息（如果有）
+//
+// 说明:
+//   - 如果目标目录已存在且有文件，不会覆盖现有文件
+//   - 仅释放不存在的文件，保护用户自定义配置
 func ExtractAgents(targetDir string) error {
 	// 确保目标目录存在
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
@@ -73,7 +82,15 @@ func ExtractAgents(targetDir string) error {
 	return nil
 }
 
-// ListEmbeddedAgents 列出内嵌的 agents 文件
+// ListEmbeddedAgents 列出所有内嵌的 agents 文件名。
+//
+// 返回:
+//   - 文件名列表
+//   - 错误信息（如果有）
+//
+// 说明:
+//   - 仅返回 .yaml 后缀的文件
+//   - 返回的是文件名（不含路径）
 func ListEmbeddedAgents() ([]string, error) {
 	var files []string
 
