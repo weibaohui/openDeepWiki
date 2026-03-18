@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/weibaohui/opendeepwiki/backend/config"
+	"github.com/weibaohui/opendeepwiki/backend/internal/assets"
 	"github.com/weibaohui/opendeepwiki/backend/internal/domain/writers"
 	"github.com/weibaohui/opendeepwiki/backend/internal/eventbus"
 	"github.com/weibaohui/opendeepwiki/backend/internal/handler"
@@ -41,6 +42,16 @@ func main() {
 	}
 	if err := os.MkdirAll(cfg.Data.RepoDir, 0755); err != nil {
 		log.Fatalf("Failed to create repo directory: %v", err)
+	}
+
+	// 释放内嵌的默认 agents 文件（如果不存在）
+	if err := assets.ExtractAgents(cfg.Agent.Dir); err != nil {
+		log.Fatalf("Failed to extract embedded agents: %v", err)
+	}
+
+	// 创建 skills 目录（如果不存在）
+	if err := os.MkdirAll(cfg.Skill.Dir, 0755); err != nil {
+		log.Fatalf("Failed to create skills directory: %v", err)
 	}
 
 	// 初始化数据库

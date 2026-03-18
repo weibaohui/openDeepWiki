@@ -33,7 +33,7 @@ build-linux-cross:
 		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.GitTag=$(GIT_TAG) -X main.GitRepo=$(GIT_REPOSITORY)" -o "$$OUTPUT_FILE" ./cmd/server/; \
 	done
 
-build-linux: build-frontend prepare-embed build-linux-cross cleanup-embed
+build-linux: build-frontend prepare-embed prepare-embed-agents build-linux-cross cleanup-embed cleanup-embed-agents
 
 # 为所有指定平台和架构构建可执行文件（Linux + Windows + macOS）
 .PHONY: build-all-cross
@@ -52,11 +52,11 @@ build-all-cross:
 	done
 
 # Build all platforms with embedded frontend
-build-all: build-frontend prepare-embed build-all-cross cleanup-embed
+build-all: build-frontend prepare-embed prepare-embed-agents build-all-cross cleanup-embed cleanup-embed-agents
 	@echo "所有平台构建完成！"
 
-# Build backend with embedded frontend
-build-backend:
+# Build backend with embedded frontend and agents
+build-backend: prepare-embed-agents
 	@echo "Building backend with embedded frontend..."
 	@echo "构建当前平台可执行文件..."
 	@mkdir -p backend/bin
@@ -76,8 +76,16 @@ prepare-embed:
 	@cp -r frontend/dist/* backend/internal/embed/ui/dist/
 	@echo "Frontend files copied to backend/internal/embed/ui/dist/"
 
+# Prepare agents embed directory (copy agents to backend internal assets)
+prepare-embed-agents:
+	@echo "Preparing agents embed directory..."
+	@mkdir -p backend/internal/assets/agents
+	@rm -rf backend/internal/assets/agents/*
+	@cp -r backend/agents/*.yaml backend/internal/assets/agents/
+	@echo "Agents files copied to backend/internal/assets/agents/"
+
 # Build all (build frontend, prepare embed, build backend, cleanup)
-build: build-frontend prepare-embed build-backend cleanup-embed
+build: build-frontend prepare-embed prepare-embed-agents build-backend cleanup-embed cleanup-embed-agents
 
 # Cleanup embed directory after build
 cleanup-embed:
@@ -85,6 +93,12 @@ cleanup-embed:
 	@rm -rf backend/internal/embed/ui/dist/*
 	@touch backend/internal/embed/ui/dist/.keep
 	@echo "Embed directory cleaned"
+
+# Cleanup agents embed directory after build
+cleanup-embed-agents:
+	@echo "Cleaning up agents embed directory..."
+	@rm -rf backend/internal/assets/agents/*.yaml
+	@echo "Agents embed directory cleaned"
 
 # Run backend
 run-backend:
@@ -115,6 +129,7 @@ clean:
 	rm -rf backend/bin
 	rm -rf backend/tmp
 	rm -rf backend/internal/embed/ui/dist
+	rm -rf backend/internal/assets/agents/*.yaml
 	rm -rf frontend/dist
 
 # Setup - install dependencies
