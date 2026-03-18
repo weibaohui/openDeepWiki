@@ -208,6 +208,17 @@ make build
 make run-backend
 ```
 
+### 使用预编译二进制（无需源码）
+
+从 [GitHub Releases](https://github.com/weibaohui/openDeepWiki/releases) 下载对应平台的二进制文件：
+
+```bash
+# 下载后解压运行（自动释放默认 agents）
+./opendeepwiki
+```
+
+**说明：** 从 v0.x 版本开始，agents 文件夹已内嵌到二进制中，首次运行会自动释放到 `./agents` 目录。如需自定义 agent，可直接修改该目录下的 YAML 文件。
+
 ### 访问地址
 
 - 前端页面：http://localhost:5173
