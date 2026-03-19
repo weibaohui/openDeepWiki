@@ -100,6 +100,7 @@ interface MarkdownRenderProps {
   content: string;
   className?: string;
   style?: React.CSSProperties;
+  docId?: number;
 }
 
 /**
@@ -161,17 +162,70 @@ const CustomCode: React.FC<ComponentProps> = (props) => {
   return <CodeHighlighter lang={lang}>{children}</CodeHighlighter>;
 };
 
-const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, style }) => {
+// CustomLink 组件的 props 接口
+interface CustomLinkProps extends ComponentProps {
+  href?: string;
+  children?: React.ReactNode;
+  docId?: number;
+}
+
+/**
+ * 自定义链接组件，处理相对路径链接的跳转
+ * 通过 onClick 调用后端重定向接口，浏览器自动处理 302 跳转到真实源码地址
+ */
+const CustomLink: React.FC<CustomLinkProps> = ({ href, children, docId, ...props }) => {
+  // 判断是否为相对路径链接（需要重定向的链接）
+  const isRelativeLink = href &&
+    !href.startsWith('http') &&
+    !href.startsWith('mailto:') &&
+    !href.startsWith('/') &&
+    !href.startsWith('#');
+
+  // 处理点击事件，直接打开后端重定向接口，浏览器会自动跟随 302 跳转
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isRelativeLink && docId) {
+      e.preventDefault();
+      // 直接打开后端重定向接口，后端返回 302 跳转到真实的 GitHub/GitLab URL
+      const redirectUrl = `/api/doc/${docId}/redirect?path=${encodeURIComponent(href)}`;
+      window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  // 判断是否为外部链接
+  const isExternal = href && (href.startsWith('http') || href.startsWith('mailto:'));
+
+  return (
+    <a
+      href={href}
+      onClick={handleClick}
+      target={isExternal ? '_blank' : undefined}
+      rel={isExternal ? 'noopener noreferrer' : undefined}
+      {...props}
+    >
+      {children}
+    </a>
+  );
+};
+
+// 创建一个工厂函数来生成带有 docId 的 CustomLink
+const createCustomLink = (docId?: number) => {
+  return (props: ComponentProps) => <CustomLink {...props} docId={docId} />;
+};
+
+const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, style, docId }) => {
   const { themeMode } = useAppConfig();
   const { styles } = useStyles();
 
   const themeClassName = themeMode === 'dark' ? 'x-markdown-dark' : 'x-markdown-light';
 
   return (
-    <div className={`${themeClassName} ${styles.markdownWrapper} ${className || ''}`} style={style}>
+    <div
+      className={`${themeClassName} ${styles.markdownWrapper} ${className || ''}`}
+      style={style}
+    >
       <XMarkdown
         config={{ extensions: Latex() }}
-        components={{ code: CustomCode }}
+        components={{ code: CustomCode, a: createCustomLink(docId) }}
         paragraphTag="div"
       >
         {content}

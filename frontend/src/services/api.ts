@@ -66,6 +66,10 @@ export const documentApi = {
     getIndex: (repoId: number) => api.get<{ content: string }>(`/repositories/${repoId}/documents/index`),
     export: (repoId: number) => api.get(`/repositories/${repoId}/documents/export`, { responseType: 'blob' }),
     exportPdf: (repoId: number) => api.get(`/repositories/${repoId}/export-pdf`, { responseType: 'blob' }),
+    // 获取源代码跳转 URL
+    getRedirectUrl: (docId: number, filePath: string) => api.get<string>(`/doc/${docId}/redirect`, {
+        params: { path: filePath }
+    }),
 };
 
 

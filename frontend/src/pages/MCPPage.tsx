@@ -35,22 +35,27 @@ const { Title, Text, Paragraph } = Typography;
 const mcpTools = [
     {
         name: 'list_repositories',
-        description: '列出所有可用的代码仓库。返回仓库列表，包含名称、URL、状态、文档数量等信息。',
-        parameters: [] as string[],
+        description: '列出所有可用的代码仓库。返回仓库列表，包含名称、URL、状态、文档数量等信息。支持分页和状态过滤。',
+        parameters: ['limit (可选, 默认20)', 'offset (可选)', 'status (可选)'],
     },
     {
         name: 'get_repository',
-        description: '获取仓库详情，包含该仓库下的所有文档列表。可以通过 repo_id 或 repo_name 查询。',
-        parameters: ['repo_id (可选)', 'repo_name (可选)'],
+        description: '获取仓库详情，包含该仓库下的所有文档列表。优先使用 repo_id 查询，如不知道 ID 可使用 repo_name。',
+        parameters: ['repo_id (优先使用)', 'repo_name (备选)', 'include_content (可选, 默认false)'],
     },
     {
         name: 'search_documents',
-        description: '搜索文档内容。通过关键词在文档标题、文件名、内容中进行匹配搜索。可以限定在特定仓库内搜索，也可以全局搜索。',
-        parameters: ['query (必需)', 'repo_id (可选)'],
+        description: '搜索文档内容。通过关键词在文档标题、文件名、内容中进行匹配搜索。支持分页和类型过滤。',
+        parameters: ['query (必需)', 'repo_id (可选)', 'limit (可选, 默认10)', 'doc_type (可选)'],
     },
     {
         name: 'read_document',
         description: '读取文档的完整内容（Markdown 格式）。返回文档的全部内容，包含元信息如所属仓库、分支、版本等。',
+        parameters: ['doc_id (必需)'],
+    },
+    {
+        name: 'get_document_summary',
+        description: '获取文档摘要（前 500 字），用于快速判断文档相关性。如需要完整内容，请使用 read_document。',
         parameters: ['doc_id (必需)'],
     },
 ];
