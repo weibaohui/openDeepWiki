@@ -898,7 +898,7 @@ export default function DocViewer() {
                             <Card variant="borderless" style={{ background: 'var(--ant-color-bg-container)' }}>
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MarkdownRender content={document?.content || ''} />
+                                    <MarkdownRender content={document?.content || ''} docId={docId ? Number(docId) : undefined} />
                                     {rateInfo}
                                     {tokenUsageInfo}
                                     {repoInfoInfo}
