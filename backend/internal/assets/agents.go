@@ -13,7 +13,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-//go:embed all:agents/*.yaml
+//go:embed all:agents/*
 var agentsFS embed.FS
 
 // ExtractAgents 将内嵌的 agents 文件释放到指定目录。
