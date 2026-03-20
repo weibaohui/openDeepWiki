@@ -50,8 +50,7 @@ import {
     Rate,
     Modal,
     Input,
-    Tree,
-    Tabs
+    Tree
 } from 'antd';
 import type { MenuProps, TreeProps } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
@@ -476,7 +475,7 @@ export default function DocViewer() {
     }, [document?.content, isIndexView]);
     const hasToc = tocHeadings.length > 0;
     // 右侧面板：有目录或有引用文件树时显示
-    const showRightPanel = !isIndexView && (hasToc || hasReferenceTree) && !copilotOpen;
+
 
     const handleReferenceTreeSelect: TreeProps<ReferenceTreeNode>['onSelect'] = (_selectedKeys, info) => {
         if (!docId) return;
@@ -901,7 +900,8 @@ export default function DocViewer() {
                         )}
                     </Header>
                     <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
-                        <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto' }}>
+                        {/* 当目录悬浮显示时，给内容区留出右侧空间，避免 fixed TOC 遮挡文档 */}
+                        <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto', paddingRight: (hasToc && !isIndexView && !copilotOpen && screens.xl) ? 244 : undefined }}>
                             {isIndexView ? (
                                 <>
                                     <Card>
@@ -1027,6 +1027,7 @@ export default function DocViewer() {
                                     {repoInfoInfo}
                                 </div>
                             ) : (
+                                <>
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexDirection: screens.xl ? 'row' : 'column' }}>
                                     <Card
                                         variant="borderless"
@@ -1040,58 +1041,58 @@ export default function DocViewer() {
                                             {repoInfoInfo}
                                         </div>
                                     </Card>
-                                    {showRightPanel && screens.xl && (
-                                        <div style={{
-                                            width: 260,
-                                            flexShrink: 0,
-                                            // 吸顶漂浮：始终跟随视口，不随文档滚动消失
-                                            position: 'sticky',
-                                            top: 0,
-                                            // 限制为视口高度，防止超长目录撑破容器导致 sticky 失效
-                                            height: '100vh',
-                                            overflowY: 'auto',
-                                        }}>
-                                            <Card
-                                                size="small"
-                                                style={{
-                                                    background: 'var(--ant-color-bg-container)',
-                                                    margin: '12px 0',
-                                                }}
-                                                styles={{ body: { padding: '0 8px 8px' } }}
-                                            >
-                                                <Tabs
-                                                    size="small"
-                                                    defaultActiveKey="toc"
-                                                    items={[
-                                                        ...(hasToc ? [{
-                                                            key: 'toc',
-                                                            label: t('document.toc', '目录'),
-                                                            children: <DocToc headings={tocHeadings} />,
-                                                        }] : []),
-                                                        ...(hasReferenceTree ? [{
-                                                            key: 'refs',
-                                                            label: t('document.reference_files', '引用文件'),
-                                                            children: (
-                                                                <>
-                                                                    <div style={{ marginBottom: 8, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-                                                                        {t('document.source_label', '来源')}
-                                                                    </div>
-                                                                    <Tree
-                                                                        treeData={referenceTreeData}
-                                                                        showIcon
-                                                                        defaultExpandAll
-                                                                        selectable
-                                                                        onSelect={handleReferenceTreeSelect}
-                                                                    />
-                                                                </>
-                                                            ),
-                                                        }] : []),
-                                                    ]}
+                                    {/* 引用文件树：保持在文档流右侧 */}
+                                    {!isIndexView && hasReferenceTree && !copilotOpen && screens.xl && (
+                                        <Card
+                                            title={t('document.reference_files', '引用文件')}
+                                            size="small"
+                                            style={{
+                                                width: 260,
+                                                flexShrink: 0,
+                                                background: 'var(--ant-color-bg-container)',
+                                                position: 'sticky',
+                                                top: 12,
+                                            }}
+                                        >
+                                            <div style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+                                                <div style={{ marginBottom: 8, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
+                                                    {t('document.source_label', '来源')}
+                                                </div>
+                                                <Tree
+                                                    treeData={referenceTreeData}
+                                                    showIcon
+                                                    defaultExpandAll
+                                                    selectable
+                                                    onSelect={handleReferenceTreeSelect}
                                                 />
-                                            </Card>
-                                        </div>
+                                            </div>
+                                        </Card>
                                     )}
                                 </div>
+
+                                {/* 目录（TOC）：position:fixed 悬浮在视口右侧，不随内容滚动消失 */}
+                                {hasToc && !copilotOpen && screens.xl && (
+                                    <div style={{
+                                        position: 'fixed',
+                                        top: 200,
+                                        right: 24,
+                                        width: 220,
+                                        maxHeight: 'calc(100vh - 224px)',
+                                        overflowY: 'auto',
+                                        zIndex: 10,
+                                        background: 'var(--ant-color-bg-container)',
+                                        border: '1px solid var(--ant-color-border-secondary)',
+                                        borderRadius: 8,
+                                        padding: '8px 0',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                    }}>
+                                        <div style={{ padding: '0 12px 6px', fontSize: '12px', fontWeight: 600, color: 'var(--ant-color-text-secondary)', borderBottom: '1px solid var(--ant-color-border-secondary)', marginBottom: 4 }}>
+                                            {t('document.toc', '目录')}
+                                        </div>
+                                        <DocToc headings={tocHeadings} />
+                                    </div>
+                                )}
+                                </>
                             )}
                         </div>
                     </Content>
