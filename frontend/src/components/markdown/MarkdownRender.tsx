@@ -4,6 +4,7 @@ import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown';
 import Latex from '@ant-design/x-markdown/plugins/Latex';
 import { createStyles } from 'antd-style';
 import { useAppConfig } from '@/context/AppConfigContext';
+import { slugify } from '@/components/DocToc';
 import '@ant-design/x-markdown/themes/light.css';
 import '@ant-design/x-markdown/themes/dark.css';
 
@@ -212,6 +213,24 @@ const createCustomLink = (docId?: number) => {
   return (props: ComponentProps) => <CustomLink {...props} docId={docId} />;
 };
 
+/**
+ * 为标题元素添加 id 锚点，供目录（TOC）跳转使用。
+ * 使用与 parseHeadings 相同的 slugify 规则，保证 id 一致性。
+ */
+const createHeadingComponent = (tag: 'h1' | 'h2' | 'h3') => {
+  return ({ children, ...props }: ComponentProps) => {
+    const text = typeof children === 'string' ? children : '';
+    const id = slugify(text) || 'heading';
+    return React.createElement(tag, { id, ...props }, children);
+  };
+};
+
+const headingComponents = {
+  h1: createHeadingComponent('h1'),
+  h2: createHeadingComponent('h2'),
+  h3: createHeadingComponent('h3'),
+};
+
 const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, style, docId }) => {
   const { themeMode } = useAppConfig();
   const { styles } = useStyles();
@@ -225,7 +244,7 @@ const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, sty
     >
       <XMarkdown
         config={{ extensions: Latex() }}
-        components={{ code: CustomCode, a: createCustomLink(docId) }}
+        components={{ code: CustomCode, a: createCustomLink(docId), ...headingComponents }}
         paragraphTag="div"
       >
         {content}
