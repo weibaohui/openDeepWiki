@@ -1073,8 +1073,9 @@ export default function DocViewer() {
                                         >
                                             <div
                                                 style={{
-                                                    maxHeight: referenceTreeCollapsed ? 0 : 'none',
-                                                    overflow: 'hidden',
+                                                    maxHeight: referenceTreeCollapsed ? 0 : (screens.xl ? 'calc(100vh - 220px)' : 420),
+                                                    overflowX: 'hidden',
+                                                    overflowY: referenceTreeCollapsed ? 'hidden' : 'auto',
                                                     transition: 'max-height 0.25s ease'
                                                 }}
                                             >
