@@ -288,7 +288,11 @@
         "token_model": "使用模型",
         "repo_info": "仓库信息",
         "repo_branch": "分支",
-        "repo_commit": "提交"
+        "repo_commit": "提交",
+        "reference_files": "引用文件",
+        "source_label": "来源",
+        "reference_tree_expand": "展开引用文件",
+        "reference_tree_collapse": "折叠引用文件"
     },
     "banner": {
         "title": "本项目为开源项目",

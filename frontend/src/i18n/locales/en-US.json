@@ -286,7 +286,11 @@
         "token_model": "Model Used",
         "repo_info": "Repository Info",
         "repo_branch": "Branch",
-        "repo_commit": "Commit"
+        "repo_commit": "Commit",
+        "reference_files": "Referenced Files",
+        "source_label": "Source",
+        "reference_tree_expand": "Expand Referenced Files",
+        "reference_tree_collapse": "Collapse Referenced Files"
     },
     "banner": {
         "title": "This is an open source project",
