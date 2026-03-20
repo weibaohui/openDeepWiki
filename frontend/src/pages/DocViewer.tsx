@@ -901,7 +901,7 @@ export default function DocViewer() {
                     </Header>
                     <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
                         {/* 当目录悬浮显示时，给内容区留出右侧空间，避免 fixed TOC 遮挡文档 */}
-                        <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto', paddingRight: (hasToc && !isIndexView && !copilotOpen && screens.xl) ? 244 : undefined }}>
+                        <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto', paddingRight: ((hasToc || hasReferenceTree) && !isIndexView && !copilotOpen && screens.xl) ? 244 : undefined }}>
                             {isIndexView ? (
                                 <>
                                     <Card>
@@ -1028,7 +1028,7 @@ export default function DocViewer() {
                                 </div>
                             ) : (
                                 <>
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexDirection: screens.xl ? 'row' : 'column' }}>
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                                     <Card
                                         variant="borderless"
                                         style={{ background: 'var(--ant-color-bg-container)', flex: 1, width: '100%', minWidth: 0 }}
@@ -1041,37 +1041,10 @@ export default function DocViewer() {
                                             {repoInfoInfo}
                                         </div>
                                     </Card>
-                                    {/* 引用文件树：保持在文档流右侧 */}
-                                    {!isIndexView && hasReferenceTree && !copilotOpen && screens.xl && (
-                                        <Card
-                                            title={t('document.reference_files', '引用文件')}
-                                            size="small"
-                                            style={{
-                                                width: 260,
-                                                flexShrink: 0,
-                                                background: 'var(--ant-color-bg-container)',
-                                                position: 'sticky',
-                                                top: 12,
-                                            }}
-                                        >
-                                            <div style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
-                                                <div style={{ marginBottom: 8, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-                                                    {t('document.source_label', '来源')}
-                                                </div>
-                                                <Tree
-                                                    treeData={referenceTreeData}
-                                                    showIcon
-                                                    defaultExpandAll
-                                                    selectable
-                                                    onSelect={handleReferenceTreeSelect}
-                                                />
-                                            </div>
-                                        </Card>
-                                    )}
                                 </div>
 
-                                {/* 目录（TOC）：position:fixed 悬浮在视口右侧，不随内容滚动消失 */}
-                                {hasToc && !copilotOpen && screens.xl && (
+                                {/* 右侧浮动面板：目录 + 引用文件，position:fixed 悬浮在视口右侧，不随内容滚动消失 */}
+                                {(hasToc || hasReferenceTree) && !copilotOpen && screens.xl && (
                                     <div style={{
                                         position: 'fixed',
                                         top: 200,
@@ -1086,10 +1059,32 @@ export default function DocViewer() {
                                         padding: '8px 0',
                                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                                     }}>
-                                        <div style={{ padding: '0 12px 6px', fontSize: '12px', fontWeight: 600, color: 'var(--ant-color-text-secondary)', borderBottom: '1px solid var(--ant-color-border-secondary)', marginBottom: 4 }}>
-                                            {t('document.toc', '目录')}
-                                        </div>
-                                        <DocToc headings={tocHeadings} />
+                                        {/* 目录 */}
+                                        {hasToc && (
+                                            <>
+                                                <div style={{ padding: '0 12px 6px', fontSize: '12px', fontWeight: 600, color: 'var(--ant-color-text-secondary)', borderBottom: '1px solid var(--ant-color-border-secondary)', marginBottom: 4 }}>
+                                                    {t('document.toc', '目录')}
+                                                </div>
+                                                <DocToc headings={tocHeadings} />
+                                            </>
+                                        )}
+                                        {/* 引用文件树：紧接目录下方 */}
+                                        {hasReferenceTree && (
+                                            <>
+                                                <div style={{ padding: hasToc ? '8px 12px 6px' : '0 12px 6px', fontSize: '12px', fontWeight: 600, color: 'var(--ant-color-text-secondary)', borderTop: hasToc ? '1px solid var(--ant-color-border-secondary)' : undefined, borderBottom: '1px solid var(--ant-color-border-secondary)', marginBottom: 4 }}>
+                                                    {t('document.reference_files', '引用文件')}
+                                                </div>
+                                                <div style={{ padding: '0 8px' }}>
+                                                    <Tree
+                                                        treeData={referenceTreeData}
+                                                        showIcon
+                                                        defaultExpandAll
+                                                        selectable
+                                                        onSelect={handleReferenceTreeSelect}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                                 </>
