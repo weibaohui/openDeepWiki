@@ -1047,10 +1047,10 @@ export default function DocViewer() {
                                 {(hasToc || hasReferenceTree) && !copilotOpen && screens.xl && (
                                     <div style={{
                                         position: 'fixed',
-                                        top: 200,
+                                        top: 76,  // Header(52px) + Content padding(24px)
                                         right: 24,
                                         width: 220,
-                                        maxHeight: 'calc(100vh - 224px)',
+                                        maxHeight: 'calc(100vh - 100px)',
                                         overflowY: 'auto',
                                         zIndex: 10,
                                         background: 'var(--ant-color-bg-container)',
