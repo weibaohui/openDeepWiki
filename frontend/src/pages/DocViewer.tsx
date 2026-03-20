@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeftOutlined,
@@ -25,7 +25,11 @@ import {
     CodeOutlined,
     RobotFilled,
     MoreOutlined,
-    MessageOutlined
+    MessageOutlined,
+    FolderOutlined,
+    FileOutlined,
+    RightOutlined,
+    DownOutlined
 } from '@ant-design/icons';
 
 import {
@@ -47,9 +51,10 @@ import {
     Tag,
     Rate,
     Modal,
-    Input
+    Input,
+    Tree
 } from 'antd';
-import type { MenuProps } from 'antd';
+import type { MenuProps, TreeProps } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownRender from '@/components/markdown/MarkdownRender';
 import DocCopilot from './DocCopilot';
@@ -62,6 +67,109 @@ const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 const statusOrder = ['pending', 'queued', 'running', 'succeeded', 'completed', 'failed', 'canceled'] as const;
 type TaskStatus = Task['status'];
+
+interface ReferenceTreeNode {
+    key: string;
+    title: string;
+    children?: ReferenceTreeNode[];
+    isLeaf?: boolean;
+    sourcePath?: string;
+    icon?: ReactNode;
+}
+
+const isRelativeSourceLink = (href: string): boolean => {
+    const normalized = href.trim().toLowerCase();
+    if (!normalized) return false;
+    return !normalized.startsWith('http://')
+        && !normalized.startsWith('https://')
+        && !normalized.startsWith('mailto:')
+        && !normalized.startsWith('/')
+        && !normalized.startsWith('#');
+};
+
+const extractReferenceLinks = (markdown: string): { normalizedPath: string; rawPath: string }[] => {
+    const markdownLinkRegex = /\[[^\]]+\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    const uniquePathMap = new Map<string, string>();
+    let match: RegExpExecArray | null = markdownLinkRegex.exec(markdown);
+    while (match) {
+        const rawPath = match[1]?.trim() || '';
+        if (isRelativeSourceLink(rawPath)) {
+            const normalizedPath = rawPath.split('#')[0].split('?')[0].replace(/^\.?\//, '').trim();
+            if (normalizedPath) {
+                uniquePathMap.set(normalizedPath, rawPath);
+            }
+        }
+        match = markdownLinkRegex.exec(markdown);
+    }
+    return Array.from(uniquePathMap.entries())
+        .map(([normalizedPath, rawPath]) => ({ normalizedPath, rawPath }))
+        .sort((a, b) => a.normalizedPath.localeCompare(b.normalizedPath));
+};
+
+const buildReferenceTreeData = (links: { normalizedPath: string; rawPath: string }[]): ReferenceTreeNode[] => {
+    interface TreeBuilderNode {
+        key: string;
+        name: string;
+        children: Map<string, TreeBuilderNode>;
+        sourcePath?: string;
+    }
+    const root: TreeBuilderNode = {
+        key: 'root',
+        name: 'root',
+        children: new Map<string, TreeBuilderNode>(),
+    };
+
+    links.forEach(({ normalizedPath, rawPath }) => {
+        const segments = normalizedPath.split('/').filter(Boolean);
+        let current = root;
+        let currentPath = '';
+        segments.forEach((segment, index) => {
+            currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+            const existing = current.children.get(segment);
+            if (existing) {
+                current = existing;
+                if (index === segments.length - 1) {
+                    current.sourcePath = rawPath;
+                }
+                return;
+            }
+            const nextNode: TreeBuilderNode = {
+                key: currentPath,
+                name: segment,
+                children: new Map<string, TreeBuilderNode>(),
+                sourcePath: index === segments.length - 1 ? rawPath : undefined,
+            };
+            current.children.set(segment, nextNode);
+            current = nextNode;
+        });
+    });
+
+    const toTreeData = (node: TreeBuilderNode): ReferenceTreeNode[] => {
+        const children = Array.from(node.children.values()).sort((a, b) => {
+            const aIsLeaf = a.children.size === 0;
+            const bIsLeaf = b.children.size === 0;
+            if (aIsLeaf !== bIsLeaf) {
+                return aIsLeaf ? 1 : -1;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        return children.map((child) => {
+            const nestedChildren = toTreeData(child);
+            const isLeaf = nestedChildren.length === 0;
+            return {
+                key: child.key,
+                title: child.name,
+                children: nestedChildren.length > 0 ? nestedChildren : undefined,
+                isLeaf,
+                sourcePath: child.sourcePath,
+                icon: isLeaf ? <FileOutlined /> : <FolderOutlined />,
+            };
+        });
+    };
+
+    return toTreeData(root);
+};
 
 export default function DocViewer() {
     const { t, themeMode } = useAppConfig();
@@ -91,6 +199,12 @@ export default function DocViewer() {
     // AI助手开关状态 - 默认关闭
     const [copilotOpen, setCopilotOpen] = useState(false);
     const [copilotExpanded, setCopilotExpanded] = useState(false);
+    // 引用文件树折叠状态 - 默认折叠（仅在xl及以上屏幕展开）
+    const [referenceTreeCollapsed, setReferenceTreeCollapsed] = useState(!screens.xl);
+    // 切换引用文件树折叠状态
+    const toggleReferenceTree = useCallback(() => {
+        setReferenceTreeCollapsed(prev => !prev);
+    }, []);
 
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
@@ -114,6 +228,18 @@ export default function DocViewer() {
             return date.toLocaleDateString();
         }
     };
+
+    // 监听断点变化，当从xl缩小到lg以下时，自动折叠引用文件树
+    useEffect(() => {
+        if (!screens.xl && !referenceTreeCollapsed) {
+            setReferenceTreeCollapsed(true);
+        }
+    }, [screens.xl]);
+
+    // 切换文档时，根据屏幕尺寸重置引用文件树折叠状态
+    useEffect(() => {
+        setReferenceTreeCollapsed(!screens.xl);
+    }, [screens.xl, docId]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -353,6 +479,22 @@ export default function DocViewer() {
             return new Date(doc.updated_at) > new Date(latest.updated_at) ? doc : latest;
         });
     }, [documents]);
+    const referenceLinks = useMemo(() => {
+        if (!document?.content) return [];
+        return extractReferenceLinks(document.content);
+    }, [document?.content]);
+    const referenceTreeData = useMemo(() => {
+        return buildReferenceTreeData(referenceLinks);
+    }, [referenceLinks]);
+    const hasReferenceTree = referenceTreeData.length > 0;
+
+    const handleReferenceTreeSelect: TreeProps<ReferenceTreeNode>['onSelect'] = (_selectedKeys, info) => {
+        if (!docId) return;
+        const selectedNode = info.node as ReferenceTreeNode;
+        if (!selectedNode.isLeaf || !selectedNode.sourcePath) return;
+        const redirectUrl = `/api/doc/${docId}/redirect?path=${encodeURIComponent(selectedNode.sourcePath)}`;
+        window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+    };
 
     if (loading) {
         return (
@@ -717,198 +859,243 @@ export default function DocViewer() {
 
             {/* Middle Content Area - 当AI助手展开时隐藏 */}
             {!copilotExpanded && (
-            <Layout style={{ flex: 1, minWidth: 0 }}>
-                <Header style={{
-                    height: 52,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: screens.md ? '0 24px' : '0 12px',
-                    background: 'var(--ant-color-bg-container)',
-                    borderBottom: '1px solid var(--ant-color-border-secondary)'
-                }}>
-                    <div style={{
+                <Layout style={{ flex: 1, minWidth: 0 }}>
+                    <Header style={{
+                        height: 52,
                         display: 'flex',
                         alignItems: 'center',
-                        overflow: 'hidden',
-                        flex: 1,
-                        minWidth: 0
+                        justifyContent: 'space-between',
+                        padding: screens.md ? '0 24px' : '0 12px',
+                        background: 'var(--ant-color-bg-container)',
+                        borderBottom: '1px solid var(--ant-color-border-secondary)'
                     }}>
-                        {!screens.md && (
-                            <Button
-                                type="text"
-                                icon={<MenuOutlined />}
-                                onClick={() => setMobileMenuOpen(true)}
-                                style={{ marginRight: 8 }}
-                            />
-                        )}
-                        <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {isIndexView ? t('document.overview_title') : document?.title}
-                        </Title>
-                    </div>
-                    {repository && (
-                        <Space size="small">
-                            {/* AI Copilot Toggle Button */}
-                            {!copilotOpen && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            overflow: 'hidden',
+                            flex: 1,
+                            minWidth: 0
+                        }}>
+                            {!screens.md && (
                                 <Button
-                                    type="primary"
-                                    icon={<RobotFilled />}
-                                    onClick={() => {
-                                        setCopilotOpen(true);
-                                        // 小屏下自动展开AI助手（全屏模式）
-                                        if (!screens.md) {
-                                            setCopilotExpanded(true);
-                                        }
-                                    }}
-                                    size={screens.md ? 'middle' : 'small'}
-                                >
-                                    {screens.md && t('ai.copilot_title', 'AI 助手')}
-                                </Button>
+                                    type="text"
+                                    icon={<MenuOutlined />}
+                                    onClick={() => setMobileMenuOpen(true)}
+                                    style={{ marginRight: 8 }}
+                                />
                             )}
-                        </Space>
-                    )}
-                </Header>
-                <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
-                    <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto' }}>
-                        {isIndexView ? (
-                            <>
-                                <Card>
-                                    {repository?.name && (
-                                        <div style={{ marginBottom: 32 }}>
-                                            <div style={{ marginBottom: 16 }}>
-                                                <Title level={3} style={{ margin: 0, fontSize: '24px', marginBottom: 12 }}>
-                                                    {repository.name}
-                                                </Title>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                                                    {repositoryUrl && (
-                                                        <Space size={6} align="center">
-                                                            <Button
-                                                                type="text"
-                                                                icon={<ExportOutlined />}
-                                                                onClick={() => window.open(repositoryUrl, '_blank')}
-                                                                size="middle"
-                                                                style={{ color: 'var(--ant-color-text-secondary)' }}
-                                                                title={t('common.open_repository')}
-                                                            />
-                                                            <Button
-                                                                type="text"
-                                                                icon={<CopyOutlined />}
-                                                                onClick={() => {
-                                                                    navigator.clipboard.writeText(repositoryUrl);
-                                                                    messageApi.success(t('common.copy_success'));
-                                                                }}
-                                                                size="middle"
-                                                                style={{ color: 'var(--ant-color-text-secondary)' }}
-                                                                title={t('common.copy_repository_url')}
-                                                            />
-                                                        </Space>
-                                                    )}
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '14px', color: 'var(--ant-color-text-secondary)', marginLeft: 'auto' }}>
-                                                        {lastUpdatedDocument && (
+                            <Title level={4} style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {isIndexView ? t('document.overview_title') : document?.title}
+                            </Title>
+                        </div>
+                        {repository && (
+                            <Space size="small">
+                                {/* AI Copilot Toggle Button */}
+                                {!copilotOpen && (
+                                    <Button
+                                        type="primary"
+                                        icon={<RobotFilled />}
+                                        onClick={() => {
+                                            setCopilotOpen(true);
+                                            // 小屏下自动展开AI助手（全屏模式）
+                                            if (!screens.md) {
+                                                setCopilotExpanded(true);
+                                            }
+                                        }}
+                                        size={screens.md ? 'middle' : 'small'}
+                                    >
+                                        {screens.md && t('ai.copilot_title', 'AI 助手')}
+                                    </Button>
+                                )}
+                            </Space>
+                        )}
+                    </Header>
+                    <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
+                        <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto' }}>
+                            {isIndexView ? (
+                                <>
+                                    <Card>
+                                        {repository?.name && (
+                                            <div style={{ marginBottom: 32 }}>
+                                                <div style={{ marginBottom: 16 }}>
+                                                    <Title level={3} style={{ margin: 0, fontSize: '24px', marginBottom: 12 }}>
+                                                        {repository.name}
+                                                    </Title>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                                        {repositoryUrl && (
                                                             <Space size={6} align="center">
-                                                                <ClockCircleOutlined style={{ fontSize: '14px' }} />
-                                                                <Text style={{ fontSize: '13px' }}>
-                                                                    {t('document.updated_at')}: {formatDateTime(lastUpdatedDocument.updated_at)}
-                                                                </Text>
+                                                                <Button
+                                                                    type="text"
+                                                                    icon={<ExportOutlined />}
+                                                                    onClick={() => window.open(repositoryUrl, '_blank')}
+                                                                    size="middle"
+                                                                    style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                                    title={t('common.open_repository')}
+                                                                />
+                                                                <Button
+                                                                    type="text"
+                                                                    icon={<CopyOutlined />}
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(repositoryUrl);
+                                                                        messageApi.success(t('common.copy_success'));
+                                                                    }}
+                                                                    size="middle"
+                                                                    style={{ color: 'var(--ant-color-text-secondary)' }}
+                                                                    title={t('common.copy_repository_url')}
+                                                                />
                                                             </Space>
                                                         )}
-                                                        {repository.clone_branch && (
-                                                            <Space size={6} align="center">
-                                                                <Tag color="blue" style={{ margin: 0 }}>
-                                                                    {repository.clone_branch}
-                                                                </Tag>
-                                                            </Space>
-                                                        )}
-                                                        {repository.clone_commit_id && (
-                                                            <Space size={6} align="center">
-                                                                <Tag color="default" style={{ margin: 0, fontFamily: 'monospace' }}>
-                                                                    {repository.clone_commit_id.substring(0, 8)}
-                                                                </Tag>
-                                                            </Space>
-                                                        )}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '14px', color: 'var(--ant-color-text-secondary)', marginLeft: 'auto' }}>
+                                                            {lastUpdatedDocument && (
+                                                                <Space size={6} align="center">
+                                                                    <ClockCircleOutlined style={{ fontSize: '14px' }} />
+                                                                    <Text style={{ fontSize: '13px' }}>
+                                                                        {t('document.updated_at')}: {formatDateTime(lastUpdatedDocument.updated_at)}
+                                                                    </Text>
+                                                                </Space>
+                                                            )}
+                                                            {repository.clone_branch && (
+                                                                <Space size={6} align="center">
+                                                                    <Tag color="blue" style={{ margin: 0 }}>
+                                                                        {repository.clone_branch}
+                                                                    </Tag>
+                                                                </Space>
+                                                            )}
+                                                            {repository.clone_commit_id && (
+                                                                <Space size={6} align="center">
+                                                                    <Tag color="default" style={{ margin: 0, fontFamily: 'monospace' }}>
+                                                                        {repository.clone_commit_id.substring(0, 8)}
+                                                                    </Tag>
+                                                                </Space>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                    <Row gutter={[16, 16]}>
-                                        <Col xs={12} sm={12} md={6}>
-                                            <Statistic title={t('document.overview_total')} value={totalCount} />
-                                        </Col>
-                                        <Col xs={12} sm={12} md={6}>
-                                            <Statistic title={t('document.overview_completed')} value={completedCount} />
-                                        </Col>
-                                        <Col xs={12} sm={12} md={6}>
-                                            <Statistic title={t('document.overview_pending')} value={pendingCount} />
-                                        </Col>
-                                        <Col xs={12} sm={12} md={6}>
-                                            <Statistic title={t('document.overview_versions')} value={totalVersions} />
-                                        </Col>
-                                    </Row>
-                                    <div style={{ marginTop: 16 }}>
-                                        {statusItems.length === 0 ? (
-                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.empty', '暂无数据')} />
-                                        ) : (
-                                            <Space wrap size={[8, 8]}>
-                                                {statusItems.map((item) => (
-                                                    <Tag key={item.status} color="processing">
-                                                        {t(`task.status.${item.status}`)} {item.count}
-                                                    </Tag>
-                                                ))}
-                                            </Space>
                                         )}
-                                    </div>
-
-                                    <div style={{ marginTop: 16 }}>
-                                        <div style={{ fontWeight: 500 }}>{t('document.recent_updates')}</div>
-                                        <div style={{ marginTop: 8 }}>
-                                            {recentDocuments.length === 0 ? (
-                                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
+                                        <Row gutter={[16, 16]}>
+                                            <Col xs={12} sm={12} md={6}>
+                                                <Statistic title={t('document.overview_total')} value={totalCount} />
+                                            </Col>
+                                            <Col xs={12} sm={12} md={6}>
+                                                <Statistic title={t('document.overview_completed')} value={completedCount} />
+                                            </Col>
+                                            <Col xs={12} sm={12} md={6}>
+                                                <Statistic title={t('document.overview_pending')} value={pendingCount} />
+                                            </Col>
+                                            <Col xs={12} sm={12} md={6}>
+                                                <Statistic title={t('document.overview_versions')} value={totalVersions} />
+                                            </Col>
+                                        </Row>
+                                        <div style={{ marginTop: 16 }}>
+                                            {statusItems.length === 0 ? (
+                                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.empty', '暂无数据')} />
                                             ) : (
-                                                <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-                                                    {recentDocuments.map((item) => (
-                                                        <Button
-                                                            key={item.id}
-                                                            type="link"
-                                                            onClick={() => navigate(`/repo/${id}/doc/${item.id}`)}
-                                                            style={{ padding: 0, height: 'auto', textAlign: 'left' }}
-                                                        >
-                                                            {item.title}
-                                                        </Button>
+                                                <Space wrap size={[8, 8]}>
+                                                    {statusItems.map((item) => (
+                                                        <Tag key={item.status} color="processing">
+                                                            {t(`task.status.${item.status}`)} {item.count}
+                                                        </Tag>
                                                     ))}
                                                 </Space>
                                             )}
                                         </div>
-                                    </div>
-                                </Card>
-                            </>
-                        ) : editing ? (
-                            <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
-                                {metaInfo}
-                                <MDEditor
-                                    value={editContent}
-                                    onChange={(val) => setEditContent(val || '')}
-                                    height={window.innerHeight - 200}
-                                />
-                                {rateInfo}
-                                {tokenUsageInfo}
-                                {repoInfoInfo}
-                            </div>
-                        ) : (
-                            <Card variant="borderless" style={{ background: 'var(--ant-color-bg-container)' }}>
+
+                                        <div style={{ marginTop: 16 }}>
+                                            <div style={{ fontWeight: 500 }}>{t('document.recent_updates')}</div>
+                                            <div style={{ marginTop: 8 }}>
+                                                {recentDocuments.length === 0 ? (
+                                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('document.recent_updates_empty')} />
+                                                ) : (
+                                                    <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                                                        {recentDocuments.map((item) => (
+                                                            <Button
+                                                                key={item.id}
+                                                                type="link"
+                                                                onClick={() => navigate(`/repo/${id}/doc/${item.id}`)}
+                                                                style={{ padding: 0, height: 'auto', textAlign: 'left' }}
+                                                            >
+                                                                {item.title}
+                                                            </Button>
+                                                        ))}
+                                                    </Space>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Card>
+                                </>
+                            ) : editing ? (
                                 <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
                                     {metaInfo}
-                                    <MarkdownRender content={document?.content || ''} docId={docId ? Number(docId) : undefined} />
+                                    <MDEditor
+                                        value={editContent}
+                                        onChange={(val) => setEditContent(val || '')}
+                                        height={window.innerHeight - 200}
+                                    />
                                     {rateInfo}
                                     {tokenUsageInfo}
                                     {repoInfoInfo}
-
                                 </div>
-                            </Card>
-                        )}
-                    </div>
-                </Content>
-            </Layout>
+                            ) : (
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexDirection: screens.xl ? 'row' : 'column' }}>
+                                    <Card
+                                        variant="borderless"
+                                        style={{ background: 'var(--ant-color-bg-container)', flex: 1, width: '100%', minWidth: 0 }}
+                                    >
+                                        <div data-color-mode={themeMode === 'dark' ? 'dark' : 'light'}>
+                                            {metaInfo}
+                                            <MarkdownRender content={document?.content || ''} docId={docId ? Number(docId) : undefined} />
+                                            {rateInfo}
+                                            {tokenUsageInfo}
+                                            {repoInfoInfo}
+                                        </div>
+                                    </Card>
+                                    {!isIndexView && hasReferenceTree && !copilotOpen && (
+                                        <Card
+                                            title={t('document.reference_files', '引用文件')}
+                                            size="small"
+                                            extra={
+                                                <Button
+                                                    type="text"
+                                                    icon={referenceTreeCollapsed ? <RightOutlined /> : <DownOutlined />}
+                                                    onClick={toggleReferenceTree}
+                                                    size="small"
+                                                    title={referenceTreeCollapsed ? t('document.reference_tree_expand', '展开引用文件') : t('document.reference_tree_collapse', '折叠引用文件')}
+                                                />
+                                            }
+                                            style={{
+                                                width: screens.xl ? 320 : '100%',
+                                                flexShrink: 0,
+                                                background: 'var(--ant-color-bg-container)',
+                                                position: screens.xl ? 'sticky' : 'static',
+                                                top: screens.xl ? 12 : undefined
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    maxHeight: referenceTreeCollapsed ? 0 : 'none',
+                                                    overflow: 'hidden',
+                                                    transition: 'max-height 0.25s ease'
+                                                }}
+                                            >
+                                                <div style={{ marginBottom: 8, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
+                                                    {t('document.source_label', '来源')}
+                                                </div>
+                                                <Tree
+                                                    treeData={referenceTreeData}
+                                                    showIcon
+                                                    defaultExpandAll
+                                                    selectable
+                                                    onSelect={handleReferenceTreeSelect}
+                                                />
+                                            </div>
+                                        </Card>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </Content>
+                </Layout>
             )}
 
             {/* Right Sidebar - AI Copilot */}
