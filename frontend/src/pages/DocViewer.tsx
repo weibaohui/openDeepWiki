@@ -1040,58 +1040,56 @@ export default function DocViewer() {
                                             {repoInfoInfo}
                                         </div>
                                     </Card>
-                                    {showRightPanel && (
-                                        <Card
-                                            size="small"
-                                            style={{
-                                                width: screens.xl ? 260 : '100%',
-                                                flexShrink: 0,
-                                                background: 'var(--ant-color-bg-container)',
-                                                position: screens.xl ? 'sticky' : 'static',
-                                                top: screens.xl ? 12 : undefined
-                                            }}
-                                            styles={{ body: { padding: '0 8px 8px' } }}
-                                        >
-                                            <Tabs
+                                    {showRightPanel && screens.xl && (
+                                        <div style={{
+                                            width: 260,
+                                            flexShrink: 0,
+                                            // 吸顶漂浮：始终跟随视口，不随文档滚动消失
+                                            position: 'sticky',
+                                            top: 0,
+                                            // 限制为视口高度，防止超长目录撑破容器导致 sticky 失效
+                                            height: '100vh',
+                                            overflowY: 'auto',
+                                        }}>
+                                            <Card
                                                 size="small"
-                                                defaultActiveKey="toc"
-                                                items={[
-                                                    ...(hasToc ? [{
-                                                        key: 'toc',
-                                                        label: t('document.toc', '目录'),
-                                                        children: (
-                                                            <div style={{
-                                                                maxHeight: screens.xl ? 'calc(100vh - 220px)' : 420,
-                                                                overflowY: 'auto',
-                                                            }}>
-                                                                <DocToc headings={tocHeadings} />
-                                                            </div>
-                                                        ),
-                                                    }] : []),
-                                                    ...(hasReferenceTree ? [{
-                                                        key: 'refs',
-                                                        label: t('document.reference_files', '引用文件'),
-                                                        children: (
-                                                            <div style={{
-                                                                maxHeight: screens.xl ? 'calc(100vh - 220px)' : 420,
-                                                                overflowY: 'auto',
-                                                            }}>
-                                                                <div style={{ marginBottom: 8, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-                                                                    {t('document.source_label', '来源')}
-                                                                </div>
-                                                                <Tree
-                                                                    treeData={referenceTreeData}
-                                                                    showIcon
-                                                                    defaultExpandAll
-                                                                    selectable
-                                                                    onSelect={handleReferenceTreeSelect}
-                                                                />
-                                                            </div>
-                                                        ),
-                                                    }] : []),
-                                                ]}
-                                            />
-                                        </Card>
+                                                style={{
+                                                    background: 'var(--ant-color-bg-container)',
+                                                    margin: '12px 0',
+                                                }}
+                                                styles={{ body: { padding: '0 8px 8px' } }}
+                                            >
+                                                <Tabs
+                                                    size="small"
+                                                    defaultActiveKey="toc"
+                                                    items={[
+                                                        ...(hasToc ? [{
+                                                            key: 'toc',
+                                                            label: t('document.toc', '目录'),
+                                                            children: <DocToc headings={tocHeadings} />,
+                                                        }] : []),
+                                                        ...(hasReferenceTree ? [{
+                                                            key: 'refs',
+                                                            label: t('document.reference_files', '引用文件'),
+                                                            children: (
+                                                                <>
+                                                                    <div style={{ marginBottom: 8, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
+                                                                        {t('document.source_label', '来源')}
+                                                                    </div>
+                                                                    <Tree
+                                                                        treeData={referenceTreeData}
+                                                                        showIcon
+                                                                        defaultExpandAll
+                                                                        selectable
+                                                                        onSelect={handleReferenceTreeSelect}
+                                                                    />
+                                                                </>
+                                                            ),
+                                                        }] : []),
+                                                    ]}
+                                                />
+                                            </Card>
+                                        </div>
                                     )}
                                 </div>
                             )}
