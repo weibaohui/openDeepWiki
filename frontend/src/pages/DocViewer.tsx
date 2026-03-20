@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeftOutlined,
@@ -28,8 +28,6 @@ import {
     MessageOutlined,
     FolderOutlined,
     FileOutlined,
-    RightOutlined,
-    DownOutlined
 } from '@ant-design/icons';
 
 import {
@@ -58,6 +56,7 @@ import type { MenuProps, TreeProps } from 'antd';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownRender from '@/components/markdown/MarkdownRender';
 import DocCopilot from './DocCopilot';
+import DocToc, { parseHeadings, type TocHeading } from '@/components/DocToc';
 import type { Document, Repository, Task, DocumentRatingStats, TaskUsage } from '../types';
 import { documentApi, repositoryApi, taskApi, userRequestApi } from '../services/api';
 import { useAppConfig } from '@/context/AppConfigContext';
@@ -199,13 +198,6 @@ export default function DocViewer() {
     // AI助手开关状态 - 默认关闭
     const [copilotOpen, setCopilotOpen] = useState(false);
     const [copilotExpanded, setCopilotExpanded] = useState(false);
-    // 引用文件树折叠状态 - 默认折叠（仅在xl及以上屏幕展开）
-    const [referenceTreeCollapsed, setReferenceTreeCollapsed] = useState(!screens.xl);
-    // 切换引用文件树折叠状态
-    const toggleReferenceTree = useCallback(() => {
-        setReferenceTreeCollapsed(prev => !prev);
-    }, []);
-
     const formatDateTime = (dateStr: string) => {
         if (!dateStr) return '';
         const date = new Date(dateStr);
@@ -228,18 +220,6 @@ export default function DocViewer() {
             return date.toLocaleDateString();
         }
     };
-
-    // 监听断点变化，当从xl缩小到lg以下时，自动折叠引用文件树
-    useEffect(() => {
-        if (!screens.xl && !referenceTreeCollapsed) {
-            setReferenceTreeCollapsed(true);
-        }
-    }, [screens.xl]);
-
-    // 切换文档时，根据屏幕尺寸重置引用文件树折叠状态
-    useEffect(() => {
-        setReferenceTreeCollapsed(!screens.xl);
-    }, [screens.xl, docId]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -487,6 +467,15 @@ export default function DocViewer() {
         return buildReferenceTreeData(referenceLinks);
     }, [referenceLinks]);
     const hasReferenceTree = referenceTreeData.length > 0;
+
+    // 解析文档标题，用于生成目录（TOC）
+    const tocHeadings = useMemo((): TocHeading[] => {
+        if (!document?.content || isIndexView) return [];
+        return parseHeadings(document.content);
+    }, [document?.content, isIndexView]);
+    const hasToc = tocHeadings.length > 0;
+    // 右侧面板：有目录或有引用文件树时显示
+
 
     const handleReferenceTreeSelect: TreeProps<ReferenceTreeNode>['onSelect'] = (_selectedKeys, info) => {
         if (!docId) return;
@@ -911,7 +900,8 @@ export default function DocViewer() {
                         )}
                     </Header>
                     <Content style={{ padding: screens.md ? '24px' : '12px', overflow: 'auto' }}>
-                        <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto' }}>
+                        {/* 当目录悬浮显示时，给内容区留出右侧空间，避免 fixed TOC 遮挡文档 */}
+                        <div style={{ width: '100%', maxWidth: contentMaxWidth, margin: '0 auto', paddingRight: ((hasToc || hasReferenceTree) && !isIndexView && !copilotOpen && screens.xl) ? 244 : undefined }}>
                             {isIndexView ? (
                                 <>
                                     <Card>
@@ -1037,7 +1027,8 @@ export default function DocViewer() {
                                     {repoInfoInfo}
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexDirection: screens.xl ? 'row' : 'column' }}>
+                                <>
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                                     <Card
                                         variant="borderless"
                                         style={{ background: 'var(--ant-color-bg-container)', flex: 1, width: '100%', minWidth: 0 }}
@@ -1050,49 +1041,53 @@ export default function DocViewer() {
                                             {repoInfoInfo}
                                         </div>
                                     </Card>
-                                    {!isIndexView && hasReferenceTree && !copilotOpen && (
-                                        <Card
-                                            title={t('document.reference_files', '引用文件')}
-                                            size="small"
-                                            extra={
-                                                <Button
-                                                    type="text"
-                                                    icon={referenceTreeCollapsed ? <RightOutlined /> : <DownOutlined />}
-                                                    onClick={toggleReferenceTree}
-                                                    size="small"
-                                                    title={referenceTreeCollapsed ? t('document.reference_tree_expand', '展开引用文件') : t('document.reference_tree_collapse', '折叠引用文件')}
-                                                />
-                                            }
-                                            style={{
-                                                width: screens.xl ? 320 : '100%',
-                                                flexShrink: 0,
-                                                background: 'var(--ant-color-bg-container)',
-                                                position: screens.xl ? 'sticky' : 'static',
-                                                top: screens.xl ? 12 : undefined
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    maxHeight: referenceTreeCollapsed ? 0 : (screens.xl ? 'calc(100vh - 220px)' : 420),
-                                                    overflowX: 'hidden',
-                                                    overflowY: referenceTreeCollapsed ? 'hidden' : 'auto',
-                                                    transition: 'max-height 0.25s ease'
-                                                }}
-                                            >
-                                                <div style={{ marginBottom: 8, fontSize: '12px', color: 'var(--ant-color-text-secondary)' }}>
-                                                    {t('document.source_label', '来源')}
-                                                </div>
-                                                <Tree
-                                                    treeData={referenceTreeData}
-                                                    showIcon
-                                                    defaultExpandAll
-                                                    selectable
-                                                    onSelect={handleReferenceTreeSelect}
-                                                />
-                                            </div>
-                                        </Card>
-                                    )}
                                 </div>
+
+                                {/* 右侧浮动面板：目录 + 引用文件，position:fixed 悬浮在视口右侧，不随内容滚动消失 */}
+                                {(hasToc || hasReferenceTree) && !copilotOpen && screens.xl && (
+                                    <div style={{
+                                        position: 'fixed',
+                                        top: 76,  // Header(52px) + Content padding(24px)
+                                        right: 24,
+                                        width: 220,
+                                        maxHeight: 'calc(100vh - 100px)',
+                                        overflowY: 'auto',
+                                        zIndex: 10,
+                                        background: 'var(--ant-color-bg-container)',
+                                        border: '1px solid var(--ant-color-border-secondary)',
+                                        borderRadius: 8,
+                                        padding: '8px 0',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                    }}>
+                                        {/* 目录 */}
+                                        {hasToc && (
+                                            <>
+                                                <div style={{ padding: '0 12px 6px', fontSize: '12px', fontWeight: 600, color: 'var(--ant-color-text-secondary)', borderBottom: '1px solid var(--ant-color-border-secondary)', marginBottom: 4 }}>
+                                                    {t('document.toc', '目录')}
+                                                </div>
+                                                <DocToc headings={tocHeadings} />
+                                            </>
+                                        )}
+                                        {/* 引用文件树：紧接目录下方 */}
+                                        {hasReferenceTree && (
+                                            <>
+                                                <div style={{ padding: hasToc ? '8px 12px 6px' : '0 12px 6px', fontSize: '12px', fontWeight: 600, color: 'var(--ant-color-text-secondary)', borderTop: hasToc ? '1px solid var(--ant-color-border-secondary)' : undefined, borderBottom: '1px solid var(--ant-color-border-secondary)', marginBottom: 4 }}>
+                                                    {t('document.reference_files', '引用文件')}
+                                                </div>
+                                                <div style={{ padding: '0 8px' }}>
+                                                    <Tree
+                                                        treeData={referenceTreeData}
+                                                        showIcon
+                                                        defaultExpandAll
+                                                        selectable
+                                                        onSelect={handleReferenceTreeSelect}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                                </>
                             )}
                         </div>
                     </Content>
