@@ -19,12 +19,16 @@ const useStyles = createStyles(({ token, css }) => ({
     `,
     tocItem: css`
         display: block;
+        width: 100%;
         padding: 3px 8px 3px 0;
         font-size: 12px;
         line-height: 1.6;
         color: ${token.colorTextSecondary};
         cursor: pointer;
+        border: none;
         border-left: 2px solid transparent;
+        background: transparent;
+        text-align: left;
         transition: color 0.2s, border-color 0.2s;
         white-space: nowrap;
         overflow: hidden;
@@ -56,16 +60,19 @@ export function slugify(text: string): string {
 
 /**
  * 从 Markdown 原文中提取 h1~h3 标题列表
+ * 会自动跳过围栏代码块（```...```）内的内容，避免误解析示例代码中的 # 字符
  */
 export function parseHeadings(markdown: string): TocHeading[] {
     const headings: TocHeading[] = [];
+    // 先剔除围栏代码块，防止代码示例中的 # 被当作标题
+    const withoutFencedCode = markdown.replace(/^`{3,}[\s\S]*?^`{3,}/gm, '');
     // 匹配行首的 #、## 或 ### 标题（最多3级）
     const regex = /^(#{1,3})\s+(.+)$/gm;
     let match: RegExpExecArray | null;
     // 记录相同 slug 出现次数，避免 id 重复
     const idCount = new Map<string, number>();
 
-    while ((match = regex.exec(markdown)) !== null) {
+    while ((match = regex.exec(withoutFencedCode)) !== null) {
         const level = match[1].length;
         // 去除标题文本中可能存在的行内 markdown 语法（如 **粗体**、`代码`）
         const rawText = match[2].trim();
@@ -159,17 +166,17 @@ const DocToc: React.FC<DocTocProps> = ({ headings, scrollContainer }) => {
     return (
         <div className={styles.tocWrapper}>
             {headings.map((heading) => (
-                <div
+                <button
                     key={heading.id}
+                    type="button"
                     className={cx(styles.tocItem, heading.id === activeId && styles.tocItemActive)}
-                    style={{
-                        paddingLeft: (heading.level - 1) * 12 + 8,
-                    }}
+                    style={{ paddingLeft: (heading.level - 1) * 12 + 8 }}
                     onClick={() => handleClick(heading.id)}
                     title={heading.text}
+                    aria-current={heading.id === activeId ? 'location' : undefined}
                 >
                     {heading.text}
-                </div>
+                </button>
             ))}
         </div>
     );

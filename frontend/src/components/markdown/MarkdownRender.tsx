@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Mermaid, CodeHighlighter } from '@ant-design/x';
 import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown';
 import Latex from '@ant-design/x-markdown/plugins/Latex';
@@ -213,29 +213,32 @@ const createCustomLink = (docId?: number) => {
   return (props: ComponentProps) => <CustomLink {...props} docId={docId} />;
 };
 
-/**
- * 为标题元素添加 id 锚点，供目录（TOC）跳转使用。
- * 使用与 parseHeadings 相同的 slugify 规则，保证 id 一致性。
- */
-const createHeadingComponent = (tag: 'h1' | 'h2' | 'h3') => {
-  return ({ children, ...props }: ComponentProps) => {
-    const text = typeof children === 'string' ? children : '';
-    const id = slugify(text) || 'heading';
-    return React.createElement(tag, { id, ...props }, children);
-  };
-};
-
-const headingComponents = {
-  h1: createHeadingComponent('h1'),
-  h2: createHeadingComponent('h2'),
-  h3: createHeadingComponent('h3'),
-};
-
 const MarkdownRender: React.FC<MarkdownRenderProps> = ({ content, className, style, docId }) => {
   const { themeMode } = useAppConfig();
   const { styles } = useStyles();
 
   const themeClassName = themeMode === 'dark' ? 'x-markdown-dark' : 'x-markdown-light';
+
+  /**
+   * 为标题元素添加 id 锚点，供目录（TOC）跳转使用。
+   * 每次 content 变化时重新创建，保证计数器与 parseHeadings 的去重逻辑完全一致：
+   * 相同 slug 的第一个标题 id 为 foo，后续依次为 foo-1、foo-2……
+   */
+  const headingComponents = useMemo(() => {
+    const idCount = new Map<string, number>();
+    let fallbackIndex = 0;
+    const makeHeading = (tag: 'h1' | 'h2' | 'h3') =>
+      ({ children, ...props }: ComponentProps) => {
+        const text = typeof children === 'string' ? children : '';
+        let id = slugify(text);
+        if (!id) id = `heading-${fallbackIndex++}`;
+        const count = idCount.get(id) ?? 0;
+        idCount.set(id, count + 1);
+        const finalId = count > 0 ? `${id}-${count}` : id;
+        return React.createElement(tag, { id: finalId, ...props }, children);
+      };
+    return { h1: makeHeading('h1'), h2: makeHeading('h2'), h3: makeHeading('h3') };
+  }, [content]);
 
   return (
     <div
