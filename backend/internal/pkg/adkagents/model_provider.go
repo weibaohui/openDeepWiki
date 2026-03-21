@@ -137,9 +137,10 @@ func (p *EnhancedModelProviderImpl) GetModelPool(ctx context.Context, names []st
 // createChatModel 创建 ChatModel 实例
 func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*ModelWithMetadata, error) {
 	openaiConfig := &openai.ChatModelConfig{
-		BaseURL: apiKey.BaseURL,
-		APIKey:  apiKey.APIKey,
-		Model:   apiKey.Model,
+		BaseURL:    apiKey.BaseURL,
+		APIKey:     apiKey.APIKey,
+		Model:      apiKey.Model,
+		HTTPClient: NewClaudeHTTPClient(),
 	}
 
 	chatModel, err := openai.NewChatModel(context.Background(), openaiConfig)
