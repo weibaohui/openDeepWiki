@@ -60,8 +60,8 @@ const mcpTools = [
     },
 ];
 
-// MCP 配置文件模板
-const getMCPConfig = (baseUrl: string) => ({
+// MCP 配置文件模板 - SSE 传输
+const getMCPConfigSSE = (baseUrl: string) => ({
     "mcpServers": {
         "openDeepWiki": {
             "url": `${baseUrl}/mcp/sse`,
@@ -70,9 +70,19 @@ const getMCPConfig = (baseUrl: string) => ({
     }
 });
 
+// MCP 配置文件模板 - Streamable HTTP 传输
+const getMCPConfigStreamable = (baseUrl: string) => ({
+    "mcpServers": {
+        "openDeepWiki": {
+            "url": `${baseUrl}/mcp/streamable`,
+            "timeout": 30000
+        }
+    }
+});
+
 export default function MCPPage() {
     const navigate = useNavigate();
-    const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState<string | null>(null);
     const [baseUrl, setBaseUrl] = useState('');
 
     useEffect(() => {
@@ -81,15 +91,17 @@ export default function MCPPage() {
         setBaseUrl(currentUrl);
     }, []);
 
-    const mcpConfig = getMCPConfig(baseUrl || 'http://localhost:8080');
-    const configJson = JSON.stringify(mcpConfig, null, 2);
+    const mcpConfigSSE = getMCPConfigSSE(baseUrl || 'http://localhost:8080');
+    const mcpConfigStreamable = getMCPConfigStreamable(baseUrl || 'http://localhost:8080');
+    const configJsonSSE = JSON.stringify(mcpConfigSSE, null, 2);
+    const configJsonStreamable = JSON.stringify(mcpConfigStreamable, null, 2);
 
-    const handleCopy = async () => {
+    const handleCopy = async (config: string, type: string) => {
         try {
-            await navigator.clipboard.writeText(configJson);
-            setCopied(true);
+            await navigator.clipboard.writeText(config);
+            setCopied(type);
             message.success('配置已复制到剪贴板');
-            setTimeout(() => setCopied(false), 2000);
+            setTimeout(() => setCopied(null), 2000);
         } catch (err) {
             message.error('复制失败');
         }
@@ -149,9 +161,25 @@ export default function MCPPage() {
                                     <Space direction="vertical" size="large" style={{ width: '100%' }}>
                                         <div>
                                             <Title level={5}>服务状态</Title>
-                                            <Space>
-                                                <Badge status="success" text="运行中" />
-                                                <Text type="secondary">MCP SSE 端点: {baseUrl}/mcp/sse</Text>
+                                            <Space direction="vertical" size="small">
+                                                <Space>
+                                                    <Badge status="success" text="运行中" />
+                                                    <Tag color="blue">SSE</Tag>
+                                                    <Text code>{baseUrl}/mcp/sse</Text>
+                                                    <Text type="secondary">• GET 建立流</Text>
+                                                </Space>
+                                                <Space>
+                                                    <Badge status="success" text="" />
+                                                    <Tag color="blue">SSE</Tag>
+                                                    <Text code>{baseUrl}/mcp/message</Text>
+                                                    <Text type="secondary">• POST 发送消息</Text>
+                                                </Space>
+                                                <Space>
+                                                    <Badge status="success" text="" />
+                                                    <Tag color="green">Streamable HTTP</Tag>
+                                                    <Text code>{baseUrl}/mcp/streamable</Text>
+                                                    <Text type="secondary">• GET 流式 + POST 同步</Text>
+                                                </Space>
                                             </Space>
                                         </div>
 
@@ -175,16 +203,19 @@ export default function MCPPage() {
                                             <List
                                                 bordered
                                                 dataSource={[
-                                                    { label: 'SSE 端点', value: `${baseUrl}/mcp/sse` },
-                                                    { label: '消息端点', value: `${baseUrl}/mcp/message` },
-                                                    { label: '协议版本', value: 'MCP 2024-11-05' },
-                                                    { label: '传输方式', value: 'SSE (Server-Sent Events)' },
+                                                    { label: 'SSE 端点', value: `${baseUrl}/mcp/sse`, transport: 'SSE' },
+                                                    { label: '消息端点', value: `${baseUrl}/mcp/message`, transport: 'SSE' },
+                                                    { label: 'Streamable HTTP', value: `${baseUrl}/mcp/streamable`, transport: 'Streamable HTTP' },
+                                                    { label: '协议版本', value: 'MCP 2024-11-05', transport: '' },
                                                 ]}
                                                 renderItem={(item) => (
                                                     <List.Item>
-                                                        <Text strong style={{ width: 120, display: 'inline-block' }}>{item.label}:</Text>
+                                                        <Text strong style={{ width: 160, display: 'inline-block' }}>{item.label}:</Text>
                                                         <CodeOutlined />
                                                         <Text code copyable>{item.value}</Text>
+                                                        {item.transport && (
+                                                            <Tag color="blue" style={{ marginLeft: 8 }}>{item.transport}</Tag>
+                                                        )}
                                                     </List.Item>
                                                 )}
                                             />
@@ -248,20 +279,27 @@ export default function MCPPage() {
                                         title={
                                             <Space>
                                                 <CodeOutlined />
-                                                MCP 配置文件
+                                                SSE 配置文件
                                             </Space>
                                         }
                                         extra={
                                             <Button
                                                 type="primary"
-                                                icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-                                                onClick={handleCopy}
+                                                icon={copied === 'sse' ? <CheckOutlined /> : <CopyOutlined />}
+                                                onClick={() => handleCopy(configJsonSSE, 'sse')}
                                                 size="small"
                                             >
-                                                {copied ? '已复制' : '复制配置'}
+                                                {copied === 'sse' ? '已复制' : '复制配置'}
                                             </Button>
                                         }
                                     >
+                                        <Alert
+                                            message="SSE 传输方式"
+                                            description="适用于大多数 MCP 客户端（如 Cursor、Claude Code、Windsurf）。使用 Server-Sent Events 进行双向通信。"
+                                            type="info"
+                                            showIcon
+                                            style={{ marginBottom: 16 }}
+                                        />
                                         <pre style={{
                                             background: 'var(--ant-color-bg-layout)',
                                             padding: 16,
@@ -270,7 +308,44 @@ export default function MCPPage() {
                                             fontSize: 13,
                                             lineHeight: 1.6
                                         }}>
-                                            <code>{configJson}</code>
+                                            <code>{configJsonSSE}</code>
+                                        </pre>
+                                    </Card>
+
+                                    <Card
+                                        title={
+                                            <Space>
+                                                <CodeOutlined />
+                                                Streamable HTTP 配置文件
+                                            </Space>
+                                        }
+                                        extra={
+                                            <Button
+                                                type="primary"
+                                                icon={copied === 'streamable' ? <CheckOutlined /> : <CopyOutlined />}
+                                                onClick={() => handleCopy(configJsonStreamable, 'streamable')}
+                                                size="small"
+                                            >
+                                                {copied === 'streamable' ? '已复制' : '复制配置'}
+                                            </Button>
+                                        }
+                                    >
+                                        <Alert
+                                            message="Streamable HTTP 传输方式"
+                                            description="MCP 协议的另一种传输层实现，支持同步 HTTP 响应和流式事件。单端点同时处理 GET（流式）和 POST（JSON-RPC）。"
+                                            type="success"
+                                            showIcon
+                                            style={{ marginBottom: 16 }}
+                                        />
+                                        <pre style={{
+                                            background: 'var(--ant-color-bg-layout)',
+                                            padding: 16,
+                                            borderRadius: 8,
+                                            overflow: 'auto',
+                                            fontSize: 13,
+                                            lineHeight: 1.6
+                                        }}>
+                                            <code>{configJsonStreamable}</code>
                                         </pre>
                                     </Card>
 
