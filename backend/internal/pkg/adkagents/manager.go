@@ -250,12 +250,18 @@ func (m *Manager) createADKAgent(def *AgentDefinition) (adk.Agent, error) {
 	} else if def.Model != "" && m.enhancedModelProvider != nil {
 		// 使用单个模型（通过 EnhancedModelProvider）
 		klog.V(6).Infof("[Manager] Using model %s for agent %s", def.Model, def.Name)
-		model, err := m.enhancedModelProvider.GetModel(def.Model)
+		cm, err := m.enhancedModelProvider.GetModel(def.Model)
 		if err != nil {
 			klog.Errorf("[Manager] Failed to get model %s: %v", def.Model, err)
 			return nil, fmt.Errorf("failed to get model %s: %w", def.Model, err)
 		}
-		chatModel = model
+		// 类型断言：将 ChatModel 转换为 ToolCallingChatModel
+		var ok bool
+		chatModel, ok = cm.(model.ToolCallingChatModel)
+		if !ok {
+			klog.Errorf("[Manager] Model %s does not implement ToolCallingChatModel", def.Model)
+			return nil, fmt.Errorf("model %s does not implement ToolCallingChatModel", def.Model)
+		}
 	} else if m.enhancedModelProvider != nil {
 		// 模型未指定，使用动态代理模型（自动从数据库选择）
 		klog.V(6).Infof("[Manager] Model not specified for agent %s, using dynamic ProxyChatModel", def.Name)

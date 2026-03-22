@@ -4,7 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/openai"
+	einoModel "github.com/cloudwego/eino/components/model"
 	"github.com/weibaohui/opendeepwiki/backend/config"
 	"github.com/weibaohui/opendeepwiki/backend/internal/model"
 	"github.com/weibaohui/opendeepwiki/backend/internal/repository"
@@ -37,7 +39,7 @@ func NewEnhancedModelProvider(
 }
 
 // GetModel 获取指定名称的模型
-func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, error) {
+func (p *EnhancedModelProviderImpl) GetModel(name string) (einoModel.ChatModel, error) {
 	klog.V(6).Infof("EnhancedModelProvider.GetModel: name=%s", name)
 
 	// 如果 name 为空，尝试使用数据库中的最高优先级模型
@@ -75,12 +77,12 @@ func (p *EnhancedModelProviderImpl) GetModel(name string) (*openai.ChatModel, er
 	}
 
 	klog.V(6).Infof("EnhancedModelProvider.GetModel: created model %s", name)
-	return &chatModel.ChatModel, nil
+	return chatModel.ChatModel, nil
 }
 
 // DefaultModel 获取默认模型
 // 不再提供默认模型，直接从数据库获取最高优先级的模型
-func (p *EnhancedModelProviderImpl) DefaultModel() *openai.ChatModel {
+func (p *EnhancedModelProviderImpl) DefaultModel() einoModel.ChatModel {
 	apiKey, err := p.apiKeyRepo.GetHighestPriority(context.Background())
 	if err != nil || apiKey == nil {
 		klog.Errorf("EnhancedModelProvider.DefaultModel: no available model in database")
@@ -136,11 +138,22 @@ func (p *EnhancedModelProviderImpl) GetModelPool(ctx context.Context, names []st
 
 // createChatModel 创建 ChatModel 实例
 func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*ModelWithMetadata, error) {
+	// 根据 provider 类型创建不同的 ChatModel
+	// anthropic 使用 Claude 原生格式（支持 thinking 等特性）
+	switch apiKey.Provider {
+	case "anthropic":
+		return p.createClaudeChatModel(apiKey)
+	default:
+		return p.createOpenAIChatModel(apiKey)
+	}
+}
+
+// createOpenAIChatModel 创建 OpenAI 兼容的 ChatModel
+func (p *EnhancedModelProviderImpl) createOpenAIChatModel(apiKey *model.APIKey) (*ModelWithMetadata, error) {
 	openaiConfig := &openai.ChatModelConfig{
-		BaseURL:    apiKey.BaseURL,
-		APIKey:     apiKey.APIKey,
-		Model:      apiKey.Model,
-		HTTPClient: NewClaudeHTTPClient(),
+		BaseURL: apiKey.BaseURL,
+		APIKey:  apiKey.APIKey,
+		Model:   apiKey.Model,
 	}
 
 	chatModel, err := openai.NewChatModel(context.Background(), openaiConfig)
@@ -148,9 +161,32 @@ func (p *EnhancedModelProviderImpl) createChatModel(apiKey *model.APIKey) (*Mode
 		return nil, err
 	}
 
-	// 包装模型，添加 API Key ID 以便跟踪
 	return &ModelWithMetadata{
-		ChatModel:  *chatModel,
+		ChatModel:  chatModel,
+		APIKeyName: apiKey.Name,
+		APIKeyID:   apiKey.ID,
+		LLMModel:   apiKey.Model,
+	}, nil
+}
+
+// createClaudeChatModel 创建 Claude 原生格式的 ChatModel
+func (p *EnhancedModelProviderImpl) createClaudeChatModel(apiKey *model.APIKey) (*ModelWithMetadata, error) {
+	baseURL := apiKey.BaseURL
+	claudeConfig := &claude.Config{
+		APIKey:     apiKey.APIKey,
+		Model:      apiKey.Model,
+		BaseURL:    &baseURL,
+		MaxTokens:  4096,
+		HTTPClient: NewClaudeHTTPClient(), // 使用 Claude Code 伪装 HTTP Client
+	}
+
+	chatModel, err := claude.NewChatModel(context.Background(), claudeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ModelWithMetadata{
+		ChatModel:  chatModel,
 		APIKeyName: apiKey.Name,
 		APIKeyID:   apiKey.ID,
 		LLMModel:   apiKey.Model,

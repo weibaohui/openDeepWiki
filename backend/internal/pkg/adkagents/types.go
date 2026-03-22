@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
+	einoModel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -39,7 +39,7 @@ type TaskUsageService interface {
 
 // ModelWithMetadata 带有元数据的模型包装器
 type ModelWithMetadata struct {
-	openai.ChatModel
+	einoModel.ChatModel
 	APIKeyName string
 	APIKeyID   uint
 	LLMModel   string
@@ -53,9 +53,9 @@ func (m *ModelWithMetadata) Name() string {
 // ModelProvider 模型提供者接口
 type ModelProvider interface {
 	// GetModel 获取指定名称的模型，name 为空时返回默认模型
-	GetModel(name string) (*openai.ChatModel, error)
+	GetModel(name string) (einoModel.ChatModel, error)
 	// DefaultModel 获取默认模型
-	DefaultModel() *openai.ChatModel
+	DefaultModel() einoModel.ChatModel
 	// GetModelPool 获取模型池
 	GetModelPool(ctx context.Context, names []string) ([]*ModelWithMetadata, error)
 	// MarkModelUnavailable 标记模型为不可用

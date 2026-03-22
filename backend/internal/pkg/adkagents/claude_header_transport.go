@@ -37,9 +37,7 @@ func (t *ClaudeHeaderTransport) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	for k, v := range headers {
-		if req.Header.Get(k) == "" {
-			req.Header.Set(k, v)
-		}
+		req.Header.Set(k, v) // 强制覆盖，确保 Claude Code 伪装生效
 	}
 
 	return t.rt.RoundTrip(req)
