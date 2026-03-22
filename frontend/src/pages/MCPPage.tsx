@@ -64,6 +64,7 @@ const mcpTools = [
 const getMCPConfigSSE = (baseUrl: string) => ({
     "mcpServers": {
         "openDeepWiki": {
+            "type": "sse",
             "url": `${baseUrl}/mcp/sse`,
             "timeout": 30000
         }
@@ -74,6 +75,7 @@ const getMCPConfigSSE = (baseUrl: string) => ({
 const getMCPConfigStreamable = (baseUrl: string) => ({
     "mcpServers": {
         "openDeepWiki": {
+            "type": "streamable-http",
             "url": `${baseUrl}/mcp/streamable`,
             "timeout": 30000
         }
