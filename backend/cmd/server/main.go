@@ -214,12 +214,8 @@ func main() {
 	mcpServer := mcp.NewMCPServer(repoService, docService)
 	klog.V(6).Info("MCP Server 已初始化")
 
-	// 创建 SSE Server 实例并复用（避免每次请求创建新实例）
-	// 配置 basePath 为 /mcp，使 SSE Server 正确处理 /mcp/sse 和 /mcp/message 路径
-	sseServer := server.NewSSEServer(mcpServer.GetServer(), server.WithStaticBasePath("/mcp"))
-
 	// 创建 Streamable HTTP Server 实例
-	// Streamable HTTP 是 MCP 协议的另一种传输层实现，支持同步 HTTP 响应和流式事件
+	// Streamable HTTP 是 MCP 协议的传输层实现，支持同步 HTTP 响应和流式事件
 	streamableServer := server.NewStreamableHTTPServer(mcpServer.GetServer())
 
 	// 启动时清理卡住的任务（超过 10 分钟的运行中任务）
@@ -229,21 +225,12 @@ func main() {
 	// 设置路由
 	r := router.Setup(cfg, repoHandler, taskHandler, docHandler, apiKeyHandler, syncHandler, userRequestHandler, openAPIHandler, activityHandler, agentHandler, chatHandler)
 
-	// 添加 MCP SSE 端点
-	// 提供 /mcp/sse 端点，供 Cursor、Claude Code 等 AI 编程工具使用
-	r.GET("/mcp/sse", func(c *gin.Context) {
-		sseServer.ServeHTTP(c.Writer, c.Request)
-	})
-	// 添加 /mcp/message 端点，支持客户端发送 JSON-RPC 消息
-	r.POST("/mcp/message", func(c *gin.Context) {
-		sseServer.ServeHTTP(c.Writer, c.Request)
-	})
 	// 添加 MCP Streamable HTTP 端点
 	// Streamable HTTP 使用单个端点处理 GET（流式事件）和 POST（JSON-RPC 请求）
 	r.Any("/mcp/streamable", func(c *gin.Context) {
 		streamableServer.ServeHTTP(c.Writer, c.Request)
 	})
-	klog.V(6).Info("MCP 端点已注册: /mcp/sse, /mcp/message, /mcp/streamable")
+	klog.V(6).Info("MCP 端点已注册: /mcp/streamable")
 
 	//eino callbacks注册
 	callbacks := adkagents.NewEinoCallbacks(true, 8)
