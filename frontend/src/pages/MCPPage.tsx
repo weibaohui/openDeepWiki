@@ -60,17 +60,6 @@ const mcpTools = [
     },
 ];
 
-// MCP 配置文件模板 - SSE 传输
-const getMCPConfigSSE = (baseUrl: string) => ({
-    "mcpServers": {
-        "openDeepWiki": {
-            "type": "sse",
-            "url": `${baseUrl}/mcp/sse`,
-            "timeout": 30000
-        }
-    }
-});
-
 // MCP 配置文件模板 - Streamable HTTP 传输
 const getMCPConfigStreamable = (baseUrl: string) => ({
     "mcpServers": {
@@ -93,9 +82,7 @@ export default function MCPPage() {
         setBaseUrl(currentUrl);
     }, []);
 
-    const mcpConfigSSE = getMCPConfigSSE(baseUrl || 'http://localhost:8080');
     const mcpConfigStreamable = getMCPConfigStreamable(baseUrl || 'http://localhost:8080');
-    const configJsonSSE = JSON.stringify(mcpConfigSSE, null, 2);
     const configJsonStreamable = JSON.stringify(mcpConfigStreamable, null, 2);
 
     const handleCopy = async (config: string, type: string) => {
@@ -166,18 +153,6 @@ export default function MCPPage() {
                                             <Space direction="vertical" size="small">
                                                 <Space>
                                                     <Badge status="success" text="运行中" />
-                                                    <Tag color="blue">SSE</Tag>
-                                                    <Text code>{baseUrl}/mcp/sse</Text>
-                                                    <Text type="secondary">• GET 建立流</Text>
-                                                </Space>
-                                                <Space>
-                                                    <Badge status="success" text="" />
-                                                    <Tag color="blue">SSE</Tag>
-                                                    <Text code>{baseUrl}/mcp/message</Text>
-                                                    <Text type="secondary">• POST 发送消息</Text>
-                                                </Space>
-                                                <Space>
-                                                    <Badge status="success" text="" />
                                                     <Tag color="green">Streamable HTTP</Tag>
                                                     <Text code>{baseUrl}/mcp/streamable</Text>
                                                     <Text type="secondary">• GET 流式 + POST 同步</Text>
@@ -205,10 +180,8 @@ export default function MCPPage() {
                                             <List
                                                 bordered
                                                 dataSource={[
-                                                    { label: 'SSE 端点', value: `${baseUrl}/mcp/sse`, transport: 'SSE' },
-                                                    { label: '消息端点', value: `${baseUrl}/mcp/message`, transport: 'SSE' },
                                                     { label: 'Streamable HTTP', value: `${baseUrl}/mcp/streamable`, transport: 'Streamable HTTP' },
-                                                    { label: '协议版本', value: 'MCP 2024-11-05', transport: '' },
+                                                    { label: '协议版本', value: 'MCP 2025-11-25', transport: '' },
                                                 ]}
                                                 renderItem={(item) => (
                                                     <List.Item>
@@ -216,7 +189,7 @@ export default function MCPPage() {
                                                         <CodeOutlined />
                                                         <Text code copyable>{item.value}</Text>
                                                         {item.transport && (
-                                                            <Tag color="blue" style={{ marginLeft: 8 }}>{item.transport}</Tag>
+                                                            <Tag color="green" style={{ marginLeft: 8 }}>{item.transport}</Tag>
                                                         )}
                                                     </List.Item>
                                                 )}
@@ -281,43 +254,6 @@ export default function MCPPage() {
                                         title={
                                             <Space>
                                                 <CodeOutlined />
-                                                SSE 配置文件
-                                            </Space>
-                                        }
-                                        extra={
-                                            <Button
-                                                type="primary"
-                                                icon={copied === 'sse' ? <CheckOutlined /> : <CopyOutlined />}
-                                                onClick={() => handleCopy(configJsonSSE, 'sse')}
-                                                size="small"
-                                            >
-                                                {copied === 'sse' ? '已复制' : '复制配置'}
-                                            </Button>
-                                        }
-                                    >
-                                        <Alert
-                                            message="SSE 传输方式"
-                                            description="适用于大多数 MCP 客户端（如 Cursor、Claude Code、Windsurf）。使用 Server-Sent Events 进行双向通信。"
-                                            type="info"
-                                            showIcon
-                                            style={{ marginBottom: 16 }}
-                                        />
-                                        <pre style={{
-                                            background: 'var(--ant-color-bg-layout)',
-                                            padding: 16,
-                                            borderRadius: 8,
-                                            overflow: 'auto',
-                                            fontSize: 13,
-                                            lineHeight: 1.6
-                                        }}>
-                                            <code>{configJsonSSE}</code>
-                                        </pre>
-                                    </Card>
-
-                                    <Card
-                                        title={
-                                            <Space>
-                                                <CodeOutlined />
                                                 Streamable HTTP 配置文件
                                             </Space>
                                         }
@@ -334,7 +270,7 @@ export default function MCPPage() {
                                     >
                                         <Alert
                                             message="Streamable HTTP 传输方式"
-                                            description="MCP 协议的另一种传输层实现，支持同步 HTTP 响应和流式事件。单端点同时处理 GET（流式）和 POST（JSON-RPC）。"
+                                            description="MCP 协议的传输层实现，支持同步 HTTP 响应和流式事件。单端点同时处理 GET（流式）和 POST（JSON-RPC）。"
                                             type="success"
                                             showIcon
                                             style={{ marginBottom: 16 }}
@@ -364,7 +300,7 @@ export default function MCPPage() {
                                                 <Title level={5}>1. Cursor 配置</Title>
                                                 <Paragraph>
                                                     打开 Cursor Settings → MCP，点击 "Add New MCP Server"，
-                                                    选择 SSE 类型，填入 URL: <Text code>{baseUrl}/mcp/sse</Text>
+                                                    选择 Streamable HTTP 类型，填入 URL: <Text code>{baseUrl}/mcp/streamable</Text>
                                                 </Paragraph>
                                             </div>
 
@@ -384,7 +320,7 @@ export default function MCPPage() {
                                                 <Title level={5}>3. Windsurf 配置</Title>
                                                 <Paragraph>
                                                     打开 Windsurf Settings → AI → MCP，
-                                                    添加新的 MCP Server，填入 SSE URL: <Text code>{baseUrl}/mcp/sse</Text>
+                                                    添加新的 MCP Server，填入 URL: <Text code>{baseUrl}/mcp/streamable</Text>
                                                 </Paragraph>
                                             </div>
 
